@@ -34,7 +34,7 @@ bool _sendEnabled(WidgetTester tester) => tester.widget<InkWell>(_sendButton).on
 String? _roomError(WidgetTester tester) {
   final room = find.byType(ChatRoomScreen);
   final container = ProviderScope.containerOf(tester.element(room));
-  return container.read(chatRoomViewModelProvider(tester.widget<ChatRoomScreen>(room).matchId)).errorMessage;
+  return container.read(chatRoomViewModelProvider(tester.widget<ChatRoomScreen>(room).matchId)).error?.toDisplayMessage();
 }
 
 /// 방을 열고 입력칸에 [text] 를 넣는다.
@@ -78,7 +78,7 @@ Future<Map<String, Object?>> _acceptTwice(WidgetTester tester, Map<String, dynam
   }
   await wait(tester, const Duration(seconds: 4)); // 응답 · 방 다시 읽기
   return {
-    'error': container.read(chatRoomViewModelProvider(matchId)).errorMessage,
+    'error': container.read(chatRoomViewModelProvider(matchId)).error?.toDisplayMessage(),
     'room_open': find.byType(ChatRoomScreen).evaluate().isNotEmpty, // 판정엔 안 쓴다 — 두 번 누른 pop 이 방을 닫았는지 기록
   };
 }
@@ -220,7 +220,7 @@ final Map<String, Area1Case> area3Cases2 = {
     final matchId = tester.widget<ChatRoomScreen>(room).matchId;
     // 끊김(_onDisconnected)의 copyWith 가 방금 뜬 오류 줄을 지우므로, 처음 뜬 문구를 구독으로 잡아 둔다.
     String? first;
-    final sub = container.listen(chatRoomViewModelProvider(matchId), (_, next) => first ??= next.errorMessage);
+    final sub = container.listen(chatRoomViewModelProvider(matchId), (_, next) => first ??= next.error?.toDisplayMessage());
     try {
       await step('cut'); // PC 가 망을 끊는다
       await tap(tester, _sendButton);
@@ -232,7 +232,7 @@ final Map<String, Area1Case> area3Cases2 = {
       final state = container.read(chatRoomViewModelProvider(matchId));
       return {
         'error': first,
-        'error_cleared': state.errorMessage == null,
+        'error_cleared': state.error?.toDisplayMessage() == null,
         'input': _chatText(tester),
         'disconnected': state.isDisconnected,
       };

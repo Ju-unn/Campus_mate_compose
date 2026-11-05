@@ -1,3 +1,4 @@
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -46,7 +47,7 @@ class TrustRevealBubble extends StatelessWidget {
               const SizedBox(width: 6),
               Flexible(
                 child: Text(
-                  '신뢰 확인 완료',
+                  context.l10n.chatRevealDone,
                   // 줄높이 속성 없음 · pen 렌더 17.
                   style: AppTypography.caption.copyWith(
                     color: AppColors.primaryText,
@@ -60,7 +61,7 @@ class TrustRevealBubble extends StatelessWidget {
           // pen 카드 간격 10(`MAn9h` gap) — 배지 · 제목 · 카톡 행 · 버튼 사이 모두. 간격 토큰 xs(8)·sm(12) 사이 값이다.
           const SizedBox(height: _gap),
           Text(
-            '서로 실제 프로필을 공개했어요',
+            context.l10n.chatRevealTitle,
             // pen `lIf91` 16/700, 줄높이 1.4 · 렌더 23(카톡 행이 그 23 뒤 10 에 놓인다).
             style: AppTypography.bodyStrong
                 .copyWith(color: AppColors.ink, fontWeight: FontWeight.w700, height: 23 / 16),
@@ -95,12 +96,12 @@ class _ViewProfileButton extends StatelessWidget {
       onTap: onPressed,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: TrustRevealBubble._buttonBleed),
-        child: _visibleButton(),
+        child: _visibleButton(context),
       ),
     );
   }
 
-  Widget _visibleButton() {
+  Widget _visibleButton(BuildContext context) {
     return Semantics(
       button: true,
       // 눌림 효과가 대화 목록과 같이 움직이게 버튼 안에 Material 을 둔다(COMMON §4-2).
@@ -123,7 +124,7 @@ class _ViewProfileButton extends StatelessWidget {
                 children: [
                   Flexible(
                     child: Text(
-                      '상대 프로필 보기',
+                      context.l10n.chatRevealViewProfile,
                       style: AppTypography.bodyStrong
                           .copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w700),
                     ),
@@ -166,7 +167,7 @@ class _KakaoRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '카카오톡 아이디',
+                    context.l10n.commonKakaoId,
                     // pen 10 / 보통 굵기, 줄높이 속성 없음 · 렌더 16. 10 은 badge 토큰 하나뿐이라 굵기만 보통으로 내린다.
                     style: AppTypography.badge
                         .copyWith(fontWeight: FontWeight.w400, color: AppColors.muted, height: 16 / 10, letterSpacing: 0),
@@ -174,7 +175,7 @@ class _KakaoRow extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     // 상대가 아직 아이디를 저장하지 않았을 수 있다 — 빈 칸을 그리지 않고 말로 적는다.
-                    id ?? '상대가 아직 아이디를 등록하지 않았어요',
+                    id ?? context.l10n.chatRevealNoKakaoId,
                     // pen 16/600, 줄높이 속성 없음 · 렌더 22.
                     style: AppTypography.bodyStrong.copyWith(color: AppColors.ink, height: 22 / 16),
                   ),
@@ -189,12 +190,12 @@ class _KakaoRow extends StatelessWidget {
               alignment: Alignment.centerRight,
               constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
               icon: const Icon(AppIcons.copy, size: 18, color: AppColors.muted),
-              tooltip: '복사',
+              tooltip: context.l10n.chatRevealCopy,
               onPressed: () async {
                 await Clipboard.setData(ClipboardData(text: id));
                 if (context.mounted) {
                   ScaffoldMessenger.of(context)
-                      .showSnackBar(const SnackBar(content: Text('카카오톡 아이디를 복사했어요')));
+                      .showSnackBar(SnackBar(content: Text(context.l10n.chatRevealCopied)));
                 }
               },
             ),

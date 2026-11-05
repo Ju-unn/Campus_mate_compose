@@ -21,13 +21,17 @@ import 'package:campus_mate/chat/view/trust_reveal_bubble.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_ui_state.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_view_model.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/safety/model/data/report_target.dart';
 import 'package:campus_mate/safety/view/safety_actions.dart';
 import 'package:flutter/material.dart';
@@ -59,7 +63,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   Timer? _reminderTimer;
 
   /// 차단 요청이 실패했을 때 입력 바 위에 띄우는 한 줄. 이 한 줄뿐이라 뷰모델을 따로 두지 않는다.
-  String? _safetyError;
+  Failure? _safetyError;
 
   /// 방이 실제로 보이는가 = 앱이 앞에 있고(hide/show) 이 방 위를 다른 화면이 덮지 않았다.
   /// 안 보이는 동안 상대 읽음을 묻지 않고 읽음도 찍지 않는다(카톡식 '1', [ChatRoomViewModel.setVisible]).
@@ -177,7 +181,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
           // pen `QEazm` 48×48 안 ellipsis 22. 누르면 드롭다운이 아니라 바텀시트다(pen `Lgdxu`).
           IconButton(
             icon: const Icon(AppIcons.ellipsis, size: 22, color: AppColors.ink),
-            tooltip: '더보기',
+            tooltip: context.l10n.commonMore,
             // 방을 못 읽어도 늘 누를 수 있다 — 나가기는 방을 못 읽어도 되어야 한다(main 동작 유지).
             onPressed: () => _openMenu(room?.partner),
           ),
@@ -190,9 +194,9 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
               TrustBanner(
                 isMuted: true,
                 icon: AppIcons.circleAlert,
-                title: '연결이 끊겼어요',
-                caption: '새 메시지가 오지 않을 수 있어요. 다시 시도하면 못 받은 메시지도 같이 가져와요',
-                actionLabel: '다시 시도',
+                title: context.l10n.chatBannerDisconnectedTitle,
+                caption: context.l10n.chatBannerDisconnectedCaption,
+                actionLabel: context.l10n.commonRetry,
                 onAction: _reconnect,
               )
             else
@@ -213,8 +217,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                     : () => context.push('${AppRoutes.partnerProfile}/${room.partner.profileId}'),
               ),
             ),
-            if ((_safetyError ?? state.errorMessage) != null)
-              _ErrorLine(message: (_safetyError ?? state.errorMessage)!),
+            if ((_safetyError ?? state.error) != null) _ErrorLine(failure: (_safetyError ?? state.error)!),
             if (state.isPartnerGone)
               _PartnerGoneNotice(onLeave: _leave)
             else
@@ -335,14 +338,14 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
 
   /// 14e 확인 → 차단 → 대화 목록(14c 와 같은 흐름). 실패하면 방에 남아 입력 바 위 한 줄로 알린다.
   Future<void> _block(ChatPartner partner) async {
-    final error = await blockThenLeave(
+    final failure = await blockThenLeave(
       context,
       ref,
       profileId: partner.profileId,
       nickname: partner.nickname,
     );
-    if (error != null && mounted) {
-      setState(() => _safetyError = error);
+    if (failure != null && mounted) {
+      setState(() => _safetyError = failure);
     }
   }
 }
@@ -418,18 +421,17 @@ class _Banner extends StatelessWidget {
     switch (state.stageAt(now)) {
       case TrustGateStage.preAccept:
         return TrustBanner(
-          title: '카카오톡 아이디를 먼저 공유해도 돼요',
-          caption: '24시간 뒤에 물어보지만, 지금 수락할 수도 있어요',
-          actionLabel: '수락하기',
+          title: context.l10n.chatBannerPreAcceptTitle,
+          caption: context.l10n.chatBannerPreAcceptCaption,
+          actionLabel: context.l10n.chatAccept,
           onAction: () => unawaited(onAccept()),
         );
       case TrustGateStage.waiting:
         return CountdownBuilder(
           deadlineAt: room.gate.deadlineAt,
           builder: (context, remaining) => TrustBanner(
-            title: '수락했어요. 상대의 응답을 기다리고 있어요',
-            caption: '응답 기한까지 ${countdownLabel(remaining)} · '
-                '둘 다 수락하면 카카오톡 아이디와 실제 사진이 공개돼요',
+            title: context.l10n.chatBannerWaitingTitle,
+            caption: context.l10n.chatBannerWaitingCaption(countdown: countdownLabel(remaining)),
           ),
         );
       case TrustGateStage.ending:
@@ -437,8 +439,8 @@ class _Banner extends StatelessWidget {
           deadlineAt: room.gate.deadlineAt,
           builder: (context, remaining) => TrustBanner(
             isMuted: true,
-            title: '이 대화는 ${coarseRemainingLabel(remaining)} 뒤 종료돼요',
-            caption: '응답 기한이 지나면 대화 목록에서 사라져요',
+            title: context.l10n.chatBannerEndingTitle(remaining: coarseRemainingLabel(context.l10n, remaining)),
+            caption: context.l10n.chatBannerEndingCaption,
           ),
         );
       // 시트가 뜨는 중이거나(sheet), 통과했거나(revealed), 상대가 나갔거나(none) —
@@ -481,7 +483,7 @@ class _MessageList extends StatelessWidget {
     if (room == null) {
       return const SizedBox.shrink();
     }
-    final items = _items(room);
+    final items = _items(context.l10n, room);
     if (items.isEmpty) {
       return const Center(child: Padding(padding: EdgeInsets.all(AppSpacing.lg), child: _EmptyHint()));
     }
@@ -520,7 +522,7 @@ class _MessageList extends StatelessWidget {
   bool get _showsIntro => intro != null && !state.hasMore;
 
   /// 오래된 것부터 쌓고 마지막에 뒤집는다 — `reverse: true` 리스트는 0번이 맨 아래다.
-  List<_ListItem> _items(ChatRoom room) {
+  List<_ListItem> _items(AppLocalizations l10n, ChatRoom room) {
     final messages = state.messages;
     final items = <_ListItem>[];
     // 14b 카드는 메시지가 아니라 `matches.trust_passed_at` 에서 나온다 — 줄로 저장하지 않는다.
@@ -532,7 +534,7 @@ class _MessageList extends StatelessWidget {
     final revealIndex = _revealIndex(messages, state.revealAnchorAt);
     // 카드가 끼면 묶음이 끊긴다 — 카드 앞 줄도 자기 시각을 보인다.
     bool joinsAbove(int index) =>
-        index > 0 && index < messages.length && index != revealIndex && _sameMinuteRun(messages[index - 1], messages[index]);
+        index > 0 && index < messages.length && index != revealIndex && _sameMinuteRun(l10n, messages[index - 1], messages[index]);
     // 안내 카드는 대화의 맨 처음(첫 메시지보다 위)이다. 빈 방 문구는 그 아래(폭 = 카드 폭, 가운데 정렬).
     if (_showsIntro) {
       items.add((child: intro!, joinsAbove: false));
@@ -575,12 +577,12 @@ class _MessageList extends StatelessWidget {
 
   /// 같은 사람이 같은 분에 보낸 연속 말풍선(pen `RvjRp` 메모 · `mmtWq`): 시각은 마지막 줄에만, 사이 4.
   /// "같은 분" 은 화면에 찍히는 시각("오후 2:15")이 같다는 뜻이다. 시스템 줄은 묶지 않는다.
-  static bool _sameMinuteRun(Message above, Message below) =>
+  static bool _sameMinuteRun(AppLocalizations l10n, Message above, Message below) =>
       !above.isSystem &&
       !below.isSystem &&
       above.senderId == below.senderId &&
       DateUtils.isSameDay(above.createdAt, below.createdAt) &&
-      timeLabel(above.createdAt) == timeLabel(below.createdAt);
+      timeLabel(l10n, above.createdAt) == timeLabel(l10n, below.createdAt);
 
   Widget _bubble(ChatRoom room, Message message, {required bool showTime}) {
     if (message.isSystem) {
@@ -618,7 +620,7 @@ class _EmptyHint extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(
-      '먼저 인사를 건네 보세요',
+      context.l10n.chatEmptyHint,
       textAlign: TextAlign.center,
       style: AppTypography.body.copyWith(color: AppColors.muted),
     );
@@ -652,13 +654,13 @@ class _PartnerGoneNotice extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.all(14),
                   child: Text(
-                    '상대가 채팅방을 나가 더 이상 메시지를 보낼 수 없어요.',
+                    context.l10n.chatPartnerGoneNotice,
                     style: AppTypography.bodySmall.copyWith(color: AppColors.body, height: 1.5),
                   ),
                 ),
               ),
               // pen eGGuN 52 · #FF385C · r14 · 16/700 흰 = AppButton 기본.
-              AppButton(label: '채팅방 나가기', onPressed: onLeave),
+              AppButton(label: context.l10n.chatLeaveRoom, onPressed: onLeave),
             ],
           ),
         ),
@@ -668,16 +670,16 @@ class _PartnerGoneNotice extends StatelessWidget {
 }
 
 class _ErrorLine extends StatelessWidget {
-  const _ErrorLine({required this.message});
+  const _ErrorLine({required this.failure});
 
-  final String message;
+  final Failure failure;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xxs),
       child: Text(
-        message,
+        context.errorText(failure),
         textAlign: TextAlign.center,
         style: AppTypography.bodySmall.copyWith(color: AppColors.error),
       ),

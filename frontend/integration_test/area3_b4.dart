@@ -148,7 +148,7 @@ Future<Map<String, Object?>> _acceptAfterDeadline(WidgetTester tester, Map<Strin
   final container = ProviderScope.containerOf(tester.element(room));
   final matchId = tester.widget<ChatRoomScreen>(room).matchId;
   String? first;
-  final sub = container.listen(chatRoomViewModelProvider(matchId), (_, next) => first ??= next.errorMessage);
+  final sub = container.listen(chatRoomViewModelProvider(matchId), (_, next) => first ??= next.error?.toDisplayMessage());
   try {
     final up = await _gateSheetUp(tester);
     if (!up) return {'sheet': false};
@@ -158,7 +158,7 @@ Future<Map<String, Object?>> _acceptAfterDeadline(WidgetTester tester, Map<Strin
       await tester.pump(const Duration(milliseconds: 200));
     }
     await wait(tester, const Duration(seconds: 1));
-    return {'sheet': true, 'error': first, 'error_now': container.read(chatRoomViewModelProvider(matchId)).errorMessage};
+    return {'sheet': true, 'error': first, 'error_now': container.read(chatRoomViewModelProvider(matchId)).error?.toDisplayMessage()};
   } finally {
     sub.close();
   }

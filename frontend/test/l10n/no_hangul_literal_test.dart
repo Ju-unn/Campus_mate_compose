@@ -17,7 +17,6 @@ void main() {
   const pending = <String>{
     'billing/store',
     'billing/task',
-    'chat',
     'matching',
     'me',
     'profile/appearance',

@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:campus_mate/chat/model/data/conversation.dart';
 import 'package:campus_mate/chat/view/chat_time.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -45,7 +46,7 @@ class ChatListRow extends StatelessWidget {
                     ),
                     Text(
                       // 아직 한 마디도 없는 방. 시스템 줄도 그냥 마지막 메시지라 여기로 들어온다.
-                      conversation.lastMessage ?? '아직 메시지가 없어요',
+                      conversation.lastMessage ?? context.l10n.chatListNoMessages,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
@@ -59,7 +60,7 @@ class ChatListRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    listTimeLabel(conversation.lastMessageAt, DateTime.now()),
+                    listTimeLabel(context.l10n, conversation.lastMessageAt, DateTime.now()),
                     style: AppTypography.caption.copyWith(color: AppColors.muted),
                   ),
                   const SizedBox(height: AppSpacing.xxs),

@@ -1,3 +1,4 @@
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
@@ -10,10 +11,10 @@ import 'package:flutter/material.dart';
 Future<bool> confirmLeaveChat(BuildContext context) async {
   return await _confirm(
     context,
-    title: '채팅방을 나갈까요?',
+    title: context.l10n.chatLeaveConfirmTitle,
     // 되돌릴 수 없다는 것과 상대에게 보인다는 것을 둘 다 적는다(결정 7).
-    body: '나가면 이 대화를 다시 볼 수 없고, 상대에게는 나갔다고 표시돼요.',
-    confirmLabel: '나가기',
+    body: context.l10n.chatLeaveConfirmBody,
+    confirmLabel: context.l10n.chatLeave,
     isDestructive: true,
   );
 }
@@ -22,9 +23,9 @@ Future<bool> confirmLeaveChat(BuildContext context) async {
 Future<bool> confirmTrustAccept(BuildContext context) async {
   return await _confirm(
     context,
-    title: '카카오톡 아이디·실사진 공개를 수락할까요?',
-    body: '수락하면 채팅창에 수락했다는 문구가 상대에게 전송됩니다.',
-    confirmLabel: '수락',
+    title: context.l10n.chatTrustAcceptConfirmTitle,
+    body: context.l10n.chatTrustAcceptConfirmBody,
+    confirmLabel: context.l10n.chatTrustAcceptConfirmAction,
   );
 }
 
@@ -44,7 +45,7 @@ Future<bool> _confirm(
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: Text('취소', style: AppTypography.labelSmall.copyWith(color: AppColors.muted)),
+          child: Text(context.l10n.commonCancel, style: AppTypography.labelSmall.copyWith(color: AppColors.muted)),
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(true),

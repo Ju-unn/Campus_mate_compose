@@ -175,7 +175,7 @@ void main() {
 
     final chats = container.read(conversationsViewModelProvider);
     expect(chats.conversations, hasLength(1));
-    expect(chats.errorMessage, isNull);
+    expect(chats.error, isNull);
     expect(container.read(acceptancesViewModelProvider).errorMessage, isNull);
   });
 
@@ -187,7 +187,7 @@ void main() {
 
     final chats = container.read(conversationsViewModelProvider);
     expect(chats.isLoading, isFalse);
-    expect(chats.errorMessage, isNotNull);
+    expect(chats.error, isNotNull);
   });
 
   test('돌아오면 소비 안 된 하트 결제를 복구해 서버로 보낸다(결제 직후 앱이 꺼졌거나 지급이 늦어진 결제)', () async {

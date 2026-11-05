@@ -82,7 +82,7 @@ class ConversationsViewModel extends Notifier<ConversationsUiState> {
     final current = state.conversations[index];
     final updated = current.receive(message, unread: message.senderId != myId && !seen);
     if (!identical(updated, current)) {
-      state = state.copyWith(conversations: _placed(updated), errorMessage: state.errorMessage);
+      state = state.copyWith(conversations: _placed(updated), error: state.error);
     }
   }
 
@@ -101,7 +101,7 @@ class ConversationsViewModel extends Notifier<ConversationsUiState> {
       // 첫 읽기(isLoading)는 quiet 여도 스켈레톤을 끝내야 한다 — build() 의 첫 읽기와 합쳐지는 경우도 같다.
       onFailure: (failure) => quiet && !state.isLoading
           ? state
-          : state.copyWith(isLoading: false, errorMessage: failure.toDisplayMessage()),
+          : state.copyWith(isLoading: false, error: failure),
     );
   }
 
@@ -113,7 +113,7 @@ class ConversationsViewModel extends Notifier<ConversationsUiState> {
       onSuccess: (_) => _without(matchId),
       onFailure: (failure) => isAlreadyLeft(failure)
           ? _without(matchId)
-          : state.copyWith(errorMessage: chatFailureMessage(failure)),
+          : state.copyWith(error: chatFailure(failure)),
     );
   }
 

@@ -10,6 +10,7 @@ import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart'
 import 'package:campus_mate/chat/viewmodel/chat_room_ui_state.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/chat/viewmodel/user_channel.dart';
+import 'package:campus_mate/common/failure.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 방 하나당 하나. 화면을 닫으면 자동으로 버려지고 그때 실시간 구독도 함께 끊긴다.
@@ -126,7 +127,7 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
         onSuccess: (room) => state = state.copyWith(
           room: room,
           partnerRead: state.partnerRead.later(room.partnerRead),
-          errorMessage: state.errorMessage,
+          error: state.error,
         ),
         onFailure: (_) {},
       );
@@ -136,9 +137,9 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
       onSuccess: (room) =>
           state.copyWith(room: room, partnerRead: state.partnerRead.later(room.partnerRead)),
       onFailure: (failure) =>
-          state.copyWith(isLoading: false, errorMessage: chatFailureMessage(failure)),
+          state.copyWith(isLoading: false, error: chatFailure(failure)),
     );
-    return state.room != null && state.errorMessage == null;
+    return state.room != null && state.error == null;
   }
 
   Future<void> _loadFirstPage() async {
@@ -155,7 +156,7 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
         partnerRead: state.partnerRead.later(page.partnerRead),
       ),
       onFailure: (failure) =>
-          state.copyWith(isLoading: false, errorMessage: chatFailureMessage(failure)),
+          state.copyWith(isLoading: false, error: chatFailure(failure)),
     );
   }
 
@@ -192,7 +193,7 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
     state = state.copyWith(
       messages: _merge(state.messages, page.messages),
       partnerRead: state.partnerRead.later(page.partnerRead),
-      errorMessage: state.errorMessage,
+      error: state.error,
     );
     _refreshIfRoomChangedMeanwhile();
     // 구독이 놓친 줄을 여기서 처음 봤다 — 상대 줄이면 읽음을 찍어야 상대 화면의 '1' 이 사라진다.
@@ -300,7 +301,7 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
         hasMore: page.hasMore,
       ),
       onFailure: (failure) =>
-          state.copyWith(isLoadingMore: false, errorMessage: chatFailureMessage(failure)),
+          state.copyWith(isLoadingMore: false, error: chatFailure(failure)),
     );
   }
 
@@ -309,7 +310,7 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
     if (state.isSending) {
       return false;
     }
-    state = state.copyWith(isSending: true, errorMessage: null);
+    state = state.copyWith(isSending: true, error: null);
     final result = await _repository.sendMessage(_matchId, body);
     if (!_alive) {
       return false;
@@ -325,7 +326,7 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
         return true;
       },
       onFailure: (failure) {
-        state = state.copyWith(errorMessage: chatFailureMessage(failure));
+        state = state.copyWith(error: chatFailure(failure));
         return false;
       },
     );
@@ -352,7 +353,7 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
       // 이미 나갔다면 원하던 결과가 이미 났다 — 실패로 다루면 방에 갇힌다.
       onFailure: (failure) => isAlreadyLeft(failure)
           ? state.copyWith(hasLeft: true)
-          : state.copyWith(errorMessage: chatFailureMessage(failure)),
+          : state.copyWith(error: chatFailure(failure)),
     );
     if (state.hasLeft) {
       unawaited(ref.read(conversationsViewModelProvider.notifier).refresh());
@@ -376,14 +377,13 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
       if (!_alive) {
         return;
       }
-      final failureMessage = result.when(
+      final failure = result.when<Failure?>(
         onSuccess: (_) => null,
         // 이미 수락된 방이면 원하던 결과가 이미 났다 — 방만 다시 읽으면 된다.
-        onFailure: (failure) =>
-            isTrustAlreadyAnswered(failure) ? null : chatFailureMessage(failure),
+        onFailure: (failure) => isTrustAlreadyAnswered(failure) ? null : chatFailure(failure),
       );
-      if (failureMessage != null) {
-        state = state.copyWith(errorMessage: failureMessage);
+      if (failure != null) {
+        state = state.copyWith(error: failure);
         return;
       }
       // 카카오톡 아이디·실사진은 방을 다시 읽어야 내려온다(통과 전에는 키 자체가 없다).
@@ -478,7 +478,7 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
 
   /// 떠 있던 오류 줄은 그대로 둔다 — 사용자가 누른 일이 아니다.
   void _takePartnerRead(PartnerRead read) => state =
-      state.copyWith(partnerRead: state.partnerRead.later(read), errorMessage: state.errorMessage);
+      state.copyWith(partnerRead: state.partnerRead.later(read), error: state.error);
 
   /// 방을 보는 동안 받은 상대 줄을 읽음으로 찍는다 — 이게 있어야 상대 화면의 내 '1' 이 사라진다.
   /// 줄마다 부르지 않고 [markReadThrottle] 에 한 번으로 묶는다: 창이 닫혀 있으면 바로 찍고 창을 연다,
@@ -503,7 +503,7 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
   void dismissSheet() => state = state.copyWith(sheetDismissed: true);
 
   Future<void> retry() async {
-    state = state.copyWith(isLoading: true, errorMessage: null);
+    state = state.copyWith(isLoading: true, error: null);
     await _open();
   }
 }

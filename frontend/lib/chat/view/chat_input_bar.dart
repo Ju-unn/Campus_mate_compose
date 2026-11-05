@@ -1,4 +1,5 @@
 import 'package:campus_mate/chat/model/data/message_page.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -78,7 +79,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                   style: AppTypography.body.copyWith(color: AppColors.ink),
                   textAlignVertical: TextAlignVertical.center,
                   decoration: InputDecoration(
-                    hintText: '메시지를 입력하세요',
+                    hintText: context.l10n.chatInputHint,
                     // pen n1UArl 16 muted.
                     hintStyle: AppTypography.body.copyWith(color: AppColors.muted),
                     hintMaxLines: 1,
@@ -146,15 +147,15 @@ class _SendButton extends StatelessWidget {
       onTap: onPressed == null ? () {} : null,
       behavior: HitTestBehavior.opaque,
       excludeFromSemantics: true,
-      child: _circle(),
+      child: _circle(context),
     );
   }
 
-  Widget _circle() {
+  Widget _circle(BuildContext context) {
     return Semantics(
       button: true,
       enabled: onPressed != null,
-      label: '보내기',
+      label: context.l10n.chatSend,
       // 원을 버튼 자신의 Material 이 칠해야 눌림 효과가 입력 바와 함께 움직인다(COMMON §4-2).
       child: Material(
         shape: const CircleBorder(),

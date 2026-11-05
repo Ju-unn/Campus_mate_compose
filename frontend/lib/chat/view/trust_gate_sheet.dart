@@ -1,5 +1,6 @@
 import 'package:campus_mate/chat/view/chat_time.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -68,7 +69,7 @@ class TrustGateSheet extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.md),
               Text(
-                '카카오톡 아이디를 공유할까요?',
+                context.l10n.chatGateTitle,
                 style: AppTypography.title.copyWith(
                   color: AppColors.ink,
                   fontWeight: FontWeight.w700,
@@ -76,8 +77,7 @@ class TrustGateSheet extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                '둘 다 수락하면 카카오톡 아이디와 실제 사진이 서로 공개돼요. '
-                '응답 기한 안에 둘 다 수락하지 않으면 이 대화는 종료돼요.',
+                context.l10n.chatGateBody,
                 style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -85,10 +85,10 @@ class TrustGateSheet extends StatelessWidget {
               const SizedBox(height: AppSpacing.md),
               _KakaoIdBlock(myKakaoId: myKakaoId, onChange: onChangeKakaoId),
               const SizedBox(height: AppSpacing.md),
-              AppButton(label: '수락하고 공유하기', onPressed: onAccept),
+              AppButton(label: context.l10n.chatGateAccept, onPressed: onAccept),
               const SizedBox(height: AppSpacing.xxs),
               // pen 라벨은 "거절하기" 였다. 거절이 곧 나가기가 되면서 라벨이 그 사실을 말해야 한다(결정 11).
-              AppButton(label: '거절하고 나가기', onPressed: onLeave, variant: AppButtonVariant.text),
+              AppButton(label: context.l10n.chatGateDecline, onPressed: onLeave, variant: AppButtonVariant.text),
             ],
           ),
         ),
@@ -111,7 +111,7 @@ class _KakaoIdBlock extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('공유할 카카오톡 아이디', style: AppTypography.labelSmall.copyWith(color: AppColors.body)),
+        Text(context.l10n.chatGateKakaoIdLabel, style: AppTypography.labelSmall.copyWith(color: AppColors.body)),
         const SizedBox(height: AppSpacing.xs),
         Container(
           width: double.infinity,
@@ -147,7 +147,7 @@ class _KakaoIdBlock extends StatelessWidget {
             const SizedBox(width: 6),
             Expanded(
               child: Text(
-                "카카오톡에서 'ID 검색 허용'이 켜져 있어야 상대가 내 아이디를 검색할 수 있어요.",
+                context.l10n.chatGateKakaoIdNotice,
                 style: AppTypography.caption.copyWith(
                   color: AppColors.primaryText,
                   fontWeight: FontWeight.w600,
@@ -178,7 +178,7 @@ class _ChangeButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
         foregroundColor: AppColors.primaryText,
       ),
-      child: Text('변경', style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText, height: 1.5)),
+      child: Text(context.l10n.chatGateChange, style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText, height: 1.5)),
     );
   }
 }
@@ -202,7 +202,7 @@ class _Countdown extends StatelessWidget {
           const Icon(AppIcons.clock3, size: 18, color: AppColors.primaryText),
           const SizedBox(width: AppSpacing.xs),
           Expanded(
-            child: Text('응답 기한까지', style: AppTypography.labelSmall.copyWith(color: AppColors.ink)),
+            child: Text(context.l10n.chatGateDeadline, style: AppTypography.labelSmall.copyWith(color: AppColors.ink)),
           ),
           CountdownBuilder(
             deadlineAt: deadlineAt,

@@ -206,7 +206,7 @@ class _Body extends ConsumerWidget {
       return const _SkeletonRows();
     }
     WidgetsBinding.instance.addPostFrameCallback((_) => onLoaded());
-    final errorMessage = acceptances.errorMessage ?? sent.errorMessage ?? chats.errorMessage;
+    final errorMessage = acceptances.errorMessage ?? sent.errorMessage ?? chats.error?.toDisplayMessage();
     // 본문이 유리 내비 뒤까지 이어진다 — 알약 자리(본문 MediaQuery padding.bottom).
     final navInset = MediaQuery.paddingOf(context).bottom;
     if (acceptances.acceptances.isEmpty && sent.requests.isEmpty && chats.conversations.isEmpty) {

@@ -1,4 +1,5 @@
 import 'package:campus_mate/chat/view/chat_time.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
@@ -19,7 +20,7 @@ class DateDivider extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
           child: Text(
-            dateLabel(date),
+            dateLabel(context.l10n, date),
             style: AppTypography.caption.copyWith(color: AppColors.muted),
           ),
         ),

@@ -1,27 +1,32 @@
 import 'dart:async';
 
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/widgets.dart';
 
-/// 채팅 화면이 쓰는 시각 표기. `intl` 을 새로 들이지 않고 손으로 만든다 —
-/// 필요한 모양이 네 가지뿐이고 전부 한국어 고정이다.
-const List<String> _weekdays = ['월', '화', '수', '목', '금', '토', '일'];
+/// 채팅 화면이 쓰는 시각 표기. `intl` 의 날짜 서식을 새로 들이지 않고 손으로 만든다 —
+/// 필요한 모양이 네 가지뿐이다. 계산(오전·오후 가르기, 12시간제, 요일 번호)은 여기 두고 문장 틀만 문구 파일(ARB)에서 읽는다.
+const List<String> _weekdays = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
 /// 말풍선 옆·목록 우측의 "오후 2:14".
-String timeLabel(DateTime at) {
+String timeLabel(AppLocalizations l10n, DateTime at) {
   final isAfternoon = at.hour >= 12;
   final hour12 = at.hour % 12 == 0 ? 12 : at.hour % 12;
-  return '${isAfternoon ? '오후' : '오전'} $hour12:${at.minute.toString().padLeft(2, '0')}';
+  return l10n.chatTimeOfDay(
+    period: isAfternoon ? 'pm' : 'am',
+    hour: hour12,
+    minute: at.minute.toString().padLeft(2, '0'),
+  );
 }
 
 /// 날짜 구분선의 "9월 14일 일요일"(pen `rSFNG`).
-String dateLabel(DateTime at) =>
-    '${at.month}월 ${at.day}일 ${_weekdays[at.weekday - 1]}요일';
+String dateLabel(AppLocalizations l10n, DateTime at) =>
+    l10n.chatDateWithWeekday(month: at.month, day: at.day, weekday: _weekdays[at.weekday - 1]);
 
 /// 목록 한 줄의 우측. 오늘이면 시각, 아니면 날짜다 —
 /// 사흘 전 대화에 시계만 떠 있으면 언제 이야기했는지 알 수 없다.
-String listTimeLabel(DateTime at, DateTime now) {
+String listTimeLabel(AppLocalizations l10n, DateTime at, DateTime now) {
   final isToday = at.year == now.year && at.month == now.month && at.day == now.day;
-  return isToday ? timeLabel(at) : '${at.month}월 ${at.day}일';
+  return isToday ? timeLabel(l10n, at) : l10n.commonDateMonthDay(month: at.month, day: at.day);
 }
 
 /// 게이트 배너·시트의 "21:34:10". 하루가 넘어도 시 자리에 그대로 쌓는다(최대 48시간).
@@ -33,13 +38,13 @@ String countdownLabel(Duration remaining) {
 
 /// 14h 배너처럼 큰 단위로만 말하는 자리의 "3시간" · "40분".
 /// `inHours` 만 쓰면 한 시간이 안 남았을 때 **"0시간 뒤 종료돼요"** 가 뜬다(조각 5 리뷰 권고 8번).
-String coarseRemainingLabel(Duration remaining) {
+String coarseRemainingLabel(AppLocalizations l10n, Duration remaining) {
   final total = remaining.isNegative ? Duration.zero : remaining;
   if (total.inHours >= 1) {
-    return '${total.inHours}시간';
+    return l10n.chatRemainingHours(hours: total.inHours);
   }
   // 1분도 안 남은 마지막 순간에 "0분" 이 되지 않게 바닥을 1분으로 잡는다.
-  return '${total.inMinutes < 1 ? 1 : total.inMinutes}분';
+  return l10n.chatRemainingMinutes(minutes: total.inMinutes < 1 ? 1 : total.inMinutes);
 }
 
 /// 1초마다 남은 시간을 다시 그린다. **기준은 서버가 준 기한이고 계산은 기기 시계**로 한다

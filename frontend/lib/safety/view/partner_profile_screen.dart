@@ -128,14 +128,15 @@ class _ProfileBody extends ConsumerWidget {
   /// 실패는 pen 에 없다 — 14c 에는 입력 바가 없어 결과 토스트 자리에 실패 문구를 띄운다.
   Future<void> _block(BuildContext context, WidgetRef ref) async {
     final messenger = ScaffoldMessenger.of(context);
-    final error = await blockThenLeave(
+    final l10n = context.l10n; // 차단 요청이 끝난 뒤 화면이 없어져도 글자를 만들 수 있게 미리 잡는다.
+    final failure = await blockThenLeave(
       context,
       ref,
       profileId: profileId,
       nickname: profile.detail.profile.nickname,
     );
-    if (error != null) {
-      showSafetyToast(messenger, error, icon: AppIcons.circleAlert);
+    if (failure != null) {
+      showSafetyToast(messenger, failureText(l10n, failure), icon: AppIcons.circleAlert);
     }
   }
 }

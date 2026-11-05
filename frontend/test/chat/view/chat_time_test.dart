@@ -1,24 +1,41 @@
 import 'package:campus_mate/chat/view/chat_time.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  final l10n = AppLocalizationsKo();
+
   test('오전·오후와 12시를 제대로 읽는다', () {
-    expect(timeLabel(DateTime(2026, 9, 22, 14, 14)), '오후 2:14');
-    expect(timeLabel(DateTime(2026, 9, 22, 9, 5)), '오전 9:05');
-    expect(timeLabel(DateTime(2026, 9, 22, 12, 0)), '오후 12:00');
-    expect(timeLabel(DateTime(2026, 9, 22, 0, 30)), '오전 12:30');
+    expect(timeLabel(l10n, DateTime(2026, 9, 22, 14, 14)), '오후 2:14');
+    expect(timeLabel(l10n, DateTime(2026, 9, 22, 9, 5)), '오전 9:05');
+    expect(timeLabel(l10n, DateTime(2026, 9, 22, 12, 0)), '오후 12:00');
+    expect(timeLabel(l10n, DateTime(2026, 9, 22, 0, 30)), '오전 12:30');
   });
 
   test('날짜 구분선은 요일까지 적는다', () {
-    expect(dateLabel(DateTime(2026, 9, 14)), '9월 14일 월요일');
+    expect(dateLabel(l10n, DateTime(2026, 9, 14)), '9월 14일 월요일');
+  });
+
+  test('요일 일곱 개가 모두 제 글자로 읽힌다 — 월요일 시작, 일요일 끝', () {
+    final week = [for (var day = 14; day <= 20; day++) dateLabel(l10n, DateTime(2026, 9, day))];
+
+    expect(week, [
+      '9월 14일 월요일',
+      '9월 15일 화요일',
+      '9월 16일 수요일',
+      '9월 17일 목요일',
+      '9월 18일 금요일',
+      '9월 19일 토요일',
+      '9월 20일 일요일',
+    ]);
   });
 
   test('목록은 오늘이면 시각, 아니면 날짜를 보여준다', () {
     final now = DateTime(2026, 9, 22, 15, 0);
-    expect(listTimeLabel(DateTime(2026, 9, 22, 14, 14), now), '오후 2:14');
+    expect(listTimeLabel(l10n, DateTime(2026, 9, 22, 14, 14), now), '오후 2:14');
     // 사흘 전 대화에 시계만 떠 있으면 언제 이야기했는지 알 수 없다.
-    expect(listTimeLabel(DateTime(2026, 9, 19, 14, 14), now), '9월 19일');
+    expect(listTimeLabel(l10n, DateTime(2026, 9, 19, 14, 14), now), '9월 19일');
   });
 
   test('카운트다운은 하루가 넘어도 시 자리에 쌓는다', () {
@@ -29,11 +46,11 @@ void main() {
   });
 
   test('큰 단위 표기는 한 시간이 안 남으면 분으로 내려간다', () {
-    expect(coarseRemainingLabel(const Duration(hours: 3, minutes: 20)), '3시간');
-    expect(coarseRemainingLabel(const Duration(hours: 1)), '1시간');
+    expect(coarseRemainingLabel(l10n, const Duration(hours: 3, minutes: 20)), '3시간');
+    expect(coarseRemainingLabel(l10n, const Duration(hours: 1)), '1시간');
     // "0시간 뒤 종료돼요" 가 뜨면 안 된다.
-    expect(coarseRemainingLabel(const Duration(minutes: 40)), '40분');
-    expect(coarseRemainingLabel(const Duration(seconds: 20)), '1분');
+    expect(coarseRemainingLabel(l10n, const Duration(minutes: 40)), '40분');
+    expect(coarseRemainingLabel(l10n, const Duration(seconds: 20)), '1분');
   });
 
   // 기한이 0 이 되면 한 번만 알린다 — 홈 hero ③ · 오늘 탭 11 이 다음 카드를 다시 읽는 신호다.

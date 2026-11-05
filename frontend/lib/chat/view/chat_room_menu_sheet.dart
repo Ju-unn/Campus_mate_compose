@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -59,7 +60,7 @@ class ChatRoomMenuSheet extends StatelessWidget {
                 _MenuRow(
                   icon: AppIcon3d.siren,
                   iconSize: 22,
-                  label: '신고하기',
+                  label: context.l10n.commonReport,
                   color: AppColors.ink,
                   onTap: () => pick(ChatRoomMenuAction.report),
                 ),
@@ -67,7 +68,7 @@ class ChatRoomMenuSheet extends StatelessWidget {
                 _MenuRow(
                   icon: AppIcon3d.blockUser,
                   iconSize: 24,
-                  label: '차단하기',
+                  label: context.l10n.chatMenuBlock,
                   color: AppColors.error,
                   onTap: () => pick(ChatRoomMenuAction.block),
                 ),
@@ -75,7 +76,7 @@ class ChatRoomMenuSheet extends StatelessWidget {
               _MenuRow(
                 icon: AppIcon3d.logout,
                 iconSize: 24,
-                label: '채팅방 나가기',
+                label: context.l10n.chatLeaveRoom,
                 color: AppColors.ink,
                 onTap: () => pick(ChatRoomMenuAction.leave),
               ),
@@ -84,7 +85,7 @@ class ChatRoomMenuSheet extends StatelessWidget {
                 onTap: () => pick(null),
                 child: Center(
                   child: Text(
-                    '취소',
+                    context.l10n.commonCancel,
                     // pen `l0H9N` 16/600, 줄높이 속성 없음 · 렌더 23.
                     style: AppTypography.bodyStrong.copyWith(color: AppColors.ink, height: 23 / 16),
                   ),
