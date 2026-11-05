@@ -1,6 +1,7 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/community/model/data/poll.dart';
 import 'package:campus_mate/community/model/data/poll_feed.dart';
+import 'package:campus_mate/community/model/data/poll_vote_notice.dart';
 import 'package:campus_mate/community/model/repository/community_repository_provider.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_ui_state.dart';
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
@@ -9,9 +10,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final communityFeedViewModelProvider =
     NotifierProvider<CommunityFeedViewModel, CommunityFeedUiState>(CommunityFeedViewModel.new);
-
-/// 하루 첫 투표 보상 토스트(DESIGN §8.10 — 하루 한 번 5하트, 2026-10-16 사용자 확정 · 종전 10). pen 에 문구가 있으면 그것으로 바꾼다.
-const String pollRewardMessage = '하트 5개를 받았어요';
 
 /// 15d 피드. **실시간 구독은 쓰지 않는다** — 당겨서 새로 고침과 투표 응답으로 충분하다.
 class CommunityFeedViewModel extends Notifier<CommunityFeedUiState> {
@@ -61,7 +59,7 @@ class CommunityFeedViewModel extends Notifier<CommunityFeedUiState> {
         hasMore: page.hasMore,
         votingIds: state.votingIds,
       ),
-      onFailure: (failure) => state.copyWith(isLoading: false, errorMessage: failure.toDisplayMessage()),
+      onFailure: (failure) => state.copyWith(isLoading: false, error: failure),
     );
   }
 
@@ -91,12 +89,12 @@ class CommunityFeedViewModel extends Notifier<CommunityFeedUiState> {
     );
   }
 
-  /// 투표. 화면이 띄울 토스트 문구를 돌려준다(없으면 null).
-  Future<String?> vote(String pollId, PollChoice choice) async {
+  /// 투표. 화면이 토스트로 알릴 것을 돌려준다(없으면 null). 하루 첫 투표 보상은 5하트다(DESIGN §8.10, 2026-10-16 사용자 확정 · 종전 10).
+  Future<PollVoteNotice?> vote(String pollId, PollChoice choice) async {
     if (state.votingIds.contains(pollId)) return null;
     state = state.copyWith(votingIds: {...state.votingIds, pollId});
     final result = await ref.read(communityRepositoryProvider).vote(pollId, choice);
-    final message = await result.when<Future<String?>>(
+    final notice = await result.when<Future<PollVoteNotice?>>(
       onSuccess: (outcome) async {
         _replace(outcome.poll);
         // 사용 통계 `poll_vote` — 서버가 투표를 받아 준 뒤에만. 질문 id · 고른 보기 · 보상 여부는 싣지 않는다.
@@ -104,27 +102,27 @@ class CommunityFeedViewModel extends Notifier<CommunityFeedUiState> {
         if (!outcome.rewarded) return null;
         // 하트가 들어왔다 — 홈 칩 · 하트 스토어 · 설정이 읽는 잔액(내 프로필)을 다시 읽게 한다.
         ref.invalidate(myProfileProvider);
-        return pollRewardMessage;
+        return const PollVoteNotice.reward();
       },
       onFailure: (failure) async {
         // 다른 기기에서 이미 투표했거나(409) 글이 사라졌을 수 있다(404) — 그 글만 다시 읽어 서버에 맞춘다.
         await _reloadOne(pollId);
-        return failure.toDisplayMessage();
+        return PollVoteNotice.failed(failure);
       },
     );
     state = state.copyWith(votingIds: {...state.votingIds}..remove(pollId));
-    return message;
+    return notice;
   }
 
-  /// 내 글 지우기. 성공하면 null, 실패하면 문구.
-  Future<String?> delete(String pollId) async {
+  /// 내 글 지우기. 성공하면 null, 실패하면 그 이유.
+  Future<Failure?> delete(String pollId) async {
     final result = await ref.read(communityRepositoryProvider).deletePoll(pollId);
     return result.when(
       onSuccess: (_) {
         _remove(pollId);
         return null;
       },
-      onFailure: (failure) => failure.toDisplayMessage(),
+      onFailure: (failure) => failure,
     );
   }
 

@@ -3,6 +3,7 @@ import 'package:campus_mate/community/model/data/poll.dart';
 import 'package:campus_mate/community/view/poll_donut.dart';
 import 'package:campus_mate/community/view/poll_time.dart';
 import 'package:campus_mate/community/view/vote_option.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -86,13 +87,13 @@ class _Header extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
           decoration: BoxDecoration(color: AppColors.surfaceStrong, borderRadius: BorderRadius.circular(AppRadius.pill)),
-          child: Text('익명', style: AppTypography.badge.copyWith(color: AppColors.body, height: 16 / 10)),
+          child: Text(context.l10n.communityAnonymous, style: AppTypography.badge.copyWith(color: AppColors.body, height: 16 / 10)),
         ),
         const SizedBox(width: AppSpacing.xs),
         // pen `G85OOq` 은 11/500 — 11px 은 뱃지만이라 12 로 올린다(대장 예외).
         Expanded(
           child: Text(
-            relativeTimeLabel(poll.createdAt, now),
+            relativeTimeLabel(context.l10n, poll.createdAt, now),
             style: AppTypography.caption.copyWith(fontWeight: FontWeight.w500, color: AppColors.muted),
           ),
         ),
@@ -130,7 +131,7 @@ class PollReportButton extends StatelessWidget {
               const SizedBox(height: 2),
               // pen `Wwsmw` 10/600 #6E5861, 줄높이 속성 없음 · 렌더 10. 이 색은 이 버튼에만 있어 토큰으로 올리지 않는다.
               Text(
-                '신고하기',
+                context.l10n.commonReport,
                 style: AppTypography.badge.copyWith(
                   height: 1,
                   letterSpacing: 0,
@@ -180,8 +181,14 @@ class _BeforeVote extends StatelessWidget {
         Text(
           poll.total == 0
               // 아무도 안 눌렀으면 "0%" 두 개 대신 참여자 수만 — 0 · 0 은 결과처럼 읽힌다.
-              ? '0명 참여'
-              : '${poll.optionA} ${poll.aPercent}% · ${poll.optionB} ${poll.bPercent}% · ${poll.total}명 참여',
+              ? context.l10n.communityParticipants(count: 0)
+              : context.l10n.communityVoteSummary(
+                  optionA: poll.optionA,
+                  aPercent: poll.aPercent,
+                  optionB: poll.optionB,
+                  bPercent: poll.bPercent,
+                  total: poll.total,
+                ),
           textAlign: TextAlign.center,
           style: AppTypography.caption.copyWith(color: AppColors.muted),
         ),
@@ -203,14 +210,19 @@ class _Result extends StatelessWidget {
         PollDonut(poll: poll),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          '${poll.optionA} ${poll.aPercent}% · ${poll.optionB} ${poll.bPercent}%',
+          context.l10n.communityResultSummary(
+            optionA: poll.optionA,
+            aPercent: poll.aPercent,
+            optionB: poll.optionB,
+            bPercent: poll.bPercent,
+          ),
           textAlign: TextAlign.center,
           // pen `H1kGWf` 14/600 #3F3F3F, 줄 높이 속성 없음 · 렌더 20.
           style: AppTypography.labelSmall.copyWith(color: AppColors.body, height: 20 / 14),
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          '${poll.total}명 참여',
+          context.l10n.communityParticipants(count: poll.total),
           textAlign: TextAlign.center,
           // pen `rEJhW` 11/500 → 12/500(대장 예외).
           style: AppTypography.caption.copyWith(fontWeight: FontWeight.w500, color: AppColors.muted),

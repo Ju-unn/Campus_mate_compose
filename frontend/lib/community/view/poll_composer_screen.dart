@@ -6,6 +6,8 @@ import 'package:campus_mate/community/view/poll_feed_tabs.dart';
 import 'package:campus_mate/community/view/vote_option.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -15,10 +17,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
-/// 하루 10개를 넘겼을 때(서버 `POLL_DAILY_LIMIT` 과 같은 문구, 사용자 결정 3).
-/// 429 는 [RateLimitedFailure] 로 오고, 이 화면이 그 형을 보고 문구를 앱 값으로 바꿔 낀다(서버 문구가 실려 와도 같다).
-const String pollDailyLimitMessage = '오늘은 질문을 더 올릴 수 없어요';
 
 /// 글자 수는 서버(`len`) · DB(`char_length`)와 같은 **유니코드 코드 포인트** 로 센다.
 /// Flutter `maxLength` 는 글자 모양(그래핌) 단위라 이모지(👍🏻 = 2)가 섞이면 앱은 통과시키고 서버가 422 를 낸다.
@@ -54,7 +52,7 @@ class _PollComposerScreenState extends ConsumerState<PollComposerScreen> {
   final _optionB = TextEditingController();
   _VoteMode _mode = _VoteMode.ox;
   bool _isSubmitting = false;
-  String? _error;
+  Failure? _error;
 
   @override
   void dispose() {
@@ -95,7 +93,9 @@ class _PollComposerScreenState extends ConsumerState<PollComposerScreen> {
       },
       onFailure: (failure) => setState(() {
         _isSubmitting = false;
-        _error = failure is RateLimitedFailure ? pollDailyLimitMessage : failure.toDisplayMessage();
+        // 하루 10개를 넘겼을 때(서버 `POLL_DAILY_LIMIT` 과 같은 문구, 사용자 결정 3). 429 는 [RateLimitedFailure] 로 오고,
+        // 이 화면이 그 형을 보고 문구를 앱 값(`AppError.pollDailyLimit`)으로 바꿔 낀다(서버 문구가 실려 와도 같다).
+        _error = failure is RateLimitedFailure ? const AppErrorFailure(AppError.pollDailyLimit) : failure;
       }),
     );
   }
@@ -117,7 +117,7 @@ class _PollComposerScreenState extends ConsumerState<PollComposerScreen> {
                 ),
               )
             : null,
-        title: Text('익명으로 질문하기', style: AppTypography.navTitle),
+        title: Text(context.l10n.communityComposerTitle, style: AppTypography.navTitle),
       ),
       body: SafeArea(
         // pen `QhlmU`: 세로 간격 20, 안쪽 16. 버튼도 본문 흐름 안에 있다(화면 아래 고정 아님).
@@ -127,17 +127,17 @@ class _PollComposerScreenState extends ConsumerState<PollComposerScreen> {
             const _AnonymityNotice(),
             const SizedBox(height: 20),
             // pen `BxeOU/VCwQo` 14/600 #3F3F3F, 줄 높이 속성 없음 · 렌더 20.
-            Text('질문 내용', style: AppTypography.labelSmall.copyWith(color: AppColors.body, height: 20 / 14)),
+            Text(context.l10n.communityComposerQuestionLabel, style: AppTypography.labelSmall.copyWith(color: AppColors.body, height: 20 / 14)),
             const SizedBox(height: AppSpacing.xs),
             _QuestionBox(controller: _question, onChanged: () => setState(() {})),
             const SizedBox(height: 20),
             _voteSection(),
             const SizedBox(height: 20),
             if (_error != null) ...[
-              Text(_error!, style: AppTypography.bodySmall.copyWith(color: AppColors.error)),
+              Text(context.errorText(_error!), style: AppTypography.bodySmall.copyWith(color: AppColors.error)),
               const SizedBox(height: AppSpacing.xs),
             ],
-            AppButton(label: '익명으로 올리기', onPressed: _canSubmit ? _submit : null),
+            AppButton(label: context.l10n.communityComposerSubmit, onPressed: _canSubmit ? _submit : null),
           ],
         ),
       ),
@@ -150,7 +150,7 @@ class _PollComposerScreenState extends ConsumerState<PollComposerScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('투표 방식', style: AppTypography.labelSmall.copyWith(color: AppColors.body, height: 20 / 14)),
+        Text(context.l10n.communityComposerVoteMode, style: AppTypography.labelSmall.copyWith(color: AppColors.body, height: 20 / 14)),
         const SizedBox(height: AppSpacing.sm),
         _ModeTabs(mode: _mode, onSelected: (mode) => setState(() => _mode = mode)),
         const SizedBox(height: AppSpacing.sm),
@@ -165,7 +165,7 @@ class _PollComposerScreenState extends ConsumerState<PollComposerScreen> {
         ),
         const SizedBox(height: AppSpacing.sm),
         Text(
-          custom ? '보기 글자는 1~6자, 서로 달라야 해요' : 'O = 찬성, X = 반대로 투표를 받아요',
+          custom ? context.l10n.communityComposerCustomHint : context.l10n.communityComposerOxHint,
           style: AppTypography.caption.copyWith(height: 1.5, color: AppColors.muted),
         ),
       ],
@@ -178,7 +178,7 @@ class _PollComposerScreenState extends ConsumerState<PollComposerScreen> {
     return VoteOption.input(
       side: side,
       controller: isAgree ? _optionA : _optionB,
-      hint: isAgree ? '보기 1' : '보기 2',
+      hint: isAgree ? context.l10n.communityComposerOption1 : context.l10n.communityComposerOption2,
       fieldKey: isAgree ? PollComposerScreen.optionAKey : PollComposerScreen.optionBKey,
       inputFormatters: [_maxCodePoints(pollOptionMaxLength)],
       onChanged: () => setState(() {}),
@@ -201,7 +201,7 @@ class _AnonymityNotice extends StatelessWidget {
           const SizedBox(width: AppSpacing.xs),
           Expanded(
             child: Text(
-              '작성자 정보는 절대 공개되지 않아요',
+              context.l10n.communityComposerAnonymityNotice,
               // 글자 상자 16(자물쇠와 같은 높이) — caption 토큰 16.8 이면 상자가 pen 40 보다 커진다.
               style: AppTypography.caption.copyWith(fontWeight: FontWeight.w600, height: 16 / 12, color: AppColors.muted),
             ),
@@ -244,7 +244,7 @@ class _QuestionBox extends StatelessWidget {
             maxLines: null,
             style: AppTypography.bodySmall.copyWith(height: 1.5, color: AppColors.ink),
             decoration: InputDecoration.collapsed(
-              hintText: '예) 깻잎을 먼저 집으면 안 되는 거 아니야?',
+              hintText: context.l10n.communityComposerQuestionHint,
               hintStyle: AppTypography.bodySmall.copyWith(height: 1.5, color: AppColors.muted),
             ),
             onChanged: (_) => onChanged(),
@@ -290,7 +290,7 @@ class _ModeTabs extends StatelessWidget {
           PollRingTab(
             tapKey: PollComposerScreen.customTabKey,
             ringKey: PollComposerScreen.customRingKey,
-            label: '직접 적기',
+            label: context.l10n.communityComposerModeCustom,
             icon: AppIcon3d.pencil, // 3D 편집 `DAILv`
             selected: mode == _VoteMode.custom,
             onTap: () => onSelected(_VoteMode.custom),

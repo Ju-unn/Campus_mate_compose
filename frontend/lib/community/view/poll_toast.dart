@@ -1,12 +1,18 @@
 import 'package:campus_mate/common/widgets/app_toast.dart';
-import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
+import 'package:campus_mate/community/model/data/poll_vote_notice.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
-/// 내 글을 지웠을 때 토스트(15d-5 `SKQgV` · 토스트 `VuCcc`).
-const String pollDeletedMessage = '삭제했어요';
+/// 투표 뒤 알림의 글자 — 하트를 받았으면 보상 문구(pen 에 문구가 있으면 그것으로 바꾼다), 실패면 그 이유의 글자.
+String pollVoteNoticeText(AppLocalizations l10n, PollVoteNotice notice) => switch (notice.failure) {
+      null => l10n.communityVoteReward,
+      final failure => failureText(l10n, failure),
+    };
 
 /// 띄운 토스트. `closed` 가 끝나면 화면에서 사라졌다.
 typedef PollToast = ScaffoldFeatureController<SnackBar, SnackBarClosedReason>;
@@ -17,7 +23,8 @@ typedef PollToast = ScaffoldFeatureController<SnackBar, SnackBarClosedReason>;
 ///
 /// 띄운 토스트를 돌려준다 — 15d 는 토스트가 떠 있는 동안 "질문하기" 알약을 숨긴다(17A-2 `O8hjge`).
 PollToast showPollToast(BuildContext context, String message) {
-  final textOnly = message == pollRewardMessage || message == pollDeletedMessage;
+  final l10n = context.l10n;
+  final textOnly = message == l10n.communityVoteReward || message == l10n.communityDeleted;
   final messenger = ScaffoldMessenger.of(context)..hideCurrentSnackBar();
   return messenger.showSnackBar(SnackBar(
       behavior: SnackBarBehavior.floating,

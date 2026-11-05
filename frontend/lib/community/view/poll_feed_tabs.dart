@@ -1,9 +1,11 @@
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/community/model/data/poll_feed.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/tour/view/app_tour_steps.dart';
 import 'package:campus_mate/tour/view/tour_target.dart';
 import 'package:flutter/material.dart';
@@ -32,15 +34,16 @@ class PollFeedTabs extends StatelessWidget {
   /// 앱바 `bottom` 높이 — 위 4 + 탭(고리 + 6 + 글자 한 줄) + 아래 12. 1배면 102(pen `VEZ2l`).
   static double heightFor(TextScaler textScaler) => _padding.vertical + PollRingTab.heightFor(textScaler);
 
-  static (String, AppIcon3d) _look(PollFeedTab tab) => switch (tab) {
-        PollFeedTab.all => ('전체', AppIcon3d.vote), // 3D 투표 `x5QLa`
-        PollFeedTab.popular => ('인기', AppIcon3d.sparkles), // 3D 반짝임 `ulHL7`
-        PollFeedTab.mine => ('내 질문', AppIcon3d.userRound), // 3D 프로필 `PkqpC`
-        PollFeedTab.voted => ('내 투표', AppIcon3d.badgeCheck), // 3D 인증 `Trtii`
+  static (String, AppIcon3d) _look(AppLocalizations l10n, PollFeedTab tab) => switch (tab) {
+        PollFeedTab.all => (l10n.communityTabAll, AppIcon3d.vote), // 3D 투표 `x5QLa`
+        PollFeedTab.popular => (l10n.communityTabPopular, AppIcon3d.sparkles), // 3D 반짝임 `ulHL7`
+        PollFeedTab.mine => (l10n.communityTabMine, AppIcon3d.userRound), // 3D 프로필 `PkqpC`
+        PollFeedTab.voted => (l10n.communityTabVoted, AppIcon3d.badgeCheck), // 3D 인증 `Trtii`
       };
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return LayoutBuilder(
       builder: (context, constraints) => SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -59,8 +62,8 @@ class PollFeedTabs extends StatelessWidget {
                   PollRingTab(
                     tapKey: tabKey(tab),
                     ringKey: ringKey(tab),
-                    label: _look(tab).$1,
-                    icon: _look(tab).$2,
+                    label: _look(l10n, tab).$1,
+                    icon: _look(l10n, tab).$2,
                     selected: tab == selected,
                     onTap: () => onSelected(tab),
                   ),

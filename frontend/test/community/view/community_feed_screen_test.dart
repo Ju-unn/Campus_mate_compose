@@ -12,9 +12,8 @@ import 'package:campus_mate/community/view/community_feed_screen.dart';
 import 'package:campus_mate/community/view/feed_poll_card.dart';
 import 'package:campus_mate/community/view/poll_donut.dart';
 import 'package:campus_mate/community/view/poll_feed_tabs.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/community/view/poll_time.dart';
-import 'package:campus_mate/community/view/poll_toast.dart';
-import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
@@ -186,13 +185,13 @@ void main() {
 
       await tester.tap(find.bySemanticsLabel('찬성'));
       await tester.pumpAndSettle();
-      expect(find.text(pollRewardMessage), findsOneWidget);
+      expect(find.text(AppLocalizationsKo().communityVoteReward), findsOneWidget);
       expect(fade().opacity, 0);
       expect(find.byKey(CommunityFeedScreen.askButtonKey).hitTestable(), findsNothing);
 
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
-      expect(find.text(pollRewardMessage), findsNothing);
+      expect(find.text(AppLocalizationsKo().communityVoteReward), findsNothing);
       expect(fade().opacity, 1);
       expect(find.byKey(CommunityFeedScreen.askButtonKey).hitTestable(), findsOneWidget);
     });
@@ -224,7 +223,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(ElevatedButton, '삭제하기'));
       await tester.pumpAndSettle();
-      expect(find.text(pollDeletedMessage), findsOneWidget);
+      expect(find.text(AppLocalizationsKo().communityDeleted), findsOneWidget);
       expect(fade().opacity, 0);
     });
 
@@ -571,7 +570,7 @@ void main() {
     await tester.tap(find.bySemanticsLabel('찬성'));
     await tester.pump();
     expect(repository.votes.single, (pollId: 'p1', choice: PollChoice.a));
-    expect(find.text(pollRewardMessage), findsOneWidget);
+    expect(find.text(AppLocalizationsKo().communityVoteReward), findsOneWidget);
     // 15d-3 은 글자만 — 재화 하트를 Lucide 로 그리지 않는다.
     expect(find.descendant(of: find.byType(AppToast), matching: find.byType(Icon)), findsNothing);
   });
@@ -692,7 +691,7 @@ void main() {
     expect(repository.deleted, ['p1']);
     expect(find.byType(FeedPollCard), findsNothing);
     // 15d-5 `SKQgV`: "삭제했어요" 글자만(토스트 `VuCcc` 아이콘 끔).
-    expect(find.text(pollDeletedMessage), findsOneWidget);
+    expect(find.text(AppLocalizationsKo().communityDeleted), findsOneWidget);
     expect(find.descendant(of: find.byType(AppToast), matching: find.byType(Icon)), findsNothing);
   });
 
@@ -733,7 +732,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('이 질문을 삭제할까요?'), findsNothing);
     expect(find.byType(FeedPollCard), findsNothing);
-    expect(find.text(pollDeletedMessage), findsOneWidget);
+    expect(find.text(AppLocalizationsKo().communityDeleted), findsOneWidget);
   });
 
   testWidgets('지우기 실패(15d-6 f6fXkA · 토스트 ANlRW): 시트는 닫히고 카드는 남고, 내비 위 16 · 높이 40 경고 토스트', (tester) async {
@@ -746,8 +745,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('이 질문을 삭제할까요?'), findsNothing);
     expect(find.byType(FeedPollCard), findsOneWidget);
-    expect(find.text(const UnknownFailure().toDisplayMessage()), findsOneWidget);
-    expect(find.text(pollDeletedMessage), findsNothing);
+    expect(find.text(AppLocalizationsKo().errorUnknown), findsOneWidget);
+    expect(find.text(AppLocalizationsKo().communityDeleted), findsNothing);
     final icon = tester.widget<Icon>(find.descendant(of: find.byType(AppToast), matching: find.byType(Icon)));
     expect(icon.icon, AppIcons.alertTriangle);
     expect(icon.size, 16);
@@ -768,13 +767,13 @@ void main() {
     await tester.tap(find.widgetWithText(ElevatedButton, '취소'));
     await tester.pumpAndSettle();
     expect(find.text('이 질문을 삭제할까요?'), findsNothing);
-    expect(find.text(pollDeletedMessage), findsNothing);
+    expect(find.text(AppLocalizationsKo().communityDeleted), findsNothing);
 
     repository.holdDelete!.complete();
     await tester.pumpAndSettle();
     expect(repository.deleted, ['p1']);
     expect(find.byType(FeedPollCard), findsNothing);
-    expect(find.text(pollDeletedMessage), findsOneWidget);
+    expect(find.text(AppLocalizationsKo().communityDeleted), findsOneWidget);
   });
 
   testWidgets('시트가 닫히는 도중(애니메이션)에 지우기가 끝나도 아래 화면까지 닫지 않는다', (tester) async {
@@ -791,7 +790,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.byType(CommunityFeedScreen), findsOneWidget);
-    expect(find.text(pollDeletedMessage), findsOneWidget);
+    expect(find.text(AppLocalizationsKo().communityDeleted), findsOneWidget);
   });
 
   testWidgets('"삭제했어요" 토스트는 하단 내비 위 16 · 높이 40 · 가운데(pen SKQgV 97×40)', (tester) async {
@@ -805,7 +804,7 @@ void main() {
     expect(tester.getRect(find.byType(GlassBottomNav)).top - toast.bottom, 16);
     expect(toast.center.dx, 400); // 가운데(기본 테스트 화면 폭 800)
     // 폭 97 은 pen 글꼴 기준 — 테스트 글꼴(Ahem)에선 좌우 안쪽 16 + 글자 폭만 본다.
-    expect(toast.width, tester.getSize(find.text(pollDeletedMessage)).width + 16 * 2);
+    expect(toast.width, tester.getSize(find.text(AppLocalizationsKo().communityDeleted)).width + 16 * 2);
   });
 
   testWidgets('폰 폭(360) · 글자 2배에서 "삭제했어요" 토스트도 넘치거나 잘리지 않는다', (tester) async {
