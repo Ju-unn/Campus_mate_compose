@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/safety/model/data/device_contact.dart';
 
 /// 8d 차단할 연락처 선택의 상태.
@@ -8,7 +9,7 @@ class ContactPickerUiState {
     this.query = '',
     this.isLoading = true,
     this.isSubmitting = false,
-    this.errorMessage,
+    this.error,
     this.completed = false,
     this.isLimited = false,
   });
@@ -21,7 +22,7 @@ class ContactPickerUiState {
   final String query;
   final bool isLoading;
   final bool isSubmitting;
-  final String? errorMessage;
+  final Failure? error;
 
   /// 서버 저장과 이름표 저장이 끝났다 — 화면이 닫힌다.
   final bool completed;
@@ -39,14 +40,14 @@ class ContactPickerUiState {
 
   bool get canSubmit => selectedIds.isNotEmpty && !isSubmitting;
 
-  /// [errorMessage] 는 넘기지 않으면 지워진다 — 다음 동작을 하면 지난 문구는 사라져야 한다.
+  /// [error] 는 넘기지 않으면 지워진다 — 다음 동작을 하면 지난 문구는 사라져야 한다.
   ContactPickerUiState copyWith({
     List<DeviceContact>? contacts,
     Set<String>? selectedIds,
     String? query,
     bool? isLoading,
     bool? isSubmitting,
-    String? errorMessage,
+    Failure? error,
     bool? completed,
     bool? isLimited,
   }) {
@@ -56,7 +57,7 @@ class ContactPickerUiState {
       query: query ?? this.query,
       isLoading: isLoading ?? this.isLoading,
       isSubmitting: isSubmitting ?? this.isSubmitting,
-      errorMessage: errorMessage,
+      error: error,
       completed: completed ?? this.completed,
       isLimited: isLimited ?? this.isLimited,
     );

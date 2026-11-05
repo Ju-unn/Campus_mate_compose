@@ -117,7 +117,7 @@ void main() {
 
       await container.read(withdrawViewModelProvider.notifier).withdraw();
 
-      expect(container.read(withdrawViewModelProvider).errorMessage, isNull);
+      expect(container.read(withdrawViewModelProvider).error, isNull);
       expect(LoginNotice.take()?.message, '탈퇴한 계정이에요');
       expect(signOutCalls, 1);
     });

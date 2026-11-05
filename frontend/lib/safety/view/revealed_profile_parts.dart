@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/photo_slider.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -61,13 +62,13 @@ class ReportBlockLinks extends StatelessWidget {
           spacing: 6,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            _ActionLink(icon: AppIcon3d.siren, label: '신고하기', onTap: onReport),
+            _ActionLink(icon: AppIcon3d.siren, label: context.l10n.commonReport, onTap: onReport),
             Padding(
               padding: _linkPadding,
               // pen `Z0DRuj` 14 / hairline.
               child: Text('·', style: _linkStyle),
             ),
-            _ActionLink(icon: AppIcon3d.ban, label: '차단하기', onTap: onBlock),
+            _ActionLink(icon: AppIcon3d.ban, label: context.l10n.safetyBlockAction, onTap: onBlock),
           ],
         ),
       ],
@@ -142,14 +143,14 @@ class KakaoIdCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '카카오톡 아이디',
+                    context.l10n.commonKakaoId,
                     // pen 10 / 보통 굵기, 줄높이 속성 없음 · 렌더 16. 10 은 badge 토큰 하나뿐이라 굵기만 보통으로 내린다.
                     style: AppTypography.badge
                         .copyWith(fontWeight: FontWeight.w400, color: AppColors.muted, height: 16 / 10, letterSpacing: 0),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    id ?? '상대가 아직 아이디를 등록하지 않았어요',
+                    id ?? context.l10n.safetyRevealedKakaoMissing,
                     // pen 16/600, 줄높이 속성 없음 · 렌더 22.
                     style: AppTypography.bodyStrong.copyWith(color: AppColors.ink, height: 22 / 16),
                   ),
@@ -164,11 +165,11 @@ class KakaoIdCard extends StatelessWidget {
               alignment: Alignment.centerRight,
               constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
               icon: const Icon(AppIcons.copy, size: 18, color: AppColors.primaryText),
-              tooltip: '복사',
+              tooltip: context.l10n.safetyRevealedKakaoCopy,
               onPressed: () async {
                 await Clipboard.setData(ClipboardData(text: id));
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('카카오톡 아이디를 복사했어요')));
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.safetyRevealedKakaoCopied)));
                 }
               },
             ),

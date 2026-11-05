@@ -16,6 +16,7 @@ import 'package:campus_mate/friend_review/model/data/friend_review_tags.dart';
 import 'package:campus_mate/friend_review/view/friend_review_card.dart';
 import 'package:campus_mate/friend_review/view/friend_review_compose_sheet.dart';
 import 'package:campus_mate/friend_review/view/written_reviews_screen.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -137,7 +138,7 @@ void main() {
       expect(second.top - first.bottom, 16);
       expect(first.width, 328);
       expect(find.descendant(of: cards.at(0), matching: find.text('달빛')), findsOneWidget);
-      expect(find.text(friendReviewRelationLabel), findsNWidgets(2));
+      expect(find.text(AppLocalizationsKo().friendReviewRelation), findsNWidgets(2));
       expect(find.byIcon(AppIcons.trash2), findsNWidgets(2));
       expect(find.byWidgetPredicate((w) => w is Icon3d && w.icon == AppIcon3d.siren), findsNothing);
       expect(reviews.writtenCount, 1);

@@ -1,6 +1,8 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/community/view/poll_toast.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -23,9 +25,13 @@ const String _pollReportedMessage = '신고했어요. 운영팀이 확인할게�
 /// 띄운 토스트를 돌려준다(시트를 그냥 닫으면 null).
 Future<PollToast?> reportPoll(BuildContext context, String pollId) async {
   final messenger = ScaffoldMessenger.of(context);
+  final l10n = context.l10n; // 시트가 닫힌 뒤 화면이 없어져도 토스트는 띄운다 — 글자를 만들 도구는 미리 잡는다.
   final result = await showReportSheet(context, ReportTarget.poll(pollId));
   if (result == null) return null;
-  return showSafetyToast(messenger, result.outcome == ReportOutcome.reported ? _pollReportedMessage : result.message);
+  return showSafetyToast(
+    messenger,
+    result.outcome == ReportOutcome.reported ? _pollReportedMessage : failureText(l10n, result.failure!),
+  );
 }
 
 /// 내 글 "…"(15d-1 `RCNu0`) → "삭제하기" → 확인(15d-2 `K64Q8p`) → 지우기(사용자 결정 2).

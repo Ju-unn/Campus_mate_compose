@@ -1,7 +1,7 @@
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/safety/view/safety_actions.dart';
-import 'package:campus_mate/safety/viewmodel/report_ui_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -15,7 +15,7 @@ void main() {
       home: Scaffold(
         body: Builder(
           builder: (context) => TextButton(
-            onPressed: () => showSafetyToast(ScaffoldMessenger.of(context), reportedMessage),
+            onPressed: () => showSafetyToast(ScaffoldMessenger.of(context), AppLocalizationsKo().safetyReported),
             child: const Text('띄우기'),
           ),
         ),
@@ -27,7 +27,7 @@ void main() {
     final toast = find.byType(AppToast);
     expect(toast, findsOneWidget);
     expect(tester.getSize(toast), const Size(288, 60));
-    expect(tester.getSize(find.text(reportedMessage)), const Size(232, 40));
+    expect(tester.getSize(find.text(AppLocalizationsKo().safetyReported)), const Size(232, 40));
     expect(find.descendant(of: toast, matching: find.byIcon(AppIcons.circleCheck)), findsOneWidget);
   });
 

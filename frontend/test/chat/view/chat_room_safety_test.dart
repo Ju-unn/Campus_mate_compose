@@ -9,9 +9,9 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/safety/model/repository/safety_repository_provider.dart';
 import 'package:campus_mate/safety/view/report_sheet.dart';
-import 'package:campus_mate/safety/viewmodel/report_ui_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -95,7 +95,7 @@ void main() {
 
       expect(safety.reports.single.target, {'target_type': 'profile', 'target_id': partnerId});
       expect(find.text('대화 목록'), findsOneWidget);
-      expect(find.text(reportedMessage), findsOneWidget);
+      expect(find.text(AppLocalizationsKo().safetyReported), findsOneWidget);
       expect(chat.conversationsFetchCount, greaterThan(fetchesBefore));
     });
 

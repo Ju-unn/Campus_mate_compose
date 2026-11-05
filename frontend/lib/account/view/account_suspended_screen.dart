@@ -4,6 +4,7 @@ import 'package:campus_mate/account/view/withdraw_sheets.dart';
 import 'package:campus_mate/common/support_email.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -33,7 +34,7 @@ class AccountSuspendedScreen extends ConsumerWidget {
               // 글자를 키운 기기에서는 위쪽이 길어진다 — 로그아웃은 바닥에 두고 위만 스크롤한다.
               const Expanded(child: SingleChildScrollView(child: _SuspendedMessage())),
               const SizedBox(height: _gap),
-              AppButton(label: '로그아웃', onPressed: () => unawaited(ref.read(signOutProvider)())),
+              AppButton(label: context.l10n.commonLogout, onPressed: () => unawaited(ref.read(signOutProvider)())),
               const SizedBox(height: _gap),
               // pen `r3KNbz` 312×44, 모서리 14, 14/700 muted, 밑줄 없음.
               TextButton(
@@ -45,7 +46,10 @@ class AccountSuspendedScreen extends ConsumerWidget {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.button)),
                   foregroundColor: AppColors.muted,
                 ),
-                child: Text('탈퇴하기', style: AppTypography.labelSmall.copyWith(color: AppColors.muted, fontWeight: FontWeight.w700)),
+                child: Text(
+                  context.l10n.accountSuspendedWithdraw,
+                  style: AppTypography.labelSmall.copyWith(color: AppColors.muted, fontWeight: FontWeight.w700),
+                ),
               ),
             ],
           ),
@@ -73,14 +77,14 @@ class _SuspendedMessage extends StatelessWidget {
         ),
         const SizedBox(height: _gap),
         Text(
-          '이용이 제한된 계정이에요',
+          context.l10n.accountSuspendedTitle,
           textAlign: TextAlign.center,
           // pen 20/700, 줄높이 속성 없음 · 렌더 29.
           style: AppTypography.navTitle.copyWith(color: AppColors.ink, height: 29 / 20),
         ),
         const SizedBox(height: _gap),
         Text(
-          '누적된 신고 내용을 검토한 결과, 이용이 제한되었어요. 부적절한 이용이 반복되면 계정이 삭제될 수 있어요.',
+          context.l10n.accountSuspendedBody,
           textAlign: TextAlign.center,
           // pen 16/normal/1.5.
           style: AppTypography.body.copyWith(color: AppColors.muted, height: 1.5),
@@ -110,14 +114,14 @@ class _SupportCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '제한 내용이 궁금하거나 잘못된 것 같다면 아래 메일로 알려 주세요.',
+            context.l10n.accountSuspendedSupportIntro,
             style: AppTypography.bodySmall.copyWith(color: AppColors.ink),
           ),
           const SizedBox(height: AppSpacing.xs),
           const _SupportEmailRow(),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            '가입한 학교 메일 주소를 함께 적어 주시면 더 빨리 확인할 수 있어요.',
+            context.l10n.accountSuspendedSupportHint,
             style: AppTypography.caption.copyWith(color: AppColors.muted),
           ),
         ],
@@ -136,7 +140,7 @@ class _SupportEmailRow extends StatelessWidget {
       children: [
         const Icon(AppIcons.mail, size: 20, color: AppColors.body),
         const SizedBox(width: AppSpacing.xs),
-        Text('문의 메일', style: AppTypography.body.copyWith(color: AppColors.ink, height: 22 / 16)),
+        Text(context.l10n.accountSuspendedSupportMail, style: AppTypography.body.copyWith(color: AppColors.ink, height: 22 / 16)),
         const SizedBox(width: AppSpacing.xs),
         // 좁은 기기 · 큰 글자에서 주소가 넘치지 않게 남은 폭 안에서 줄을 바꾼다.
         Flexible(

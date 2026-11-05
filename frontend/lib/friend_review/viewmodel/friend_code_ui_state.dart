@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/friend_review/model/data/friend_review.dart';
 import 'package:campus_mate/referral/viewmodel/referral_code_ui_state.dart';
 
@@ -15,7 +16,7 @@ enum FriendCodePhase {
   /// 20f-4 `Mi3ux` 429.
   tryLater,
 
-  /// 그 밖의 실패. 문구는 [FriendCodeUiState.failureMessage].
+  /// 그 밖의 실패. 종류는 [FriendCodeUiState.failure].
   failed,
 
   /// 20f-3 `Q3xfwm` 확인 성공.
@@ -27,7 +28,7 @@ enum FriendCodePhase {
 
 /// 20f 친구 코드로 리뷰 쓰기 화면 하나의 상태.
 class FriendCodeUiState {
-  const FriendCodeUiState({this.code = '', this.phase = FriendCodePhase.input, this.friend, this.failureMessage});
+  const FriendCodeUiState({this.code = '', this.phase = FriendCodePhase.input, this.friend, this.failure});
 
   /// 입력칸 글자 — 포매터가 대문자 · 영숫자만 남겼다.
   final String code;
@@ -36,8 +37,8 @@ class FriendCodeUiState {
   /// [FriendCodePhase.found] · [FriendCodePhase.alreadyReviewed] 일 때만 있다.
   final FriendCodeMatch? friend;
 
-  /// [FriendCodePhase.failed] 문구.
-  final String? failureMessage;
+  /// [FriendCodePhase.failed] 실패 종류. 글자는 화면이 만든다.
+  final Failure? failure;
 
   /// "확인" 을 누를 수 있나 — 코드가 6자일 때만(20 화면과 같다). 20f-4 는 코드를 고치기 전까지 꺼 둔다(pen Mi3ux 버튼 #E5E5E5).
   bool get canCheck =>

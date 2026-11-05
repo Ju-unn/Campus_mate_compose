@@ -28,8 +28,8 @@ class PartnerProfileViewModel extends Notifier<PartnerProfileUiState> {
     state = result.when(
       onSuccess: (profile) => PartnerProfileUiState(isLoading: false, profile: profile),
       onFailure: (failure) => isProfileGone(failure)
-          ? PartnerProfileUiState(isLoading: false, isGone: true, errorMessage: failure.toDisplayMessage())
-          : PartnerProfileUiState(isLoading: false, errorMessage: failure.toDisplayMessage()),
+          ? PartnerProfileUiState(isLoading: false, isGone: true, error: failure)
+          : PartnerProfileUiState(isLoading: false, error: failure),
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/friend_review/model/data/friend_review_errors.dart';
 import 'package:campus_mate/friend_review/model/repository/friend_review_repository_provider.dart';
 import 'package:campus_mate/friend_review/viewmodel/friend_review_list_ui_state.dart';
@@ -21,7 +22,7 @@ class FriendReviewListViewModel extends Notifier<FriendReviewListUiState> {
   final ({FriendReviewListSource source, String? profileId}) _args;
 
   /// 지우는 중인 리뷰 → 그 요청. 같은 리뷰를 또 지우라고 하면 새로 보내지 않고 이것을 돌려준다.
-  final Map<String, Future<String?>> _deleting = {};
+  final Map<String, Future<Failure?>> _deleting = {};
 
   /// 지운 리뷰. 지우기 전에 나간 읽기가 늦게 오면 옛 목록에 섞여 있다 — 되살리지 않는다(재검토 권고 1).
   final Set<String> _removed = {};
@@ -49,7 +50,7 @@ class FriendReviewListViewModel extends Notifier<FriendReviewListUiState> {
       // 다시 읽다 실패하면 보던 목록을 그대로 둔다 — 멀쩡한 목록을 오류 화면으로 바꾸지 않는다.
       onFailure: (failure) => state.reviews.isNotEmpty
           ? state
-          : FriendReviewListUiState(isLoading: false, errorMessage: failure.toDisplayMessage()),
+          : FriendReviewListUiState(isLoading: false, error: failure),
     );
   }
 
@@ -58,15 +59,15 @@ class FriendReviewListViewModel extends Notifier<FriendReviewListUiState> {
     if (!state.isLoading) await _load();
   }
 
-  /// 20e 내가 쓴 리뷰 지우기. 성공이면 목록에서 빼고 null, 실패면 보여 줄 문구(카드는 그대로).
-  /// 404(그새 없어짐)는 문구를 돌려주되 목록에서도 뺀다.
-  Future<String?> delete(String reviewId) =>
+  /// 20e 내가 쓴 리뷰 지우기. 성공이면 목록에서 빼고 null, 실패면 그 실패 종류(카드는 그대로).
+  /// 404(그새 없어짐)는 그 실패를 돌려주되 목록에서도 뺀다.
+  Future<Failure?> delete(String reviewId) =>
       // 콜백이 remove 의 반환값(바로 이 Future)을 돌려주면 whenComplete 가 자기를 기다려 멈춘다 — 블록으로 버린다.
       _deleting[reviewId] ??= _delete(reviewId).whenComplete(() {
         _deleting.remove(reviewId);
       });
 
-  Future<String?> _delete(String reviewId) async {
+  Future<Failure?> _delete(String reviewId) async {
     final result = await ref.read(friendReviewRepositoryProvider).delete(reviewId);
     final failure = result.when(onSuccess: (_) => null, onFailure: (failure) => failure);
     if ((failure == null || isReviewGone(failure)) && ref.mounted) {
@@ -76,6 +77,6 @@ class FriendReviewListViewModel extends Notifier<FriendReviewListUiState> {
         reviews: [for (final review in state.reviews) if (review.id != reviewId) review],
       );
     }
-    return failure?.toDisplayMessage();
+    return failure;
   }
 }

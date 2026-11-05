@@ -9,6 +9,7 @@ import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/friend_review/model/data/friend_review.dart';
 import 'package:campus_mate/friend_review/view/friend_review_card.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -140,7 +141,7 @@ void main() {
     final name = tester.getRect(find.text('달빛'));
     expect(name.left - initial.right, 10);
     expect(name.height, 24);
-    final relation = tester.getRect(find.text(friendReviewRelationLabel));
+    final relation = tester.getRect(find.text(AppLocalizationsKo().friendReviewRelation));
     expect(relation.top - name.bottom, 1);
     expect(relation.height, 19);
     // 이름 칸 44 는 머리 줄 48 가운데.
@@ -187,7 +188,7 @@ void main() {
     expect((styleOf('달').color, styleOf('달').fontSize, styleOf('달').fontWeight),
         (AppColors.primaryText, 14, FontWeight.w700));
     expect((styleOf('달빛').color, styleOf('달빛').fontSize, styleOf('달빛').fontWeight), (AppColors.ink, 16, FontWeight.w600));
-    final relation = styleOf(friendReviewRelationLabel);
+    final relation = styleOf(AppLocalizationsKo().friendReviewRelation);
     expect((relation.color, relation.fontSize, relation.fontWeight), (AppColors.muted, 12, FontWeight.w400));
     final tag = styleOf('약속을 잘 지켜요');
     expect((tag.color, tag.fontSize, tag.fontWeight), (AppColors.primaryText, 12, FontWeight.w600));
@@ -196,7 +197,7 @@ void main() {
   });
 
   test('관계 문구는 고정 "친구"(pen iFxLX — DB · API 에 관계 칸이 없고 친구 코드로도 쓴다)', () {
-    expect(friendReviewRelationLabel, '친구');
+    expect(AppLocalizationsKo().friendReviewRelation, '친구');
   });
 
   testWidgets('학교가 없으면 배지 없이 이니셜이 맨 앞이다', (tester) async {

@@ -1,3 +1,5 @@
+import 'package:campus_mate/common/failure.dart';
+
 /// 20b 작성 시트 하나의 상태.
 class FriendReviewComposeUiState {
   const FriendReviewComposeUiState({
@@ -21,8 +23,8 @@ class FriendReviewComposeUiState {
   /// 열기 전 물음(`fetchTarget`)이 409 — 시트를 띄우지 않고 토스트로 안내할 근거(계획서 P3).
   final bool alreadyWritten;
 
-  /// [alreadyWritten] 이 아닌 다른 실패(네트워크 등) 문구.
-  final String? loadError;
+  /// [alreadyWritten] 이 아닌 다른 실패(네트워크 등). 글자는 화면이 만든다.
+  final Failure? loadError;
 
   /// 고른 순서 그대로 — submit 이 이 순서로 보낸다.
   final List<String> selected;
@@ -30,8 +32,8 @@ class FriendReviewComposeUiState {
   final bool isSubmitting;
   final bool submitted;
 
-  /// 보내기 실패 문구(409 포함, 전부 같은 방식으로 보여준다).
-  final String? submitError;
+  /// 보내기 실패(409 포함, 전부 같은 방식으로 보여준다). 글자는 화면이 만든다.
+  final Failure? submitError;
 
   /// 태그를 하나 이상 골랐고, 보내는 중이 아니고, 아직 끝나지 않았을 때.
   bool get canSubmit => selected.isNotEmpty && !isSubmitting && !submitted;
@@ -41,12 +43,12 @@ class FriendReviewComposeUiState {
     bool? isLoading,
     String? nickname,
     bool? alreadyWritten,
-    String? loadError,
+    Failure? loadError,
     List<String>? selected,
     String? comment,
     bool? isSubmitting,
     bool? submitted,
-    String? submitError,
+    Failure? submitError,
   }) {
     return FriendReviewComposeUiState(
       isLoading: isLoading ?? this.isLoading,

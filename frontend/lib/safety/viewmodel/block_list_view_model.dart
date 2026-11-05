@@ -20,8 +20,7 @@ class BlockListViewModel extends Notifier<BlockListUiState> {
     if (!ref.mounted) return;
     state = result.when(
       onSuccess: (blocks) => state.copyWith(isLoading: false, blocks: blocks),
-      onFailure: (failure) =>
-          state.copyWith(isLoading: false, errorMessage: failure.toDisplayMessage()),
+      onFailure: (failure) => state.copyWith(isLoading: false, error: failure),
     );
   }
 
@@ -35,7 +34,7 @@ class BlockListViewModel extends Notifier<BlockListUiState> {
       onSuccess: (_) => state.copyWith(
         blocks: state.blocks.where((user) => user.profileId != profileId).toList(),
       ),
-      onFailure: (failure) => state.copyWith(errorMessage: failure.toDisplayMessage()),
+      onFailure: (failure) => state.copyWith(error: failure),
     );
   }
 }

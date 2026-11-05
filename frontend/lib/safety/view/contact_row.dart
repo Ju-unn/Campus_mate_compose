@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/widgets/app_checkbox.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -146,7 +147,7 @@ class _RemoveButton extends StatelessWidget {
     return IconButton(
       onPressed: onPressed,
       // 읽어 주기용 이름. pen 에 없는 글자라 화면에는 보이지 않게 단다 — 3D 그림은 낭독기에서 빠진다.
-      icon: Semantics(label: '차단 해제', child: const Icon3d(AppIcon3d.trash, size: 24)),
+      icon: Semantics(label: context.l10n.safetyContactRowUnblockLabel, child: const Icon3d(AppIcon3d.trash, size: 24)),
       alignment: Alignment.centerRight,
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints.tightFor(width: 48, height: 48),

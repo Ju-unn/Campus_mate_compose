@@ -10,6 +10,7 @@ from urllib.parse import urlsplit
 from e2e import area1, area2, area2_phone3, area4, area4_extra, tools, twodev
 from e2e.test_area1_phone import APP_PASS, FakePhone
 from e2e.test_area2 import Base, Fake
+from e2e.test_area2_two_accept import label_backed
 from e2e.tools import Blocked, Reply
 
 THREE_NOT_CODED = ['E-HEART-06', 'E-HEART-47', 'E-SET-55']  # 50 · 56 · 57 은 뒤에 area4_terms · area4_set56 이 등록했다
@@ -277,7 +278,7 @@ class DartContractTest(unittest.TestCase):
         shown = (tools.ROOT / 'frontend' / 'lib' / 'safety' / 'view' / 'block_list_screen.dart').read_text(encoding='utf-8')
         said = (tools.ROOT / 'frontend' / 'integration_test' / 'area4.dart').read_text(encoding='utf-8')
         text = '이 상대가 다시 카드에 나타날 수 있어요. 사라진 대화는 돌아오지 않아요.'
-        self.assertIn(text, shown)
+        self.assertTrue(label_backed(text, [shown], tools.arb_messages()))  # 화면 문구는 문구 파일(ARB)에 있다(1.0.2 B8)
         self.assertIn(f"_unblockDescription = '{text}'", said)
 
     def test_set_67_b_asks_the_server_about_its_own_session_right_after_a_logs_out_and_after_the_hold(self):

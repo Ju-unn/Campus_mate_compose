@@ -1,6 +1,7 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -160,7 +161,7 @@ class _Notice extends StatelessWidget {
         // pen 옛 문구("암호화해서 비교에만 · 연락처 목록은 저장하지 않아요")는 사실과 달라 — 기기엔 이름 · 가린 번호가 남는다 —
         // 코드 사실 문장으로 바꿨다(2026-10-14, pen 후속).
         child: Text(
-          '$contactServerNotice $contactNotSentNotice $contactDeviceNotice',
+          context.l10n.contactAllNotices,
           style: AppTypography.bodySmall.copyWith(height: 1.5, color: AppColors.body),
         ),
       ),

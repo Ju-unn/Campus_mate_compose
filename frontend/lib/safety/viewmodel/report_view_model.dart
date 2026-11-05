@@ -36,7 +36,6 @@ class ReportViewModel extends Notifier<ReportUiState> {
       onSuccess: (_) => state.copyWith(
         isSubmitting: false,
         outcome: ReportOutcome.reported,
-        closingMessage: reportedMessage,
       ),
       onFailure: _failed,
     );
@@ -44,9 +43,9 @@ class ReportViewModel extends Notifier<ReportUiState> {
 
   ReportUiState _failed(Failure failure) {
     final outcome = _closingOutcomeOf(failure);
-    final message = reportFailureMessage(failure);
-    if (outcome == null) return state.copyWith(isSubmitting: false, errorMessage: message);
-    return state.copyWith(isSubmitting: false, outcome: outcome, closingMessage: message);
+    final shown = reportFailure(failure);
+    if (outcome == null) return state.copyWith(isSubmitting: false, error: shown);
+    return state.copyWith(isSubmitting: false, outcome: outcome, closingFailure: shown);
   }
 
   /// 다시 보내도 답이 같은 실패들. 나머지(네트워크 · 5xx 등)는 null — 시트를 열어 둔다.

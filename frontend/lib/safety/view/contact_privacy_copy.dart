@@ -1,5 +1,8 @@
+import 'package:campus_mate/l10n/app_localizations.dart';
+
 // 지인 차단 개인정보 안내 문장 — 8a(`contact_permission_sheets.dart`) · 8d(`contact_picker_screen.dart`) ·
-// 06-4(`onboarding_contact_block_screen.dart`)가 함께 쓴다. iOS `NSContactsUsageDescription`(Info.plist)도 같은 문장이다.
+// 06-4(`onboarding_contact_block_screen.dart`)가 함께 쓴다. 문장은 문구 파일(ARB)의 safetyContact…Notice 세 개다.
+// iOS `NSContactsUsageDescription`(Info.plist)도 같은 문장이다.
 //
 // 코드 사실에 맞춘다(2026-10-14 사용자 결정 "연락처 안내 문구 정정"):
 // - 서버로는 8d 에서 고른 사람의 번호만 간다(`contact_block_repository.dart` add). 이름 · 연락처 전체는 안 간다.
@@ -8,6 +11,14 @@
 // - 이 기기에는 고른 사람의 이름과 가린 번호(010-****-1234)만 남는다(`contact_name_store.dart`).
 // 사실이 바뀌면 이 문장과 Info.plist, 개인정보처리방침을 같이 고친다.
 
-const String contactServerNotice = '고른 분의 전화번호만 원래 번호로 되돌릴 수 없는 형태로 바꿔 서버에 저장해요.';
-const String contactNotSentNotice = '이름과 연락처 목록은 서버로 보내지 않아요.';
-const String contactDeviceNotice = '이 기기에는 고른 분의 이름과 가린 번호만 저장돼요.';
+/// 세 문장을 화면마다 다른 조합으로 이어 붙인다(사이는 공백 하나).
+extension ContactPrivacyCopy on AppLocalizations {
+  /// 8a 권한 안내: 서버 저장 + 목록은 안 보냄.
+  String get contactServerAndNotSent => '$safetyContactServerNotice $safetyContactNotSentNotice';
+
+  /// 8d 바닥 안내: 서버 저장 + 이 기기 저장.
+  String get contactServerAndDevice => '$safetyContactServerNotice $safetyContactDeviceNotice';
+
+  /// 06-4 소개: 셋 모두.
+  String get contactAllNotices => '$safetyContactServerNotice $safetyContactNotSentNotice $safetyContactDeviceNotice';
+}

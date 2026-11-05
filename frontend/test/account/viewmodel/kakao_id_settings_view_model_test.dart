@@ -59,7 +59,7 @@ void main() {
     await viewModel().load();
 
     expect(state().isLoading, isFalse);
-    expect(state().errorMessage, '네트워크 연결을 확인해 주세요');
+    expect(state().error, isA<NetworkFailure>());
   });
 
   test('save trims, submits and completes', () async {
@@ -89,7 +89,7 @@ void main() {
 
     await viewModel().save();
 
-    expect(state().errorMessage, '형식이 맞지 않아요');
+    expect(state().error, isA<ServerRejectedFailure>());
     expect(state().completed, isFalse);
     expect(state().canSubmit, isTrue);
   });
@@ -101,6 +101,6 @@ void main() {
 
     viewModel().change('other');
 
-    expect(state().errorMessage, isNull);
+    expect(state().error, isNull);
   });
 }

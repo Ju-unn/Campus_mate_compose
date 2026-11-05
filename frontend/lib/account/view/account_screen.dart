@@ -1,13 +1,17 @@
 import 'package:campus_mate/account/model/data/account_info.dart';
 import 'package:campus_mate/account/viewmodel/account_info_provider.dart';
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -17,9 +21,6 @@ import 'package:go_router/go_router.dart';
 class AccountScreen extends ConsumerWidget {
   const AccountScreen({super.key});
 
-  /// 안내문(pen `FLwiN`). 2026-10-17 학생증 제거로 실명을 받지 않아 문구를 바꿨다(설계 2장 4번 · 7장 조각 3, pen 수정 필요).
-  static const privacyNote = '출생연도는 운영 확인에만 쓰여요. 다른 사용자에게는 닉네임만 보여요.';
-
   /// 값이 아직 없을 때(pen 에 없는 상태, 대장 결정 2026-09-28).
   static const emptyValue = '—';
 
@@ -27,7 +28,7 @@ class AccountScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       // 설정 화면과 같은 방식(pen `dQNBh`).
-      appBar: AppBar(title: Text('계정', style: AppTypography.navTitle)),
+      appBar: AppBar(title: Text(context.l10n.accountScreenTitle, style: AppTypography.navTitle)),
       body: SafeArea(
         child: ref.watch(accountInfoProvider).when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -61,8 +62,8 @@ class _LoadError extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('잠시 뒤 다시 시도해 주세요', style: AppTypography.body.copyWith(color: AppColors.body)),
-          AppButton(label: '다시 시도', variant: AppButtonVariant.text, onPressed: onRetry),
+          Text(context.appErrorText(AppError.accountLoad), style: AppTypography.body.copyWith(color: AppColors.body)),
+          AppButton(label: context.l10n.commonRetry, variant: AppButtonVariant.text, onPressed: onRetry),
         ],
       ),
     );
@@ -85,6 +86,7 @@ class _AccountContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     // 계획서는 `ListView` 를 쓰라 했지만(brief), 구역 5개뿐인 고정 목록이라
     // `SingleChildScrollView`+`Column` 으로 바꿨다 — `ListView` 는 느긋한 sliver 라
     // 테스트 화면(800x600, 배율 안 키움)에서 "가입 정보" 아래 줄이 아예 안 그려져
@@ -94,46 +96,55 @@ class _AccountContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const _SectionHeader('로그인 정보'),
+          _SectionHeader(l10n.accountSectionLogin),
           const SizedBox(height: AppSpacing.xs),
           _InfoCard(rows: [
             // 소셜 로그인 뒤라 이메일 대신 로그인 수단을 보인다. 모르면 줄 자체를 뺀다(빈 줄이 남지 않게).
-            if (_loginLabel(info.loginProvider) case final label?)
-              _InfoRow(icon: AppIcon3d.privacy, label: '로그인 수단', value: label),
+            if (_loginLabel(l10n, info.loginProvider) case final label?)
+              _InfoRow(icon: AppIcon3d.privacy, label: l10n.accountRowLoginMethod, value: label),
             // 학교 메일은 해시만 있어 주소를 보일 수 없다 — 학교 정보가 있을 때만 학교 이름과 인증 완료를 보인다.
             if (info.university.isNotEmpty)
-              _InfoRow(icon: AppIcon3d.mail, label: '학교 메일', value: '${info.university} · 학교 메일 인증 완료'),
-            _InfoRow(icon: AppIcon3d.badgeCheck, label: '학생 인증', value: '인증 완료', valueStyle: _verifiedStyle),
+              _InfoRow(
+                icon: AppIcon3d.mail,
+                label: l10n.accountRowSchoolMail,
+                value: l10n.accountSchoolMailVerified(university: info.university),
+              ),
+            _InfoRow(
+              icon: AppIcon3d.badgeCheck,
+              label: l10n.accountRowStudentVerification,
+              value: l10n.accountStudentVerified,
+              valueStyle: _verifiedStyle,
+            ),
           ]),
           const SizedBox(height: _sectionGap),
-          const _SectionHeader('본인 확인 정보'),
+          _SectionHeader(l10n.accountSectionIdentity),
           const SizedBox(height: AppSpacing.xs),
           _InfoCard(rows: [
             _InfoRow(
               icon: AppIcon3d.calendar,
-              label: '출생연도',
+              label: l10n.accountRowBirthYear,
               value: info.birthYear?.toString() ?? AccountScreen.emptyValue,
             ),
-            _InfoRow(icon: AppIcon3d.graduationCap, label: '학교', value: info.university, schoolLogo: true),
+            _InfoRow(icon: AppIcon3d.graduationCap, label: l10n.accountRowSchool, value: info.university, schoolLogo: true),
           ]),
           const SizedBox(height: _sectionGap),
           const _PrivacyNote(),
           const SizedBox(height: _sectionGap),
-          const _SectionHeader('연락처 공개 정보'),
+          _SectionHeader(l10n.accountSectionContact),
           const SizedBox(height: AppSpacing.xs),
           _InfoCard(rows: [
             _InfoRow(
               icon: AppIcon3d.chat,
-              label: '카카오톡 아이디',
+              label: l10n.commonKakaoId,
               value: info.kakaoId ?? AccountScreen.emptyValue,
               onTap: onKakaoIdTap,
             ),
           ]),
           const SizedBox(height: _sectionGap),
-          const _SectionHeader('가입 정보'),
+          _SectionHeader(l10n.accountSectionJoin),
           const SizedBox(height: AppSpacing.xs),
           _InfoCard(rows: [
-            _InfoRow(icon: AppIcon3d.calendarCheck, label: '가입일', value: _joinedAtLabel(info.joinedAt)),
+            _InfoRow(icon: AppIcon3d.calendarCheck, label: l10n.accountRowJoinedAt, value: _joinedAtLabel(info.joinedAt)),
           ]),
         ],
       ),
@@ -141,10 +152,10 @@ class _AccountContent extends StatelessWidget {
   }
 
   /// 로그인 수단 이름. 모르는 값(email 등)이면 null — 줄을 그리지 않는다.
-  static String? _loginLabel(String? provider) => switch (provider) {
-        'kakao' => '카카오 로그인',
-        'google' => 'Google 로그인',
-        'apple' => 'Apple 로그인',
+  static String? _loginLabel(AppLocalizations l10n, String? provider) => switch (provider) {
+        'kakao' => l10n.accountLoginKakao,
+        'google' => l10n.accountLoginGoogle,
+        'apple' => l10n.accountLoginApple,
         _ => null,
       };
 
@@ -283,7 +294,7 @@ class _PrivacyNote extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
-        AccountScreen.privacyNote,
+        context.l10n.accountPrivacyNote,
         style: AppTypography.bodySmall.copyWith(color: AppColors.body, height: 1.5),
       ),
     );

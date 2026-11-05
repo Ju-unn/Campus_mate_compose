@@ -1,5 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -34,7 +37,7 @@ class BlockListScreen extends ConsumerWidget {
         leading: Navigator.of(context).canPop()
             ? const Padding(padding: EdgeInsets.only(left: 8), child: BackButton(color: AppColors.ink))
             : null,
-        title: Text('차단 목록', style: AppTypography.navTitle),
+        title: Text(context.l10n.safetyBlockListTitle, style: AppTypography.navTitle),
       ),
       body: SafeArea(child: _body(context, ref, state)),
     );
@@ -45,9 +48,9 @@ class BlockListScreen extends ConsumerWidget {
       return const Center(child: CircularProgressIndicator());
     }
     // 읽기 실패는 줄이 하나도 없을 때뿐이다 — 줄이 있는데 문구가 있으면 해제 실패다.
-    if (state.blocks.isEmpty && state.errorMessage != null) {
+    if (state.blocks.isEmpty && state.error != null) {
       return _LoadError(
-        message: state.errorMessage!,
+        failure: state.error!,
         onRetry: () => ref.invalidate(blockListViewModelProvider),
       );
     }
@@ -58,7 +61,7 @@ class BlockListScreen extends ConsumerWidget {
       padding: _listPadding,
       children: [
         Text(
-          '차단하면 그 대화는 내 목록에서 사라져요.',
+          context.l10n.safetyBlockListIntro,
           // pen `z0QE44` 14 / 보통 / muted / 1.5.
           style: AppTypography.bodySmall.copyWith(color: AppColors.muted, height: 1.5),
         ),
@@ -68,11 +71,11 @@ class BlockListScreen extends ConsumerWidget {
           isBusy: state.unblockingProfileId != null,
           onUnblock: (user) => _confirmUnblock(context, ref, user),
         ),
-        if (state.errorMessage != null) ...[
+        if (state.error != null) ...[
           const SizedBox(height: AppSpacing.sm),
           // 해제 실패는 pen 에 없다 — 줄은 그대로 두고 카드 바로 아래 빨간 한 줄로 알린다(신고 시트 실패와 같은 모양).
           Text(
-            state.errorMessage!,
+            context.errorText(state.error!),
             textAlign: TextAlign.center,
             style: AppTypography.bodySmall.copyWith(color: AppColors.error),
           ),
@@ -91,9 +94,9 @@ class BlockListScreen extends ConsumerWidget {
     final confirmed = await showSafetyConfirmSheet(
       context,
       // pen `zzLKe` · `DVmVy` · `Tcqay` 문구 그대로.
-      title: '차단을 해제할까요?',
-      description: '이 상대가 다시 카드에 나타날 수 있어요. 사라진 대화는 돌아오지 않아요.',
-      confirmLabel: '해제',
+      title: context.l10n.safetyUnblockConfirmTitle,
+      description: context.l10n.safetyBlockListUnblockDescription,
+      confirmLabel: context.l10n.safetyUnblock,
     );
     if (confirmed) {
       await viewModel.unblock(user.profileId);
@@ -213,7 +216,7 @@ class _NameColumn extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            '${_dateLabel(user.blockedAt)} 차단',
+            context.l10n.safetyBlockListBlockedOn(date: _dateLabel(user.blockedAt)),
             // pen `jFnCW` 12 / 보통 / muted, 줄높이 속성 없음 · 렌더 17. 사유는 적지 않는다.
             style: AppTypography.caption.copyWith(color: AppColors.muted, height: 17 / 12),
           ),
@@ -254,7 +257,7 @@ class _UnblockButton extends StatelessWidget {
         // pen `P28TUK` 14/700, 줄높이 속성 없음 · 렌더 20.
         textStyle: AppTypography.labelSmall.copyWith(fontWeight: FontWeight.w700, height: 20 / 14),
       ),
-      child: const Text('해제'),
+      child: Text(context.l10n.safetyUnblock),
     );
   }
 }
@@ -272,7 +275,7 @@ class _ContactNotice extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
-        '연락처로 차단한 지인은 여기가 아니라 설정 > 연락처 차단에서 관리해요.',
+        context.l10n.safetyBlockListContactNotice,
         style: AppTypography.bodySmall.copyWith(color: AppColors.body, height: 1.5),
       ),
     );
@@ -301,14 +304,14 @@ class _Empty extends StatelessWidget {
                   // pen 간격 8 + 빈 사각형 8 + 간격 8.
                   const SizedBox(height: AppSpacing.lg),
                   Text(
-                    '아직 차단한 상대가 없어요',
+                    context.l10n.safetyBlockListEmptyTitle,
                     textAlign: TextAlign.center,
                     // pen `ZBzIg` 18/600, 줄높이 속성 없음 · 렌더 25.
                     style: AppTypography.subtitle.copyWith(color: AppColors.ink, height: 25 / 18),
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '신고하거나 차단한 상대가 있으면\n여기에 모여요.',
+                    context.l10n.safetyBlockListEmptyDescription,
                     textAlign: TextAlign.center,
                     // pen `DFs55` 14 / 보통 / muted / 1.55.
                     style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
@@ -325,9 +328,9 @@ class _Empty extends StatelessWidget {
 
 /// 읽기 실패. pen 에 없는 상태 — 14c 와 같은 회색 문구에 "다시 시도" 를 붙인다.
 class _LoadError extends StatelessWidget {
-  const _LoadError({required this.message, required this.onRetry});
+  const _LoadError({required this.failure, required this.onRetry});
 
-  final String message;
+  final Failure failure;
   final VoidCallback onRetry;
 
   @override
@@ -339,12 +342,12 @@ class _LoadError extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              message,
+              context.errorText(failure),
               textAlign: TextAlign.center,
               style: AppTypography.body.copyWith(color: AppColors.muted),
             ),
             const SizedBox(height: AppSpacing.sm),
-            AppButton(label: '다시 시도', variant: AppButtonVariant.text, onPressed: onRetry),
+            AppButton(label: context.l10n.commonRetry, variant: AppButtonVariant.text, onPressed: onRetry),
           ],
         ),
       ),

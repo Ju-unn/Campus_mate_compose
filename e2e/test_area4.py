@@ -11,6 +11,7 @@ from e2e import area1, area4, fake_private, notify, tools
 from e2e import area4_contacts  # noqa: F401 — 에뮬 묶음 area4-contacts 를 area1.BUNDLES 에 등록한다(단독 실행에서도 BundleTest 가 본다)
 from e2e.test_area1 import FakeServer, Base
 from e2e.test_area1_phone import APP_PASS, FakePhone
+from e2e.test_area2_two_accept import label_backed
 from e2e.tools import Blocked, Reply
 
 DEFAULTS = {'card_arrived': True, 'acceptance_received': True, 'match_made': True, 'new_message': True,
@@ -386,8 +387,10 @@ class AccountScreenContractTest(unittest.TestCase):
 
     def test_the_school_mail_and_login_method_copy_is_what_the_screen_draws(self):
         shown = (tools.ROOT / 'frontend' / 'lib' / 'account' / 'view' / 'account_screen.dart').read_text(encoding='utf-8')
-        self.assertIn("value: '${info.university} · 학교 메일 인증 완료'", shown)
-        self.assertIn("label: '로그인 수단'", shown)
+        # 화면 문구는 문구 파일(ARB)에 있다 — 그 글자의 키를 화면 파일이 읽어야 한다(1.0.2 B8).
+        messages = tools.arb_messages()
+        self.assertTrue(label_backed('{university} · 학교 메일 인증 완료', [shown], messages))
+        self.assertTrue(label_backed('로그인 수단', [shown], messages))
         self.assertNotIn("'email' =>", shown)  # email 방식(공장 계정)은 이름이 없어 로그인 수단 줄을 그리지 않는다
 
     def test_the_app_side_of_set_14_looks_for_the_absent_words(self):

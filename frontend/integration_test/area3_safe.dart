@@ -94,7 +94,7 @@ Future<Map<String, Object?>> _reportThrough(WidgetTester tester, Map<String, dyn
   } else {
     await _openReportSheet(tester, job);
   }
-  await tap(tester, find.text(reason.label));
+  await tap(tester, find.text(reason.label(AppLocalizationsKo())));
   final toast = await _submitReport(tester);
   return _afterSafety(tester, job['nickname'] as String, toast: toast);
 }
@@ -102,7 +102,7 @@ Future<Map<String, Object?>> _reportThrough(WidgetTester tester, Map<String, dyn
 /// E-SAFE-08 · 09 — "기타" 를 골라 메모 칸을 연다.
 Future<void> _pickOther(WidgetTester tester, Map<String, dynamic> job) async {
   await _openReportSheet(tester, job);
-  await tap(tester, find.text(ReportReason.other.label));
+  await tap(tester, find.text(ReportReason.other.label(AppLocalizationsKo())));
 }
 
 /// 방 메뉴 "차단하기" → 확인 시트("$nickname 님을 차단할까요?")까지.
@@ -155,7 +155,7 @@ Future<String?> _reportBubble(WidgetTester tester, String body, ReportReason rea
   await pumpUntil(tester, find.text(_bubbleMenuLabel));
   await tap(tester, find.text(_bubbleMenuLabel));
   await pumpUntil(tester, find.text(_reportTitle));
-  await tap(tester, find.text(reason.label));
+  await tap(tester, find.text(reason.label(AppLocalizationsKo())));
   return _submitReport(tester);
 }
 
@@ -285,12 +285,12 @@ final Map<String, Area1Case> area3CasesSafe = {
   'E-SAFE-01': _session((tester, job) async {
     await _openReportSheet(tester, job);
     // 사유 순서는 화면 위치(위 → 아래)로 읽는다 — enum 순서가 아니라 보이는 순서다.
-    final labels = [for (final reason in ReportReason.values) reason.label];
+    final labels = [for (final reason in ReportReason.values) reason.label(AppLocalizationsKo())];
     final tops = {for (final label in labels) label: tester.getTopLeft(find.text(label)).dy};
     final shown = (labels.toList()..sort((a, b) => tops[a]!.compareTo(tops[b]!)));
     final rows = find.byWidgetPredicate((w) => w is Semantics && w.properties.inMutuallyExclusiveGroup == true).evaluate().length;
     final before = _submitOn(tester);
-    await tap(tester, find.text(ReportReason.spam.label)); // 대조군: 하나 고르면 켜진다
+    await tap(tester, find.text(ReportReason.spam.label(AppLocalizationsKo()))); // 대조군: 하나 고르면 켜진다
     return {
       'title': _has(find.text(_reportTitle)) ? _reportTitle : null,
       'reasons': shown,
@@ -334,7 +334,7 @@ final Map<String, Area1Case> area3CasesSafe = {
     final input = _has(find.byType(ChatInputBar));
     await _roomMenu(tester, _reportAction);
     await pumpUntil(tester, find.text(_reportTitle));
-    await tap(tester, find.text(ReportReason.spam.label));
+    await tap(tester, find.text(ReportReason.spam.label(AppLocalizationsKo())));
     final toast = await _submitReport(tester);
     return {'gone_notice': true, 'input_bar': input, ...await _afterSafety(tester, nickname, toast: toast)};
   }),
@@ -342,7 +342,7 @@ final Map<String, Area1Case> area3CasesSafe = {
   'E-SAFE-08': _session((tester, job) async {
     await _openReportSheet(tester, job);
     final boxBefore = _has(find.byKey(reportNoteBoxKey)); // 사유를 고르기 전에는 메모 칸이 없다
-    await tap(tester, find.text(ReportReason.other.label));
+    await tap(tester, find.text(ReportReason.other.label(AppLocalizationsKo())));
     final box = _has(find.byKey(reportNoteBoxKey));
     final empty = _submitOn(tester);
     await type(tester, _noteField, '   ');
@@ -563,7 +563,7 @@ final Map<String, Area1Case> area3CasesSafe = {
   }),
   'E-SAFE-60': _session((tester, job) async {
     await _openReportSheet(tester, job);
-    await tap(tester, find.text(ReportReason.spam.label));
+    await tap(tester, find.text(ReportReason.spam.label(AppLocalizationsKo())));
     await step('cut'); // PC 가 망을 끊는다
     await tap(tester, _sheetSubmit);
     final error = await appears(tester, find.text(_offlineLine), const Duration(seconds: 25));

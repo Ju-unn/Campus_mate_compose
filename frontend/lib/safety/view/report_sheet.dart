@@ -1,19 +1,24 @@
 import 'package:campus_mate/chat/view/chat_input_bar.dart';
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/line_break_limit_formatter.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/safety/model/data/report_reason.dart';
 import 'package:campus_mate/safety/model/data/report_target.dart';
+import 'package:campus_mate/safety/view/report_reason_text.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:campus_mate/safety/viewmodel/report_ui_state.dart';
 import 'package:campus_mate/safety/viewmodel/report_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// 시트가 닫히며 돌려주는 결과. [message] 는 부른 쪽이 토스트(`showSafetyToast`)로 띄운다.
-typedef ReportSheetResult = ({ReportOutcome outcome, String message});
+/// 시트가 닫히며 돌려주는 결과. 부른 쪽이 토스트(`showSafetyToast`)로 띄운다 — 신고됨(`ReportOutcome.reported`)이면
+/// [failure] 가 null 이고 글자는 `safetyReported`, 아니면 [failure] 를 `failureText` 로 글자로 바꾼다.
+typedef ReportSheetResult = ({ReportOutcome outcome, Failure? failure});
 
 /// 기타 메모 상자. 테스트가 pen 크기(320×104)를 재는 데 쓴다.
 const Key reportNoteBoxKey = ValueKey('report-note-box');
@@ -53,21 +58,21 @@ class _ReportSheetState extends ConsumerState<ReportSheet> {
       if (outcome == null || previous?.outcome != null) {
         return;
       }
-      Navigator.of(context).pop((outcome: outcome, message: next.closingMessage ?? ''));
+      Navigator.of(context).pop((outcome: outcome, failure: next.closingFailure));
     });
     final isOther = state.selectedReason == ReportReason.other;
     return SafetySheet(
       children: [
         // pen `sGjsm` 18/700, 줄높이 속성 없음 · 렌더 26.
         Text(
-          '무엇을 신고할까요?',
+          context.l10n.safetyReportTitle,
           style: AppTypography.label.copyWith(color: AppColors.ink, height: 26 / 18),
         ),
         // pen 사유 영역 `QMdpZ` 세로 간격 4(제목 · 목록 · 입력칸 사이). 목록 `MY7UX` 은 행 48 × 5, 간격 0.
         const SizedBox(height: AppSpacing.xxs),
         for (final reason in ReportReason.values)
           _ReasonRow(
-            label: reason.label,
+            label: reason.label(context.l10n),
             isSelected: state.selectedReason == reason,
             onTap: () => viewModel.selectReason(reason),
           ),
@@ -75,11 +80,11 @@ class _ReportSheetState extends ConsumerState<ReportSheet> {
           const SizedBox(height: AppSpacing.xxs),
           _NoteBox(controller: _note, onChanged: viewModel.updateNote),
         ],
-        if (state.errorMessage != null) ...[
+        if (state.error != null) ...[
           // pen 에 실패 상태가 없다 — 버튼 위에 빨간 한 줄로 둔다.
           const SizedBox(height: AppSpacing.sm),
           Text(
-            state.errorMessage!,
+            context.errorText(state.error!),
             style: AppTypography.bodySmall.copyWith(color: AppColors.error),
           ),
         ],
@@ -87,11 +92,11 @@ class _ReportSheetState extends ConsumerState<ReportSheet> {
         // 입력칸이 없을 때(pen 에 없는 상태)도 사유 영역 끝에서 같은 36 이다.
         const SizedBox(height: 36),
         SafetySheetButton.primary(
-          label: '신고하기',
+          label: context.l10n.commonReport,
           onPressed: state.canSubmit ? () => viewModel.submit(widget.target) : null,
         ),
         const SizedBox(height: AppSpacing.md),
-        SafetySheetButton.neutral(label: '취소', onPressed: () => Navigator.of(context).pop()),
+        SafetySheetButton.neutral(label: context.l10n.commonCancel, onPressed: () => Navigator.of(context).pop()),
       ],
     );
   }
@@ -214,7 +219,7 @@ class _NoteBox extends StatelessWidget {
             ],
             style: AppTypography.bodySmall.copyWith(color: AppColors.ink, height: 1.5),
             decoration: InputDecoration.collapsed(
-              hintText: '어떤 점이 불편했는지 알려주세요.',
+              hintText: context.l10n.safetyReportNoteHint,
               // pen `YgXMi` 14 / normal / muted / 1.5.
               hintStyle: AppTypography.bodySmall.copyWith(color: AppColors.muted, height: 1.5),
             ),

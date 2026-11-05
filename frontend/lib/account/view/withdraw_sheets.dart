@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:campus_mate/account/viewmodel/withdraw_view_model.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -44,16 +46,16 @@ class WithdrawFirstSheet extends ConsumerWidget {
             Navigator.of(context).pop();
           },
         ),
-        Text('탈퇴하면 아래 내용이 삭제돼요', style: AppTypography.bodyStrong.copyWith(color: AppColors.ink, height: 1.5)),
+        Text(context.l10n.accountWithdrawDeleteHeading, style: AppTypography.bodyStrong.copyWith(color: AppColors.ink, height: 1.5)),
         const _DeletedItems(),
         Text(
-          '삭제한 내용은 되돌릴 수 없고, 재가입은 2개월 뒤에 가능해요.',
+          context.l10n.accountWithdrawIrreversible,
           style: AppTypography.labelSmall.copyWith(color: AppColors.error, height: 1.5),
         ),
         // pen: 경고 글 끝(y 460)과 버튼(y 522) 사이 62 = 간격 14 + 34 + 14.
         const SizedBox(height: 34),
         AppButton(
-          label: '영구 삭제',
+          label: context.l10n.accountWithdrawPermanentDelete,
           variant: AppButtonVariant.neutral, // pen 회색 `l1XDPi`(사용자 요청 2026-10-08 — 노드 `l44zcf` 와 같게)
           onPressed: () => Navigator.of(context).pop(true),
         ),
@@ -66,37 +68,36 @@ class WithdrawFirstSheet extends ConsumerWidget {
 /// 최종 시트(pen `s7M9MC`). "정말 영구 삭제" 한 번이 곧 탈퇴다.
 /// [WithdrawFinalSheet.suspended] 는 제목 · 경고만 다른 14f-1(pen `XHGTs`)이다 — 본문 · 버튼은 같은 위험 무게로 둔다(대장 10-03).
 class WithdrawFinalSheet extends ConsumerWidget {
-  const WithdrawFinalSheet({super.key})
-      : _title = '정말 삭제할까요?',
-        _warning = '재가입은 탈퇴 후 2개월이 지나야 가능해요.';
+  const WithdrawFinalSheet({super.key}) : _suspended = false;
 
   /// 정지 중 탈퇴는 재가입 제한이 무기한이다(서버 `withdraw_account`).
-  const WithdrawFinalSheet.suspended({super.key})
-      : _title = '정지 중에 탈퇴할까요?',
-        _warning = '정지 중에 탈퇴하면 다시 가입할 수 없어요';
+  const WithdrawFinalSheet.suspended({super.key}) : _suspended = true;
 
-  final String _title;
-  final String _warning;
+  final bool _suspended;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     final state = ref.watch(withdrawViewModelProvider);
+    final error = state.error;
     return _WithdrawSheetFrame(
       gap: AppSpacing.md,
       children: [
-        Text(_title, style: AppTypography.headline.copyWith(color: AppColors.ink, height: 1.5)),
         Text(
-          '프로필, 매칭 기록, 대화, 남은 하트를 모두 영구적으로 삭제합니다. 이 작업은 취소할 수 없어요.',
+          _suspended ? l10n.accountWithdrawSuspendedTitle : l10n.accountWithdrawFinalTitle,
+          style: AppTypography.headline.copyWith(color: AppColors.ink, height: 1.5),
+        ),
+        Text(
+          l10n.accountWithdrawFinalBody,
           style: AppTypography.body.copyWith(color: AppColors.body, height: 1.5),
         ),
-        _RejoinWarning(_warning),
+        _RejoinWarning(_suspended ? l10n.accountWithdrawSuspendedWarning : l10n.accountWithdrawFinalWarning),
         // pen 에 없는 상태 — 탈퇴하지 못했을 때만 한 줄.
-        if (state.errorMessage != null)
-          Text(state.errorMessage!, style: AppTypography.caption.copyWith(color: AppColors.error)),
+        if (error != null) Text(context.errorText(error), style: AppTypography.caption.copyWith(color: AppColors.error)),
         // pen: 배지 끝(y 201)과 버튼(y 286) 사이 85 = 간격 16 + 53 + 16.
         const SizedBox(height: 53),
         AppButton(
-          label: '정말 영구 삭제',
+          label: l10n.accountWithdrawFinalConfirm,
           variant: AppButtonVariant.neutral, // pen 회색 `FbrhB`
           onPressed: state.isSubmitting ? null : ref.read(withdrawViewModelProvider.notifier).withdraw,
         ),
@@ -160,9 +161,12 @@ class _FirstSheetHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('정말 떠나시나요?', style: AppTypography.headline.copyWith(color: AppColors.ink, height: 1.5)),
                 Text(
-                  '탈퇴보다 먼저 매칭을 잠시 쉬어볼 수 있어요.',
+                  context.l10n.accountWithdrawFirstTitle,
+                  style: AppTypography.headline.copyWith(color: AppColors.ink, height: 1.5),
+                ),
+                Text(
+                  context.l10n.accountWithdrawFirstSubtitle,
                   style: AppTypography.bodySmall.copyWith(color: AppColors.body, height: 1.5),
                 ),
               ],
@@ -194,9 +198,12 @@ class _PauseOffer extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('매칭만 잠시 멈추기', style: AppTypography.bodyStrong.copyWith(color: AppColors.ink, height: 1.5)),
                 Text(
-                  '프로필과 대화는 그대로 유지돼요.',
+                  context.l10n.accountWithdrawPauseTitle,
+                  style: AppTypography.bodyStrong.copyWith(color: AppColors.ink, height: 1.5),
+                ),
+                Text(
+                  context.l10n.accountWithdrawPauseNote,
                   style: AppTypography.caption.copyWith(color: AppColors.muted, height: 1.5),
                 ),
               ],
@@ -212,7 +219,10 @@ class _PauseOffer extends StatelessWidget {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
               foregroundColor: AppColors.primaryText,
             ),
-            child: Text('일시중지', style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText, height: 1.5)),
+            child: Text(
+              context.l10n.accountWithdrawPauseButton,
+              style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText, height: 1.5),
+            ),
           ),
         ],
       ),
@@ -227,19 +237,17 @@ class _DeletedItems extends StatelessWidget {
 
   /// pen 줄의 3D 아이콘 인스턴스 `PkqpC`(프로필) · `zxXQG`(하트) · `Lua1H`(대화).
   /// 남은 하트는 재화라 재화 글리프(DESIGN §8.10)를 쓴다 — 문구에 "하트"가 있어 글리프는 낭독하지 않는다.
-  static const _items = <(Widget, String)>[
-    (Icon3d(AppIcon3d.userRound, size: _iconSize), '프로필과 인증 정보'),
-    (Icon3d(AppIcon3d.heart, size: _iconSize), '신청·매칭 기록'),
-    (Icon3d(AppIcon3d.chat, size: _iconSize), '모든 대화 내용'),
-    (
-      Image(
-        image: AssetImage('assets/images/heart-flat-vector-v3.png'),
-        width: _iconSize,
-        height: _iconSize,
-        fit: BoxFit.contain,
-        excludeFromSemantics: true,
-      ),
-      '남은 하트도 사라져요',
+  /// 글자는 [build] 에서 위에서부터 같은 순서로 붙인다.
+  static const _icons = <Widget>[
+    Icon3d(AppIcon3d.userRound, size: _iconSize),
+    Icon3d(AppIcon3d.heart, size: _iconSize),
+    Icon3d(AppIcon3d.chat, size: _iconSize),
+    Image(
+      image: AssetImage('assets/images/heart-flat-vector-v3.png'),
+      width: _iconSize,
+      height: _iconSize,
+      fit: BoxFit.contain,
+      excludeFromSemantics: true,
     ),
   ];
 
@@ -248,6 +256,13 @@ class _DeletedItems extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final labels = [
+      l10n.accountWithdrawItemProfile,
+      l10n.accountWithdrawItemRecords,
+      l10n.accountWithdrawItemChats,
+      l10n.accountWithdrawItemHearts,
+    ];
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: AppSpacing.xxs),
       decoration: BoxDecoration(
@@ -256,12 +271,12 @@ class _DeletedItems extends StatelessWidget {
       ),
       child: Column(
         children: [
-          for (final (icon, label) in _items)
+          for (final (index, label) in labels.indexed)
             ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 44),
               child: Row(
                 children: [
-                  icon,
+                  _icons[index],
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(label, style: AppTypography.bodySmall.copyWith(color: AppColors.body, height: 1.5)),
@@ -326,7 +341,12 @@ class _CancelButton extends StatelessWidget {
           // 높이는 최소값만 건다 — 글자를 키우면 버튼이 따라 커진다.
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 48),
-            child: Center(child: Text('취소', style: AppTypography.bodyStrong.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w700))),
+            child: Center(
+              child: Text(
+                context.l10n.commonCancel,
+                style: AppTypography.bodyStrong.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w700),
+              ),
+            ),
           ),
         ),
       ),

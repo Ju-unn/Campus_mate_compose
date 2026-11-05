@@ -13,6 +13,7 @@ import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -86,7 +87,7 @@ void main() {
     expect(find.text('서울대학교'), findsOneWidget);
     expect(find.text('2026.09.01'), findsOneWidget); // pen nntyt
     expect(find.text('fox_rain'), findsOneWidget);
-    expect(find.text(AccountScreen.privacyNote), findsOneWidget);
+    expect(find.text(AppLocalizationsKo().accountPrivacyNote), findsOneWidget);
   });
 
   // 10-17 학생증 제거(설계 2장 4번 확정): 실명은 받지 않는다 — 계정 화면에 실명 줄이 없고 안내문도 학생증 대조를 말하지 않는다.
@@ -152,8 +153,8 @@ void main() {
 
     double top(String text) => tester.getTopLeft(find.text(text)).dy;
     expect(top('로그인 정보'), lessThan(top('본인 확인 정보')));
-    expect(top('학교'), lessThan(top(AccountScreen.privacyNote)));
-    expect(top(AccountScreen.privacyNote), lessThan(top('연락처 공개 정보')));
+    expect(top('학교'), lessThan(top(AppLocalizationsKo().accountPrivacyNote)));
+    expect(top(AppLocalizationsKo().accountPrivacyNote), lessThan(top('연락처 공개 정보')));
     expect(top('연락처 공개 정보'), lessThan(top('가입 정보')));
   });
 
@@ -197,13 +198,13 @@ void main() {
     }
     expect(tester.getTopLeft(find.text('로그인 정보')).dy, 56 + 12); // 앱바 56 + 목록 위 12
     expect(tester.getTopLeft(find.text('본인 확인 정보')).dy - login.bottom, 20); // 구역 사이 20
-    final notice = tester.getRect(find.ancestor(of: find.text(AccountScreen.privacyNote), matching: find.byType(Container)).first);
+    final notice = tester.getRect(find.ancestor(of: find.text(AppLocalizationsKo().accountPrivacyNote), matching: find.byType(Container)).first);
     expect(notice.top - identity.bottom, 20); // 안내 `o1G2A` 가 본인 확인 카드 아래 20
     expect(notice.width, 328);
     // pen o1G2A 328×72 = 14 + 글 2줄 44 + 14. 10-17 새 안내문은 시험 글꼴(Ahem)로도 2줄이라 위아래 여백 14 + 글 높이로 본다
     // (Ahem 줄높이는 21 이라 70 — 실제 글꼴 21.7 × 2 면 pen 72 에 맞다).
-    expect(notice.height, tester.getSize(find.text(AccountScreen.privacyNote)).height + 14 + 14);
-    expect(tester.getTopLeft(find.text(AccountScreen.privacyNote)).dy - notice.top, 14);
+    expect(notice.height, tester.getSize(find.text(AppLocalizationsKo().accountPrivacyNote)).height + 14 + 14);
+    expect(tester.getTopLeft(find.text(AppLocalizationsKo().accountPrivacyNote)).dy - notice.top, 14);
     expect(tester.getTopLeft(find.text('연락처 공개 정보')).dy - notice.bottom, 20);
     expect(tester.getTopLeft(find.text('가입 정보')).dy - contact.bottom, 20);
   });

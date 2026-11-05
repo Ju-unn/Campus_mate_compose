@@ -1,11 +1,13 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/friend_review/model/data/friend_review.dart';
-import 'package:campus_mate/friend_review/model/data/friend_review_errors.dart';
 import 'package:campus_mate/friend_review/view/friend_review_compose_sheet.dart';
 import 'package:campus_mate/friend_review/view/written_reviews_screen.dart';
 import 'package:campus_mate/friend_review/viewmodel/friend_code_ui_state.dart';
@@ -17,16 +19,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// 화면 문구 — pen 20f eShpy · a6jyqI · Q3xfwm · uovMC · Mi3ux.
-const _title = '친구 코드로 리뷰 쓰기'; // pen KXDke
-const _guide = '친구에게 받은 추천 코드를 입력하면\n그 친구에게 리뷰를 남길 수 있어요'; // pen EuSqG
-const _fieldLabel = '친구 추천 코드'; // pen kZSO7/VCwQo
-const _fieldHint = '예: K7M2QX'; // pen kZSO7/p3T9Jb
-const _checkLabel = '확인'; // pen qDvfE/ifX9K
-const _writeLabel = '리뷰 쓰기'; // pen N6ZsI/ifX9K
-// 서버 404 "코드를 찾을 수 없어요" 에 할 일을 붙인 pen 문구(BIJ3a/XATaU).
-const _notFoundMessage = '코드를 찾을 수 없어요. 다시 확인해 주세요.';
-const _alreadyReviewedMessage = '이미 리뷰를 남긴 친구예요'; // pen m9xLE/XATaU
+// 화면 문구는 문구 파일(ARB)에 있다 — pen 20f eShpy · a6jyqI · Q3xfwm · uovMC · Mi3ux.
+// 제목 KXDke · 안내 EuSqG · 칸 이름 kZSO7/VCwQo · 힌트 kZSO7/p3T9Jb · 버튼 qDvfE/ifX9K · N6ZsI/ifX9K ·
+// 404 문구는 서버 "코드를 찾을 수 없어요" 에 할 일을 붙인 pen 문구(BIJ3a/XATaU) · 이미 쓴 친구 m9xLE/XATaU.
 
 // 토큰에 없는 pen 값.
 const double _boxHeight = 52; // pen TDM1r — 최소값(글자를 키우면 늘어난다, DESIGN §11.2)
@@ -69,7 +64,7 @@ class FriendCodeScreen extends ConsumerWidget {
         title: FittedBox(
           fit: BoxFit.scaleDown,
           alignment: Alignment.centerLeft,
-          child: Text(_title, style: AppTypography.navTitle.copyWith(color: AppColors.ink)),
+          child: Text(context.l10n.friendReviewCodeTitle, style: AppTypography.navTitle.copyWith(color: AppColors.ink)),
         ),
       ),
       body: SafeArea(
@@ -86,7 +81,7 @@ class FriendCodeScreen extends ConsumerWidget {
                     children: [
                       const SizedBox(height: AppSpacing.xl), // pen dZSaU
                       // pen EuSqG 16/400 #3F3F3F lh1.6.
-                      Text(_guide, style: AppTypography.body.copyWith(color: AppColors.body)),
+                      Text(context.l10n.friendReviewCodeGuide, style: AppTypography.body.copyWith(color: AppColors.body)),
                       const SizedBox(height: AppSpacing.xl), // pen YwNgx
                       _CodeField(state: state, onChanged: viewModel.changeCode, onDone: viewModel.check),
                       if (friend != null) ...[
@@ -111,10 +106,10 @@ class FriendCodeScreen extends ConsumerWidget {
   static Widget _bottomButton(BuildContext context, WidgetRef ref, FriendCodeUiState state) {
     final friend = state.friend;
     if (friend != null) {
-      return AppButton(label: _writeLabel, onPressed: state.canWrite ? () => _write(context, ref, friend) : null);
+      return AppButton(label: context.l10n.friendReviewWrite, onPressed: state.canWrite ? () => _write(context, ref, friend) : null);
     }
     return AppButton(
-      label: _checkLabel,
+      label: context.l10n.commonConfirm,
       isLoading: state.phase == FriendCodePhase.checking,
       onPressed: state.canCheck ? ref.read(friendCodeViewModelProvider.notifier).check : null,
     );
@@ -146,11 +141,11 @@ class _CodeField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final note = _note(state);
+    final note = _note(context, state);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(_fieldLabel, style: AppTypography.labelSmall.copyWith(color: AppColors.body, height: _labelLineHeight)),
+        Text(context.l10n.friendReviewCodeFieldLabel, style: AppTypography.labelSmall.copyWith(color: AppColors.body, height: _labelLineHeight)),
         const SizedBox(height: AppSpacing.xs),
         TextField(
           onChanged: onChanged,
@@ -162,7 +157,7 @@ class _CodeField extends StatelessWidget {
           inputFormatters: const [_FriendCodeFormatter()],
           style: AppTypography.body.copyWith(color: AppColors.ink, height: _valueLineHeight),
           decoration: InputDecoration(
-            hintText: _fieldHint,
+            hintText: context.l10n.friendReviewCodeFieldHint,
             hintStyle: AppTypography.body.copyWith(color: AppColors.muted, height: _valueLineHeight),
             filled: true,
             fillColor: AppColors.surfaceSoft,
@@ -183,12 +178,19 @@ class _CodeField extends StatelessWidget {
   bool get _hasError => state.phase == FriendCodePhase.notFound;
 
   /// 칸 아래 한 줄(pen ErrorRow `a1eaV`). 실패(pen 에 없음)는 20f-2 아이콘에 서버 문구, 테두리는 기본이다.
-  static _CodeNote? _note(FriendCodeUiState state) => switch (state.phase) {
-        FriendCodePhase.notFound => const _CodeNote(AppIcons.circleAlert, AppColors.error, _notFoundMessage),
+  static _CodeNote? _note(BuildContext context, FriendCodeUiState state) => switch (state.phase) {
+        FriendCodePhase.notFound =>
+          _CodeNote(AppIcons.circleAlert, AppColors.error, context.appErrorText(AppError.friendCodeNotFound)),
         // pen Mi3ux/DOBgd Lucide "clock".
-        FriendCodePhase.tryLater => const _CodeNote(AppIcons.clock, AppColors.error, friendCodeTryLaterMessage),
-        FriendCodePhase.alreadyReviewed => const _CodeNote(AppIcons.info, AppColors.muted, _alreadyReviewedMessage),
-        FriendCodePhase.failed => _CodeNote(AppIcons.circleAlert, AppColors.error, state.failureMessage ?? ''),
+        FriendCodePhase.tryLater =>
+          _CodeNote(AppIcons.clock, AppColors.error, context.appErrorText(AppError.friendCodeTryLater)),
+        FriendCodePhase.alreadyReviewed =>
+          _CodeNote(AppIcons.info, AppColors.muted, context.l10n.friendReviewCodeAlreadyReviewed),
+        FriendCodePhase.failed => _CodeNote(
+            AppIcons.circleAlert,
+            AppColors.error,
+            state.failure == null ? '' : context.errorText(state.failure!),
+          ),
         _ => null,
       };
 

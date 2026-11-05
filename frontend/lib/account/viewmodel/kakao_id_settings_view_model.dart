@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:campus_mate/account/model/repository/account_repository.dart';
 import 'package:campus_mate/account/viewmodel/kakao_id_settings_ui_state.dart';
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/profile/onboarding/model/repository/kakao_id_repository_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -25,22 +26,22 @@ class KakaoIdSettingsViewModel extends Notifier<KakaoIdSettingsUiState> {
     if (!ref.mounted) return;
     state = result.when(
       onSuccess: (kakaoId) => _copyWith(isLoading: false, kakaoIdInput: kakaoId ?? ''),
-      onFailure: (failure) => _copyWith(isLoading: false, errorMessage: failure.toDisplayMessage()),
+      onFailure: (failure) => _copyWith(isLoading: false, error: failure),
     );
   }
 
   void change(String value) {
-    state = _copyWith(kakaoIdInput: value, errorMessage: null);
+    state = _copyWith(kakaoIdInput: value, error: null);
   }
 
   Future<void> save() async {
     if (!state.canSubmit) return;
-    state = _copyWith(isSubmitting: true, errorMessage: null);
+    state = _copyWith(isSubmitting: true, error: null);
     final result = await ref.read(kakaoIdRepositoryProvider).submit(state.kakaoIdInput.trim());
     if (!ref.mounted) return;
     state = result.when(
       onSuccess: (_) => _copyWith(isSubmitting: false, completed: true),
-      onFailure: (failure) => _copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage()),
+      onFailure: (failure) => _copyWith(isSubmitting: false, error: failure),
     );
   }
 
@@ -48,14 +49,14 @@ class KakaoIdSettingsViewModel extends Notifier<KakaoIdSettingsUiState> {
     String? kakaoIdInput,
     bool? isLoading,
     bool? isSubmitting,
-    Object? errorMessage = _keep,
+    Object? error = _keep,
     bool? completed,
   }) {
     return KakaoIdSettingsUiState(
       kakaoIdInput: kakaoIdInput ?? state.kakaoIdInput,
       isLoading: isLoading ?? state.isLoading,
       isSubmitting: isSubmitting ?? state.isSubmitting,
-      errorMessage: identical(errorMessage, _keep) ? state.errorMessage : errorMessage as String?,
+      error: identical(error, _keep) ? state.error : error as Failure?,
       completed: completed ?? state.completed,
     );
   }

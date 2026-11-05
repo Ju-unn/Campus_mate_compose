@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -9,10 +10,6 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/friend_review/model/data/friend_review.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-/// 카드 · 20b 머리의 관계 줄. DB · API 에 관계 칸이 없고 추천 · 친구 코드는 학교를 따지지 않는다 —
-/// pen 의 "같은 학교 친구" 등은 예시라 고정 문구 하나로 둔다(대장 Q3, 2026-09-29). 문구는 pen iFxLX "친구"(친구 코드로 쓰기, 10-13).
-const String friendReviewRelationLabel = '친구';
 
 // 토큰에 없는 pen 값(S0MR2b).
 const double _headerHeight = 48; // pen B095D 높이
@@ -193,7 +190,7 @@ class _ReportButton extends StatelessWidget {
                 const Icon3d(AppIcon3d.siren, size: 22),
                 const SizedBox(height: 2),
                 Text(
-                  '신고하기',
+                  context.l10n.commonReport,
                   // pen `o1niSD` 10/600 #6E5861 lh1. 10px 는 접근성 최소(12)보다 작지만 pen 값이라 두고,
                   // 글자 배율은 그대로 따라 커진다. 이 색은 투표 카드 신고 버튼과 이 버튼에만 있어 토큰으로 올리지 않는다.
                   style: AppTypography.badge.copyWith(
@@ -222,7 +219,7 @@ class _DeleteButton extends StatelessWidget {
     return IconButton(
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-      tooltip: '리뷰 지우기',
+      tooltip: context.l10n.friendReviewCardDelete,
       icon: const Icon(AppIcons.trash2, size: 20, color: AppColors.muted),
       onPressed: onPressed,
     );
@@ -351,8 +348,8 @@ class _NameColumn extends StatelessWidget {
         ),
         const SizedBox(height: 1),
         Text(
-          friendReviewRelationLabel,
-          // pen iFxLX 12/400 #6A6A6A lh1.5, 렌더 19.
+          context.l10n.friendReviewRelation,
+          // 관계 줄은 DB · API 에 관계 칸이 없어 고정 문구 하나다(대장 Q3, 2026-09-29). pen iFxLX 12/400 #6A6A6A lh1.5, 렌더 19.
           style: AppTypography.caption.copyWith(color: AppColors.muted, height: 19 / 12),
         ),
       ],

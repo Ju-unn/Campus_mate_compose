@@ -45,7 +45,7 @@ void main() {
     expect(repository.partnerProfileRequests, ['p3']);
     expect(loaded.isLoading, isFalse);
     expect(loaded.profile!.detail.profile.nickname, '소나기');
-    expect(loaded.errorMessage, isNull);
+    expect(loaded.error, isNull);
     expect(loaded.isGone, isFalse);
   });
 
@@ -57,7 +57,7 @@ void main() {
     expect(loaded.isLoading, isFalse);
     expect(loaded.isGone, isTrue);
     expect(loaded.profile, isNull);
-    expect(loaded.errorMessage, '프로필을 찾을 수 없어요');
+    expect(loaded.error, isA<ServerRejectedFailure>());
   });
 
   test('그 밖의 실패는 문구를 띄우고 화면에 남는다', () async {
@@ -67,7 +67,7 @@ void main() {
 
     expect(loaded.isLoading, isFalse);
     expect(loaded.isGone, isFalse);
-    expect(loaded.errorMessage, '네트워크 연결을 확인해 주세요');
+    expect(loaded.error, isA<NetworkFailure>());
   });
 
   test('읽는 중에 화면을 떠나도 응답이 왔을 때 터지지 않는다', () async {

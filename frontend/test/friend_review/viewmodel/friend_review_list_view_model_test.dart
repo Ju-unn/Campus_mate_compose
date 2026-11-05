@@ -35,7 +35,7 @@ void main() {
     expect(repository.receivedCount, 0);
     expect(state.isLoading, isFalse);
     expect(state.reviews, hasLength(1));
-    expect(state.errorMessage, isNull);
+    expect(state.error, isNull);
   });
 
   test('received 는 fetchReceived 를 부른다', () async {
@@ -84,11 +84,11 @@ void main() {
 
       final state = container.read(friendReviewListViewModelProvider(args));
       expect(state.reviews, hasLength(1));
-      expect(state.errorMessage, isNull);
+      expect(state.error, isNull);
     });
   });
 
-  test('실패하면 errorMessage 에 담긴다', () async {
+  test('실패하면 error 에 담긴다', () async {
     repository.received = const FailureResult(NetworkFailure());
     const args = (source: FriendReviewListSource.received, profileId: null);
     container.listen(friendReviewListViewModelProvider(args), (_, _) {});
@@ -98,7 +98,7 @@ void main() {
     final state = container.read(friendReviewListViewModelProvider(args));
     expect(state.isLoading, isFalse);
     expect(state.reviews, isEmpty);
-    expect(state.errorMessage, '네트워크 연결을 확인해 주세요');
+    expect(state.error, isA<NetworkFailure>());
   });
 
   test('읽는 중에 화면을 떠나도 응답이 왔을 때 터지지 않는다', () async {
@@ -156,20 +156,20 @@ void main() {
       expect(ids(), ['r1']);
     });
 
-    test('실패하면 문구를 돌려주고 목록은 그대로 둔다', () async {
+    test('실패하면 실패 종류를 돌려주고 목록은 그대로 둔다', () async {
       final viewModel = await loaded();
       repository.deleteResult = const FailureResult(NetworkFailure());
 
-      expect(await viewModel.delete('r2'), '네트워크 연결을 확인해 주세요');
+      expect(await viewModel.delete('r2'), isA<NetworkFailure>());
 
       expect(ids(), ['r1', 'r2']);
     });
 
-    test('그새 없어진 리뷰(404)면 서버 문구를 돌려주고 목록에서도 뺀다 — 남겨 두면 다시 눌러도 404 뿐이다', () async {
+    test('그새 없어진 리뷰(404)면 그 실패를 돌려주고 목록에서도 뺀다 — 남겨 두면 다시 눌러도 404 뿐이다', () async {
       final viewModel = await loaded();
       repository.deleteResult = const FailureResult(ServerRejectedFailure('리뷰를 찾을 수 없어요'));
 
-      expect(await viewModel.delete('r2'), '리뷰를 찾을 수 없어요');
+      expect(await viewModel.delete('r2'), isA<ServerRejectedFailure>());
 
       expect(ids(), ['r1']);
     });

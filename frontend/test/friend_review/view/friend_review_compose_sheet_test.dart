@@ -8,6 +8,7 @@ import 'package:campus_mate/friend_review/model/data/friend_review_tags.dart';
 import 'package:campus_mate/friend_review/model/repository/friend_review_repository_provider.dart';
 import 'package:campus_mate/friend_review/view/friend_review_card.dart';
 import 'package:campus_mate/friend_review/view/friend_review_compose_sheet.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -113,7 +114,7 @@ void main() {
       expect(name.height, 26);
       final nameStyle = tester.widget<Text>(find.text('햄스터')).style!;
       expect((nameStyle.fontSize, nameStyle.fontWeight, nameStyle.color), (18, FontWeight.w600, AppColors.ink));
-      final relation = find.descendant(of: sheet(), matching: find.text(friendReviewRelationLabel));
+      final relation = find.descendant(of: sheet(), matching: find.text(AppLocalizationsKo().friendReviewRelation));
       expect(tester.getRect(relation).top - name.bottom, 2);
       final relationStyle = tester.widget<Text>(relation).style!;
       expect((relationStyle.fontSize, relationStyle.color), (12, AppColors.muted));
@@ -452,7 +453,7 @@ void main() {
       expect(sheet(), findsOneWidget);
       expect(find.descendant(of: sheet(), matching: find.text('봄바람')), findsOneWidget);
       expect(find.descendant(of: sheet(), matching: find.text('봄')), findsOneWidget);
-      expect(find.descendant(of: sheet(), matching: find.text(friendReviewRelationLabel)), findsOneWidget);
+      expect(find.descendant(of: sheet(), matching: find.text(AppLocalizationsKo().friendReviewRelation)), findsOneWidget);
       expect(repository.targetRequests, isEmpty);
       expect(tester.getRect(submit()), Rect.fromLTWH(16, 780 - 24 - 52, 328, 52));
     });
