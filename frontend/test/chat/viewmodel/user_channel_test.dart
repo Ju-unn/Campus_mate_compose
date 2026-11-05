@@ -115,7 +115,7 @@ void main() {
       await pumpEventQueue();
 
       expect(chat.conversationsFetchCount, before + 1);
-      expect(container.read(conversationsViewModelProvider).errorMessage, isNull);
+      expect(container.read(conversationsViewModelProvider).error, isNull);
     });
 
     test('같은 사람으로 또 시작해도(관문 · 세션 알림이 여러 번 온다) 채널을 더 열지 않는다', () async {

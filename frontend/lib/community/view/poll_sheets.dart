@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/community/view/poll_toast.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
@@ -12,13 +13,10 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/safety/model/data/report_target.dart';
 import 'package:campus_mate/safety/view/report_sheet.dart';
 import 'package:campus_mate/safety/view/safety_actions.dart';
-import 'package:campus_mate/safety/viewmodel/report_ui_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // 두 시트는 채팅탭 `ChatRoomMenuSheet`(Menu · Chat `RzZT8`) · 차단 확인과 같은 마스터다(결정 D4) — 공통 승격은 백로그 39.
-
-const String _pollReportedMessage = '신고했어요. 운영팀이 확인할게요';
 
 /// 남의 글 신고(A16 · 신고 버튼 `uPUf3`). 받은 리뷰 신고(20c)와 같은 흐름 — 글쓴이는 익명이라 차단할 상대가 없어
 /// `reportThenLeave` 를 쓰지 않고, 어느 결과든 카드는 그대로 남는다(가림은 운영자가 한다, 서버 #191).
@@ -28,10 +26,8 @@ Future<PollToast?> reportPoll(BuildContext context, String pollId) async {
   final l10n = context.l10n; // 시트가 닫힌 뒤 화면이 없어져도 토스트는 띄운다 — 글자를 만들 도구는 미리 잡는다.
   final result = await showReportSheet(context, ReportTarget.poll(pollId));
   if (result == null) return null;
-  return showSafetyToast(
-    messenger,
-    result.outcome == ReportOutcome.reported ? _pollReportedMessage : failureText(l10n, result.failure!),
-  );
+  final failure = result.failure;
+  return showSafetyToast(messenger, failure == null ? l10n.commonReportedNotice : failureText(l10n, failure));
 }
 
 /// 내 글 "…"(15d-1 `RCNu0`) → "삭제하기" → 확인(15d-2 `K64Q8p`) → 지우기(사용자 결정 2).
@@ -41,7 +37,7 @@ Future<PollToast?> reportPoll(BuildContext context, String pollId) async {
 Future<PollToast?> showPollMenu(BuildContext context, WidgetRef ref, String pollId) async {
   final wantsDelete = await _showSheet<bool>(context, const _PollMenuSheet());
   if (wantsDelete != true || !context.mounted) return null;
-  Future<String?>? deleting;
+  Future<Failure?>? deleting;
   await _showSheet<void>(
     context,
     _DeleteConfirmSheet(
@@ -51,9 +47,10 @@ Future<PollToast?> showPollMenu(BuildContext context, WidgetRef ref, String poll
     ),
   );
   if (deleting == null) return null; // "삭제하기" 를 누르지 않고 닫았다.
-  final error = await deleting;
+  final failure = await deleting;
   if (!context.mounted) return null;
-  return showPollToast(context, error ?? pollDeletedMessage);
+  final l10n = context.l10n;
+  return showPollToast(context, failure == null ? l10n.communityDeleted : failureText(l10n, failure));
 }
 
 Future<T?> _showSheet<T>(BuildContext context, Widget sheet) {
@@ -135,7 +132,7 @@ class _PollMenuSheet extends StatelessWidget {
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: Text(
-                          '삭제하기',
+                          context.l10n.communityDelete,
                           // pen 16 / normal, 줄높이 속성 없음 · 렌더 23(채팅 메뉴 행과 같다).
                           style: AppTypography.body.copyWith(color: AppColors.error, height: 23 / 16),
                         ),
@@ -148,7 +145,10 @@ class _PollMenuSheet extends StatelessWidget {
               _SheetRow(
                 onTap: () => pick(null),
                 child: Center(
-                  child: Text('취소', style: AppTypography.bodyStrong.copyWith(color: AppColors.ink, height: 23 / 16)),
+                  child: Text(
+                    context.l10n.commonCancel,
+                    style: AppTypography.bodyStrong.copyWith(color: AppColors.ink, height: 23 / 16),
+                  ),
                 ),
               ),
             ],
@@ -207,21 +207,24 @@ class _DeleteConfirmSheetState extends State<_DeleteConfirmSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('이 질문을 삭제할까요?', style: AppTypography.navTitle.copyWith(color: AppColors.ink)),
+                    Text(
+                      context.l10n.communityDeleteConfirmTitle,
+                      style: AppTypography.navTitle.copyWith(color: AppColors.ink),
+                    ),
                     const SizedBox(height: AppSpacing.md),
                     Text(
-                      '질문과 받은 투표가 모두 사라지고 되돌릴 수 없어요.',
+                      context.l10n.communityDeleteConfirmBody,
                       style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
                     ),
                     const SizedBox(height: AppSpacing.md),
                     AppButton(
-                      label: '삭제하기',
+                      label: context.l10n.communityDelete,
                       variant: AppButtonVariant.danger,
                       onPressed: _deleting ? null : _delete,
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     AppButton(
-                      label: '취소',
+                      label: context.l10n.commonCancel,
                       variant: AppButtonVariant.text,
                       onPressed: () => Navigator.of(context).pop(),
                     ),

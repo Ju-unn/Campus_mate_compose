@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
@@ -10,12 +11,15 @@ import 'package:campus_mate/community/view/poll_time.dart';
 import 'package:campus_mate/community/view/poll_toast.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_ui_state.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -66,8 +70,9 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
   }
 
   Future<void> _vote(String pollId, PollChoice choice) async {
-    final message = await ref.read(communityFeedViewModelProvider.notifier).vote(pollId, choice);
-    if (message != null && mounted) _track(showPollToast(context, message));
+    final l10n = context.l10n;
+    final notice = await ref.read(communityFeedViewModelProvider.notifier).vote(pollId, choice);
+    if (notice != null && mounted) _track(showPollToast(context, pollVoteNoticeText(l10n, notice)));
   }
 
   void _track(PollToast? toast) {
@@ -96,7 +101,7 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
     // 알약이 질문 올리는 유일한 길이다(사용자 결정). 불러오는 중 · 실패에도 질문을 올릴 수 있게 둔다.
     final showAsk = state.isLoading ||
         state.polls.isNotEmpty ||
-        state.errorMessage != null ||
+        state.error != null ||
         !_EmptyFeed.offersAsk(state.tab);
     return Scaffold(
       // 유리 내비(pen `xtj0K`) 뒤로 본문이 이어진다 — 아래 여백은 본문 MediaQuery padding.bottom(알약 + 띄움 + safe area).
@@ -105,7 +110,7 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
       // 옛 + (`Iblb3` > `uhk6J`)는 "질문하기" 알약이 대신한다.
       appBar: AppBar(
         titleSpacing: 20,
-        title: Text('커뮤니티', style: AppTypography.navTitle.copyWith(color: AppColors.ink)),
+        title: Text(context.l10n.communityFeedTitle, style: AppTypography.navTitle.copyWith(color: AppColors.ink)),
         // 탭 줄(pen `VEZ2l`)은 앱바 아래 고정 — 목록과 같이 스크롤되지 않고, 아래 본문이 불러오는 중 · 실패 · 빈 상태로
         // 바뀌어도 남는다. 본문 밖(앱바)에 두니 본문의 첫 Scrollable 은 여전히 목록이다(하네스가 그것을 민다).
         bottom: PreferredSize(
@@ -146,8 +151,8 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
     // 본문이 유리 내비 뒤까지 이어진다 — 목록이 아닌 상태는 알약 자리를 비우고 그 위 영역 가운데에 둔다.
     Widget aboveNav(Widget child) => Padding(padding: EdgeInsets.only(bottom: navInset), child: child);
     if (state.isLoading) return aboveNav(const Center(child: CircularProgressIndicator()));
-    if (state.polls.isEmpty && state.errorMessage != null) {
-      return aboveNav(_LoadError(message: state.errorMessage!, onRetry: viewModel.refresh));
+    if (state.polls.isEmpty && state.error != null) {
+      return aboveNav(_LoadError(failure: state.error!, onRetry: viewModel.refresh));
     }
     if (state.polls.isEmpty) return aboveNav(_EmptyFeed(tab: state.tab));
     final now = ref.read(communityNowProvider)();
@@ -211,8 +216,6 @@ class _AskButton extends StatelessWidget {
   final bool hidden;
   final VoidCallback onPressed;
 
-  static const String _label = '질문하기';
-
   /// 떠 있는 것에만 그림자를 준다(DESIGN §6). 이 버튼에만 있는 값이라 AppElevation 에 올리지 않는다.
   static const List<BoxShadow> _shadow = [BoxShadow(color: Color(0x2E1A1619), offset: Offset(0, 6), blurRadius: 16)];
 
@@ -222,11 +225,12 @@ class _AskButton extends StatelessWidget {
     final duration = instant ? Duration.zero : AppMotion.standard;
     // 펼침: 20 + plus 20 + 8 + 글자 + 20. 접힘: 16 + 20 + 16 = 52 동그라미.
     final side = collapsed ? (_askHeight - 20) / 2 : 20.0;
+    final ask = context.l10n.communityAskButton;
     final label = collapsed
         ? const SizedBox.shrink()
         : Padding(
             padding: const EdgeInsets.only(left: AppSpacing.xs),
-            child: Text(_label, style: AppTypography.button.copyWith(color: AppColors.onPrimary)),
+            child: Text(ask, style: AppTypography.button.copyWith(color: AppColors.onPrimary)),
           );
     return IgnorePointer(
       ignoring: hidden,
@@ -262,7 +266,7 @@ class _AskButton extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // 접히면 글자가 빠지니 아이콘이 버튼 이름을 맡는다.
-                    Icon(AppIcons.plus, size: 20, color: AppColors.onPrimary, semanticLabel: collapsed ? _label : null),
+                    Icon(AppIcons.plus, size: 20, color: AppColors.onPrimary, semanticLabel: collapsed ? ask : null),
                     // 동작 줄이기면 바로 바꾼다 — AnimatedSize 는 시간 0 이면 자기 레이아웃 안에서 다시 레이아웃을 걸어 멈춘다.
                     if (instant) label else AnimatedSize(duration: duration, curve: AppMotion.standardCurve, child: label),
                   ],
@@ -283,17 +287,15 @@ class _EmptyFeed extends StatelessWidget {
 
   final PollFeedTab tab;
 
-  static const _emptyAction = '질문 올리기';
-
   /// 이 탭의 빈 상태에 "질문 올리기" 버튼이 있는지. 화면은 버튼이 없을 때만 알약을 띄운다.
   static bool offersAsk(PollFeedTab tab) => tab == PollFeedTab.all || tab == PollFeedTab.mine;
 
   /// (제목, 설명)
-  (String, String?) get _copy => switch (tab) {
-        PollFeedTab.all => ('아직 질문이 없어요', '궁금한 걸 익명으로 물어보고\n캠퍼스 사람들의 생각을 들어보세요.'),
-        PollFeedTab.popular => ('최근 7일 동안 인기 있는 질문이 아직 없어요', null),
-        PollFeedTab.mine => ('아직 올린 질문이 없어요', null),
-        PollFeedTab.voted => ('아직 투표한 질문이 없어요', null),
+  (String, String?) _copy(AppLocalizations l10n) => switch (tab) {
+        PollFeedTab.all => (l10n.communityEmptyAllTitle, l10n.communityEmptyAllDescription),
+        PollFeedTab.popular => (l10n.communityEmptyPopularTitle, null),
+        PollFeedTab.mine => (l10n.communityEmptyMineTitle, null),
+        PollFeedTab.voted => (l10n.communityEmptyVotedTitle, null),
       };
 
   /// AppButton 라벨(16/700, HE8FZ 2026-10-01 개편)이 이 기기 글자 배율로 차지하는 폭.
@@ -311,7 +313,7 @@ class _EmptyFeed extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (title, description) = _copy;
+    final (title, description) = _copy(context.l10n);
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.xxl),
@@ -342,9 +344,9 @@ class _EmptyFeed extends StatelessWidget {
   /// pen 은 연분홍 채움 — button-secondary 로 바꾼다(대장 예외). 폭은 글자 + 좌우 20(`l8vOF` = Button `HE8FZ`
   /// padding [0,20], 렌더 128). AppButton 은 안쪽 여백이 0 이라 IntrinsicWidth 로는 글자 폭만 남아 글자를 재서 더한다.
   Widget _askButton(BuildContext context) => SizedBox(
-        width: _labelWidth(context, _emptyAction) + 2 * 20,
+        width: _labelWidth(context, context.l10n.communityEmptyAsk) + 2 * 20,
         child: AppButton(
-          label: _emptyAction,
+          label: context.l10n.communityEmptyAsk,
           variant: AppButtonVariant.secondary,
           onPressed: () => context.push(AppRoutes.communityNew),
         ),
@@ -354,9 +356,9 @@ class _EmptyFeed extends StatelessWidget {
 /// 첫 쪽을 못 불러왔을 때. 문구는 `Failure` 종류별 문구 그대로(502/503 → "잠시 뒤 다시 시도해 주세요" 등),
 /// 모양은 `school_info_screen` 의 `_SchoolNameError` 와 같다. 실패인데 "질문이 없어요" 를 보이면 거짓말이다.
 class _LoadError extends StatelessWidget {
-  const _LoadError({required this.message, required this.onRetry});
+  const _LoadError({required this.failure, required this.onRetry});
 
-  final String message;
+  final Failure failure;
   final Future<void> Function() onRetry;
 
   @override
@@ -367,8 +369,8 @@ class _LoadError extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(message, textAlign: TextAlign.center, style: AppTypography.body.copyWith(color: AppColors.body)),
-            AppButton(label: '다시 시도', variant: AppButtonVariant.text, onPressed: onRetry),
+            Text(context.errorText(failure), textAlign: TextAlign.center, style: AppTypography.body.copyWith(color: AppColors.body)),
+            AppButton(label: context.l10n.commonRetry, variant: AppButtonVariant.text, onPressed: onRetry),
           ],
         ),
       ),

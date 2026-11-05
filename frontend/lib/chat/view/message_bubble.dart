@@ -1,13 +1,11 @@
 import 'package:campus_mate/chat/model/data/message.dart';
 import 'package:campus_mate/chat/view/chat_time.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
-
-/// 스크린 리더가 '1' 대신 읽는 말(pen `RvjRp` 접근성 메모). 숫자만 읽히면 뜻이 안 전해진다.
-const String unreadByPartnerLabel = '상대가 아직 읽지 않았어요';
 
 /// pen `UVex8`(Bubble Row) 의 '1' ↔ 말풍선 간격. 간격 토큰(4 · 8) 사이의 pen 값이다.
 const double _unreadMarkGap = 6;
@@ -48,7 +46,7 @@ class MessageBubble extends StatelessWidget {
           if (showTime) ...[
             const SizedBox(height: 2),
             Text(
-              timeLabel(message.createdAt),
+              timeLabel(context.l10n, message.createdAt),
               style: AppTypography.caption.copyWith(color: AppColors.muted),
             ),
           ],
@@ -72,7 +70,8 @@ class MessageBubble extends StatelessWidget {
           // pen Qs5As: Pretendard 12/600 `$colors.primary-text` #C4224B(흰 바탕 5.71:1). 줄높이 속성은 없다.
           Text(
             '1',
-            semanticsLabel: unreadByPartnerLabel,
+            // 스크린 리더가 '1' 대신 읽는 말(pen `RvjRp` 접근성 메모). 숫자만 읽히면 뜻이 안 전해진다.
+            semanticsLabel: context.l10n.chatUnreadByPartner,
             style: AppTypography.caption.copyWith(color: AppColors.primaryText, fontWeight: FontWeight.w600),
           ),
           // 글자를 키워도 '1' 이 밀려 넘치지 않게 말풍선이 남은 폭 안에서 줄어든다.

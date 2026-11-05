@@ -4,6 +4,7 @@ import 'package:campus_mate/community/view/poll_card.dart';
 import 'package:campus_mate/community/view/poll_donut.dart';
 import 'package:campus_mate/community/view/poll_time.dart';
 import 'package:campus_mate/community/view/vote_option.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
@@ -163,9 +164,9 @@ class _Header extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // pen `l169Bi` 14/600 ink · `zxZNL` 12/500 muted — 둘 다 줄높이 속성 없음, 렌더 19 · 16.
-              Text('익명', style: AppTypography.labelSmall.copyWith(height: 19 / 14, color: AppColors.ink)),
+              Text(context.l10n.communityAnonymous, style: AppTypography.labelSmall.copyWith(height: 19 / 14, color: AppColors.ink)),
               Text(
-                relativeTimeLabel(poll.createdAt, now),
+                relativeTimeLabel(context.l10n, poll.createdAt, now),
                 style: AppTypography.caption.copyWith(fontWeight: FontWeight.w500, height: 16 / 12, color: AppColors.muted),
               ),
             ],
@@ -175,7 +176,7 @@ class _Header extends StatelessWidget {
           const SizedBox(width: _headerGap),
           // pen `C7Bsuy` MoreButton `B8pl1`(터치 48 · ellipsis 20 muted) — 신고 버튼 자리.
           IconButton(
-            tooltip: '더보기',
+            tooltip: context.l10n.commonMore,
             icon: const Icon(AppIcons.ellipsis, size: 20, color: AppColors.muted),
             onPressed: onMore,
           ),
@@ -349,7 +350,9 @@ class _ScoreSide extends StatelessWidget {
   Widget build(BuildContext context) {
     // 낭독은 움직이는 숫자가 아니라 최종 값을 읽고, 내 쪽은 색이 아니라 말로 알린다.
     return Semantics(
-      label: '$label $percent%${mine ? ', 내 선택' : ''}',
+      label: mine
+          ? context.l10n.communityResultSemanticsMine(label: label, percent: percent)
+          : context.l10n.communityResultSemantics(label: label, percent: percent),
       excludeSemantics: true,
       child: Column(
         crossAxisAlignment: alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
@@ -400,7 +403,7 @@ class _MyPick extends StatelessWidget {
           const SizedBox(width: AppSpacing.xxs),
           Flexible(
             child: Text(
-              '내 선택',
+              context.l10n.communityMyPick,
               style: AppTypography.caption.copyWith(fontWeight: FontWeight.w700, height: 16 / 12, color: AppColors.primaryText),
             ),
           ),
@@ -465,7 +468,7 @@ class _Footer extends StatelessWidget {
             const Icon(AppIcons.users, size: 16, color: AppColors.muted),
             const SizedBox(width: _smallGap),
             // pen `YfHDO` 줄높이 속성 없음, 렌더 16.
-            Flexible(child: Text('$total명 참여', style: caption.copyWith(height: 16 / 12))),
+            Flexible(child: Text(context.l10n.communityParticipants(count: total), style: caption.copyWith(height: 16 / 12))),
           ],
         ),
         InkWell(
@@ -481,7 +484,7 @@ class _Footer extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('자세히 보기', style: caption.copyWith(fontWeight: FontWeight.w600)),
+                    Text(context.l10n.commonViewMore, style: caption.copyWith(fontWeight: FontWeight.w600)),
                     const SizedBox(width: 2),
                     const Icon(AppIcons.chevronRight, size: 14, color: AppColors.muted),
                   ],

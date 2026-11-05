@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/community/model/data/poll.dart';
 import 'package:campus_mate/community/model/data/poll_feed.dart';
 
@@ -11,7 +12,7 @@ class CommunityFeedUiState {
     this.hasMore = false,
     this.isLoadingMore = false,
     this.votingIds = const {},
-    this.errorMessage,
+    this.error,
   });
 
   /// 지금 고른 탭(pen `XfcKQ`). 처음은 전체(사용자 결정).
@@ -23,7 +24,7 @@ class CommunityFeedUiState {
 
   /// 투표 응답을 기다리는 글. 이 글의 버튼은 꺼 둔다(되돌릴 수 없는 투표가 두 번 가지 않게).
   final Set<String> votingIds;
-  final String? errorMessage;
+  final Failure? error;
 
   CommunityFeedUiState copyWith({
     bool? isLoading,
@@ -31,7 +32,7 @@ class CommunityFeedUiState {
     bool? hasMore,
     bool? isLoadingMore,
     Set<String>? votingIds,
-    String? errorMessage,
+    Failure? error,
   }) {
     return CommunityFeedUiState(
       tab: tab,
@@ -40,7 +41,7 @@ class CommunityFeedUiState {
       hasMore: hasMore ?? this.hasMore,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       votingIds: votingIds ?? this.votingIds,
-      errorMessage: errorMessage ?? this.errorMessage,
+      error: error ?? this.error,
     );
   }
 }

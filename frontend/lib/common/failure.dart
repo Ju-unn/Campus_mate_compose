@@ -201,6 +201,8 @@ enum AppError {
   friendCodeTryLater,
   friendReviewAlreadyWritten,
   reportLimited,
+  pollDailyLimit,
+  chatGateOver,
 }
 
 /// [AppError] 하나를 [Failure] 로 싣는 실패 — 뷰모델이 문자열 없이 `Failure?` 하나로 에러를 상태에 담게 한다.

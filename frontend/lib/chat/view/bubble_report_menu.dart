@@ -1,6 +1,7 @@
 import 'package:campus_mate/chat/model/data/message.dart';
 import 'package:campus_mate/chat/view/message_bubble.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -20,7 +21,7 @@ Future<bool> showBubbleReportMenu(BuildContext bubbleContext, Message message) a
   final picked = await showGeneralDialog<bool>(
     context: bubbleContext,
     barrierDismissible: true,
-    barrierLabel: '닫기',
+    barrierLabel: bubbleContext.l10n.commonClose,
     barrierColor: AppColors.scrim,
     transitionDuration: AppMotion.press,
     pageBuilder: (context, _, _) => _BubbleMenuLayer(row: row, message: message),
@@ -104,7 +105,7 @@ class BubbleReportMenu extends StatelessWidget {
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(
-                        '이 메시지 신고',
+                        context.l10n.chatBubbleReport,
                         // pen `u6MbiB` 16 / normal, 줄높이 속성 없음 · 렌더 23.
                         style: AppTypography.body.copyWith(color: AppColors.ink, height: 23 / 16),
                       ),

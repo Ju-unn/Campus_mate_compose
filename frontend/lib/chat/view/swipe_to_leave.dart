@@ -1,3 +1,4 @@
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
@@ -46,7 +47,7 @@ class _SwipeToLeaveState extends State<SwipeToLeave> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      customSemanticsActions: {const CustomSemanticsAction(label: '채팅방 나가기'): _leave},
+      customSemanticsActions: {CustomSemanticsAction(label: context.l10n.chatLeaveRoom): _leave},
       child: GestureDetector(
         onHorizontalDragUpdate: _drag,
         onHorizontalDragEnd: _settle,
@@ -103,7 +104,7 @@ class _LeaveAction extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Center(
-          child: Text('나가기', style: AppTypography.labelSmall.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w700)),
+          child: Text(context.l10n.chatLeave, style: AppTypography.labelSmall.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w700)),
         ),
       ),
     );

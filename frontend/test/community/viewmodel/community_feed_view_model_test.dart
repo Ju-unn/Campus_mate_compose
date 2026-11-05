@@ -70,7 +70,7 @@ void main() {
   test('첫 쪽이 실패하면 문구를 둔다', () async {
     repository.page = const FailureResult(NetworkFailure());
     final container = await start();
-    expect(container.read(communityFeedViewModelProvider).errorMessage, '네트워크 연결을 확인해 주세요');
+    expect(container.read(communityFeedViewModelProvider).error, isA<NetworkFailure>());
   });
 
   test('더 내리면 맨 아래 글의 시각과 id 를 커서로 보내고 뒤에 붙인다(겹친 글은 거른다)', () async {
@@ -94,15 +94,15 @@ void main() {
     expect(repository.pageRequests, hasLength(1));
   });
 
-  test('투표하면 그 글을 서버 값으로 바꾸고, 보상이면 토스트 문구를 준다', () async {
+  test('투표하면 그 글을 서버 값으로 바꾸고, 보상이면 하트를 받았다는 알림을 준다', () async {
     repository
       ..page = Success(PollPage(polls: [pollFixture()], hasMore: false))
       ..voteResult = Success(VoteOutcome(poll: pollFixture(aCount: 6, myChoice: PollChoice.a), rewarded: true));
     final container = await start();
 
-    final message = await viewModel(container).vote('p1', PollChoice.a);
+    final notice = await viewModel(container).vote('p1', PollChoice.a);
 
-    expect(message, '하트 5개를 받았어요'); // 하루 첫 투표 5하트(2026-10-16 사용자 확정, 종전 10)
+    expect(notice?.isReward, isTrue); // 하루 첫 투표 5하트(2026-10-16 사용자 확정, 종전 10) — 글자는 화면이 ARB 에서 읽는다
     expect(container.read(communityFeedViewModelProvider).polls.single.myChoice, PollChoice.a);
   });
 
@@ -157,16 +157,16 @@ void main() {
     });
   });
 
-  test('이미 다른 기기에서 투표했으면 문구를 주고 그 글만 다시 읽어 결과로 바꾼다', () async {
+  test('이미 다른 기기에서 투표했으면 실패 알림을 주고 그 글만 다시 읽어 결과로 바꾼다', () async {
     repository
       ..page = Success(PollPage(polls: [pollFixture()], hasMore: false))
       ..voteResult = const FailureResult(ServerRejectedFailure('이미 투표했어요'))
       ..poll = Success(pollFixture(myChoice: PollChoice.a));
     final container = await start();
 
-    final message = await viewModel(container).vote('p1', PollChoice.b);
+    final notice = await viewModel(container).vote('p1', PollChoice.b);
 
-    expect(message, '이미 투표했어요');
+    expect(notice?.failure, isA<ServerRejectedFailure>().having((f) => f.serverMessage, 'serverMessage', '이미 투표했어요'));
     expect(repository.fetchedPollIds, ['p1']);
     expect(container.read(communityFeedViewModelProvider).polls.single.myChoice, PollChoice.a);
   });
@@ -271,9 +271,9 @@ void main() {
 
       final state = container.read(communityFeedViewModelProvider);
       expect(state.polls, isEmpty);
-      expect(state.errorMessage, '네트워크 연결을 확인해 주세요');
+      expect(state.error, isA<NetworkFailure>());
       await viewModel(container).selectTab(PollFeedTab.all);
-      expect(container.read(communityFeedViewModelProvider).errorMessage, isNull);
+      expect(container.read(communityFeedViewModelProvider).error, isNull);
     });
 
     test('늦게 도착한 앞 탭 응답은 버린다 — 지금 탭 목록에 섞이지 않는다', () async {
@@ -366,13 +366,13 @@ void main() {
     });
   });
 
-  test('내 글을 지우면 목록에서 빠지고, 실패하면 문구를 주고 남긴다', () async {
+  test('내 글을 지우면 목록에서 빠지고, 실패하면 실패 종류를 주고 남긴다', () async {
     repository.page = Success(PollPage(polls: [pollFixture(isMine: true), pollFixture(id: 'p2', isMine: true)], hasMore: false));
     final container = await start();
 
     expect(await viewModel(container).delete('p1'), isNull);
     repository.deleteResult = const FailureResult(NetworkFailure());
-    expect(await viewModel(container).delete('p2'), '네트워크 연결을 확인해 주세요');
+    expect(await viewModel(container).delete('p2'), isA<NetworkFailure>());
 
     expect(container.read(communityFeedViewModelProvider).polls.map((p) => p.id), ['p2']);
   });

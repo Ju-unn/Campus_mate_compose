@@ -194,7 +194,7 @@ void main() {
 
     // 실패로 다루면 재시도한 사람이 방에 갇힌다.
     expect(state.hasLeft, isTrue);
-    expect(state.errorMessage, isNull);
+    expect(state.error, isNull);
   });
 
   test('수락하면 방을 다시 읽어 카카오톡 아이디를 가져온다', () async {
@@ -267,7 +267,7 @@ void main() {
     final state = container.read(chatRoomViewModelProvider('m1'));
 
     expect(repository.roomFetchCount, 2);
-    expect(state.errorMessage, isNull);
+    expect(state.error, isNull);
     expect(state.room, isNotNull);
   });
 
@@ -283,14 +283,14 @@ void main() {
     // 다시 읽는 사이에 보내기가 실패했다.
     repository.sendResult = const FailureResult(NetworkFailure());
     await viewModel.send('안녕');
-    final shown = container.read(chatRoomViewModelProvider('m1')).errorMessage;
+    final shown = container.read(chatRoomViewModelProvider('m1')).error;
     expect(shown, isNotNull);
     repository.holdRoom!.complete();
     await Future<void>.delayed(Duration.zero);
     final state = container.read(chatRoomViewModelProvider('m1'));
 
     expect(state.room!.gate.passed, isTrue);
-    expect(state.errorMessage, shown);
+    expect(state.error, shown);
   });
 
   test('구독 전에 들어온 상대 수락 줄이 첫 페이지에 있으면 머리말을 조용히 다시 읽는다', () async {
@@ -372,8 +372,8 @@ void main() {
     await container.read(chatRoomViewModelProvider('m1').notifier).acceptTrust();
 
     expect(
-      container.read(chatRoomViewModelProvider('m1')).errorMessage,
-      '응답 기한이 지나 이 대화는 종료됐어요',
+      container.read(chatRoomViewModelProvider('m1')).error,
+      isA<AppErrorFailure>().having((failure) => failure.error, 'error', AppError.chatGateOver),
     );
   });
 
@@ -513,7 +513,7 @@ void main() {
 
     final state = await opened(containerFor());
 
-    expect(state.errorMessage, '요청한 정보를 찾을 수 없습니다');
+    expect(state.error, isA<NotFoundFailure>());
     expect(repository.pages, isEmpty);
     expect(stream.subscribed, isEmpty);
   });
@@ -593,7 +593,7 @@ void main() {
       stream.ready();
       await settle();
 
-      expect(read(container).errorMessage, isNull);
+      expect(read(container).error, isNull);
       expect(read(container).isLoading, isFalse);
       expect(read(container).messages.map((message) => message.id), ['msg-1']);
     });
@@ -603,13 +603,13 @@ void main() {
       await opened(container);
       repository.sendResult = const FailureResult(NetworkFailure());
       await container.read(chatRoomViewModelProvider('m1').notifier).send('안녕');
-      expect(read(container).errorMessage, '네트워크 연결을 확인해 주세요');
+      expect(read(container).error, isA<NetworkFailure>());
 
       repository.messages = Success(MessagePage(messages: [messageFixture(id: 'msg-2')], hasMore: false));
       stream.ready();
       await settle();
 
-      expect(read(container).errorMessage, '네트워크 연결을 확인해 주세요');
+      expect(read(container).error, isA<NetworkFailure>());
       expect(read(container).messages.map((message) => message.id), ['msg-2']);
     });
 
@@ -882,16 +882,16 @@ void main() {
       final container = await openRoom(tester);
       repository.sendResult = const FailureResult(NetworkFailure());
       await viewModelOf(container).send('안녕');
-      final error = stateOf(container).errorMessage;
+      final error = stateOf(container).error;
       expect(error, isNotNull);
 
       repository.partnerReadResult = const FailureResult(NetworkFailure());
       await tester.pump(partnerReadPollFast);
-      expect((stateOf(container).errorMessage, hasUnread(container)), (error, true));
+      expect((stateOf(container).error, hasUnread(container)), (error, true));
 
       repository.partnerReadResult = Success(readAfter);
       await tester.pump(partnerReadPollFast);
-      expect((stateOf(container).errorMessage, hasUnread(container)), (error, false));
+      expect((stateOf(container).error, hasUnread(container)), (error, false));
       container.dispose();
     });
 

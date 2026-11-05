@@ -59,7 +59,7 @@ class NotificationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final time = relativeTimeLabel(item.createdAt, now);
+    final time = relativeTimeLabel(context.l10n, item.createdAt, now);
     // 눌림 효과가 스크롤 밖 Material 에 뜨지 않게 줄이 자기 Material 을 갖는다(COMMON §4-2).
     return Semantics(
       button: true,

@@ -1,5 +1,6 @@
 import 'package:campus_mate/chat/model/data/chat_room.dart';
 import 'package:campus_mate/chat/model/data/message.dart';
+import 'package:campus_mate/common/failure.dart';
 
 /// 신뢰 확인 게이트가 방 위에 무엇을 띄우는가(결정 10·11).
 enum TrustGateStage {
@@ -35,7 +36,7 @@ class ChatRoomUiState {
     this.hasLeft = false,
     this.sheetDismissed = false,
     this.isDisconnected = false,
-    this.errorMessage,
+    this.error,
     this.partnerRead = const PartnerRead.unknown(),
   });
 
@@ -59,7 +60,7 @@ class ChatRoomUiState {
   /// 실시간 통로가 끊겼다(백로그 19). 대화는 그대로 보이고 배너만 얹는다 —
   /// 보낸 메시지는 HTTP 로 가서 끊긴 동안에도 들어간다. 못 받는 것은 상대의 줄뿐이다.
   final bool isDisconnected;
-  final String? errorMessage;
+  final Failure? error;
 
   /// 상대가 마지막으로 읽은 시각. 머리말 · 첫 페이지 · 2초 확인이 받은 값 중 **가장 늦은 것**이다.
   final PartnerRead partnerRead;
@@ -124,9 +125,9 @@ class ChatRoomUiState {
     return sheetDismissed ? TrustGateStage.ending : TrustGateStage.sheet;
   }
 
-  /// **[errorMessage] 만 규칙이 다르다** — 넘기지 않으면 유지가 아니라 지워진다.
-  /// 오류 문구는 "다음 동작이 시작되면 사라져야" 하는 값이라 그 편이 부르는 쪽 실수가 적다.
-  /// 대신 문구를 남겨 둔 채 다른 칸만 바꾸고 싶다면 `errorMessage` 를 다시 실어야 한다.
+  /// **[error] 만 규칙이 다르다** — 넘기지 않으면 유지가 아니라 지워진다.
+  /// 오류는 "다음 동작이 시작되면 사라져야" 하는 값이라 그 편이 부르는 쪽 실수가 적다.
+  /// 대신 오류를 남겨 둔 채 다른 칸만 바꾸고 싶다면 `error` 를 다시 실어야 한다.
   ChatRoomUiState copyWith({
     bool? isLoading,
     ChatRoom? room,
@@ -137,7 +138,7 @@ class ChatRoomUiState {
     bool? hasLeft,
     bool? sheetDismissed,
     bool? isDisconnected,
-    String? errorMessage,
+    Failure? error,
     PartnerRead? partnerRead,
   }) {
     return ChatRoomUiState(
@@ -151,7 +152,7 @@ class ChatRoomUiState {
       sheetDismissed: sheetDismissed ?? this.sheetDismissed,
       isDisconnected: isDisconnected ?? this.isDisconnected,
       // 덮어쓰기다 — null 로도 지워져야 한다.
-      errorMessage: errorMessage,
+      error: error,
       partnerRead: partnerRead ?? this.partnerRead,
     );
   }

@@ -1,6 +1,8 @@
 /// 선택지 기본 라벨. 둘 다 이 값이면 카드가 글자 대신 O·X 아이콘을 그린다(DESIGN §8.11).
+// l10n-ignore-start(wire): 서버가 주고받는 투표 기본 보기 — 글자 자체가 값이다(서버 router.py option_a_label · option_b_label 기본값과 같다)
 const String defaultOptionA = '찬성';
 const String defaultOptionB = '반대';
+// l10n-ignore-end
 
 /// 서버 `QUESTION_MAX_LENGTH` · `OPTION_MAX_LENGTH`, DB check 와 같은 값이다.
 const int pollQuestionMaxLength = 80;

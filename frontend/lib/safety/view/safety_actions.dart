@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
@@ -61,9 +62,9 @@ Future<void> reportThenLeave(BuildContext context, WidgetRef ref, ReportTarget t
   }
 }
 
-/// 14e 확인 → 차단 → 대화 목록. 실패하면 서버 문구를 돌려준다 — 보여 주는 자리는 화면마다 다르다.
+/// 14e 확인 → 차단 → 대화 목록. 실패하면 그 [Failure] 를 돌려준다 — 보여 주는 자리와 글자(`context.errorText`)는 화면마다 다르다.
 /// 취소했거나 성공했으면 null.
-Future<String?> blockThenLeave(
+Future<Failure?> blockThenLeave(
   BuildContext context,
   WidgetRef ref, {
   required String profileId,
@@ -71,7 +72,6 @@ Future<String?> blockThenLeave(
 }) async {
   final repository = ref.read(safetyRepositoryProvider);
   final conversations = ref.read(conversationsViewModelProvider.notifier);
-  final l10n = context.l10n; // 차단 요청이 끝난 뒤 화면이 없어져도 글자를 만들 수 있게 미리 잡는다.
   if (!await showBlockConfirmSheet(context, nickname) || !context.mounted) {
     return null;
   }
@@ -84,7 +84,7 @@ Future<String?> blockThenLeave(
       _goToConversations(context, conversations);
       return null;
     },
-    onFailure: (failure) => failureText(l10n, failure),
+    onFailure: (failure) => failure,
   );
 }
 

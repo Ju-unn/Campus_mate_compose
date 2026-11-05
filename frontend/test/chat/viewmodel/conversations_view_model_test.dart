@@ -38,7 +38,7 @@ void main() {
     await viewModel().refresh(quiet: true);
 
     expect(stateNow().conversations, hasLength(1));
-    expect(stateNow().errorMessage, isNull);
+    expect(stateNow().error, isNull);
   });
 
   test('아직 한 번도 못 읽은 상태의 조용한 읽기 실패는 로딩을 끝내고 오류를 보인다', () async {
@@ -47,7 +47,7 @@ void main() {
     await viewModel().refresh(quiet: true);
 
     expect(stateNow().isLoading, isFalse);
-    expect(stateNow().errorMessage, const NetworkFailure().toDisplayMessage());
+    expect(stateNow().error, isA<NetworkFailure>());
   });
 
   test('당겨서 새로고침(조용하지 않은 읽기)이 실패하면 오류를 보이고 줄은 남는다', () async {
@@ -57,7 +57,7 @@ void main() {
     await viewModel().refresh();
 
     expect(stateNow().conversations, hasLength(1));
-    expect(stateNow().errorMessage, const NetworkFailure().toDisplayMessage());
+    expect(stateNow().error, isA<NetworkFailure>());
   });
 
   test('조용한 재읽기가 성공하면 새 목록으로 바꾸고 이전 오류 문구를 지운다', () async {
@@ -69,7 +69,7 @@ void main() {
     await viewModel().refresh(quiet: true);
 
     expect(stateNow().unreadTotal, 7);
-    expect(stateNow().errorMessage, isNull);
+    expect(stateNow().error, isNull);
   });
 
   group('읽는 중에 겹친 읽기', () {
@@ -92,7 +92,7 @@ void main() {
 
       expect(chat.conversationsFetchCount, before + 1);
       expect(stateNow().conversations, hasLength(1));
-      expect(stateNow().errorMessage, const NetworkFailure().toDisplayMessage());
+      expect(stateNow().error, isA<NetworkFailure>());
     });
 
     test('조용하지 않은 호출이 여러 번 합쳐져도 끝난 뒤 다시 읽는 건 한 번이다', () async {
@@ -239,7 +239,7 @@ void main() {
       await pumpEventQueue();
 
       expect(chat.conversationsFetchCount, before + 1);
-      expect(stateNow().errorMessage, isNull);
+      expect(stateNow().error, isNull);
     });
 
     test('떠 있던 오류 줄은 그대로 둔다 — 사용자가 누른 일이 아니다', () async {
@@ -249,7 +249,7 @@ void main() {
 
       apply(event());
 
-      expect(stateNow().errorMessage, const NetworkFailure().toDisplayMessage());
+      expect(stateNow().error, isA<NetworkFailure>());
     });
 
     // 이벤트 직전에 출발한 읽기는 그 줄을 못 봤을 수 있다 — 그 결과가 이벤트를 덮으면 다음 읽기 전까지 한 줄이 빈다.
@@ -267,7 +267,7 @@ void main() {
       await pumpEventQueue();
 
       expect(chat.conversationsFetchCount, before + 1);
-      expect(stateNow().errorMessage, isNull);
+      expect(stateNow().error, isNull);
     });
   });
 }

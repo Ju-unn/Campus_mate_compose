@@ -16,6 +16,7 @@ from pathlib import Path
 from unittest import mock
 
 from e2e import area1, area5_time, tools
+from e2e.test_area2_two_accept import label_backed
 from e2e.test_area3_phone5 import Base5
 from e2e.tools import Reply
 
@@ -156,8 +157,8 @@ class RegistryTest(unittest.TestCase):
 
     def test_the_app_text_is_the_real_left_room_notice(self):
         room = (tools.ROOT / 'frontend' / 'lib' / 'chat' / 'view' / 'chat_room_screen.dart').read_text(encoding='utf-8')
-        self.assertIn(f"'{LEFT}'", room)
-        self.assertIn("AppButton(label: '채팅방 나가기'", room)
+        self.assertTrue(label_backed(LEFT, [room], tools.arb_messages()))  # 화면 문구는 문구 파일(ARB)에 있다(1.0.2 B8)
+        self.assertTrue(label_backed('채팅방 나가기', [room], tools.arb_messages()))
         self.assertIn(f"'{LEFT}'", dart('area5_time.dart'))
         self.assertEqual(area5_time.LEFT_NOTICE, LEFT)
 

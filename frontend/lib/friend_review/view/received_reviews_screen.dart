@@ -6,7 +6,6 @@ import 'package:campus_mate/friend_review/viewmodel/friend_review_list_view_mode
 import 'package:campus_mate/safety/model/data/report_target.dart';
 import 'package:campus_mate/safety/view/report_sheet.dart';
 import 'package:campus_mate/safety/view/safety_actions.dart';
-import 'package:campus_mate/safety/viewmodel/report_ui_state.dart';
 import 'package:flutter/material.dart';
 
 // 화면 문구는 문구 파일(ARB)에 있다 — pen HWM2G(값표 B §2): 제목 kyDqZ · 안내 OHJVi · 빈 상태 계획서 A6.
@@ -36,9 +35,7 @@ class ReceivedReviewsScreen extends StatelessWidget {
     final l10n = context.l10n; // 시트가 닫힌 뒤 화면이 없어져도 토스트는 띄운다 — 글자는 미리 잡는다.
     final result = await showReportSheet(context, ReportTarget.friendReview(reviewId));
     if (result == null) return;
-    showSafetyToast(
-      messenger,
-      result.outcome == ReportOutcome.reported ? l10n.friendReviewReceivedReported : failureText(l10n, result.failure!),
-    );
+    final failure = result.failure;
+    showSafetyToast(messenger, failure == null ? l10n.commonReportedNotice : failureText(l10n, failure));
   }
 }

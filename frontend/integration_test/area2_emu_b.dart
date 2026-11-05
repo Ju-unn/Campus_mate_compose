@@ -35,7 +35,7 @@ const _acceptanceNotFound = '수락을 찾을 수 없어요'; // backend core/er
 const _matchMade = '매칭됐어요!'; // match_made_screen.dart:32
 
 // 15d 피드 — frontend/lib/community/view/feed_poll_card.dart(개선안 A) · community_feed_view_model.dart
-const _rewardToast = '하트 5개를 받았어요'; // community_feed_view_model.dart pollRewardMessage(10-16 확정, 종전 10)
+const _rewardToast = '하트 5개를 받았어요'; // poll_toast.dart communityVoteReward(10-16 확정, 종전 10)
 
 // 18a — frontend/lib/billing/task/view/heart_task_row.dart
 const _heartTasksRow = '무료로 하트 모으기'; // settings_screen.dart

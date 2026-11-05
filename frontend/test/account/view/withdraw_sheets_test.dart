@@ -153,6 +153,21 @@ void main() {
       expect(tester.getSize(deletedItemsBox()).height, 4 * 44 + 8); // 줄 4 × 44 + 위아래 4(pen J8iid padding [4,14])
     });
 
+    // _DeletedItems 는 그림 목록(_icons)과 글(ARB 4키)을 따로 들고 인덱스로 짝짓는다 — 한쪽만 늘면 줄이 어긋나거나 범위를 벗어난다.
+    testWidgets('삭제 항목은 글 한 줄마다 그림이 하나씩이다 — 그림 수와 글 수가 같다', (tester) async {
+      await openSheets(tester);
+
+      final texts = find.descendant(of: deletedItemsBox(), matching: find.byType(Text));
+      final pictures = find.descendant(of: deletedItemsBox(), matching: find.byType(Image)); // Icon3d 도 안에서 Image 를 그린다
+      expect(texts, findsNWidgets(4));
+      expect(pictures.evaluate().length, texts.evaluate().length);
+      for (var i = 0; i < 4; i++) {
+        // 줄마다 그림이 글 왼쪽 같은 높이에 있다.
+        expect(tester.getCenter(pictures.at(i)).dy, closeTo(tester.getCenter(texts.at(i)).dy, 0.5), reason: '${i + 1}번째 줄');
+        expect(tester.getRect(pictures.at(i)).right, lessThan(tester.getRect(texts.at(i)).left));
+      }
+    });
+
     testWidgets('남은 하트 줄 아이콘은 재화 하트 글리프 20×20(DESIGN §8.10)이고 같은 줄에 놓인다', (tester) async {
       await openSheets(tester);
 

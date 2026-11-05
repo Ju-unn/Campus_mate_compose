@@ -4,6 +4,7 @@ import 'package:campus_mate/community/view/poll_sheets.dart';
 import 'package:campus_mate/community/view/poll_time.dart';
 import 'package:campus_mate/community/view/poll_toast.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -39,10 +40,10 @@ class PollDetailScreen extends ConsumerWidget {
                 ),
               )
             : null,
-        title: Text('투표 상세', style: AppTypography.navTitle),
+        title: Text(context.l10n.communityDetailTitle, style: AppTypography.navTitle),
       ),
       body: poll == null
-          ? Center(child: Text('질문을 찾을 수 없어요', style: AppTypography.body.copyWith(color: AppColors.body)))
+          ? Center(child: Text(context.l10n.communityDetailNotFound, style: AppTypography.body.copyWith(color: AppColors.body)))
           // pen `ZR52B`: 안쪽 16.
           // 댓글은 추후 — 10-16 사용자 결정으로 안내 문구 제거(pen `LyR5Y` 와 그 위 간격 16).
           : ListView(
@@ -61,7 +62,8 @@ class PollDetailScreen extends ConsumerWidget {
   }
 
   Future<void> _vote(BuildContext context, WidgetRef ref, PollChoice choice) async {
-    final message = await ref.read(communityFeedViewModelProvider.notifier).vote(pollId, choice);
-    if (message != null && context.mounted) showPollToast(context, message);
+    final l10n = context.l10n;
+    final notice = await ref.read(communityFeedViewModelProvider.notifier).vote(pollId, choice);
+    if (notice != null && context.mounted) showPollToast(context, pollVoteNoticeText(l10n, notice));
   }
 }

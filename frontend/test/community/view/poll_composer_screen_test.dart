@@ -12,6 +12,7 @@ import 'package:campus_mate/community/view/poll_feed_tabs.dart';
 import 'package:campus_mate/community/view/vote_option.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -298,12 +299,12 @@ void main() {
     await tester.tap(find.text('익명으로 올리기'));
     await tester.pumpAndSettle();
 
-    expect(find.text(pollDailyLimitMessage), findsOneWidget);
+    expect(find.text(AppLocalizationsKo().errorPollDailyLimit), findsOneWidget);
     expect(find.text('피드'), findsNothing);
 
     // pen 17b 올리기 실패 `u4UOb`: 오류 글 error 색, 안내 글 아래 20 · 버튼 위 8, 버튼은 다시 켜진다.
     // 글 높이는 보지 않는다 — bodySmall lh1.55(21.7)와 pen 렌더 23 이 다르다(줄높이 있는 글은 토큰을 따른다).
-    final error = find.text(pollDailyLimitMessage);
+    final error = find.text(AppLocalizationsKo().errorPollDailyLimit);
     expect(tester.widget<Text>(error).style!.color, AppColors.error);
     final guide = tester.getRect(find.text(oxGuide));
     final errorRect = tester.getRect(error);
@@ -331,7 +332,7 @@ void main() {
     // 안내 `c9ch1w` 328×40 = 안쪽 12 + 자물쇠 16 + 12.
     final notice = tester.getRect(find.ancestor(of: find.byIcon(AppIcons.lock), matching: find.byType(Container)).first);
     expect(notice.size, const Size(328, 40));
-    final error = find.text(pollDailyLimitMessage);
+    final error = find.text(AppLocalizationsKo().errorPollDailyLimit);
     final style = tester.widget<Text>(error).style!;
     expect((style.fontSize, style.color), (14.0, AppColors.error));
     final button = tester.getRect(find.widgetWithText(ElevatedButton, '익명으로 올리기'));

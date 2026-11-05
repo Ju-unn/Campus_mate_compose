@@ -1,41 +1,27 @@
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
-// 문구는 사용자 확정(10-17 "ok 문구 좋다") 그대로다. 글자 하나도 바꾸지 않는다.
+// 문구는 사용자 확정(10-17 "ok 문구 좋다") 그대로다(문구 파일 `chatIntro*`). 글자 하나도 바꾸지 않는다.
 // 문장마다 굵게 할 구절을 **문장에 나오는 순서대로** 적는다(사용자 지시 10-17, pen 은 rich text 를 못 담아 대장이 목록으로 전달).
-const String _title = '대화를 시작하기 전에 알아 두세요';
-const (String, List<String>) _summary = (
-  "48시간 안에 두 분이 모두 수락해야 카카오톡 아이디·실사진이 공개되고 대화가 이어져요. "
-      "위쪽의 '수락하기'를 누르면 먼저 공개할 수 있어요.",
-  ['48시간', '수락'],
-);
-const List<(String, List<String>)> _items = [
-  (
-    "지금부터 48시간이 '신뢰 확인' 시간이에요. 서로 카카오톡 아이디와 실제 사진을 공개해도 좋은지 정하는 시간이에요.",
-    ['48시간', '카카오톡 아이디'],
-  ),
-  (
-    "매칭 약 24시간 뒤, 아직 수락하지 않은 분께 알림이 가요. 알림을 누르거나 이 대화방에 들어오면 "
-        "'카카오톡 아이디를 공유할까요?' 창이 떠요. 거기서 '수락하고 공유하기' 또는 '거절하고 나가기'를 고르면 돼요.",
-    ['24시간', '카카오톡 아이디'],
-  ),
-  (
-    "기다리기 싫다면 지금 화면 위쪽의 '수락하기'를 눌러 보세요. 상대도 수락하면 바로 공개돼요. 수락은 취소할 수 없어요.",
-    ['수락하기', '수락은 취소할 수 없어요'],
-  ),
-  ('48시간 안에 두 분이 모두 수락하지 않으면 이 대화는 종료돼요. 한쪽이 나가도 끝나요.', ['48시간', '종료']),
-  (
-    '공개된 뒤의 만남과 연락은 두 분의 선택이에요. 만나기 전에는 꼭 상대를 직접 확인하고 안전에 유의해 주세요. '
-        '불편하면 신고·차단·나가기를 쓸 수 있어요.',
-    [],
-  ),
-];
+// 구절도 문구 파일에서 읽는다 — 문장이 바뀌면 구절도 같이 바뀌어야 하므로 한 곳에 둔다([_emphasized] 의 assert 가 지킨다).
+(String, List<String>) _summary(AppLocalizations l10n) =>
+    (l10n.chatIntroSummary, [l10n.chatIntroEmphasis48Hours, l10n.chatIntroEmphasisAccept]);
+
+List<(String, List<String>)> _items(AppLocalizations l10n) => [
+      (l10n.chatIntroItem1, [l10n.chatIntroEmphasis48Hours, l10n.commonKakaoId]),
+      (l10n.chatIntroItem2, [l10n.chatIntroEmphasis24Hours, l10n.commonKakaoId]),
+      (l10n.chatIntroItem3, [l10n.chatAccept, l10n.chatIntroEmphasisNoCancel]),
+      (l10n.chatIntroItem4, [l10n.chatIntroEmphasis48Hours, l10n.chatIntroEmphasisEnd]),
+      (l10n.chatIntroItem5, <String>[]),
+    ];
 
 // pen 제목 14/700 ink 1.5 — 14/700 토큰이 없어 bodySmall(14)에서 굵기 · 줄높이만 pen 값으로 바꾼다.
 final TextStyle _titleStyle = AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w700, color: AppColors.ink, height: 1.5);
@@ -92,10 +78,10 @@ class ChatIntroCard extends StatelessWidget {
                 spacing: 6, // pen 가로 gap 6 — 간격 토큰(4 · 8) 사이 값
                 children: [
                   const Icon3d(AppIcon3d.infoBlue, size: 20),
-                  Expanded(child: Text(_title, style: _titleStyle)),
+                  Expanded(child: Text(context.l10n.chatIntroTitle, style: _titleStyle)),
                 ],
               ),
-              _Resize(child: expanded ? const _Items() : _emphasized(_summary)),
+              _Resize(child: expanded ? const _Items() : _emphasized(_summary(context.l10n))),
               // pen 토글 줄 296×48: 오른쪽 정렬 · 세로 가운데.
               Align(
                 alignment: AlignmentDirectional.centerEnd,
@@ -141,17 +127,18 @@ class _Items extends StatelessWidget {
   Widget build(BuildContext context) {
     // 번호 칸 20 은 배율 1 의 값이다 — 글자를 키우면 칸도 같이 키워 "5." 가 두 줄로 쪼개지지 않게 한다.
     final numberWidth = MediaQuery.textScalerOf(context).scale(20);
+    final items = _items(context.l10n);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: AppSpacing.xs,
       children: [
-        for (var index = 0; index < _items.length; index++)
+        for (var index = 0; index < items.length; index++)
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             spacing: 6, // pen 가로 gap 6 — 간격 토큰(4 · 8) 사이 값
             children: [
               SizedBox(width: numberWidth, child: Text('${index + 1}.', style: _numberStyle)),
-              Expanded(child: _emphasized(_items[index])),
+              Expanded(child: _emphasized(items[index])),
             ],
           ),
       ],
@@ -187,7 +174,7 @@ class _Toggle extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           spacing: AppSpacing.xxs,
           children: [
-            Text(expanded ? '접기' : '자세히 보기', style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText)),
+            Text(expanded ? context.l10n.chatIntroCollapse : context.l10n.commonViewMore, style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText)),
             Icon(expanded ? AppIcons.chevronUp : AppIcons.chevronDown, size: 16, color: AppColors.primaryText),
           ],
         ),
