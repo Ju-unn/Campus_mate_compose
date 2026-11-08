@@ -4,7 +4,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(19);
+select plan(21);
 
 -- 1~3 표 · RLS · enum
 select has_table('public', 'faq', 'faq 표가 있다');
@@ -69,6 +69,15 @@ select is_empty(
      where answer like '%월 1회 50하트%' or answer like '%하루 한 번 10하트%' or answer like '%최대 30하트%'
         or answer like '%학교 단톡방%'$$,
   '옛 무료 하트 값(에브리타임 50 · 투표 10 / 30) · "학교 단톡방" 이 든 답변이 없다');
+
+-- 20~21 졸업증명서 인증(20261108090000, 2026-11-08 사용자 「1 db적용해줘」): 졸업생은 메일 또는 졸업증명서로 인증한다.
+select ok((select answer like '%졸업생도 가입할 수 있어요. 학교 메일이 있으면 메일로, 없으면 졸업증명서로 인증해요.%'
+           from public.faq where question = '누가 가입할 수 있나요? 재학생이 아니어도 되나요?'),
+  '가입 자격 답변은 학교 메일이 없는 졸업생도 졸업증명서로 가입한다고 안내한다');
+select is_empty(
+  $$select id from public.faq
+     where answer like '%졸업증명서는 받지 않아요%' or answer like '%학교 메일을 쓸 수 있으면 가입할 수 있어요%'$$,
+  '"졸업증명서는 받지 않아요" · "학교 메일을 쓸 수 있으면" 옛 문장이 든 답변이 없다');
 
 select * from finish();
 rollback;
