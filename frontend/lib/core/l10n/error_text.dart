@@ -29,6 +29,7 @@ String failureText(AppLocalizations l10n, Failure failure) => switch (failure) {
       LoginCancelledFailure() => l10n.errorLoginCancelled,
       SocialLoginFailure() => l10n.errorSocialLogin,
       AppErrorFailure(:final error) => appErrorKindText(l10n, error),
+      BirthYearFailure(:final fromYear) => l10n.errorBirthYear(year: fromYear),
     };
 
 /// 앱이 정하는 에러 종류([AppError])의 글자. 화면이 [Failure] 객체 없이 직접 알리는 자리(실패 패널 등)가 쓴다.
@@ -46,6 +47,13 @@ String appErrorKindText(AppLocalizations l10n, AppError error) => switch (error)
       AppError.reportLimited => l10n.errorReportLimited,
       AppError.pollDailyLimit => l10n.errorPollDailyLimit,
       AppError.chatGateOver => l10n.errorChatGateOver,
+      AppError.nicknameInvalid => l10n.errorNicknameInvalid,
+      AppError.nicknameTaken => l10n.errorNicknameTaken,
+      AppError.heightRange => l10n.errorHeightRange,
+      AppError.phoneInvalid => l10n.errorPhoneInvalid,
+      AppError.saveFailed => l10n.errorSaveFailed,
+      AppError.noFace => l10n.errorNoFace,
+      AppError.meLoad => l10n.errorMeLoad,
     };
 
 String _takenText(AppLocalizations l10n, SchoolEmailTakenFailure failure) {

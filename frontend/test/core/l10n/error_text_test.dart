@@ -52,6 +52,14 @@ void main() {
     (const AppErrorFailure(AppError.reportLimited), '오늘은 더 신고할 수 없어요'),
     (const AppErrorFailure(AppError.pollDailyLimit), '오늘은 질문을 더 올릴 수 없어요'),
     (const AppErrorFailure(AppError.chatGateOver), '응답 기한이 지나 이 대화는 종료됐어요'),
+    (const AppErrorFailure(AppError.nicknameInvalid), '한글 또는 영문 2~5자로 입력해 주세요'),
+    (const AppErrorFailure(AppError.nicknameTaken), '이미 있는 닉네임이에요'),
+    (const AppErrorFailure(AppError.heightRange), '120~230 사이로 입력해 주세요'),
+    (const AppErrorFailure(AppError.phoneInvalid), '올바른 휴대폰 번호를 입력해 주세요'),
+    (const BirthYearFailure(2007), '2007년생부터 가입할 수 있어요'),
+    (const AppErrorFailure(AppError.saveFailed), '저장하지 못했어요. 잠시 후 다시 시도해 주세요'),
+    (const AppErrorFailure(AppError.noFace), '얼굴이 보이는 사진을 골라 주세요'),
+    (const AppErrorFailure(AppError.meLoad), '잠시 뒤 다시 시도해 주세요'),
   ];
 
   group('failureText', () {

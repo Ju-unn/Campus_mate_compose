@@ -203,6 +203,24 @@ enum AppError {
   reportLimited,
   pollDailyLimit,
   chatGateOver,
+
+  /// 닉네임 · 키 · 번호 칸 아래 빨간 한 줄(04-1 · 15-6). 서버 422 · 409 문구와 글자가 같다.
+  nicknameInvalid,
+  nicknameTaken,
+  heightRange,
+  phoneInvalid,
+  saveFailed,
+  noFace,
+
+  /// 나 탭 화면(15 · 15-4 · 15-5)의 읽기 실패. 글자가 같은 [ServerUnavailableFailure] 와 뜻(502·503)이 달라 따로 둔다(사용자 결정 2026-09-27).
+  meLoad,
+}
+
+/// 출생연도가 나이 하한에 걸렸다(04-1). [fromYear] 년생부터 가입할 수 있다 — 서버 422(schemas.py)와 같은 글자.
+final class BirthYearFailure extends Failure {
+  const BirthYearFailure(this.fromYear);
+
+  final int fromYear;
 }
 
 /// [AppError] 하나를 [Failure] 로 싣는 실패 — 뷰모델이 문자열 없이 `Failure?` 하나로 에러를 상태에 담게 한다.
