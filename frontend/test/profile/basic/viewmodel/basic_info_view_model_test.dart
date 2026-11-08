@@ -28,6 +28,8 @@ import '../../../core/draft/fake_draft_store.dart';
 
 const _thisYear = 2026;
 
+Matcher _kind(AppError error) => isA<AppErrorFailure>().having((failure) => failure.error, 'error', error);
+
 void main() {
   late FakeBasicInfoRepository repository;
   late FakeOnboardingRepository onboardingRepository;
@@ -81,7 +83,7 @@ void main() {
     vm.changeNickname('중복닉네임');
     await tester.pump(const Duration(milliseconds: 350));
     final state = container.read(basicInfoViewModelProvider);
-    expect(state.nicknameError, '이미 있는 닉네임이에요');
+    expect(state.nicknameError, _kind(AppError.nicknameTaken));
   });
 
   testWidgets('형식이 안 맞으면 서버에 묻지 않고 왜 안 되는지 알려 준다', (tester) async {
@@ -90,8 +92,8 @@ void main() {
     vm.changeNickname('가');
     await tester.pump(const Duration(milliseconds: 350));
     final state = container.read(basicInfoViewModelProvider);
-    expect(state.nicknameError, '한글 또는 영문 2~5자로 입력해 주세요');
-    expect(state.nicknameSuccess, isNull);
+    expect(state.nicknameError, _kind(AppError.nicknameInvalid));
+    expect(state.nicknameCheck, isNot(NicknameCheck.available));
     expect(repository.checkedNicknames, isEmpty);
   });
 
@@ -100,7 +102,7 @@ void main() {
     vm.changeNickname('가나다');
     await tester.pump(const Duration(milliseconds: 350));
     final state = container.read(basicInfoViewModelProvider);
-    expect(state.nicknameSuccess, '사용할 수 있는 닉네임이에요');
+    expect(state.nicknameCheck, NicknameCheck.available);
     expect(state.nicknameError, isNull);
   });
 
@@ -110,14 +112,14 @@ void main() {
 
     vm.changeNickname('가나다');
     await tester.pump(const Duration(milliseconds: 350));
-    expect(container.read(basicInfoViewModelProvider).nicknameChecking, '확인 중…');
+    expect(container.read(basicInfoViewModelProvider).nicknameCheck, NicknameCheck.checking);
 
     repository.availabilityGate!.complete();
     await tester.pump();
 
     final state = container.read(basicInfoViewModelProvider);
-    expect(state.nicknameChecking, isNull);
-    expect(state.nicknameSuccess, '사용할 수 있는 닉네임이에요');
+    expect(state.nicknameCheck, isNot(NicknameCheck.checking));
+    expect(state.nicknameCheck, NicknameCheck.available);
   });
 
   testWidgets('확인이 실패하면 아무 말도 하지 않지만 도는 표시는 내린다', (tester) async {
@@ -133,9 +135,9 @@ void main() {
     vm.changeGender('male');
 
     final state = container.read(basicInfoViewModelProvider);
-    expect(state.nicknameChecking, isNull);
+    expect(state.nicknameCheck, isNot(NicknameCheck.checking));
     expect(state.nicknameError, isNull);
-    expect(state.nicknameSuccess, isNull);
+    expect(state.nicknameCheck, isNot(NicknameCheck.available));
     // 확인이 안 됐다고 04-1 에 가두지 않는다 — 진짜 중복이면 제출 때 서버가 막는다.
     expect(state.canSubmit, isTrue);
   });
@@ -144,12 +146,12 @@ void main() {
     final vm = container.read(basicInfoViewModelProvider.notifier);
     vm.changeNickname('가나다');
     await tester.pump(const Duration(milliseconds: 350));
-    expect(container.read(basicInfoViewModelProvider).nicknameSuccess, isNotNull);
+    expect(container.read(basicInfoViewModelProvider).nicknameCheck, NicknameCheck.available);
 
     vm.changeNickname('가나다라');
 
     final state = container.read(basicInfoViewModelProvider);
-    expect(state.nicknameSuccess, isNull);
+    expect(state.nicknameCheck, isNot(NicknameCheck.available));
     expect(state.nicknameError, isNull);
 
     // 마지막 입력의 디바운스를 흘려보낸다 — 살아 있는 타이머를 두고 끝내면 테스트가 실패한다.
@@ -183,7 +185,7 @@ void main() {
     expect(container.read(basicInfoViewModelProvider).heightError, isNull);
 
     vm.changeHeight('999');
-    expect(container.read(basicInfoViewModelProvider).heightError, '120~230 사이로 입력해 주세요');
+    expect(container.read(basicInfoViewModelProvider).heightError, _kind(AppError.heightRange));
 
     vm.changeHeight('175');
     expect(container.read(basicInfoViewModelProvider).heightError, isNull);
@@ -215,7 +217,7 @@ void main() {
     expect(container.read(basicInfoViewModelProvider).birthYearError, isNull);
 
     vm.changeBirthYear('${_thisYear - 18}');
-    expect(container.read(basicInfoViewModelProvider).birthYearError, '${_thisYear - 19}년생부터 가입할 수 있어요');
+    expect(container.read(basicInfoViewModelProvider).birthYearError, isA<BirthYearFailure>().having((f) => f.fromYear, 'fromYear', _thisYear - 19));
 
     vm.changeBirthYear('${_thisYear - 19}');
     expect(container.read(basicInfoViewModelProvider).birthYearError, isNull);
@@ -289,7 +291,7 @@ void main() {
 
       final state = container.read(basicInfoViewModelProvider);
       expect(state.canSubmit, isFalse);
-      expect(state.phoneNumberError, '올바른 휴대폰 번호를 입력해 주세요');
+      expect(state.phoneNumberError, _kind(AppError.phoneInvalid));
     });
   }
 
@@ -324,7 +326,7 @@ void main() {
       await submitRejected(tester);
 
       final state = container.read(basicInfoViewModelProvider);
-      expect(state.phoneNumberError, '올바른 휴대폰 번호를 입력해 주세요');
+      expect(state.phoneNumberError, _kind(AppError.phoneInvalid));
       expect(state.errorMessage, isNull);
       expect(state.canSubmit, isFalse);
     });
@@ -652,11 +654,11 @@ void main() {
       repository.checkedNicknames.clear();
 
       final reopened = open();
-      expect(reopened.read(basicInfoViewModelProvider).nicknameSuccess, isNull);
+      expect(reopened.read(basicInfoViewModelProvider).nicknameCheck, isNot(NicknameCheck.available));
       await tester.pump(const Duration(milliseconds: 350));
 
       expect(repository.checkedNicknames, ['가나다']);
-      expect(reopened.read(basicInfoViewModelProvider).nicknameSuccess, '사용할 수 있는 닉네임이에요');
+      expect(reopened.read(basicInfoViewModelProvider).nicknameCheck, NicknameCheck.available);
     });
 
     testWidgets('복원할 값이 없으면 열 때 중복 확인을 부르지 않는다', (tester) async {

@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/phone_number_formatter.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/profile/basic/model/data/mbti_poles.dart';
@@ -34,7 +35,8 @@ class BasicInfoUiState {
 
   final String nicknameInput;
 
-  /// 디바운스가 끝난 뒤의 형식·중복 확인 결과. 문구는 [nicknameError]·[nicknameSuccess] 가 만든다.
+  /// 디바운스가 끝난 뒤의 형식·중복 확인 결과. 오류 종류는 [nicknameError] 가 고르고, 확인 중 · 사용 가능 글자는 view 가
+  /// 이 값으로 고른다.
   final NicknameCheck nicknameCheck;
   final String birthYearInput;
   final String heightInput;
@@ -76,41 +78,35 @@ class BasicInfoUiState {
   /// 자모를 먼저 넣는다) 보낼 값은 완성형이어야 한다 — 그 마지막 관문이 여기다.
   static final RegExp nicknamePattern = RegExp(r'^[가-힣a-zA-Z]{2,5}$');
 
-  /// 오류색으로 입력칸 바로 아래 한 줄(DESIGN §8.5).
-  String? get nicknameError => switch (nicknameCheck) {
-    NicknameCheck.invalid => '한글 또는 영문 2~5자로 입력해 주세요',
-    NicknameCheck.taken => '이미 있는 닉네임이에요',
+  /// 오류색으로 입력칸 바로 아래 한 줄(DESIGN §8.5)의 종류. 글자는 view 가 `context.errorText` 로 만든다.
+  /// 같은 자리의 성공색(사용 가능) · 회색(확인 중) 한 줄은 view 가 [nicknameCheck] 로 고른다 — 오류가 있으면 그쪽이 먼저다.
+  Failure? get nicknameError => switch (nicknameCheck) {
+    NicknameCheck.invalid => const AppErrorFailure(AppError.nicknameInvalid),
+    NicknameCheck.taken => const AppErrorFailure(AppError.nicknameTaken),
     _ => null,
   };
-
-  /// 같은 자리에 성공색으로 한 줄. 오류가 있으면 그쪽이 먼저다.
-  String? get nicknameSuccess =>
-      nicknameCheck == NicknameCheck.available ? '사용할 수 있는 닉네임이에요' : null;
-
-  /// 서버 답을 기다리는 잠깐 동안 같은 자리에 회색으로 한 줄.
-  String? get nicknameChecking => nicknameCheck == NicknameCheck.checking ? '확인 중…' : null;
 
   /// 키 칸은 평소엔 아무것도 안 보이고, **3자리를 다 친 뒤에도 범위 밖일 때만** 오류를 띄운다
   /// (pen 04-1 "도움말은 필요할 때만"). 치는 도중에 띄우면 한 자 칠 때마다 문구가 깜빡인다.
   /// 문구는 범위를 그대로 알려 준다(2026-11-02 앱 1.0.1, 종전 "숫자 3자리를 확인해 주세요").
-  String? get heightError =>
-      heightInput.length == 3 && heightCm == null ? '120~230 사이로 입력해 주세요' : null;
+  Failure? get heightError =>
+      heightInput.length == 3 && heightCm == null ? const AppErrorFailure(AppError.heightRange) : null;
 
   /// 가입용 번호 규칙([SignupPhoneNumber])에 걸리면 **11자리를 다 친 뒤에만** 오류를 띄운다(키 칸과 같은 방식).
   /// 서버도 같은 규칙으로 다시 본다 — 앱은 바로 알려 주고 "다음"을 끈다.
   /// 서버가 거절한 번호([rejectedPhoneDigits])도 같은 자리 · 같은 문구다(서버 422 본문 `detail` 과 같은 글자).
-  String? get phoneNumberError {
+  Failure? get phoneNumberError {
     final isFilled = phoneDigits.length == PhoneNumberFormatter.maxDigits;
-    return isFilled && !_isPhoneAcceptable ? '올바른 휴대폰 번호를 입력해 주세요' : null;
+    return isFilled && !_isPhoneAcceptable ? const AppErrorFailure(AppError.phoneInvalid) : null;
   }
 
   bool get _isPhoneAcceptable => SignupPhoneNumber.accepts(phoneDigits) && phoneDigits != rejectedPhoneDigits;
 
   /// 출생연도는 **나이가 모자랄 때만** 오류를 띄운다(사용자 결정 2026-09-29). 치는 도중(3자리 이하)은 값이 작아
   /// 걸리지 않는다. 문구는 서버 422(schemas.py)와 같다 — 해가 바뀌면 연도도 따라 바뀐다. 1950 이전은 꺼지기만 한다.
-  String? get birthYearError {
+  Failure? get birthYearError {
     final value = int.tryParse(birthYearInput);
-    return value != null && value > thisYear - minAge ? '${thisYear - minAge}년생부터 가입할 수 있어요' : null;
+    return value != null && value > thisYear - minAge ? BirthYearFailure(thisYear - minAge) : null;
   }
 
   /// 폰에 임시 저장할 값. **전화번호는 넣지 않는다** — 평문으로 폰에 남기지 않는다(2026-10-08 사용자 결정).

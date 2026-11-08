@@ -1237,7 +1237,10 @@ class AppContractTest(unittest.TestCase):
         self.assertIsNotNone(back)
         self.assertLess(back.start(), settings.start())
         self.assertEqual(area5_read.TITLES['15'], '내 프로필')
-        self.assertIn("EditAppBar(title: '%s')" % area5_read.TITLES['15b-5'], (tools.ROOT / 'frontend' / 'lib' / 'me' / 'view' / 'avatar_regen_pick_screen.dart').read_text(encoding='utf-8'))
+        pick = (tools.ROOT / 'frontend' / 'lib' / 'me' / 'view' / 'avatar_regen_pick_screen.dart').read_text(encoding='utf-8')
+        keys = '|'.join(key for key, text in tools.arb_messages().items() if text == area5_read.TITLES['15b-5'])  # 앱바 제목은 문구 파일(ARB)에 있다(1.0.2 B8)
+        self.assertTrue(keys)
+        self.assertRegex(pick, r'EditAppBar\(title: context\.l10n\.(?:%s)\b' % keys)
         self.assertEqual(area5_read.EDGE_14[0][:3], ('regen', '15b-5', '15b'))
 
     def test_only_the_two_screens_with_typed_text_clear_the_focus_before_back(self):
@@ -1260,7 +1263,9 @@ class AppContractTest(unittest.TestCase):
         # 15 의 제목은 큰 글자에서 자르지 않고 줄이려 FittedBox 안 Text 다(my_profile_screen.dart, 홈 앱바와 같다). 앱바 글자를 읽는
         # _title() 이 Text 만 보면 15 에서 null 을 말해 EDGE-13 의 15-5 → 15 · 15-4 → 15 가 fail 하고 _returnTo('내 프로필') 이 멈추지 못한다.
         me = (tools.ROOT / 'frontend' / 'lib' / 'me' / 'view' / 'my_profile_screen.dart').read_text(encoding='utf-8')
-        self.assertRegex(me, r"(?s)title: FittedBox\((?:(?!\n        \),).)*child: Text\('%s'" % area5_read.TITLES['15'])
+        keys = '|'.join(key for key, text in tools.arb_messages().items() if text == area5_read.TITLES['15'])  # 제목은 문구 파일(ARB)에 있다(1.0.2 B8)
+        self.assertTrue(keys)
+        self.assertRegex(me, r"(?s)title: FittedBox\((?:(?!\n        \),).)*child: Text\(context\.l10n\.(?:%s)\b" % keys)
         helper = dart_block((tools.ROOT / 'frontend' / 'integration_test' / 'area5.dart').read_text(encoding='utf-8'),
                             'String? _title(WidgetTester', '\n}\n')
         self.assertRegex(helper, r'\bis FittedBox \? \w+\.child : ')

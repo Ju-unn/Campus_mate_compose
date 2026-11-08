@@ -1,8 +1,10 @@
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
+import 'package:campus_mate/profile/onboarding/view/profile_enum_text.dart';
 import 'package:flutter/material.dart';
 
 /// 종교 고르기(DESIGN.md §8.5 religion-select, pen `KT7Lu`) — 2×2 칸, 높이 56, 칸 사이 12.
@@ -25,7 +27,7 @@ class ReligionPicker extends StatelessWidget {
       children: [
         for (final religion in Religion.values)
           ChoiceCell(
-            label: religion.label,
+            label: religion.label(context.l10n),
             isSelected: selected == religion,
             onTap: () => onSelected(religion),
           ),

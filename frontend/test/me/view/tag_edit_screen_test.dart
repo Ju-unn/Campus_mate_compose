@@ -6,12 +6,14 @@ import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/common/widgets/select_chip.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/profile/onboarding/model/repository/onboarding_repository_provider.dart';
 import 'package:campus_mate/profile/traits/model/repository/tag_picker_repository_provider.dart';
+import 'package:campus_mate/profile/traits/view/tag_picker_kind_text.dart';
 import 'package:campus_mate/profile/traits/view/tag_picker_screen.dart';
 import 'package:campus_mate/profile/traits/viewmodel/tag_picker_kind.dart';
 import 'package:flutter/material.dart';
@@ -110,8 +112,8 @@ void main() {
 
       expect(tester.widget<EditAppBar>(find.byType(EditAppBar)).title, title);
       expect(find.byType(OnboardingAppBar), findsNothing);
-      expect(find.text(kind.headline), findsOneWidget);
-      expect(find.text(kind.subtext), findsOneWidget);
+      expect(find.text(kind.headline(AppLocalizationsKo())), findsOneWidget);
+      expect(find.text(kind.subtext(AppLocalizationsKo())), findsOneWidget);
     });
   }
 

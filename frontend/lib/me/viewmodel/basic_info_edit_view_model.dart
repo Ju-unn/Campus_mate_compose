@@ -14,14 +14,17 @@ final basicInfoEditViewModelProvider =
     NotifierProvider.autoDispose<BasicInfoEditViewModel, BasicInfoEditUiState>(BasicInfoEditViewModel.new);
 
 /// 서버가 닉네임 칸 탓으로 돌려주는 409 문구(backend `app/core/errors.py` NICKNAME_TAKEN · NICKNAME_CHANGE_TOO_SOON).
-/// 앱은 상태코드를 못 보고 문구만 받으므로 문구로 자리를 가른다(`chat_errors.dart` 와 같은 방식).
+/// 앱은 상태코드를 못 보고 문구만 받으므로 문구로 자리를 가른다(`chat_errors.dart` 와 같은 방식). 칸 아래 글자는 서버가 준
+/// 그대로다 — 상태는 거절 [Failure] 를 들고, 화면이 `context.errorText` 로 서버 문구를 그린다.
+// l10n-ignore-start(server-text): 서버 errors.py 문구와 글자까지 같아야 하는 비교 상수 — ARB 로 옮기면 분기가 조용히 죽는다
 const Set<String> _nicknameRejections = {'이미 있는 닉네임이에요', '닉네임은 30일에 한 번 바꿀 수 있어요'};
 
 /// 서버 422(`errors.py` INVALID_INPUT) — 키 check(120~230) 위반이 이 문구로 온다.
 const String _invalidInput = '입력한 값을 다시 확인해 주세요';
+// l10n-ignore-end
 
-/// 칸 탓이 아닌 저장 실패 문구 — pen 15-6c `C3oV5u`(실패 종류와 상관없이 같다).
-const String saveFailedMessage = '저장하지 못했어요. 잠시 후 다시 시도해 주세요';
+bool _isServerText(Failure failure, Set<String> texts) =>
+    failure is ServerRejectedFailure && texts.contains(failure.serverMessage);
 
 /// 15-6 기본 정보 수정(pen `mhdYA` · 15-6-2 `ZuPTD`, 계획서 2026-09-28-me-profile.md A16 · 옛 A7). 닉네임 · 키 · MBTI · 종교 · 흡연 ·
 /// 내 동물상 · 내 인상을 고친다. 출생연도 · 성별 · 학과는 잠금 행으로 보여 주기만 한다(10-10 사용자 결정).
@@ -155,7 +158,7 @@ class BasicInfoEditViewModel extends Notifier<BasicInfoEditUiState> {
       isSmoker: state.isSmokerChanged ? state.isSmoker : null,
       appearance: appearance,
     );
-    state = state.copyWith(isSubmitting: true, errorMessage: null);
+    state = state.copyWith(isSubmitting: true, error: null);
     // 저장 중에 뒤로 나가도 끝까지 저장하고 15-5 를 다시 읽게 한다 — 그동안 autoDispose 가 버리지 않게 붙잡는다.
     final keepAlive = ref.keepAlive();
     try {
@@ -180,16 +183,16 @@ class BasicInfoEditViewModel extends Notifier<BasicInfoEditUiState> {
     }
   }
 
-  /// 실패 문구를 탓할 칸 아래로 보낸다(B5). 어느 칸 탓인지 모르는 실패(네트워크 등)는 04-1 처럼 버튼 위 저장 실패 문구다.
+  /// 실패를 탓할 칸 아래로 보낸다(B5). 어느 칸 탓인지 모르는 실패(네트워크 등)는 04-1 처럼 버튼 위 저장 실패 문구다 —
+  /// pen 15-6c `C3oV5u`(실패 종류와 상관없이 같다).
   BasicInfoEditUiState _rejectedState(Failure failure, {required bool sentHeight}) {
-    final message = failure.toDisplayMessage();
-    if (_nicknameRejections.contains(message)) {
-      return state.copyWith(isSubmitting: false, nicknameRejection: message);
+    if (_isServerText(failure, _nicknameRejections)) {
+      return state.copyWith(isSubmitting: false, nicknameRejection: failure);
     }
-    if (sentHeight && message == _invalidInput) {
-      return state.copyWith(isSubmitting: false, heightRejection: message);
+    if (sentHeight && _isServerText(failure, const {_invalidInput})) {
+      return state.copyWith(isSubmitting: false, heightRejection: failure);
     }
-    return state.copyWith(isSubmitting: false, errorMessage: saveFailedMessage);
+    return state.copyWith(isSubmitting: false, error: const AppErrorFailure(AppError.saveFailed));
   }
 }
 
@@ -222,7 +225,7 @@ class BasicInfoEditUiState {
     this.nicknameRejection,
     this.heightRejection,
     this.isSubmitting = false,
-    this.errorMessage,
+    this.error,
     this.completed = false,
   });
 
@@ -259,13 +262,13 @@ class BasicInfoEditUiState {
   /// 디바운스가 끝난 뒤의 형식 · 중복 확인 결과(04-1 과 같은 값).
   final NicknameCheck nicknameCheck;
 
-  /// 저장 때 서버가 닉네임 · 키 탓으로 돌려준 문구. 그 칸을 고치면 지운다.
-  final String? nicknameRejection;
-  final String? heightRejection;
+  /// 저장 때 서버가 닉네임 · 키 탓으로 돌려준 거절(서버 문구를 그대로 든다). 그 칸을 고치면 지운다.
+  final Failure? nicknameRejection;
+  final Failure? heightRejection;
   final bool isSubmitting;
 
-  /// 어느 칸 탓인지 모르는 저장 실패(네트워크 등).
-  final String? errorMessage;
+  /// 어느 칸 탓인지 모르는 저장 실패(네트워크 등). 글자는 화면이 `context.errorText` 로 만든다.
+  final Failure? error;
   final bool completed;
 
   bool get isNicknameLocked => nicknameChangeableAt != null;
@@ -290,15 +293,15 @@ class BasicInfoEditUiState {
   /// 벡터를 다시 만든다 — 종교 · 흡연 · 닉네임 · 키만이면 보이지 않는다.
   bool get showsRecalculationNote => isSubmitting && (isMbtiChanged || isAppearanceChanged);
 
-  /// 15-6-2 helper(`V3sicJ`). **한국 시각의 월 · 일** — 운영 DB 는 `+00:00` 으로 주고, 한국 밤 9시 이후 바꾼 사람은 UTC
-  /// 날짜가 하루 앞선다. `toLocal()` 은 기기 · CI 시간대를 따라가 테스트가 흔들린다(옛 A7).
-  String? get nicknameUnlockText {
+  /// 15-6-2 helper(`V3sicJ`)의 날짜. **한국 시각의 월 · 일** — 운영 DB 는 `+00:00` 으로 주고, 한국 밤 9시 이후 바꾼 사람은 UTC
+  /// 날짜가 하루 앞선다. `toLocal()` 은 기기 · CI 시간대를 따라가 테스트가 흔들린다(옛 A7). 글자는 화면이 만든다.
+  ({int month, int day})? get nicknameUnlockDay {
     final at = nicknameChangeableAt;
     if (at == null) {
       return null;
     }
     final korea = at.toUtc().add(const Duration(hours: 9));
-    return '${korea.month}월 ${korea.day}일부터 바꿀 수 있어요';
+    return (month: korea.month, day: korea.day);
   }
 
   /// 04-1 과 같은 범위(서버 DB check 120~230).
@@ -307,21 +310,19 @@ class BasicInfoEditUiState {
     return (value != null && value >= 120 && value <= 230) ? value : null;
   }
 
-  /// 칸 아래 빨간 한 줄. 서버가 돌려준 문구가 먼저, 다음은 04-1 과 같은 형식 · 중복 문구.
-  String? get nicknameError =>
+  /// 칸 아래 빨간 한 줄의 종류. 서버가 돌려준 거절이 먼저, 다음은 04-1 과 같은 형식 · 중복 오류.
+  /// 확인 중 · 사용 가능 한 줄은 화면이 [nicknameCheck] 로 고른다(04-1 과 같은 문구 키).
+  Failure? get nicknameError =>
       nicknameRejection ??
       switch (nicknameCheck) {
-        NicknameCheck.invalid => '한글 또는 영문 2~5자로 입력해 주세요',
-        NicknameCheck.taken => '이미 있는 닉네임이에요',
+        NicknameCheck.invalid => const AppErrorFailure(AppError.nicknameInvalid),
+        NicknameCheck.taken => const AppErrorFailure(AppError.nicknameTaken),
         _ => null,
       };
 
-  String? get nicknameSuccess => nicknameCheck == NicknameCheck.available ? '사용할 수 있는 닉네임이에요' : null;
-  String? get nicknameChecking => nicknameCheck == NicknameCheck.checking ? '확인 중…' : null;
-
   /// 04-1 과 같다 — 3자리를 다 친 뒤에도 범위 밖일 때만. 치는 도중에 띄우면 한 자 칠 때마다 깜빡인다.
-  String? get heightError =>
-      heightRejection ?? (heightInput.length == 3 && heightCm == null ? '120~230 사이로 입력해 주세요' : null);
+  Failure? get heightError =>
+      heightRejection ?? (heightInput.length == 3 && heightCm == null ? const AppErrorFailure(AppError.heightRange) : null);
 
   /// 바뀌지 않은 칸은 보내지 않으니 검사하지 않는다. 중복 확인이 실패했거나 아직이어도 막지 않는다(04-1 과 같다).
   bool get _isNicknameReady =>
@@ -361,7 +362,7 @@ class BasicInfoEditUiState {
     Object? nicknameRejection = _keep,
     Object? heightRejection = _keep,
     bool? isSubmitting,
-    Object? errorMessage = _keep,
+    Object? error = _keep,
     bool? completed,
   }) {
     return BasicInfoEditUiState(
@@ -385,10 +386,10 @@ class BasicInfoEditUiState {
       animalType: animalType ?? this.animalType,
       impressionType: impressionType ?? this.impressionType,
       nicknameCheck: nicknameCheck ?? this.nicknameCheck,
-      nicknameRejection: identical(nicknameRejection, _keep) ? this.nicknameRejection : nicknameRejection as String?,
-      heightRejection: identical(heightRejection, _keep) ? this.heightRejection : heightRejection as String?,
+      nicknameRejection: identical(nicknameRejection, _keep) ? this.nicknameRejection : nicknameRejection as Failure?,
+      heightRejection: identical(heightRejection, _keep) ? this.heightRejection : heightRejection as Failure?,
       isSubmitting: isSubmitting ?? this.isSubmitting,
-      errorMessage: identical(errorMessage, _keep) ? this.errorMessage : errorMessage as String?,
+      error: identical(error, _keep) ? this.error : error as Failure?,
       completed: completed ?? this.completed,
     );
   }

@@ -1,9 +1,11 @@
 import 'package:campus_mate/common/widgets/select_chip.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
+import 'package:campus_mate/profile/onboarding/view/profile_enum_text.dart';
 import 'package:flutter/material.dart';
 
 /// 얼굴상·인상 피커(DESIGN.md §8.5 `animal-type-picker`·`impression-picker`).
@@ -35,7 +37,7 @@ class AnimalTypePicker extends StatelessWidget {
               _PickerCell(
                 isSelected: selected.contains(type),
                 onTap: () => onTap(type),
-                child: _cellBody(type),
+                child: _cellBody(context, type),
               ),
           ],
         );
@@ -43,7 +45,7 @@ class AnimalTypePicker extends StatelessWidget {
     );
   }
 
-  Widget _cellBody(AnimalType type) {
+  Widget _cellBody(BuildContext context, AnimalType type) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -58,7 +60,7 @@ class AnimalTypePicker extends StatelessWidget {
         const SizedBox(height: AppSpacing.xxs),
         // 4열이라 칸이 좁다 — '햄스터상'까지 한 줄에 들어가는 크기다(종전 label 18sp 는 넘친다).
         // 글자를 키우면(DESIGN §11.2) 네 글자 이름이 칸 폭을 넘고, 한글은 낱말 중간에서 줄이 안 접혀 잘린다 — 칸 폭에 맞춰 줄여 그린다.
-        FittedBox(fit: BoxFit.scaleDown, child: Text(type.label, style: _nameStyle)),
+        FittedBox(fit: BoxFit.scaleDown, child: Text(type.label(context.l10n), style: _nameStyle)),
       ],
     );
   }
@@ -74,7 +76,7 @@ class AnimalTypePicker extends StatelessWidget {
     var nameHeight = 0.0;
     for (final type in AnimalType.values) {
       final painter = TextPainter(
-        text: TextSpan(text: type.label, style: _nameStyle),
+        text: TextSpan(text: type.label(context.l10n), style: _nameStyle),
         textDirection: TextDirection.ltr,
         textScaler: textScaler,
       )..layout();
@@ -105,7 +107,7 @@ class ImpressionTypePicker extends StatelessWidget {
             children: [
               for (var i = start; i < start + _perRow && i < ImpressionType.values.length; i++) ...[
                 if (i > start) const SizedBox(width: AppSpacing.xs),
-                Expanded(child: _chip(ImpressionType.values[i])),
+                Expanded(child: _chip(context, ImpressionType.values[i])),
               ],
             ],
           ),
@@ -118,9 +120,9 @@ class ImpressionTypePicker extends StatelessWidget {
 
   /// 회색 채움 + 테두리 없음, 고르면 분홍 워시 + 분홍 테두리 — 04-1 성별·MBTI 칩과 같은 칸이다.
   /// 높이만 다르다(pen `BGMWX` 44, 04-1 `Chip` 35).
-  Widget _chip(ImpressionType type) {
+  Widget _chip(BuildContext context, ImpressionType type) {
     return SelectChip(
-      label: type.label,
+      label: type.label(context.l10n),
       isSelected: selected.contains(type),
       onTap: () => onTap(type),
       height: 44,

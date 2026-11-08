@@ -411,6 +411,22 @@ void main() {
       expect(tester.widget<EditableText>(_valueOf(_heightField)).controller.text, '180');
     });
 
+    testWidgets('닉네임 확인 줄 — 묻는 동안 "확인 중…", 답이 오면 "사용할 수 있는 닉네임이에요"(04-1 과 같은 글자)', (tester) async {
+      await pump(tester);
+      nicknames.availabilityGate = Completer<void>();
+
+      await typeNickname(tester, '호랑이');
+
+      expect(find.text('확인 중…'), findsOneWidget);
+      expect(find.text('사용할 수 있는 닉네임이에요'), findsNothing);
+
+      nicknames.availabilityGate!.complete();
+      await tester.pump();
+
+      expect(find.text('사용할 수 있는 닉네임이에요'), findsOneWidget);
+      expect(find.text('확인 중…'), findsNothing);
+    });
+
     testWidgets('닉네임은 한글 · 영문만', (tester) async {
       await pump(tester);
 

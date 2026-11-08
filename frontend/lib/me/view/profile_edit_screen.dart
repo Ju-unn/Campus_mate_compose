@@ -1,4 +1,6 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -10,6 +12,7 @@ import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/me/viewmodel/profile_edit_view_model.dart';
 import 'package:campus_mate/profile/bio/view/bio_screen.dart';
+import 'package:campus_mate/profile/traits/view/tag_picker_kind_text.dart';
 import 'package:campus_mate/profile/traits/viewmodel/tag_picker_kind.dart';
 import 'package:campus_mate/profile/traits/viewmodel/tag_picker_ui_state.dart';
 import 'package:flutter/material.dart';
@@ -45,7 +48,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     // 새로 읽는 동안에도 앞 값을 그대로 보여 준다(Riverpod 이 새로고침 중에 앞 값을 들고 있다).
     final profile = ref.watch(myProfileProvider).value?.when<MyProfile?>(onSuccess: (p) => p, onFailure: (_) => null);
     return Scaffold(
-      appBar: const EditAppBar(title: '자기소개·태그 수정'),
+      appBar: EditAppBar(title: context.l10n.meBioEditTitle),
       body: SafeArea(
         top: false,
         child: Column(
@@ -58,7 +61,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                   _BioField(controller: _bio, onChanged: viewModel.changeBio),
                   for (final (index, kind) in TagPickerKind.values.indexed)
                     _TagSection(
-                      label: _sectionLabel(kind),
+                      label: kind.tagName(context.l10n),
                       tags: profile?.tagsOf(kind) ?? const [],
                       // 입력 뒤 `cgqOw` 32, 섹션 사이 `a14aUL` gap 24.
                       topGap: index == 0 ? AppSpacing.xl : AppSpacing.lg,
@@ -74,15 +77,6 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     );
   }
 
-  /// 섹션 라벨(pen `LGk75` · `J1AY0X` · `GIPIe`). "관심사 태그" 는 pen 묶음 4 PNG · DESIGN §9 15c 와 같다(대장 09-28 —
-  /// 계획서 표의 "관심사" 가 틀렸다).
-  static String _sectionLabel(TagPickerKind kind) {
-    return switch (kind) {
-      TagPickerKind.interests => '관심사 태그',
-      TagPickerKind.myTraits => '나의 특징',
-      TagPickerKind.idealTraits => '이상형 특징',
-    };
-  }
 }
 
 /// 라벨 14/600 · 줄높이 속성 없음, 렌더 20(pen 섹션 헤더 · 입력 라벨) — 토큰 1.2 대신 20/14.
@@ -102,7 +96,7 @@ class _BioField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('자기소개', style: _labelStyle.copyWith(color: AppColors.body)),
+        Text(context.l10n.meBioLabel, style: _labelStyle.copyWith(color: AppColors.body)),
         const SizedBox(height: AppSpacing.xs),
         TextField(
           controller: controller,
@@ -115,7 +109,7 @@ class _BioField extends StatelessWidget {
           style: AppTypography.body.copyWith(color: AppColors.ink),
           decoration: InputDecoration(
             // 06-3 과 같은 안내 문구 — 서버 값이 늘 있어 지운 뒤에만 보인다.
-            hintText: '나를 한두 문장으로 소개해주세요',
+            hintText: context.l10n.meBioHint,
             hintStyle: AppTypography.body.copyWith(color: AppColors.muted),
             filled: true,
             fillColor: AppColors.surfaceSoft,
@@ -210,7 +204,7 @@ class _EditLink extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('수정', style: _labelStyle.copyWith(color: AppColors.primaryText)),
+                Text(context.l10n.meTagEditLink, style: _labelStyle.copyWith(color: AppColors.primaryText)),
                 // gap 2 는 pen 값(토큰 밖 리터럴).
                 const SizedBox(width: 2),
                 const Icon(AppIcons.chevronRight, size: 16, color: AppColors.primaryText),
@@ -253,7 +247,7 @@ class _Footer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final error = state.errorMessage;
+    final error = state.error;
     return Padding(
       padding: AppSpacing.bottomCta,
       child: Column(
@@ -261,10 +255,10 @@ class _Footer extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (error != null) ...[
-            Text(error, style: AppTypography.caption.copyWith(color: AppColors.error)),
+            Text(context.errorText(error), style: AppTypography.caption.copyWith(color: AppColors.error)),
             const SizedBox(height: AppSpacing.xs),
           ],
-          AppButton(label: '저장', onPressed: state.canSave ? onSave : null, isLoading: state.isSubmitting),
+          AppButton(label: context.l10n.commonSave, onPressed: state.canSave ? onSave : null, isLoading: state.isSubmitting),
         ],
       ),
     );

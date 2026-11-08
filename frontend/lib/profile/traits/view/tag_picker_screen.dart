@@ -3,12 +3,14 @@ import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/common/widgets/select_chip.dart';
 import 'package:campus_mate/common/widgets/select_count_bar.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/viewmodel/tag_edit_view_model.dart';
 import 'package:campus_mate/profile/onboarding/view/onboarding_back.dart';
+import 'package:campus_mate/profile/traits/view/tag_picker_kind_text.dart';
 import 'package:campus_mate/profile/traits/viewmodel/tag_picker_kind.dart';
 import 'package:campus_mate/profile/traits/viewmodel/tag_picker_ui_state.dart';
 import 'package:campus_mate/profile/traits/viewmodel/tag_picker_view_model.dart';
@@ -35,18 +37,18 @@ class TagPickerScreen extends ConsumerWidget {
       ref.listen(provider, (previous, next) {
         if (next.completed && !(previous?.completed ?? false)) context.pop();
       });
-      return _scaffold(EditAppBar(title: _editTitle()), state, viewModel);
+      return _scaffold(context, EditAppBar(title: _editTitle()), state, viewModel);
     }
     // 온보딩 모드만 앞 단계(04-5 → 04-4 · 04-6 → 04-5 · 06-2 → 06-1)로 돌아간다. 시스템 뒤로도 같다 —
     // 라우터는 이 화면을 두르지 않는다(두 겹이면 안내까지 뜬다). 편집 모드는 push 라 편집 앱바가 평소대로 닫는다.
     final back = onboardingBack(ref, isBusy: state.isSubmitting);
     return BackExitScope(
       onBack: back,
-      child: _scaffold(OnboardingAppBar(current: kind.dotIndex, total: kind.dotTotal, onBack: back), state, viewModel),
+      child: _scaffold(context, OnboardingAppBar(current: kind.dotIndex, total: kind.dotTotal, onBack: back), state, viewModel),
     );
   }
 
-  Widget _scaffold(PreferredSizeWidget appBar, TagPickerUiState state, TagPickerViewModel viewModel) {
+  Widget _scaffold(BuildContext context, PreferredSizeWidget appBar, TagPickerUiState state, TagPickerViewModel viewModel) {
     return Scaffold(
       appBar: appBar,
       body: SafeArea(
@@ -59,9 +61,9 @@ class TagPickerScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(kind.headline, style: AppTypography.headline.copyWith(color: AppColors.ink)),
+                  Text(kind.headline(context.l10n), style: AppTypography.headline.copyWith(color: AppColors.ink)),
                   const SizedBox(height: AppSpacing.xs),
-                  Text(kind.subtext, style: AppTypography.body.copyWith(color: AppColors.body)),
+                  Text(kind.subtext(context.l10n), style: AppTypography.body.copyWith(color: AppColors.body)),
                 ],
               ),
             ),
@@ -98,7 +100,7 @@ class _TagSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(kind.tagLabel, style: AppTypography.labelSmall.copyWith(color: AppColors.body)),
+          Text(kind.tagLabel(context.l10n), style: AppTypography.labelSmall.copyWith(color: AppColors.body)),
           const SizedBox(height: AppSpacing.xs),
           // pen 은 그리드가 아니다 — 칩이 글자 폭만큼 넓어지고 한 줄에 들어가는 만큼 놓인다
           // (erd3 실측 2026-09-26: 04-5 는 한 줄에 4·3·2개가 섞인다). 그게 `Wrap` 의 동작이다.

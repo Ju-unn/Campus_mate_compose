@@ -6,19 +6,20 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/widgets.dart';
 
 /// "곧 열려요" — 홈 하트 칩 "+" 처럼 갈 화면이 아직 없는 입구. 15-5 "교체" 는 15-7(A15), "수정 ›" 은 15-6(A16)으로 연결됐다.
-const comingSoonToast = AppToast(
-  leading: Icon(AppIcons.clock3, size: 16, color: AppColors.onInk),
-  label: '곧 열려요',
-);
+AppToast comingSoonToast(AppLocalizations l10n) => AppToast(
+      leading: const Icon(AppIcons.clock3, size: 16, color: AppColors.onInk),
+      label: l10n.meToastComingSoon,
+    );
 
 /// "저장했어요" — 15-6 에서 저장하고 15-5 로 돌아왔을 때(B4). 아이콘은 조각 6 완료 토스트(`yEDB9`)와 같은 circle-check 16.
-const savedToast = AppToast(
-  leading: Icon(AppIcons.circleCheck, size: 16, color: AppColors.onInk),
-  label: '저장했어요',
-);
+AppToast savedToast(AppLocalizations l10n) => AppToast(
+      leading: const Icon(AppIcons.circleCheck, size: 16, color: AppColors.onInk),
+      label: l10n.meToastSaved,
+    );
 
 /// 나 탭 화면(15 · 15-5)이 잠깐 띄우는 안내 하나. 한 번에 하나 — 새 안내는 떠 있던 것을 바로 바꾸고 시간을 새로 잰다.
 /// 나타날 때만 [toastEntrance] 로 올라온다(바뀔 때는 제자리에서 글만 바뀐다). 사라질 때는 움직임 없이 사라진다.

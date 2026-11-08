@@ -1,8 +1,10 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/profile/basic/model/repository/acquisition_repository_provider.dart';
 import 'package:campus_mate/profile/basic/viewmodel/acquisition_view_model.dart';
 import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
+import 'package:campus_mate/profile/onboarding/view/profile_enum_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -97,7 +99,7 @@ void main() {
 
   test('칩 다섯 개의 서버 값과 라벨이 계획서 표와 같다', () {
     expect(
-      {for (final c in AcquisitionChannel.values) c.name: c.label},
+      {for (final c in AcquisitionChannel.values) c.name: c.label(AppLocalizationsKo())},
       {
         'everytime': '에브리타임',
         'instagram': '인스타그램',

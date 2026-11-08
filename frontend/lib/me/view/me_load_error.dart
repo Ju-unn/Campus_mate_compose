@@ -1,4 +1,7 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
@@ -10,17 +13,15 @@ class MeLoadError extends StatelessWidget {
 
   final VoidCallback onRetry;
 
-  /// 사용자 결정 2026-09-27. 글자가 같은 `ServerUnavailableFailure` 는 뜻(502·503)이 달라 빌려 오지 않는다.
-  static const _message = '잠시 뒤 다시 시도해 주세요';
-
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(_message, style: AppTypography.body.copyWith(color: AppColors.body)),
-          AppButton(label: '다시 시도', variant: AppButtonVariant.text, onPressed: onRetry),
+          // 사용자 결정 2026-09-27. 글자가 같은 `ServerUnavailableFailure` 는 뜻(502·503)이 달라 빌려 오지 않는다([AppError.meLoad]).
+          Text(context.appErrorText(AppError.meLoad), style: AppTypography.body.copyWith(color: AppColors.body)),
+          AppButton(label: context.l10n.commonRetry, variant: AppButtonVariant.text, onPressed: onRetry),
         ],
       ),
     );

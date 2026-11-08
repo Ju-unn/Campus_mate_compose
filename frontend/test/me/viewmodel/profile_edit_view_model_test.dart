@@ -90,7 +90,7 @@ void main() {
 
     expect(subscription.read().completed, isFalse);
     expect(subscription.read().isSubmitting, isFalse);
-    expect(subscription.read().errorMessage, const NetworkFailure().toDisplayMessage());
+    expect(subscription.read().error, isA<NetworkFailure>());
     expect(me.calls, 1);
   });
 

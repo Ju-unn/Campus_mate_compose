@@ -1,7 +1,9 @@
 import 'package:campus_mate/common/widgets/select_chip.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/profile/appearance/view/appearance_pickers.dart';
 import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
+import 'package:campus_mate/profile/onboarding/view/profile_enum_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -21,7 +23,7 @@ void main() {
     await pumpNarrow(tester, AnimalTypePicker(selected: const {}, onTap: (_) {}));
 
     for (final type in AnimalType.values) {
-      expect(find.text(type.label), findsOneWidget);
+      expect(find.text(type.label(AppLocalizationsKo())), findsOneWidget);
     }
     expect(tester.takeException(), isNull);
   });
@@ -30,7 +32,7 @@ void main() {
     await pumpNarrow(tester, ImpressionTypePicker(selected: const {}, onTap: (_) {}));
 
     for (final type in ImpressionType.values) {
-      expect(find.text(type.label), findsOneWidget);
+      expect(find.text(type.label(AppLocalizationsKo())), findsOneWidget);
     }
     // 글자 폭이 아니라 칸 폭으로 나눈다 — 첫 줄 3개는 서로 같고, 둘째 줄 2개는 그보다 넓다.
     final chips = find.byType(SelectChip);
@@ -93,7 +95,7 @@ void main() {
   testWidgets('동물상 칸 눌림 효과는 화면이 아니라 칸이 그린다', (tester) async {
     await pumpNarrow(tester, AnimalTypePicker(selected: const {}, onTap: (_) {}));
 
-    final text = find.text(AnimalType.values.first.label);
+    final text = find.text(AnimalType.values.first.label(AppLocalizationsKo()));
     final cell = find.ancestor(of: text, matching: find.byType(InkWell)).first;
     final painter = find.ancestor(of: text, matching: find.byType(Material)).first;
 

@@ -3,6 +3,7 @@ import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/common/widgets/select_chip.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -10,6 +11,7 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/profile/basic/viewmodel/acquisition_ui_state.dart';
 import 'package:campus_mate/profile/basic/viewmodel/acquisition_view_model.dart';
 import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
+import 'package:campus_mate/profile/onboarding/view/profile_enum_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -120,7 +122,7 @@ class _ChannelChips extends StatelessWidget {
       children: [
         for (final channel in AcquisitionChannel.values)
           SelectChip(
-            label: channel.label,
+            label: channel.label(context.l10n),
             height: _chipHeight,
             padding: _chipPadding,
             isSelected: channel == selected,

@@ -1,4 +1,5 @@
 import 'package:campus_mate/account/viewmodel/account_info_provider.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
@@ -33,8 +34,6 @@ class CardPreviewScreen extends ConsumerStatefulWidget {
 }
 
 class _CardPreviewScreenState extends ConsumerState<CardPreviewScreen> {
-  static const List<String> _tabs = ['수락 전', '수락 후'];
-
   var _selected = 0;
 
   @override
@@ -56,12 +55,12 @@ class _CardPreviewScreenState extends ConsumerState<CardPreviewScreen> {
       friendReviewListViewModelProvider(myReceivedReviews).select((state) => state.reviews.isNotEmpty),
     );
     return Scaffold(
-      appBar: const EditAppBar(title: '남이 보는 내 프로필'),
+      appBar: EditAppBar(title: context.l10n.meCardPreviewTitle),
       body: SafeArea(
         top: false,
         child: Column(
           children: [
-            MeTabBar(labels: _tabs, selected: _selected, onSelected: (index) => setState(() => _selected = index)),
+            MeTabBar(labels: [context.l10n.meCardPreviewTabBefore, context.l10n.meCardPreviewTabAfter], selected: _selected, onSelected: (index) => setState(() => _selected = index)),
             Expanded(child: _body(hasReviews: hasReviews)),
           ],
         ),
@@ -112,7 +111,7 @@ class _BeforeAccept extends StatelessWidget {
     return ListView(
       padding: _bodyPadding,
       children: [
-        const _PreviewNotice(text: '대화 상대가 보는 내 프로필이에요. 실제 사진과 카카오톡 아이디는 둘 다 수락한 뒤에 공개돼요.'),
+        _PreviewNotice(text: context.l10n.meCardPreviewBeforeNotice),
         const SizedBox(height: AppSpacing.xl),
         ProfileCard(
           detail: detail,
@@ -151,7 +150,7 @@ class _AfterAccept extends ConsumerWidget {
     return ListView(
       padding: _bodyPadding,
       children: [
-        const _PreviewNotice(text: '수락하면 상대에게 이렇게 보여요'),
+        _PreviewNotice(text: context.l10n.meCardPreviewAfterNotice),
         const SizedBox(height: AppSpacing.xl),
         ProfileCard(
           detail: detail,

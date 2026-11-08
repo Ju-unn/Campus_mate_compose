@@ -2,12 +2,14 @@ import 'package:campus_mate/billing/store/view/heart_balance_chip.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/friend_review/view/my_friend_reviews_section.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/view/me_load_error.dart';
 import 'package:campus_mate/me/view/me_toast.dart';
@@ -36,16 +38,16 @@ class MyProfileScreen extends ConsumerStatefulWidget {
 
 class _MyProfileScreenState extends ConsumerState<MyProfileScreen> with MeToastHost<MyProfileScreen> {
   /// 15-2 `fLkE8` — 04-3 토스트와 같은 도는 표시(loader-circle 16 자리). 만드는 동안 계속 떠 있다.
-  static const _generatingToast = AppToast(
-    leading: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onInk),
-    label: '아바타로 변환 중이에요',
-  );
+  static AppToast _generatingToast(AppLocalizations l10n) => AppToast(
+        leading: const CircularProgressIndicator(strokeWidth: 2, color: AppColors.onInk),
+        label: l10n.meProfileGeneratingToast,
+      );
 
   /// 15-3 `k110R`(C7) — 하트는 완성된 뒤에만 빠진다(T2).
-  static const _failedToast = AppToast(
-    leading: Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk),
-    label: '아바타를 만들지 못했어요.\n하트는 차감되지 않았어요.',
-  );
+  static AppToast _failedToast(AppLocalizations l10n) => AppToast(
+        leading: const Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk),
+        label: l10n.meProfileAvatarFailedToast,
+      );
 
   late final AvatarGenerationViewModel _avatar;
 
@@ -99,7 +101,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> with MeToastH
         title: FittedBox(
           fit: BoxFit.scaleDown,
           alignment: Alignment.centerLeft,
-          child: Text('내 프로필', style: AppTypography.navTitle.copyWith(color: AppColors.ink)),
+          child: Text(context.l10n.meProfileTitle, style: AppTypography.navTitle.copyWith(color: AppColors.ink)),
         ),
         actions: [
           // 하트 잔액 칩 `MjtQA` — 톱니 바로 왼쪽, 사이 4(띠 오른쪽 끝 x300 · 톱니 x304). 칩은 잔액을 읽는 동안 · 못 읽으면 자리째 숨는다.
@@ -108,7 +110,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> with MeToastH
           HeartBalanceChip(showPlus: true, onPlus: _openHeartStore),
           const SizedBox(width: AppSpacing.xxs),
           IconButton(
-            tooltip: '설정',
+            tooltip: context.l10n.meProfileSettingsTooltip,
             constraints: const BoxConstraints.tightFor(width: 48, height: 48),
             icon: const Icon(AppIcons.settings, size: 22, color: AppColors.ink),
             onPressed: () => context.push(AppRoutes.settings),
@@ -120,7 +122,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> with MeToastH
       // 토스트는 한 번에 하나 — 만드는 동안은 변환 중 안내가 자리를 쥔다(그동안 알약이 꺼져 다른 안내가 생길 길이 없다).
       // 알약 자리는 Scaffold 가 **본문** MediaQuery 에 넣는다 — 화면 context(Scaffold 위)에서는 safe area 뿐이라 본문 안에서 읽는다.
       body: MeToastLayer(
-        toast: isGenerating ? _generatingToast : timedToast,
+        toast: isGenerating ? _generatingToast(context.l10n) : timedToast,
         child: Builder(builder: (bodyContext) => _body(isGenerating, MediaQuery.paddingOf(bodyContext).bottom)),
       ),
     );
@@ -155,7 +157,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> with MeToastH
       case AvatarGenerationStatus.ready || AvatarGenerationStatus.fallback:
         ref.invalidate(myProfileProvider);
       case AvatarGenerationStatus.failed:
-        showTimedToast(message == null ? _failedToast : _alertToast(message));
+        showTimedToast(message == null ? _failedToast(context.l10n) : _alertToast(message));
       default:
         break;
     }
@@ -194,15 +196,15 @@ class _ProfileContent extends StatelessWidget {
         ProfileEntryRow(
           icon: AppIcon3d.mascotPeek,
           iconSize: 32, // pen `I5Dw4` 32 · 원 안 6,6
-          title: '남이 보는 내 프로필 카드',
-          note: '상대에게 보이는 모습을 미리 봐요',
+          title: context.l10n.meProfileCardPreviewTitle,
+          note: context.l10n.meProfileCardPreviewNote,
           onTap: () => context.push(AppRoutes.myCardPreview),
         ),
         const SizedBox(height: AppSpacing.sm),
         ProfileEntryRow(
           icon: AppIcon3d.pencil,
-          title: '프로필 편집',
-          note: '사진·기본 정보·선호 조건·자기소개',
+          title: context.l10n.meProfileManageTitle,
+          note: context.l10n.meProfileManageNote,
           onTap: () => context.push(AppRoutes.myProfileManage),
         ),
         const SizedBox(height: AppSpacing.xl), // 입구 줄 아래 32(N3)
