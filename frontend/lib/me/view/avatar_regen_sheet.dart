@@ -1,6 +1,8 @@
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 
@@ -30,7 +32,7 @@ class _AvatarRegenSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (title, description, cta) = _content();
+    final (title, description, cta) = _content(context.l10n);
     return SafetySheet(
       children: [
         // pen `Fgqkt` 20/700, 줄높이 속성 없음 · 렌더 29.
@@ -42,32 +44,32 @@ class _AvatarRegenSheet extends StatelessWidget {
         const SizedBox(height: 36),
         cta,
         const SizedBox(height: AppSpacing.md),
-        SafetySheetButton.neutral(label: '취소', onPressed: () => Navigator.of(context).pop()),
+        SafetySheetButton.neutral(label: context.l10n.commonCancel, onPressed: () => Navigator.of(context).pop()),
       ],
     );
   }
 
   /// 세 모양 가르기. 무료 차례가 먼저다 — 무료면 잔액이 0 이어도 만들 수 있다.
-  (String, String, Widget) _content() {
+  (String, String, Widget) _content(AppLocalizations l10n) {
     if (cost == 0) {
       return (
-        '아바타를 다시 만들까요?',
-        '첫 번째 다시 만들기는 무료예요. 새 아바타는 바로 프로필에 반영돼요.',
-        const _ChoiceButton(label: '무료로 만들기', choice: AvatarRegenChoice.regenerate),
+        l10n.meAvatarRegenSheetTitle,
+        l10n.meAvatarRegenSheetFreeBody,
+        _ChoiceButton(label: l10n.meAvatarRegenSheetFreeCta, choice: AvatarRegenChoice.regenerate),
       );
     }
     if (heartBalance < cost) {
       // 제목은 서버 HEARTS_NOT_ENOUGH 와 같은 글(계획서 C8).
       return (
-        '하트가 모자라요',
-        '하트 $cost개가 필요해요. 지금 보유한 하트는 $heartBalance개예요.',
-        const _ChoiceButton(label: '하트 충전하기', choice: AvatarRegenChoice.chargeHearts, heart: _HeartGlyph()),
+        l10n.meAvatarRegenSheetShortTitle,
+        l10n.meAvatarRegenSheetShortBody(cost: cost, balance: heartBalance),
+        _ChoiceButton(label: l10n.meAvatarRegenSheetCharge, choice: AvatarRegenChoice.chargeHearts, heart: const _HeartGlyph()),
       );
     }
     return (
-      '아바타를 다시 만들까요?',
-      '하트 $cost개가 차감돼요. 지금 보유한 하트는 $heartBalance개예요. 새 아바타는 바로 프로필에 반영돼요.',
-      _ChoiceButton(label: '$cost 쓰고 만들기', choice: AvatarRegenChoice.regenerate, heart: const _HeartGlyph()),
+      l10n.meAvatarRegenSheetTitle,
+      l10n.meAvatarRegenSheetPaidBody(cost: cost, balance: heartBalance),
+      _ChoiceButton(label: l10n.meAvatarRegenSheetPaidCta(cost: cost), choice: AvatarRegenChoice.regenerate, heart: const _HeartGlyph()),
     );
   }
 }

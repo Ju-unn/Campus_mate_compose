@@ -15,12 +15,12 @@ const _actSavedToast = '저장했어요'; // me_toast.dart savedToast
 const _actNicknameOk = '사용할 수 있는 닉네임이에요';
 const _actNicknameBad = '한글 또는 영문 2~5자로 입력해 주세요';
 const _actNicknameTaken = '이미 있는 닉네임이에요';
-const _actNicknameChecking = '확인 중…'; // basic_info_edit_view_model.dart nicknameChecking
+const _actNicknameChecking = '확인 중…'; // basic_info_edit_screen.dart 닉네임 칸 아래(ARB profileNicknameChecking)
 const _actNicknameSoon = '닉네임은 30일에 한 번 바꿀 수 있어요'; // 서버 409 문구(core/errors.py NICKNAME_CHANGE_TOO_SOON)
 const _actHeightBad = '120~230 사이로 입력해 주세요';
 const _actHeightIgnore = '키는 상관없어요'; // ideal_conditions_screen.dart 체크 줄(나이는 area5.dart `_ageIgnore`)
 const _actEdit = '수정'; // 15c 태그 섹션 "수정 ›" 의 글자
-// 06-1 얼굴상 · 인상 라벨(profile_enums.dart)
+// 06-1 얼굴상 · 인상 라벨(profile_enum_text.dart, ARB profileAnimalType* · profileImpressionType*)
 const _actDog = '강아지상';
 const _actCat = '고양이상';
 const _actFox = '여우상';

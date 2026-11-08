@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/photo_slider.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
@@ -9,6 +10,7 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/view/me_load_error.dart';
@@ -34,14 +36,15 @@ class _ProfileManageScreenState extends ConsumerState<ProfileManageScreen> with 
   /// "수정 ›" → 15-6 기본 정보 수정(A16). 저장하고 돌아오면(true) "저장했어요" 를 잠깐 띄운다(B4 — 다른 편집 화면은 토스트 없이
   /// 돌아온다). 새 값은 15-6 이 invalidate 한 내 프로필을 이 화면이 다시 읽어 그린다(N8).
   Future<void> _editBasicInfo() async {
+    final l10n = context.l10n;
     final saved = await context.push<bool>(AppRoutes.myBasicInfo);
-    if (saved ?? false) showTimedToast(savedToast);
+    if (saved ?? false) showTimedToast(savedToast(l10n));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const EditAppBar(title: '프로필 편집'),
+      appBar: EditAppBar(title: context.l10n.meProfileManageTitle),
       // 하단 버튼도 내비도 없어 토스트는 화면 아래 12 에 뜬다(pen 에 뜨는 자리가 없다 — 편차 기록).
       body: SafeArea(top: false, child: MeToastLayer(toast: timedToast, child: _body())),
     );
@@ -135,7 +138,7 @@ class _RealPhotoSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _SectionHeader(title: '실제 사진', note: '서로 수락하면 전달돼요'),
+        _SectionHeader(title: context.l10n.meManageRealPhotoTitle, note: context.l10n.meManageRealPhotoNote),
         const SizedBox(height: AppSpacing.sm),
         PhotoSlider(
           photos: [for (final url in photoUrls) NetworkImage(url)],
@@ -169,7 +172,7 @@ class _LockBadge extends StatelessWidget {
             const Icon(AppIcons.lock, size: 12, color: AppColors.onInk),
             const SizedBox(width: AppSpacing.xxs),
             // 렌더 높이 18 — badge 토큰 1.30 대신 18/11.
-            Text('수락 후 공개', style: AppTypography.badge.copyWith(height: 18 / 10, color: AppColors.onInk)),
+            Text(context.l10n.meManageLockBadge, style: AppTypography.badge.copyWith(height: 18 / 10, color: AppColors.onInk)),
           ],
         ),
       ),
@@ -197,7 +200,7 @@ class _ReplacePhotoButton extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 44),
           child: Center(
             child: Text(
-              '실제 사진 교체',
+              context.l10n.meManageReplacePhoto,
               textAlign: TextAlign.center,
               style: AppTypography.labelSmall.copyWith(height: 1.5, color: AppColors.ink),
             ),
@@ -235,7 +238,7 @@ class _BasicInfoSection extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const _SectionHeader(title: '기본 정보'),
+              _SectionHeader(title: context.l10n.meManageBasicTitle),
               const SizedBox(height: AppSpacing.sm),
               _ProfileFacts(profile: profile),
             ],
@@ -272,7 +275,7 @@ class _EditLink extends StatelessWidget {
             alignment: Alignment.centerRight,
             widthFactor: 1,
             heightFactor: 1,
-            child: Text('수정 ›', style: _headerNoteStyle),
+            child: Text(context.l10n.meManageEditLink, style: _headerNoteStyle),
           ),
         ),
       ),
@@ -292,6 +295,7 @@ class _ProfileFacts extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final height = profile.heightCm;
+    final l10n = context.l10n;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xxs),
       decoration: BoxDecoration(
@@ -301,9 +305,13 @@ class _ProfileFacts extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _FactRow(icon: AppIcon3d.ruler, label: '내 키', value: height == null ? '-' : '${height}cm'),
-          _FactRow(icon: AppIcon3d.mbti, label: 'MBTI', value: profile.mbti ?? '선택 안 함'),
-          _FactRow(icon: AppIcon3d.graduationCap, label: '학과', value: profile.major ?? '-'),
+          _FactRow(
+            icon: AppIcon3d.ruler,
+            label: l10n.meManageHeightLabel,
+            value: height == null ? '-' : l10n.meManageHeightValue(height: height),
+          ),
+          _FactRow(icon: AppIcon3d.mbti, label: 'MBTI', value: profile.mbti ?? l10n.meManageMbtiUnset),
+          _FactRow(icon: AppIcon3d.graduationCap, label: l10n.meMajorLabel, value: profile.major ?? '-'),
         ],
       ),
     );
@@ -356,12 +364,12 @@ class _PreferenceSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _SectionHeader(title: '선호 조건'),
+        _SectionHeader(title: context.l10n.meManagePreferenceTitle),
         const SizedBox(height: AppSpacing.sm),
         ProfileEntryRow(
           icon: AppIcon3d.heart, // pen `l3oDHo` 하트 `zxXQG`
-          title: '이상형 조건 수정',
-          note: _note(),
+          title: context.l10n.meManageIdealEntry,
+          note: _note(context.l10n),
           onTap: () => context.push(AppRoutes.myIdealConditions),
         ),
       ],
@@ -369,35 +377,40 @@ class _PreferenceSection extends StatelessWidget {
   }
 
   /// 둘 다 "상관없어요"면 한 번만 말한다. 아니면 pen 처럼 "나이 … · 키 …".
-  String _note() {
-    final age = _agePart();
-    final height = _heightPart();
-    if (age == null && height == null) return '나이 · 키 모두 $_noPreference';
-    return '나이 ${age ?? _noPreference} · 키 ${height ?? _noPreference}';
+  /// "상관없어요" 는 pen 에 없는 상태 — 06-1 체크박스 문구와 같은 말을 쓴다(사용자 결정 2026-09-27).
+  String _note(AppLocalizations l10n) {
+    final age = _agePart(l10n);
+    final height = _heightPart(l10n);
+    if (age == null && height == null) return l10n.meManagePreferenceAllAny;
+    final any = l10n.meManagePreferenceAny;
+    return l10n.meManagePreferenceNote(age: age ?? any, height: height ?? any);
   }
 
   /// "22–27세"(pen 그대로, en dash). 06-1 "나이는 상관없어요"는 전 구간(19~35)으로 저장된다 → null.
   /// 위 끝 35 는 06-1 처럼 "35세 이상"(사용자 결정 2026-09-27). 아래 끝 19 는 06-1 도 "19세" 라 그대로 둔다.
-  String? _agePart() {
+  String? _agePart(AppLocalizations l10n) {
     final (min, max) = (profile.preferredAgeMin, profile.preferredAgeMax);
     final isWholeRange = min == IdealConditionsUiState.ageFloor && max == IdealConditionsUiState.ageCeiling;
     if (min == null || max == null || isWholeRange) return null;
-    return '$min–$max세${max == IdealConditionsUiState.ageCeiling ? ' 이상' : ''}';
+    return max == IdealConditionsUiState.ageCeiling
+        ? l10n.meManageAgeRangeOpen(min: min, max: max)
+        : l10n.meManageAgeRange(min: min, max: max);
   }
 
   /// "165–180cm"(pen 그대로). 06-1 "키는 상관없어요"는 null 로 저장된다 → null.
   /// 끝값 150·190 은 06-1 처럼 "150cm 이하"·"190cm 이상"(사용자 결정 2026-09-27)이라 그때만 "150cm 이하 ~ 180cm" 꼴을 쓴다.
-  String? _heightPart() {
+  String? _heightPart(AppLocalizations l10n) {
     final (min, max) = (profile.preferredHeightMin, profile.preferredHeightMax);
     if (min == null || max == null) return null;
     final atFloor = min == IdealConditionsUiState.heightFloor;
     final atCeiling = max == IdealConditionsUiState.heightCeiling;
-    if (!atFloor && !atCeiling) return '$min–${max}cm';
-    return '${min}cm${atFloor ? ' 이하' : ''} ~ ${max}cm${atCeiling ? ' 이상' : ''}';
+    return switch ((atFloor, atCeiling)) {
+      (false, false) => l10n.meManageHeightRange(min: min, max: max),
+      (true, false) => l10n.meManageHeightRangeFromFloor(min: min, max: max),
+      (false, true) => l10n.meManageHeightRangeToCeiling(min: min, max: max),
+      (true, true) => l10n.meManageHeightRangeFloorToCeiling(min: min, max: max),
+    };
   }
-
-  /// pen 에 없는 상태 — 06-1 체크박스 문구와 같은 말을 쓴다(사용자 결정 2026-09-27).
-  static const _noPreference = '상관없어요';
 }
 
 /// 자기소개 `jVQAw` — 헤더(오른쪽 없음) → 12 → 본문 `IUPXc` 16/400 body 줄높이 1.6 → 12 → 15c 입구 행 `bTDTS`.
@@ -413,7 +426,7 @@ class _BioSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _SectionHeader(title: '자기소개'),
+        _SectionHeader(title: context.l10n.meBioLabel),
         const SizedBox(height: AppSpacing.sm),
         if (text.isNotEmpty) ...[
           Text(text, style: AppTypography.body.copyWith(color: AppColors.body)),
@@ -421,8 +434,8 @@ class _BioSection extends StatelessWidget {
         ],
         ProfileEntryRow(
           icon: AppIcon3d.tags,
-          title: '자기소개 · 태그',
-          note: '관심사 · 나의 특징 · 이상형',
+          title: context.l10n.meManageBioEntryTitle,
+          note: context.l10n.meManageBioEntryNote,
           onTap: () => context.push(AppRoutes.myProfileEdit),
         ),
       ],

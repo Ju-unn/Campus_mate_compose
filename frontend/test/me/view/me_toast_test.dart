@@ -2,6 +2,7 @@ import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/me/view/me_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -21,7 +22,7 @@ class _HostState extends State<_Host> with MeToastHost<_Host> {
       toast: timedToast,
       child: Column(
         children: [
-          TextButton(onPressed: () => showTimedToast(comingSoonToast), child: const Text('곧')),
+          TextButton(onPressed: () => showTimedToast(comingSoonToast(AppLocalizationsKo())), child: const Text('곧')),
           TextButton(onPressed: () => showTimedToast(const AppToast(label: '다른 안내')), child: const Text('다른')),
         ],
       ),
@@ -38,8 +39,9 @@ void main() {
   }
 
   testWidgets('"곧 열려요" 는 clock3 16 흰색 + 글자(N4 · C5 — 15 와 15-5 가 같이 쓴다)', (tester) async {
-    expect(comingSoonToast.label, '곧 열려요');
-    final icon = comingSoonToast.leading! as Icon;
+    final toast = comingSoonToast(AppLocalizationsKo());
+    expect(toast.label, '곧 열려요');
+    final icon = toast.leading! as Icon;
     expect((icon.icon, icon.size, icon.color), (AppIcons.clock3, 16, AppColors.onInk));
   });
 

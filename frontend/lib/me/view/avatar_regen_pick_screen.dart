@@ -1,6 +1,7 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/notice_card.dart';
 import 'package:campus_mate/core/analytics/analytics_values.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -45,7 +46,7 @@ class _AvatarRegenPickScreenState extends ConsumerState<AvatarRegenPickScreen> {
     final state = ref.watch(avatarRegenPickViewModelProvider);
     final viewModel = ref.read(avatarRegenPickViewModelProvider.notifier);
     return Scaffold(
-      appBar: const EditAppBar(title: '아바타 다시 만들기'),
+      appBar: EditAppBar(title: context.l10n.meAvatarRegenTitle),
       body: SafeArea(
         top: false,
         // pen `Q4Rry` 안쪽 [0,16,28,16].
@@ -64,19 +65,19 @@ class _AvatarRegenPickScreenState extends ConsumerState<AvatarRegenPickScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const SizedBox(height: AppSpacing.lg),
-                          Text('아바타로 만들 사진을 골라주세요', style: AppTypography.headline.copyWith(color: AppColors.ink)),
+                          Text(context.l10n.meAvatarRegenPickHeadline, style: AppTypography.headline.copyWith(color: AppColors.ink)),
                           const SizedBox(height: AppSpacing.xs),
                           Text(
-                            '고른 사진 한 장이 새 아바타로 변환돼요.',
+                            context.l10n.meAvatarRegenPickBody,
                             style: AppTypography.body.copyWith(color: AppColors.body, height: 1.6),
                           ),
                           const SizedBox(height: AppSpacing.xl),
                           SizedBox.square(dimension: _tileSize, child: _tile(state, viewModel)),
                           const SizedBox(height: AppSpacing.md),
-                          const NoticeCard(
+                          NoticeCard(
                             icon: AppIcons.lock,
-                            title: '상호 수락 전에는 아바타만 보여요',
-                            body: '올린 실제 사진은 서로 수락하고 신뢰 확인을 마친 뒤에 공개돼요.',
+                            title: context.l10n.meAvatarRegenNoticeTitle,
+                            body: context.l10n.meAvatarRegenNoticeBody,
                           ),
                           if (state.errorMessage != null) ...[
                             const SizedBox(height: AppSpacing.xs),
@@ -103,7 +104,7 @@ class _AvatarRegenPickScreenState extends ConsumerState<AvatarRegenPickScreen> {
               ),
               const SizedBox(height: AppSpacing.sm),
               AppButton(
-                label: '이 사진으로 아바타 만들기',
+                label: context.l10n.meAvatarRegenPickSubmit,
                 isLoading: state.isSubmitting,
                 onPressed: state.canSubmit ? _confirm : null,
               ),

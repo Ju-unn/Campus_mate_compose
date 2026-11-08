@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/phone_number_formatter.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
@@ -12,6 +13,8 @@ import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/profile/basic/viewmodel/basic_info_ui_state.dart';
 import 'package:campus_mate/profile/basic/viewmodel/basic_info_view_model.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -134,6 +137,9 @@ class _Form extends StatelessWidget {
     );
   }
 
+  /// 칸 아래 빨간 한 줄. 종류는 상태가 고르고 글자는 문구 파일(ARB)에서 읽는다.
+  static String? _errorText(BuildContext context, Failure? failure) => failure == null ? null : context.errorText(failure);
+
   /// 입력칸 · 성별 · MBTI — 보내는 동안 같이 흐려진다.
   Widget _inputs(BuildContext context) {
     return Column(
@@ -145,9 +151,9 @@ class _Form extends StatelessWidget {
           initialValue: state.nicknameInput,
           onChanged: viewModel.changeNickname,
           helper: '2~5자, 한글 또는 영문',
-          errorText: state.nicknameError,
-          successText: state.nicknameSuccess,
-          pendingText: state.nicknameChecking,
+          errorText: _errorText(context, state.nicknameError),
+          successText: state.nicknameCheck == NicknameCheck.available ? context.l10n.profileNicknameAvailable : null,
+          pendingText: state.nicknameCheck == NicknameCheck.checking ? context.l10n.profileNicknameChecking : null,
           inputFormatters: nicknameInputFormatters,
         ),
         const SizedBox(height: AppSpacing.md),
@@ -161,7 +167,7 @@ class _Form extends StatelessWidget {
                 initialValue: state.birthYearInput,
                 onChanged: viewModel.changeBirthYear,
                 helper: '숫자 4자리',
-                errorText: state.birthYearError,
+                errorText: _errorText(context, state.birthYearError),
                 keyboardType: TextInputType.number,
                 inputFormatters: birthYearInputFormatters,
               ),
@@ -173,7 +179,7 @@ class _Form extends StatelessWidget {
                 placeholder: '예: 170',
                 initialValue: state.heightInput,
                 onChanged: viewModel.changeHeight,
-                errorText: state.heightError,
+                errorText: _errorText(context, state.heightError),
                 keyboardType: TextInputType.number,
                 inputFormatters: heightInputFormatters,
               ),
@@ -189,7 +195,7 @@ class _Form extends StatelessWidget {
           keyboardType: TextInputType.phone,
           inputFormatters: const [PhoneNumberFormatter()],
           helper: '다른 사람이 나를 지인으로 등록했을 때만 사용돼요',
-          errorText: state.phoneNumberError,
+          errorText: _errorText(context, state.phoneNumberError),
         ),
         const SizedBox(height: AppSpacing.sm),
         Text('성별 · 필수', style: AppTypography.labelSmall.copyWith(color: AppColors.body)),

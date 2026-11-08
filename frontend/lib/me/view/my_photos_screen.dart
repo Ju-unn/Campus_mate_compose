@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -56,7 +57,7 @@ class _MyPhotosScreenState extends ConsumerState<MyPhotosScreen> with MeToastHos
     final viewModel = ref.read(myPhotosViewModelProvider.notifier);
     ref.listen(myPhotosViewModelProvider, _onStateChanged);
     return Scaffold(
-      appBar: const EditAppBar(title: '사진 수정'),
+      appBar: EditAppBar(title: context.l10n.mePhotosTitle),
       body: SafeArea(
         top: false,
         child: Column(
@@ -86,7 +87,7 @@ class _MyPhotosScreenState extends ConsumerState<MyPhotosScreen> with MeToastHos
                   ],
                   const SizedBox(height: AppSpacing.md),
                   Text(
-                    '사진을 길게 눌러 끌면 순서를 바꿀 수 있어요. 첫 칸이 대표 사진이에요.',
+                    context.l10n.mePhotosReorderHint,
                     // 14/400 muted — 줄높이 속성 없음 · 두 줄 렌더 40(C2).
                     style: AppTypography.bodySmall.copyWith(height: 20 / 14, color: AppColors.muted),
                   ),
@@ -135,7 +136,7 @@ class _Footer extends StatelessWidget {
             Text(error, style: AppTypography.caption.copyWith(color: AppColors.error)),
             const SizedBox(height: AppSpacing.xs),
           ],
-          AppButton(label: '저장', onPressed: onSave, isLoading: isSaving),
+          AppButton(label: context.l10n.commonSave, onPressed: onSave, isLoading: isSaving),
         ],
       ),
     );

@@ -25,6 +25,7 @@ from urllib.parse import urlsplit
 from e2e import area1, area2, area4, area5_act, area5_api, area5_photo, tools
 from e2e.area2_phone3 import _PAID
 from e2e.test_area1 import CFG
+from e2e.test_area2_two_accept import label_backed
 from e2e.test_area3_phone import App, said
 from e2e.test_area3_phone2 import MidwayApp, as_fn
 from e2e.test_area3_safe import _who
@@ -408,9 +409,10 @@ class AppContractTest(unittest.TestCase):
                         '아바타로 변환 중이에요', '아바타를 다시 만들까요?', '프로필 편집'):
             with self.subTest(literal):
                 self.assertTrue(literal in screens, f'{literal!r} 가 frontend/lib 에 없다')
-        self.assertIn("'$cost 쓰고 만들기'", screens)  # 시트 CTA — 20 은 서버 값이라 템플릿이다
+        # 시트 CTA — 20 은 서버 값이라 템플릿이다(문구 파일 ARB 의 자리표시자, 1.0.2 B8). 시트가 그 키를 읽는다.
+        self.assertTrue(label_backed('{cost} 쓰고 만들기', [lib('me', 'view', 'avatar_regen_sheet.dart')], tools.arb_messages()))
         # 알약 글자는 히어로 코드의 글자 그대로여야 한다 — 위 묶음 검사는 주석에 남은 옛 글자("· 10", app_routes.dart)에도 걸려 통과했다.
-        self.assertIn("'다시 만들기 · 20'", lib('me', 'view', 'profile_hero.dart'))
+        self.assertTrue(label_backed('다시 만들기 · 20', [lib('me', 'view', 'profile_hero.dart')], tools.arb_messages()))
         self.assertIn("const _regenPill = '다시 만들기 · 20';", dart('area5.dart'))
         self.assertIn("'아바타를 만들지 못했어요.\\n하트는 차감되지 않았어요.'", screens)
         self.assertIn(f'PHOTOS_CHANGED = "{CHANGED}"', (ROOT / 'core' / 'errors.py').read_text(encoding='utf-8'))
@@ -427,7 +429,9 @@ class AppContractTest(unittest.TestCase):
         self.assertIn("const regenPhotoName = 'face1.jpg';", step)
         self.assertIn("REGEN_PHOTO = 'face1.jpg'", pc)
         cta = re.search(r"const regenPickCta = '([^']+)';", step).group(1)
-        self.assertIn(f"label: '{cta}'", lib('me', 'view', 'avatar_regen_pick_screen.dart'))
+        pick = lib('me', 'view', 'avatar_regen_pick_screen.dart')
+        keys = [key for key, text in tools.arb_messages().items() if text == cta]  # 버튼 글자는 문구 파일(ARB)에 있다(1.0.2 B8)
+        self.assertTrue(any(f'label: context.l10n.{key},' in pick for key in keys), f'{cta!r} 버튼이 15b-5 에 없다')
         self.assertIn('avatarRegenPickViewModelProvider.notifier).pickFromGallery', step)  # 다른 공급자의 훅이 아니다
         self.assertIn('AddPhotoTile(onTap: viewModel.pick)', lib('me', 'view', 'avatar_regen_pick_screen.dart'))  # 빈 칸의 + 아이콘을 누른다
         self.assertIn('AppIcons.plus', lib('profile', 'avatar', 'view', 'photo_tiles.dart'))

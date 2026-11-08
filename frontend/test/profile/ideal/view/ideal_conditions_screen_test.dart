@@ -1,11 +1,13 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/mbti_pole_toggle.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/profile/appearance/view/appearance_pickers.dart';
 import 'package:campus_mate/profile/ideal/model/repository/ideal_conditions_repository_provider.dart';
 import 'package:campus_mate/profile/ideal/view/ideal_conditions_screen.dart';
 import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
 import 'package:campus_mate/profile/onboarding/model/repository/onboarding_repository_provider.dart';
+import 'package:campus_mate/profile/onboarding/view/profile_enum_text.dart';
 import 'package:campus_mate/profile/traits/view/choice_pickers.dart';
 import 'package:campus_mate/profile/traits/viewmodel/survey_view_model.dart';
 import 'package:flutter/material.dart';
@@ -210,7 +212,7 @@ void main() {
       await pumpNarrow(tester);
       expect((isSelected(tester, '싫어요'), isSelected(tester, '상관없어요')), (false, false));
 
-      for (final label in [AnimalType.cat.label, ImpressionType.kind.label]) {
+      for (final label in [AnimalType.cat.label(AppLocalizationsKo()), ImpressionType.kind.label(AppLocalizationsKo())]) {
         await tester.ensureVisible(find.text(label));
         await tester.tap(find.text(label));
       }

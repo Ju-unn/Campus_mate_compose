@@ -1,3 +1,4 @@
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
@@ -74,7 +75,7 @@ class _PhotoZoomViewerState extends State<PhotoZoomViewer> {
       scopesRoute: true,
       namesRoute: true,
       explicitChildNodes: true,
-      label: '사진 ${widget.index + 1} 크게 보기',
+      label: context.l10n.mePhotoZoomLabel(number: widget.index + 1),
       child: Material(
         type: MaterialType.transparency,
         child: Stack(
@@ -124,7 +125,7 @@ class _PhotoZoomViewerState extends State<PhotoZoomViewer> {
             duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : AppMotion.standard,
             curve: AppMotion.standardCurve,
             child: Text(
-              '두 손가락으로 크게 볼 수 있어요',
+              context.l10n.mePhotoZoomHint,
               textAlign: TextAlign.center,
               style: AppTypography.caption.copyWith(color: _guideColor),
             ),
@@ -138,7 +139,7 @@ class _PhotoZoomViewerState extends State<PhotoZoomViewer> {
   Widget _closeButton() {
     return IconButton(
       onPressed: _close,
-      tooltip: '닫기',
+      tooltip: context.l10n.commonClose,
       icon: const Icon(AppIcons.x, size: 24, color: AppColors.onInk),
     );
   }

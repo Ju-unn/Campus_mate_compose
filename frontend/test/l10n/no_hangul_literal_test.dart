@@ -18,7 +18,6 @@ void main() {
     'billing/store',
     'billing/task',
     'matching',
-    'me',
     'profile/appearance',
     'profile/avatar',
     'profile/basic',

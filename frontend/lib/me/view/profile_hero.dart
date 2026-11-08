@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -76,7 +77,7 @@ class _Picture extends StatelessWidget {
     final url = this.url;
     return Semantics(
       image: url != null,
-      label: url == null ? null : '내 AI 아바타',
+      label: url == null ? null : context.l10n.meHeroAvatarLabel,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: url == null ? AppColors.surfaceSoft : null,
@@ -113,13 +114,11 @@ class _PillBadge extends StatelessWidget {
   const _PillBadge.viewChip()
       : icon = AppIcons.eye,
         iconSize = 14,
-        label = '상대에게 이렇게 보여요',
         background = AppColors.surfaceInk,
         foreground = AppColors.onInk;
 
   final IconData icon;
   final double iconSize;
-  final String label;
   final Color background;
   final Color foreground;
 
@@ -136,7 +135,7 @@ class _PillBadge extends StatelessWidget {
             const SizedBox(width: AppSpacing.xxs),
             Flexible(
               child: Text(
-                label,
+                context.l10n.meHeroViewChip,
                 style: AppTypography.labelSmall.copyWith(height: 1.5, color: foreground),
               ),
             ),
@@ -171,7 +170,7 @@ class _VerifiedBadge extends StatelessWidget {
             const Icon3d(AppIcon3d.badgeCheck, size: 18),
             const SizedBox(width: AppSpacing.xxs),
             // 10/600 — 줄높이는 pen 에 없어 보기 칩(Badge `XPRBv`)과 같은 1.5. 높이는 아이콘 18 이 정한다.
-            Text('학생 인증', style: AppTypography.badge.copyWith(height: 1.5, letterSpacing: 0, color: AppColors.ink)),
+            Text(context.l10n.meHeroVerifiedBadge, style: AppTypography.badge.copyWith(height: 1.5, letterSpacing: 0, color: AppColors.ink)),
           ],
         ),
       ),
@@ -299,7 +298,7 @@ class _RegeneratePill extends StatelessWidget {
                         if (enabled) ...[const _HeartGlyph(), const SizedBox(width: AppSpacing.xxs)],
                         Flexible(
                           child: Text(
-                            '다시 만들기 · 20',
+                            context.l10n.meHeroRegenPill,
                             textAlign: TextAlign.center,
                             style: AppTypography.labelSmall.copyWith(
                               height: 1.5,
@@ -328,7 +327,7 @@ class _HeartGlyph extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: '하트',
+      label: context.l10n.commonHeart,
       child: Image.asset('assets/images/heart-flat-vector-v3.png', width: 16, height: 16, excludeFromSemantics: true),
     );
   }

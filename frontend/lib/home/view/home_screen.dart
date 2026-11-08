@@ -127,7 +127,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
   Future<void> _openStoreReview() async {
     final uri = Uri.tryParse(ref.read(storeReviewUrlProvider).trim());
     if (uri == null || !(uri.scheme == 'http' || uri.scheme == 'https') || uri.host.isEmpty) {
-      showTimedToast(comingSoonToast);
+      showTimedToast(comingSoonToast(context.l10n));
       return;
     }
     await _openExternal(uri);

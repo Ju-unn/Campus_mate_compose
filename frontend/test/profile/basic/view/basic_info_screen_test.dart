@@ -102,6 +102,27 @@ void main() {
     expect(find.text('숫자 4자리'), findsOneWidget);
   });
 
+  testWidgets('닉네임 칸 — 묻는 동안 "확인 중…", 답이 오면 "사용할 수 있는 닉네임이에요"', (tester) async {
+    final repository = FakeBasicInfoRepository()..availabilityGate = Completer<void>();
+    await pumpScreen(tester, repository: repository);
+    final nickname = find.descendant(
+      of: find.widgetWithText(LabeledField, '닉네임 · 필수'),
+      matching: find.byType(TextField),
+    );
+
+    await tester.enterText(nickname, '호랑이');
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(find.text('확인 중…'), findsOneWidget);
+    expect(find.text('사용할 수 있는 닉네임이에요'), findsNothing);
+
+    repository.availabilityGate!.complete();
+    await tester.pump();
+
+    expect(find.text('사용할 수 있는 닉네임이에요'), findsOneWidget);
+    expect(find.text('확인 중…'), findsNothing);
+  });
+
   // 3b 실명 · 3c 학과 · 학번과 같은 "· 필수" 표기. 선택 항목인 내 MBTI 에는 붙이지 않는다.
   testWidgets('필수 항목 라벨 다섯 개에는 "· 필수" 가 붙고 내 MBTI 에는 붙지 않는다', (tester) async {
     tester.view.physicalSize = const Size(360, 1200);

@@ -103,7 +103,8 @@ class AvatarRegenPickViewModel extends Notifier<AvatarRegenPickUiState> {
     try {
       final checked = await _checked(file);
       if (checked == null) {
-        message = '얼굴이 보이는 사진을 골라 주세요';
+        // 상태는 아직 글자를 든다 — 등록 막힘 문구가 profile/avatar 의 `regenerate()` 에서 글자로 오기 때문이다(그 폴더를 옮길 때 같이 Failure 로).
+        message = const AppErrorFailure(AppError.noFace).toDisplayMessage();
       } else {
         accepted = checked;
       }

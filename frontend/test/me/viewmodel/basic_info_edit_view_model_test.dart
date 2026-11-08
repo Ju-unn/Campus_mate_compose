@@ -20,6 +20,12 @@ const _nicknameTaken = '이미 있는 닉네임이에요';
 const _nicknameTooSoon = '닉네임은 30일에 한 번 바꿀 수 있어요';
 const _invalidInput = '입력한 값을 다시 확인해 주세요';
 
+Matcher _kind(AppError error) => isA<AppErrorFailure>().having((failure) => failure.error, 'error', error);
+
+/// 서버가 준 거절을 그대로 들고 있다 — 칸 아래 글자는 서버 문구다(`failureText` 의 서버 문구 가지).
+Matcher _serverSaid(String message) =>
+    isA<ServerRejectedFailure>().having((failure) => failure.serverMessage, 'serverMessage', message);
+
 /// 이름·학교는 지어낸 값이다.
 MyProfile _profile({
   String nickname = '늑대',
@@ -99,19 +105,19 @@ void main() {
       await open(_profile(nicknameChangeableAt: DateTime.parse('2026-10-26T15:00:00+00:00')));
 
       expect(state().isNicknameLocked, isTrue);
-      expect(state().nicknameUnlockText, '10월 27일부터 바꿀 수 있어요');
+      expect(state().nicknameUnlockDay, (month: 10, day: 27));
     });
 
     test('풀리는 날은 기기 시간대로 바꿔 받아도(toLocal) 한국 날짜 그대로다', () async {
       await open(_profile(nicknameChangeableAt: DateTime.parse('2026-10-26T15:00:00+00:00').toLocal()));
 
-      expect(state().nicknameUnlockText, '10월 27일부터 바꿀 수 있어요');
+      expect(state().nicknameUnlockDay, (month: 10, day: 27));
     });
 
     test('잠겨 있지 않으면 풀리는 날 문구가 없다', () async {
       await open(_profile());
 
-      expect(state().nicknameUnlockText, isNull);
+      expect(state().nicknameUnlockDay, isNull);
     });
   });
 
@@ -125,7 +131,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 20));
 
       expect(nicknames.checkedNicknames, ['호랑이']);
-      expect(state().nicknameSuccess, '사용할 수 있는 닉네임이에요');
+      expect(state().nicknameCheck, NicknameCheck.available);
       expect(state().canSave, isTrue);
     });
 
@@ -138,7 +144,7 @@ void main() {
 
       expect(nicknames.checkedNicknames, isEmpty);
       expect(state().nicknameError, isNull);
-      expect(state().nicknameSuccess, isNull);
+      expect(state().nicknameCheck, isNot(NicknameCheck.available));
       expect(state().canSave, isFalse, reason: '되돌렸으니 바뀐 것이 없다(B2)');
     });
 
@@ -149,7 +155,7 @@ void main() {
       viewModel().changeNickname('호랑이');
       await tester.pump(const Duration(milliseconds: 350));
 
-      expect(state().nicknameError, _nicknameTaken);
+      expect(state().nicknameError, _kind(AppError.nicknameTaken));
       expect(state().canSave, isFalse);
     });
 
@@ -160,7 +166,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 350));
 
       expect(nicknames.checkedNicknames, isEmpty);
-      expect(state().nicknameError, '한글 또는 영문 2~5자로 입력해 주세요');
+      expect(state().nicknameError, _kind(AppError.nicknameInvalid));
       expect(state().canSave, isFalse);
     });
 
@@ -171,31 +177,26 @@ void main() {
       viewModel().changeNickname('호랑이');
       await tester.pump(const Duration(milliseconds: 350));
 
-      expect(state().nicknameChecking, '확인 중…');
+      expect(state().nicknameCheck, NicknameCheck.checking);
       expect(state().canSave, isTrue);
       nicknames.availabilityGate!.complete();
       await tester.pump();
     });
 
-    testWidgets('형식 · 중복 · 확인 중 · 사용 가능 문구는 04-1 과 한 글자도 다르지 않다', (tester) async {
+    testWidgets('형식 · 중복 오류의 종류는 04-1 과 같다 — 글자는 두 화면이 같은 문구 키로 그린다', (tester) async {
       await open(_profile());
-      String? onboarding(NicknameCheck check) => switch (check) {
-            NicknameCheck.available => BasicInfoUiState(thisYear: 2026, nicknameCheck: check).nicknameSuccess,
-            NicknameCheck.checking => BasicInfoUiState(thisYear: 2026, nicknameCheck: check).nicknameChecking,
-            _ => BasicInfoUiState(thisYear: 2026, nicknameCheck: check).nicknameError,
-          };
+      AppError? onboarding(NicknameCheck check) =>
+          (BasicInfoUiState(thisYear: 2026, nicknameCheck: check).nicknameError as AppErrorFailure?)?.error;
+      AppError? edit() => (state().nicknameError as AppErrorFailure?)?.error;
 
       viewModel().changeNickname('ㄱㄴ');
       await tester.pump(const Duration(milliseconds: 350));
-      expect(state().nicknameError, onboarding(NicknameCheck.invalid));
+      expect(edit(), onboarding(NicknameCheck.invalid));
+
       nicknames.nextAvailabilityResult = const Success(false);
       viewModel().changeNickname('호랑이');
       await tester.pump(const Duration(milliseconds: 350));
-      expect(state().nicknameError, onboarding(NicknameCheck.taken));
-      nicknames.nextAvailabilityResult = const Success(true);
-      viewModel().changeNickname('사자');
-      await tester.pump(const Duration(milliseconds: 350));
-      expect(state().nicknameSuccess, onboarding(NicknameCheck.available));
+      expect(edit(), onboarding(NicknameCheck.taken));
     });
   });
 
@@ -208,7 +209,7 @@ void main() {
       expect(state().canSave, isFalse, reason: '2자리는 아직 키가 아니다');
 
       viewModel().changeHeight('999');
-      expect(state().heightError, '120~230 사이로 입력해 주세요');
+      expect(state().heightError, _kind(AppError.heightRange));
       expect(state().canSave, isFalse);
 
       viewModel().changeHeight('180');
@@ -341,8 +342,8 @@ void main() {
 
         await viewModel().save();
 
-        expect(state().nicknameError, message);
-        expect(state().errorMessage, isNull);
+        expect(state().nicknameError, _serverSaid(message));
+        expect(state().error, isNull);
         expect(state().completed, isFalse);
         expect(state().canSave, isFalse);
         expect(me.calls, 1, reason: '실패하면 다시 읽지 않는다');
@@ -360,9 +361,9 @@ void main() {
 
       await viewModel().save();
 
-      expect(state().heightError, _invalidInput);
+      expect(state().heightError, _serverSaid(_invalidInput));
       expect(state().nicknameError, isNull);
-      expect(state().errorMessage, isNull);
+      expect(state().error, isNull);
       expect(state().canSave, isFalse);
 
       viewModel().changeHeight('181');
@@ -378,7 +379,7 @@ void main() {
       await viewModel().save();
 
       // pen 15-6c `C3oV5u` 의 고정 문구 — 실패 종류와 상관없이 같다.
-      expect(state().errorMessage, '저장하지 못했어요. 잠시 후 다시 시도해 주세요');
+      expect(state().error, _kind(AppError.saveFailed));
       expect(state().nicknameError, isNull);
       expect(state().heightError, isNull);
       expect(state().completed, isFalse);
@@ -395,7 +396,7 @@ void main() {
 
       final saving = viewModel().save();
 
-      expect(state().errorMessage, isNull);
+      expect(state().error, isNull);
       me.holdUpdate!.complete();
       await saving;
     });
@@ -671,7 +672,7 @@ void main() {
 
       await viewModel().save();
 
-      expect(state().errorMessage, '저장하지 못했어요. 잠시 후 다시 시도해 주세요');
+      expect(state().error, _kind(AppError.saveFailed));
       expect(state().heightError, isNull);
       expect(state().completed, isFalse);
       expect(state().canSave, isTrue);

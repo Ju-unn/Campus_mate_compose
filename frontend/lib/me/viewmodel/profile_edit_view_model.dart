@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
@@ -27,14 +28,14 @@ class ProfileEditViewModel extends Notifier<ProfileEditUiState> {
     if (!state.canSave) {
       return;
     }
-    state = state.copyWith(isSubmitting: true, errorMessage: null);
+    state = state.copyWith(isSubmitting: true, error: null);
     // 저장 중에 뒤로 나가도 끝까지 저장하고 화면 15 를 다시 읽게 한다 — 그동안 autoDispose 가 버리지 않게 붙잡는다.
     final keepAlive = ref.keepAlive();
     try {
       final result = await ref.read(meRepositoryProvider).updateProfile(bio: state.bio.trim());
       state = result.when(
         onSuccess: (_) => state.copyWith(isSubmitting: false, completed: true),
-        onFailure: (failure) => state.copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage()),
+        onFailure: (failure) => state.copyWith(isSubmitting: false, error: failure),
       );
       if (state.completed) {
         ref.invalidate(myProfileProvider);
@@ -50,23 +51,24 @@ class ProfileEditUiState {
   const ProfileEditUiState({
     required this.bio,
     this.isSubmitting = false,
-    this.errorMessage,
+    this.error,
     this.completed = false,
   });
 
   final String bio;
   final bool isSubmitting;
-  final String? errorMessage;
+  /// 저장 실패. 글자는 화면이 `context.errorText` 로 만든다.
+  final Failure? error;
   final bool completed;
 
   /// 빈 자기소개는 저장하지 않는다 — 06-3 과 같은 규칙(서버도 422).
   bool get canSave => bio.trim().isNotEmpty && !isSubmitting;
 
-  ProfileEditUiState copyWith({String? bio, bool? isSubmitting, String? errorMessage, bool? completed}) {
+  ProfileEditUiState copyWith({String? bio, bool? isSubmitting, Failure? error, bool? completed}) {
     return ProfileEditUiState(
       bio: bio ?? this.bio,
       isSubmitting: isSubmitting ?? this.isSubmitting,
-      errorMessage: errorMessage,
+      error: error,
       completed: completed ?? this.completed,
     );
   }

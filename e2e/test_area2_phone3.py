@@ -11,6 +11,7 @@ from e2e import area1, area2_phone3, notify, tools
 from e2e.area1 import SEOUL
 from e2e.test_area1_phone import FakePhone
 from e2e.test_area2 import Base, Fake
+from e2e.test_area2_two_accept import label_backed
 from e2e.tools import Blocked, Reply
 from e2e.fake_regen_photo import patch_regen_photo
 
@@ -684,7 +685,7 @@ class AppRegenWaitTest(unittest.TestCase):
             with self.subTest(line):
                 self.assertIn(line, text)
         hero = (tools.ROOT / 'frontend' / 'lib' / 'me' / 'view' / 'profile_hero.dart').read_text(encoding='utf-8')
-        self.assertIn("'다시 만들기 · 20'", hero)  # 알약 글자는 실제 히어로 코드 그대로
+        self.assertTrue(label_backed('다시 만들기 · 20', [hero], tools.arb_messages()))  # 알약 글자는 히어로가 읽는 글자 그대로(문구 파일 ARB, 1.0.2 B8)
 
 
 class RegistryTest(unittest.TestCase):

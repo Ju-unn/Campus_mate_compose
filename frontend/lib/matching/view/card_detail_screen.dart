@@ -5,6 +5,7 @@ import 'package:campus_mate/common/widgets/card_action_bar.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/common/widgets/trait_bar.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -18,6 +19,7 @@ import 'package:campus_mate/matching/viewmodel/card_detail_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/sent_requests_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
 import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
+import 'package:campus_mate/profile/onboarding/view/profile_enum_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -331,7 +333,7 @@ class _Facts extends StatelessWidget {
       (label: '키', value: detail.heightCm == null ? null : '${detail.heightCm}cm'),
       (label: 'MBTI', value: detail.mbti),
       (label: '학번', value: detail.studentNumber == null ? null : '${detail.studentNumber}학번'),
-      (label: '종교', value: detail.religion.label),
+      (label: '종교', value: detail.religion.label(context.l10n)),
       (label: '흡연', value: detail.isSmoker ? '흡연' : '비흡연'),
     ];
     // 두 줄 사이 10, 열 사이 8, 라벨-값 사이 2 는 pen `TORAs` 실측값이다.
@@ -391,12 +393,12 @@ class _LookType extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              detail.animalType.label,
+              detail.animalType.label(context.l10n),
               style: AppTypography.bodyStrong.copyWith(color: AppColors.ink),
             ),
             const SizedBox(height: 2),
             Text(
-              detail.impressionType.label,
+              detail.impressionType.label(context.l10n),
               style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
             ),
           ],

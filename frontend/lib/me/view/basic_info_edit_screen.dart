@@ -1,16 +1,21 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/mbti_pole_toggle.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/view/locked_fact_row.dart';
 import 'package:campus_mate/me/viewmodel/basic_info_edit_view_model.dart';
 import 'package:campus_mate/profile/appearance/view/appearance_pickers.dart';
 import 'package:campus_mate/profile/basic/view/basic_info_screen.dart';
+import 'package:campus_mate/profile/basic/viewmodel/basic_info_ui_state.dart';
 import 'package:campus_mate/profile/traits/view/choice_pickers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -50,7 +55,7 @@ class _BasicInfoEditScreenState extends ConsumerState<BasicInfoEditScreen> {
       if (next.completed && !(previous?.completed ?? false)) context.pop(true);
     });
     return Scaffold(
-      appBar: const EditAppBar(title: '기본 정보 수정'),
+      appBar: EditAppBar(title: context.l10n.meBasicTitle),
       body: SafeArea(
         top: false,
         child: Column(
@@ -66,18 +71,18 @@ class _BasicInfoEditScreenState extends ConsumerState<BasicInfoEditScreen> {
                   children: [
                     // "· 필수" 는 온보딩 04-1 · 3b · 3c 와 같은 표기다(사용자 요청 10-15). 아래 고르기 구역(MBTI 등)에는 붙이지 않는다.
                     _InputField(
-                      label: '닉네임 · 필수',
+                      label: context.l10n.meBasicNicknameLabel,
                       controller: _nickname,
                       onChanged: viewModel.changeNickname,
                       isLocked: state.isNicknameLocked,
                       isSaving: state.isSubmitting,
                       hasError: state.nicknameError != null,
                       inputFormatters: nicknameInputFormatters,
-                      note: _nicknameNote(state),
+                      note: _nicknameNote(context, state),
                     ),
                     const SizedBox(height: AppSpacing.md),
                     _InputField(
-                      label: '키 (cm) · 필수',
+                      label: context.l10n.meBasicHeightLabel,
                       controller: _height,
                       onChanged: viewModel.changeHeight,
                       isSaving: state.isSubmitting,
@@ -85,7 +90,7 @@ class _BasicInfoEditScreenState extends ConsumerState<BasicInfoEditScreen> {
                       keyboardType: TextInputType.number,
                       inputFormatters: heightInputFormatters,
                       note: switch (state.heightError) {
-                        final message? => _FieldNote.error(message),
+                        final failure? => _FieldNote.error(context.errorText(failure)),
                         null => null,
                       },
                     ),
@@ -97,7 +102,7 @@ class _BasicInfoEditScreenState extends ConsumerState<BasicInfoEditScreen> {
               ),
             ),
             _Footer(
-              error: state.errorMessage,
+              error: state.error,
               showsRecalculationNote: state.showsRecalculationNote,
               isSaving: state.isSubmitting,
               onSave: state.canSave ? viewModel.save : null,
@@ -109,27 +114,32 @@ class _BasicInfoEditScreenState extends ConsumerState<BasicInfoEditScreen> {
   }
 
   /// 닉네임 칸 아래 한 줄 — 잠김(15-6-2) > 오류 > 확인 중 > 사용 가능 > 평소 안내(`G1tl8`). 04-1 과 같은 순서에 잠김만 더했다.
-  static _FieldNote _nicknameNote(BasicInfoEditUiState state) {
-    if (state.nicknameUnlockText case final text?) {
-      return _FieldNote(leading: const Icon(AppIcons.clock3, size: 14, color: AppColors.muted), color: AppColors.muted, text: text);
+  static _FieldNote _nicknameNote(BuildContext context, BasicInfoEditUiState state) {
+    final l10n = context.l10n;
+    if (state.nicknameUnlockDay case (:final month, :final day)) {
+      return _FieldNote(
+        leading: const Icon(AppIcons.clock3, size: 14, color: AppColors.muted),
+        color: AppColors.muted,
+        text: l10n.meBasicNicknameUnlockAt(month: month, day: day),
+      );
     }
-    if (state.nicknameError case final text?) {
-      return _FieldNote.error(text);
+    if (state.nicknameError case final failure?) {
+      return _FieldNote.error(context.errorText(failure));
     }
-    if (state.nicknameChecking case final text?) {
-      return _FieldNote(leading: _spinner, color: AppColors.muted, text: text);
+    if (state.nicknameCheck == NicknameCheck.checking) {
+      return _FieldNote(leading: _spinner, color: AppColors.muted, text: l10n.profileNicknameChecking);
     }
-    if (state.nicknameSuccess case final text?) {
+    if (state.nicknameCheck == NicknameCheck.available) {
       return _FieldNote(
         leading: const Icon(AppIcons.circleCheck, size: 14, color: AppColors.success),
         color: AppColors.success,
-        text: text,
+        text: l10n.profileNicknameAvailable,
       );
     }
-    return const _FieldNote(
-      leading: Icon(AppIcons.info, size: 14, color: AppColors.muted),
+    return _FieldNote(
+      leading: const Icon(AppIcons.info, size: 14, color: AppColors.muted),
       color: AppColors.muted,
-      text: '30일에 한 번 바꿀 수 있어요',
+      text: l10n.meBasicNicknameRule,
     );
   }
 
@@ -172,25 +182,25 @@ class _EditSections extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _Section(
-          label: '내 MBTI',
+          label: context.l10n.meBasicMbtiLabel,
           child: MbtiPoleToggle(
             selected: state.mbtiPoles,
             onTap: viewModel.toggleMbtiPole,
-            unknownLabel: '모름',
+            unknownLabel: context.l10n.meBasicMbtiUnknown,
             isUnknownSelected: state.isMbtiUnknown,
             onUnknownTap: viewModel.toggleMbtiUnknown,
           ),
         ),
         _Section(
-          label: '종교',
+          label: context.l10n.meBasicReligionLabel,
           child: ReligionPicker(selected: state.religion, onSelected: viewModel.changeReligion),
         ),
         _Section(
-          label: '흡연',
+          label: context.l10n.meBasicSmokeLabel,
           child: SmokePicker(isSmoker: state.isSmoker, onSelected: viewModel.changeIsSmoker),
         ),
         _Section(
-          label: '내 동물상',
+          label: context.l10n.meBasicAnimalLabel,
           color: AppColors.ink,
           child: AnimalTypePicker(
             selected: {?state.animalType},
@@ -198,7 +208,7 @@ class _EditSections extends StatelessWidget {
           ),
         ),
         _Section(
-          label: '내 인상',
+          label: context.l10n.meBasicImpressionLabel,
           color: AppColors.ink,
           isLast: true,
           child: ImpressionTypePicker(
@@ -251,7 +261,7 @@ class _LockedSection extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('바꿀 수 없는 정보', style: _labelStyle),
+            Text(context.l10n.meBasicLockedTitle, style: _labelStyle),
             const SizedBox(height: AppSpacing.xs),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md - 1, vertical: AppSpacing.xxs - 1),
@@ -262,9 +272,9 @@ class _LockedSection extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  LockedFactRow(label: '출생연도', value: state.birthYear?.toString() ?? _unknown),
-                  LockedFactRow(label: '성별', value: _genderLabel(state.gender)),
-                  LockedFactRow(label: '학과', value: state.major ?? _unknown),
+                  LockedFactRow(label: context.l10n.meBasicLockedBirthYear, value: state.birthYear?.toString() ?? _unknown),
+                  LockedFactRow(label: context.l10n.meBasicLockedGender, value: _genderLabel(context.l10n, state.gender)),
+                  LockedFactRow(label: context.l10n.meMajorLabel, value: state.major ?? _unknown),
                 ],
               ),
             ),
@@ -276,7 +286,7 @@ class _LockedSection extends StatelessWidget {
                 const SizedBox(width: AppSpacing.xxs),
                 Expanded(
                   child: Text(
-                    '가입할 때 확인한 정보라 바꿀 수 없어요',
+                    context.l10n.meBasicLockedNote,
                     style: _noteStyle.copyWith(color: AppColors.muted),
                   ),
                 ),
@@ -291,9 +301,9 @@ class _LockedSection extends StatelessWidget {
   /// 서버가 값을 안 주면(옛 서버 · 온보딩 전) 빈 칸 대신 줄표 — 15-5 의 키 · 학과 줄과 같다.
   static const String _unknown = '-';
 
-  static String _genderLabel(String? gender) => switch (gender) {
-        'male' => '남성',
-        'female' => '여성',
+  static String _genderLabel(AppLocalizations l10n, String? gender) => switch (gender) {
+        'male' => l10n.meBasicGenderMale,
+        'female' => l10n.meBasicGenderFemale,
         _ => _unknown,
       };
 }
@@ -425,7 +435,7 @@ class _Footer extends StatelessWidget {
     required this.onSave,
   });
 
-  final String? error;
+  final Failure? error;
   final bool showsRecalculationNote;
   final bool isSaving;
   final VoidCallback? onSave;
@@ -443,15 +453,15 @@ class _Footer extends StatelessWidget {
             _FooterNote(
               leading: const Icon(AppIcons.circleAlert, size: 14, color: AppColors.error),
               color: AppColors.error,
-              text: error,
+              text: context.errorText(error),
             )
           else if (showsRecalculationNote)
-            const _FooterNote(
-              leading: _Spinner14(color: AppColors.muted),
+            _FooterNote(
+              leading: const _Spinner14(color: AppColors.muted),
               color: AppColors.muted,
-              text: '점수를 다시 계산하는 중이에요. 몇 초 걸려요',
+              text: context.l10n.meBasicRecalculating,
             ),
-          AppButton(label: '저장', onPressed: onSave, isLoading: isSaving),
+          AppButton(label: context.l10n.commonSave, onPressed: onSave, isLoading: isSaving),
         ],
       ),
     );
