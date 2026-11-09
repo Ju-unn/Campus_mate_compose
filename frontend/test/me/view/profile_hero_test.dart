@@ -209,7 +209,7 @@ void main() {
   });
 
   group('인증 배지 `EQjrL`(위쪽 줄 `dd4Jv` 오른쪽)', () {
-    Finder badge() => _fill(AppColors.canvas, of: find.text('학생 인증')).first;
+    Finder badge() => _fill(AppColors.canvas, of: find.text('학교 인증')).first;
 
     testWidgets('위쪽 줄 space_between — 칩은 왼쪽, 배지는 오른쪽 끝(16 안쪽), 둘은 세로 가운데', (tester) async {
       // 폭 360 에선 테스트 글꼴로 칩이 두 줄로 꺾여 줄이 꽉 찬다(남는 공간 0) — 정렬을 보려면 빈 공간이 있어야 한다.
@@ -227,7 +227,7 @@ void main() {
       expect(tester.getTopLeft(badge()).dx, greaterThan(tester.getTopRight(chip).dx));
     });
 
-    testWidgets('흰 알약 · 그림자 #34223A24 y2 blur8 · 패딩 [6,10] · 3D badge-check 18 → 4 → "학생 인증" 10/600 ink', (tester) async {
+    testWidgets('흰 알약 · 그림자 #34223A24 y2 blur8 · 패딩 [6,10] · 3D badge-check 18 → 4 → "학교 인증" 10/600 ink', (tester) async {
       await pump(tester, onRegenerate: () {});
 
       final decoration = tester.widget<DecoratedBox>(badge()).decoration as BoxDecoration;
@@ -240,9 +240,9 @@ void main() {
       // 아이콘 18 이 글자보다 높아 높이 = 6 + 18 + 6.
       expect(tester.getSize(badge()).height, 6 + 18 + 6);
       expect(tester.getTopLeft(icon3d).dx - tester.getTopLeft(badge()).dx, 10);
-      expect(tester.getTopLeft(find.text('학생 인증')).dx - tester.getTopRight(icon3d).dx, 4);
-      expect(tester.getTopRight(badge()).dx - tester.getTopRight(find.text('학생 인증')).dx, 10);
-      final style = tester.widget<Text>(find.text('학생 인증')).style!;
+      expect(tester.getTopLeft(find.text('학교 인증')).dx - tester.getTopRight(icon3d).dx, 4);
+      expect(tester.getTopRight(badge()).dx - tester.getTopRight(find.text('학교 인증')).dx, 10);
+      final style = tester.widget<Text>(find.text('학교 인증')).style!;
       expect((style.fontSize, style.fontWeight, style.color), (10, FontWeight.w600, AppColors.ink));
       expect(style.letterSpacing, 0); // 옛 labelSmall 처럼 자간 없음(badge 의 +0.02em 을 끈다)
     });
@@ -255,8 +255,8 @@ void main() {
       expectStyle(tester, '여우, 23', 24, FontWeight.w700, AppColors.onInk, 1.35);
       // 배지는 보기 칩과 같은 위쪽 줄에 있다(칩 안쪽 Row 가 first, 위쪽 줄이 last).
       final topRow = find.ancestor(of: find.text('상대에게 이렇게 보여요'), matching: find.byType(Row)).last;
-      expect(find.descendant(of: topRow, matching: find.text('학생 인증')), findsOneWidget);
-      expect(tester.getBottomLeft(find.text('학생 인증')).dy, lessThan(tester.getTopLeft(find.text('여우, 23')).dy));
+      expect(find.descendant(of: topRow, matching: find.text('학교 인증')), findsOneWidget);
+      expect(tester.getBottomLeft(find.text('학교 인증')).dy, lessThan(tester.getTopLeft(find.text('여우, 23')).dy));
     });
 
     testWidgets('학교 줄 `NvYvt`(School Symbol) — 학교 로고 + "학교 / 학과" 두 줄 14/400 흰색 lh1.5(`LSwMj`), 두 줄 말줄임, 12 뒤 알약',
@@ -323,7 +323,7 @@ void main() {
       expect(find.text('여우'), findsOneWidget);
       expect(find.text('가나대학교'), findsOneWidget);
       // 배지는 늘 보인다 — 이 API 는 인증된 사람만 닿는다.
-      expect(find.text('학생 인증'), findsOneWidget);
+      expect(find.text('학교 인증'), findsOneWidget);
     });
   });
 
@@ -441,7 +441,7 @@ void main() {
     expect(tester.getSize(_hero), const Size(328, 360));
     // 흰 글자가 밝은 빈 칸 위에서도 읽히는 것은 스크림 덕이다 — 빈 칸에도 그대로 깐다.
     expect(_scrim, findsOneWidget);
-    for (final text in ['상대에게 이렇게 보여요', '여우, 23', '학생 인증', _schoolText, _pillLabel]) {
+    for (final text in ['상대에게 이렇게 보여요', '여우, 23', '학교 인증', _schoolText, _pillLabel]) {
       expect(find.text(text), findsOneWidget, reason: text);
     }
   });

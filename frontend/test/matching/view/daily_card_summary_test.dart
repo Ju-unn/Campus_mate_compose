@@ -113,7 +113,7 @@ void main() {
     expect(style.color, const Color(0xFFC4224B));
   });
 
-  testWidgets('배지 줄 `kaRGO` — 시계 `ZMHUK` "목요일 오전 7시까지" · 학생 인증 `aRL8x` 3D 18, 오른쪽 정렬 사이 6', (tester) async {
+  testWidgets('배지 줄 `kaRGO` — 시계 `ZMHUK` "목요일 오전 7시까지" · 학교 인증 `aRL8x` 3D 18, 오른쪽 정렬 사이 6', (tester) async {
     // 2026-10-08 은 목요일. 만료 시각이 곧 다음 지급 시각이다.
     final card = DailyCard(
       cardId: _card.cardId,
@@ -129,7 +129,7 @@ void main() {
     final icons = tester.widgetList<Icon3d>(find.byType(Icon3d)).map((i) => (i.icon, i.size));
     expect(icons, [(AppIcon3d.clock, 18.0), (AppIcon3d.badgeCheck, 18.0)]);
     final clockPill = find.ancestor(of: clock, matching: find.byType(Container)).first;
-    final badgePill = find.ancestor(of: find.text('학생 인증'), matching: find.byType(Container)).first;
+    final badgePill = find.ancestor(of: find.text('학교 인증'), matching: find.byType(Container)).first;
     expect(tester.getTopLeft(badgePill).dx - tester.getTopRight(clockPill).dx, 6);
     expect(tester.getSize(badgePill).height, 30);
   });
@@ -167,13 +167,13 @@ void main() {
       expect(tester.getTopLeft(label).dx - tester.getTopRight(icon).dx, 4);
     });
 
-    testWidgets('구매 카드는 만료가 없어 시계 배지가 없고, 학생 인증은 그대로 오른쪽 끝(구매 카드와 사이 6)', (tester) async {
+    testWidgets('구매 카드는 만료가 없어 시계 배지가 없고, 학교 인증은 그대로 오른쪽 끝(구매 카드와 사이 6)', (tester) async {
       await _pump(tester, card: purchased);
 
       expect(find.textContaining('까지'), findsNothing);
       expect(tester.widgetList<Icon3d>(find.byType(Icon3d)).map((i) => i.icon), [AppIcon3d.badgeCheck]);
       final paidPill = find.ancestor(of: find.text('구매 카드'), matching: find.byType(Container)).first;
-      final studentPill = find.ancestor(of: find.text('학생 인증'), matching: find.byType(Container)).first;
+      final studentPill = find.ancestor(of: find.text('학교 인증'), matching: find.byType(Container)).first;
       expect(tester.getTopLeft(studentPill).dx - tester.getTopRight(paidPill).dx, 6);
       final frame = tester.getRect(find.byType(DailyCardSummary));
       expect(frame.right - tester.getTopRight(studentPill).dx, 21); // 안쪽 20 + 테두리 1
@@ -210,7 +210,7 @@ void main() {
 
       expect(tester.takeException(), isNull);
       final tops = {
-        for (final text in ['목요일 오전 7시까지', '구매 카드', '학생 인증'])
+        for (final text in ['목요일 오전 7시까지', '구매 카드', '학교 인증'])
           text: tester.getTopLeft(find.ancestor(of: find.text(text), matching: find.byType(Container)).first).dy,
       };
       expect(tops.values.toSet().length, greaterThan(1), reason: '한 줄에 다 들어가면 줄바꿈 시험이 못 된다: $tops');

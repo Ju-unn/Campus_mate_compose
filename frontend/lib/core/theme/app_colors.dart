@@ -29,7 +29,7 @@ abstract final class AppColors {
   /// 원형 아이콘 버튼 바탕
   static const Color surfaceStrong = Color(0xFFF2F2F2);
 
-  /// 잉크 표면 — 학생 인증 뱃지, 사진 위 오버레이 칩
+  /// 잉크 표면 — 학교 인증 뱃지, 사진 위 오버레이 칩
   static const Color surfaceInk = Color(0xFF222222);
 
   /// 모달 뒤 딤, 모자이크 배너 위 덮개
@@ -70,7 +70,7 @@ abstract final class AppColors {
   /// [primaryWash] 와 같은 성격의 워시 토큰. 위에 올리는 텍스트는 [error] 로 둔다
   static const Color errorWash = Color(0xFFFAEFEC);
 
-  /// 매칭 성사, 학생 인증 완료
+  /// 매칭 성사, 학교 인증 완료
   static const Color success = Color(0xFF25795A);
 
   // ── 소셜 로그인 버튼(시작 화면). 앱 토큰이 아니라 각 사 브랜드 규칙 값이다(대장 지시문 07 규칙표).

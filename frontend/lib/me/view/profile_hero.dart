@@ -146,7 +146,7 @@ class _PillBadge extends StatelessWidget {
   }
 }
 
-/// 학생 인증 배지 `EQjrL`(3D) — 흰 알약 · 그림자 · [6,10] · 3D badge-check 18 → 4 → "학생 인증" 10/600 ink.
+/// 학교 인증 배지 `EQjrL`(3D) — 흰 알약 · 그림자 · [6,10] · 3D badge-check 18 → 4 → "학교 인증" 10/600 ink.
 /// 늘 보인다 — `GET /me/profile` 은 인증된 사람만 닿는다.
 class _VerifiedBadge extends StatelessWidget {
   const _VerifiedBadge();

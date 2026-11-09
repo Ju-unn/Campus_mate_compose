@@ -152,7 +152,7 @@ final Map<String, Area1Case> area5CasesRead = {
       'name_line': _textOf(tester, name),
       'school': _textOf(tester, find.descendant(of: find.byType(SchoolLabel), matching: find.byType(Text))),
       'avatar_file': _avatarFile(tester),
-      'badge': _has(find.descendant(of: hero, matching: find.text('학생 인증'))),
+      'badge': _has(find.descendant(of: hero, matching: find.text('학교 인증'))),
       'chip': _has(find.descendant(of: hero, matching: find.text('상대에게 이렇게 보여요'))),
       ...await _readHeartSheet(tester),
     };
