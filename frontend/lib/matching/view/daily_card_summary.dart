@@ -79,7 +79,7 @@ String hourLabel(AppLocalizations l10n, DateTime value) {
 DateTime seoulClock(DateTime value) => value.toUtc().add(const Duration(hours: 9));
 
 /// pen `kaRGO`(화면 `Keynu` 의 `mj74J`). 왼쪽부터 "무료 카드 초기화" `ZMHUK`(만료 = 다음 지급 시각) ·
-/// "구매 카드" `ZvKiJ`(구매한 카드만) · "학생 인증" `aRL8x`. 구매 카드는 만료가 없어 시계 배지가 안 뜬다.
+/// "구매 카드" `ZvKiJ`(구매한 카드만) · "학교 인증" `aRL8x`. 구매 카드는 만료가 없어 시계 배지가 안 뜬다.
 ///
 /// `ZvKiJ` 값(마스터 Badge `XPRBv` 인스턴스, resolveVariables 로 읽음): 채움 #E00B41 = `primary-pressed`,
 /// 모서리 999 · 패딩 [6,10] · 간격 4 · 높이 30, 아이콘 lucide `shopping-bag` 18 흰색,
@@ -117,7 +117,6 @@ class _BadgeRow extends StatelessWidget {
               label: l10n.matchingCardPurchasedBadge,
               textColor: AppColors.onPrimary,
             ),
-          // 글자는 ⑧ 뒤 문구 PR 에서 "학교 인증" 으로 바뀔 자리다 — 키 이름으로 찾는다(matchingVerifiedBadge).
           _Pill(
             color: AppColors.surfaceInk,
             icon: const Icon3d(AppIcon3d.badgeCheck, size: 18),

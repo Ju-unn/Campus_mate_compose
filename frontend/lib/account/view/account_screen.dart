@@ -80,7 +80,7 @@ class _AccountContent extends StatelessWidget {
   /// pen 구역 사이 간격 20 은 간격 토큰(md 16 · lg 24) 사이 값이다(block_list_screen `_gap` 과 같은 이유).
   static const double _sectionGap = 20;
 
-  /// "학생 인증" 값(항상 "인증 완료") 전용 — 기본 값 스타일과 달리 굵고 primary-text.
+  /// "학교 인증" 값(항상 "인증 완료") 전용 — 기본 값 스타일과 달리 굵고 primary-text.
   static final _verifiedStyle =
       AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w700, color: AppColors.primaryText);
 
@@ -218,7 +218,7 @@ class _InfoRow extends StatelessWidget {
   final String label;
   final String value;
 
-  /// 기본 값 스타일과 다를 때만 준다("학생 인증" 의 "인증 완료" 는 굵게 primary-text).
+  /// 기본 값 스타일과 다를 때만 준다("학교 인증" 의 "인증 완료" 는 굵게 primary-text).
   final TextStyle? valueStyle;
 
   /// 학교 줄(pen `SQQa9` · `FNU1J` School Symbol) — 값 앞에 학교 로고를 붙인다. 로고가 없으면 글자만.

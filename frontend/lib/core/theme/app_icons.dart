@@ -132,7 +132,7 @@ abstract final class AppIcons {
 /// 그림은 `assets/icons/` 의 designMaterialsCompact WebP(512px)이고, 화면은 [Icon3d] 로 크기만 정해 그린다.
 /// pen 이 쓰지 않는 그림(아이콘 시트 · 옛 마스코트 · 옛 MBTI 등)은 넣지 않았다. 새 그림은 파일과 이 표를 같이 늘린다.
 enum AppIcon3d {
-  /// 학생 인증 `Trtii`
+  /// 학교 인증 `Trtii`
   badgeCheck('ui-3d-badge-check'),
   /// 금지 `eUCJv`
   ban('ui-3d-ban'),
