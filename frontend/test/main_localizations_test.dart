@@ -9,8 +9,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// 문구 ARB(1.0.2 B8)를 앱 루트에 거는 배선(main.dart)을 지킨다 — 위임자 · 지원 언어. 위젯 시험은 위임자 없이 돌아도 한국어로 떨어지므로
-/// 앱 본체가 실제로 켜는지는 여기서만 본다.
+/// 문구 ARB(1.0.2 B8)를 앱 루트에 거는 배선(main.dart)을 지킨다 — 위임자 · 지원 언어. 위젯 시험은 각 `MaterialApp` 이 같은 위임자를
+/// 스스로 달므로(⑧-c, `test/l10n/test_app_delegates_test.dart`) 앱 본체가 실제로 켜는지는 여기서만 본다.
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();

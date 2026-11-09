@@ -2,12 +2,13 @@ import 'package:campus_mate/chat/view/bubble_report_menu.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   testWidgets('팝업(pen afUag) 그림자는 popover, 아이콘은 3D 사이렌 22 · 글자와 12', (tester) async {
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: Center(child: BubbleReportMenu(onReport: () {})))));
+    await tester.pumpWidget(MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: Center(child: BubbleReportMenu(onReport: () {})))));
 
     final card = tester.widget<Container>(
       find.descendant(of: find.byType(BubbleReportMenu), matching: find.byType(Container)).first,

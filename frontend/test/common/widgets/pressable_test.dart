@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/widgets/pressable.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/gestures.dart' show kPressTimeout;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -11,6 +12,8 @@ void main() {
     var taps = 0;
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Center(
             child: Pressable(

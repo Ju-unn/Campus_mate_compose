@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/profile/basic/model/repository/basic_info_repository_provider.dart';
 import 'package:campus_mate/profile/basic/view/basic_info_screen.dart';
 import 'package:campus_mate/profile/basic/viewmodel/basic_info_view_model.dart';
@@ -73,7 +74,7 @@ void main() {
           basicInfoRepositoryProvider.overrideWithValue(repository ?? FakeBasicInfoRepository()),
           onboardingRepositoryProvider.overrideWithValue(FakeOnboardingRepository()),
         ],
-        child: const MaterialApp(home: BasicInfoScreen()),
+        child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: BasicInfoScreen()),
       ),
     );
   }

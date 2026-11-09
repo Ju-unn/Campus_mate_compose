@@ -5,6 +5,7 @@ import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/consent/model/data/consent_links.dart';
 import 'package:campus_mate/consent/model/repository/open_url.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,7 +31,7 @@ void main() {
             return opens;
           }),
         ],
-        child: const MaterialApp(home: Scaffold(body: SizedBox(width: 328, child: HeartPaymentNotice()))),
+        child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: SizedBox(width: 328, child: HeartPaymentNotice()))),
       ),
     );
   }

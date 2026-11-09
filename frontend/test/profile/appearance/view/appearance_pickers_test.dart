@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/widgets/select_chip.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/profile/appearance/view/appearance_pickers.dart';
 import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
@@ -12,6 +13,8 @@ void main() {
   Future<void> pumpNarrow(WidgetTester tester, Widget picker) async {
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Center(child: SizedBox(width: 320 - AppSpacing.lg * 2, child: picker)),
         ),
@@ -55,6 +58,8 @@ void main() {
     Future<void> pumpScaled(WidgetTester tester, double scale, {double width = 312}) async {
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: MediaQuery(
             data: MediaQueryData(textScaler: TextScaler.linear(scale)),
             child: Scaffold(

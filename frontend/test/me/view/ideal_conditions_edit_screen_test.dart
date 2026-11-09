@@ -6,6 +6,7 @@ import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
@@ -94,7 +95,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light()),
       ),
     );
     await container.read(myProfileProvider.future);
@@ -247,7 +248,7 @@ void main() {
     await tester.pump();
     expect(ignoreChecks(tester), [false, true]);
 
-    await tester.tap(find.byTooltip('Back'));
+    await tester.tap(find.byTooltip('뒤로'));
     await tester.pumpAndSettle();
     await openEditor(tester);
 

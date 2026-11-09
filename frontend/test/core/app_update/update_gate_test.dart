@@ -4,6 +4,7 @@ import 'package:campus_mate/core/app_update/update_gate.dart';
 import 'package:campus_mate/core/app_update/update_required_screen.dart';
 import 'package:campus_mate/core/app_update/update_requirement.dart';
 import 'package:campus_mate/core/app_update/update_requirement_provider.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -35,6 +36,8 @@ void main() {
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           builder: (context, child) => UpdateGate(child: child!),
           home: const Scaffold(body: Text('앱 본문')),
         ),

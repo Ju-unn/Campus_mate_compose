@@ -4,6 +4,7 @@ import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/matching/model/data/card_detail.dart';
 import 'package:campus_mate/matching/model/data/card_profile.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
@@ -35,6 +36,8 @@ void main() {
     await tester.pumpWidget(ProviderScope(
       overrides: [universityLogosProvider.overrideWith((ref) => const <String, String>{})],
       child: MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SingleChildScrollView(
             child: Align(alignment: Alignment.topLeft, child: SizedBox(width: 328, child: card)),
@@ -104,6 +107,8 @@ void main() {
     await tester.pumpWidget(ProviderScope(
       overrides: [universityLogosProvider.overrideWith((ref) => Completer<Map<String, String>>().future)],
       child: MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SingleChildScrollView(child: SizedBox(width: 328, child: ProfileCard(detail: _schoolDetail('컴퓨터공학과')))),
         ),

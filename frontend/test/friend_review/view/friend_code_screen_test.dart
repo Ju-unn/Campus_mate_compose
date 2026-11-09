@@ -13,6 +13,7 @@ import 'package:campus_mate/friend_review/view/friend_review_card.dart';
 import 'package:campus_mate/friend_review/view/friend_review_compose_sheet.dart';
 import 'package:campus_mate/friend_review/view/my_friend_reviews_section.dart';
 import 'package:campus_mate/friend_review/view/written_reviews_screen.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -61,7 +62,7 @@ void main() {
       ],
     );
     addTearDown(router.dispose);
-    await tester.pumpWidget(UncontrolledProviderScope(container: container, child: MaterialApp.router(routerConfig: router)));
+    await tester.pumpWidget(UncontrolledProviderScope(container: container, child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router)));
     await tester.pumpAndSettle();
     unawaited(router.push(AppRoutes.friendReviewCode));
     await tester.pumpAndSettle();
@@ -105,7 +106,7 @@ void main() {
       await pump(tester);
 
       expect(tester.getRect(find.byType(AppBar)).height, 56);
-      final back = find.byTooltip(const DefaultMaterialLocalizations().backButtonTooltip);
+      final back = find.byTooltip('뒤로');
       expect(tester.getRect(back), const Rect.fromLTWH(8, 4, 48, 48));
       final arrow = tester.widget<Icon>(find.byIcon(AppIcons.arrowLeft));
       expect((arrow.size, arrow.color), (22, AppColors.ink));
@@ -451,7 +452,7 @@ void main() {
   testWidgets('뒤로 누르면 15 로 돌아간다', (tester) async {
     await pump(tester);
 
-    await tester.tap(find.byTooltip(const DefaultMaterialLocalizations().backButtonTooltip));
+    await tester.tap(find.byTooltip('뒤로'));
     await tester.pumpAndSettle();
 
     expect(find.byType(FriendCodeScreen), findsNothing);

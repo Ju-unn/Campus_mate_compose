@@ -4,6 +4,7 @@ import 'package:campus_mate/common/widgets/select_count_bar.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/profile/onboarding/model/data/onboarding_step.dart';
 import 'package:campus_mate/profile/onboarding/model/repository/onboarding_repository_provider.dart';
@@ -38,7 +39,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp(home: TagPickerScreen(kind: kind, isEditing: isEditing)),
+        child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: TagPickerScreen(kind: kind, isEditing: isEditing)),
       ),
     );
     return container;

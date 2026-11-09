@@ -9,6 +9,7 @@ import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/friend_review/model/data/friend_review.dart';
 import 'package:campus_mate/friend_review/view/friend_review_card.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -93,6 +94,8 @@ void main() {
     await tester.pumpWidget(ProviderScope(
       overrides: [universityLogosProvider.overrideWith((ref) => logos)],
       child: MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Align(
             alignment: Alignment.topLeft,
@@ -263,6 +266,8 @@ void main() {
     final cached = tester.widget<CachedNetworkImage>(_avatar);
 
     await tester.pumpWidget(MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Align(
         alignment: Alignment.topLeft,
         child: Builder(builder: (context) => cached.imageBuilder!(context, MemoryImage(_png))),
@@ -290,6 +295,8 @@ void main() {
     final cached = tester.widget<CachedNetworkImage>(_avatar);
 
     await tester.pumpWidget(MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Align(
         alignment: Alignment.topLeft,
         child: Builder(builder: (context) => cached.errorWidget!(context, _avatarUrl, const SocketException('없음'))),

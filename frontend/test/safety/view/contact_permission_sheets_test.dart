@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/safety/model/repository/contact_block_repository.dart';
 import 'package:campus_mate/safety/model/repository/contact_name_store.dart';
 import 'package:campus_mate/safety/model/repository/device_contacts.dart';
@@ -55,7 +56,7 @@ void main() {
     addTearDown(router.dispose);
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
-      child: MaterialApp.router(routerConfig: router),
+      child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router),
     ));
     await tester.pumpAndSettle();
   }

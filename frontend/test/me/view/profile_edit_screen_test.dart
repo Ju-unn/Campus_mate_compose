@@ -8,6 +8,7 @@ import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
@@ -87,7 +88,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light()),
       ),
     );
     await container.read(myProfileProvider.future);
@@ -332,7 +333,7 @@ void main() {
     await pump(tester);
     await tester.enterText(find.byType(TextField), '고치다 만 글');
 
-    await tester.tap(find.byTooltip('Back'));
+    await tester.tap(find.byTooltip('뒤로'));
     await tester.pumpAndSettle();
     await openEditor(tester);
 

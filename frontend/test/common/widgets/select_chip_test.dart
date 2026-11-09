@@ -1,6 +1,7 @@
 import 'package:campus_mate/common/widgets/select_chip.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -8,6 +9,8 @@ void main() {
   Future<void> pump(WidgetTester tester, {bool isSelected = false}) async {
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Center(
             child: SelectChip(label: '여행', isSelected: isSelected, onTap: () {}),
@@ -45,6 +48,8 @@ void main() {
     Future<void> pumpScaled(WidgetTester tester, double scale, {double height = 35}) async {
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: MediaQuery(
             data: MediaQueryData(textScaler: TextScaler.linear(scale)),
             child: Scaffold(
@@ -76,6 +81,8 @@ void main() {
     testWidgets('"모름"(폭 56)은 배율 2.0 에서 두 줄로 접히지 않고 칩 폭이 늘어난다', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: MediaQuery(
             data: const MediaQueryData(textScaler: TextScaler.linear(2)),
             child: Scaffold(
@@ -95,6 +102,8 @@ void main() {
     testWidgets('배율 1.0 의 "모름" 은 pen 값 56×35 그대로', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(body: Center(child: SelectChip(label: '모름', width: 56, isSelected: false, onTap: () {}))),
         ),
       );

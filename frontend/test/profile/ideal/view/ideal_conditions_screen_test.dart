@@ -1,6 +1,7 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/mbti_pole_toggle.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/profile/appearance/view/appearance_pickers.dart';
 import 'package:campus_mate/profile/ideal/model/repository/ideal_conditions_repository_provider.dart';
@@ -33,7 +34,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: IdealConditionsScreen()),
+        child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: IdealConditionsScreen()),
       ),
     );
   }

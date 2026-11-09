@@ -7,3 +7,5 @@ output-localization-file: app_localizations.dart
 output-class: AppLocalizations
 # 자리표시자가 둘 이상인 문구를 읽기 쉽게 이름으로 넘긴다: l10n.notificationsRowLabelRead(title: …, body: …, time: …)
 use-named-parameters: true
+# AppLocalizations.of(context) 가 null 을 주지 않고 위임자가 없으면 바로 실패한다 — 시험도 앱처럼 위임자를 달게 한다(B8 ⑧-c, 사용자 결정 「B안으로 조이기」).
+nullable-getter: false

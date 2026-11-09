@@ -8,6 +8,7 @@ import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/offline/offline_screen.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/profile/onboarding/model/data/onboarding_step.dart';
 import 'package:campus_mate/profile/onboarding/model/repository/onboarding_repository_provider.dart';
 import 'package:flutter/material.dart';
@@ -50,7 +51,7 @@ void main() {
     );
     addTearDown(container.dispose);
     await tester.pumpWidget(
-      UncontrolledProviderScope(container: container, child: const MaterialApp(home: OfflineScreen())),
+      UncontrolledProviderScope(container: container, child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: OfflineScreen())),
     );
     return container;
   }

@@ -2,6 +2,7 @@ import 'package:campus_mate/auth/social/model/data/social_provider.dart';
 import 'package:campus_mate/auth/social/view/social_login_button.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/cupertino.dart' show CupertinoButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show SemanticsNode;
@@ -22,6 +23,8 @@ Future<void> _pump(
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       theme: AppTheme.light(),
       home: MediaQuery(
         data: MediaQueryData(size: const Size(360, 640), textScaler: TextScaler.linear(textScale)),

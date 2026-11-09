@@ -20,6 +20,7 @@ import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/home/model/repository/home_repository_provider.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
@@ -114,7 +115,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp.router(routerConfig: router),
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router),
       ),
     );
     await tester.pump();
@@ -782,7 +783,7 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+          child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light()),
         ),
       );
       await tester.pump();

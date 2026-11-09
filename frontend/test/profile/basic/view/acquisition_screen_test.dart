@@ -6,6 +6,7 @@ import 'package:campus_mate/common/widgets/select_chip.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/profile/basic/model/repository/acquisition_repository_provider.dart';
 import 'package:campus_mate/profile/basic/view/acquisition_screen.dart';
 import 'package:campus_mate/profile/basic/viewmodel/acquisition_ui_state.dart';
@@ -30,7 +31,7 @@ Widget _app(FakeAcquisitionRepository repository) {
   );
   return ProviderScope(
     overrides: [acquisitionRepositoryProvider.overrideWithValue(repository)],
-    child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+    child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light()),
   );
 }
 

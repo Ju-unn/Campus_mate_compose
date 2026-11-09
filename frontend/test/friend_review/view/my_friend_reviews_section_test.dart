@@ -9,6 +9,7 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/friend_review/model/repository/friend_review_repository_provider.dart';
 import 'package:campus_mate/friend_review/view/my_friend_reviews_section.dart';
 import 'package:campus_mate/friend_review/view/written_reviews_screen.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/me/view/profile_entry_row.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -64,7 +65,7 @@ void main() {
     );
     addTearDown(router.dispose);
     await tester.pumpWidget(
-      UncontrolledProviderScope(container: container, child: MaterialApp.router(routerConfig: router)),
+      UncontrolledProviderScope(container: container, child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router)),
     );
     if (settle) {
       await tester.pumpAndSettle();
@@ -177,7 +178,7 @@ void main() {
 
     expect(find.text('새벽'), findsOneWidget);
     expect(reviews.writtenCount, 2);
-    await tester.tap(find.byTooltip(const DefaultMaterialLocalizations().backButtonTooltip));
+    await tester.tap(find.byTooltip('뒤로'));
     await tester.pumpAndSettle();
     expect(noteOf(tester, _written), '쓴 리뷰 3개');
   });
@@ -191,7 +192,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(AppButton, '지우기'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip(const DefaultMaterialLocalizations().backButtonTooltip));
+    await tester.tap(find.byTooltip('뒤로'));
     await tester.pumpAndSettle();
 
     expect(noteOf(tester, _written), '쓴 리뷰 1개');

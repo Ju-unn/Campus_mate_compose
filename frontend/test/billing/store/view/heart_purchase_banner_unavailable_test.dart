@@ -2,6 +2,7 @@ import 'package:campus_mate/billing/store/model/data/heart_purchase_notice.dart'
 import 'package:campus_mate/billing/store/model/data/heart_unavailable.dart';
 import 'package:campus_mate/billing/store/model/data/payment_store.dart';
 import 'package:campus_mate/billing/store/view/heart_purchase_banner.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -16,6 +17,8 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Column(
             children: [HeartPurchaseBanner(notice: HeartPurchaseNotice.unavailable, store: store, unavailable: unavailable)],

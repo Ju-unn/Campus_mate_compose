@@ -1,6 +1,7 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/safety/model/data/report_target.dart';
 import 'package:campus_mate/safety/model/repository/safety_repository_provider.dart';
 import 'package:campus_mate/safety/view/report_sheet.dart';
@@ -39,6 +40,8 @@ void main() {
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: Builder(
               builder: (context) => TextButton(

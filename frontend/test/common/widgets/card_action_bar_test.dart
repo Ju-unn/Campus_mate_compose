@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/widgets/card_action_bar.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,7 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   testWidgets('버튼 글자는 "거절" 과 "대화 신청하기" 이고 옛 "수락하기" 는 없다', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(home: Scaffold(body: CardActionBar(onReject: () {}, onAccept: () {}))),
+      MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: CardActionBar(onReject: () {}, onAccept: () {}))),
     );
 
     expect(find.text('거절'), findsOneWidget);
@@ -20,6 +21,8 @@ void main() {
     var accepted = 0;
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(body: CardActionBar(onReject: () => rejected++, onAccept: () => accepted++)),
       ),
     );
@@ -32,7 +35,7 @@ void main() {
 
   testWidgets('배율 1.0 에서는 pen 대로 두 버튼 모두 높이 56 · 거절 폭 104 · 사이 12', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(home: Scaffold(body: CardActionBar(onReject: () {}, onAccept: () {}))),
+      MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: CardActionBar(onReject: () {}, onAccept: () {}))),
     );
 
     final reject = tester.getRect(find.ancestor(of: find.text('거절'), matching: find.byType(ElevatedButton)));
@@ -53,6 +56,8 @@ void main() {
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: Padding(
               padding: const EdgeInsets.all(16),

@@ -2,6 +2,7 @@ import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/common/widgets/progress_dots.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -19,6 +20,8 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: MediaQuery(
           data: MediaQueryData(size: const Size(360, 800), textScaler: TextScaler.linear(textScale)),
           child: Scaffold(
@@ -47,7 +50,7 @@ void main() {
     expect(calls, 1);
   });
 
-  // 앱에 한국어 Material 번역이 없어 MaterialLocalizations 를 쓰면 "Back" 으로 읽힌다(계획서 사실 6).
+  // 툴팁은 문구 키 commonBack 이다. 앱 · 시험 모두 한국어 머티리얼 위임자를 켜므로 머티리얼 기본 뒤로 툴팁도 같은 "뒤로" 다(1.0.2 B8).
   testWidgets('화살표는 화면 읽기 프로그램에 "뒤로" 로 읽힌다', (tester) async {
     final semantics = tester.ensureSemantics();
     await pump(tester, onBack: () {});
@@ -123,7 +126,7 @@ void main() {
   });
 
   testWidgets('위에 쌓인 화면이면 onBack 없이도 화살표가 보이고 누르면 한 장 닫는다', (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: Scaffold(body: Text('아래'))));
+    await tester.pumpWidget(const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: Text('아래'))));
     final navigator = tester.state<NavigatorState>(find.byType(Navigator));
     navigator.push(MaterialPageRoute<void>(
       builder: (context) => const Scaffold(appBar: OnboardingAppBar(current: 2, total: 6)),

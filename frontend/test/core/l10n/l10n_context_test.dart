@@ -26,11 +26,10 @@ void main() {
     expect(context.l10n.commonRetry, '다시 시도');
   });
 
-  testWidgets('위임자가 없는 MaterialApp(기존 위젯 시험)에서는 한국어 고정 문구로 떨어진다', (tester) async {
+  testWidgets('위임자가 없으면 context.l10n 은 한국어로 떨어지지 않고 바로 실패한다 — 시험도 앱처럼 위임자를 단다', (tester) async {
     final context = await pump(tester, withDelegates: false);
 
-    expect(AppLocalizations.of(context), isNull);
-    expect(context.l10n.commonRetry, '다시 시도');
+    expect(() => context.l10n, throwsA(isA<TypeError>()));
   });
 
   testWidgets('기기 언어가 영어여도 지원 언어가 한국어 하나라 한국어로 떨어진다', (tester) async {

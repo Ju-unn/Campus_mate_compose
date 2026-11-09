@@ -1,3 +1,4 @@
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/matching/view/countdown_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,7 +8,7 @@ void main() {
   const style = TextStyle(fontSize: 32);
 
   Future<void> pump(WidgetTester tester, DateTime target) =>
-      tester.pumpWidget(MaterialApp(home: CountdownText(target: target, style: style)));
+      tester.pumpWidget(MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: CountdownText(target: target, style: style)));
 
   testWidgets('남은 시간을 hh:mm:ss 로 보이고 1초마다 줄인다', (tester) async {
     // 남은 초는 기기 시계로 센다(CountdownBuilder) — 첫 프레임까지 걸린 실제 시간만큼 초 자리가 흔들려도 되게 본다.
@@ -32,6 +33,8 @@ void main() {
   testWidgets('0 이 되면 onDone 을 한 번 부른다(다음 카드 다시 읽기 신호)', (tester) async {
     var calls = 0;
     await tester.pumpWidget(MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: CountdownText(target: DateTime.now().subtract(const Duration(seconds: 1)), style: style, onDone: () => calls++),
     ));
     await tester.pump(const Duration(seconds: 3));

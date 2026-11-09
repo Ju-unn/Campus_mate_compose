@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:campus_mate/auth/social/view/reviewer_login_entrance.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +13,8 @@ Future<({int Function() opened, ScrollController list})> _pump(WidgetTester test
   addTearDown(list.dispose);
   await tester.pumpWidget(
     MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: Stack(
           children: [

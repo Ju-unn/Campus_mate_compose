@@ -28,6 +28,7 @@ import 'package:campus_mate/home/view/stat_tile.dart';
 import 'package:campus_mate/home/view/tag.dart';
 import 'package:campus_mate/home/viewmodel/home_people_provider.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/matching/model/data/card_profile.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/matching/model/data/daily_card.dart';
@@ -146,7 +147,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp.router(routerConfig: router),
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router),
       ),
     );
     await tester.pump();
@@ -839,7 +840,7 @@ void main() {
       // 레일만 띄운다. 홈 목록 안에서는 첫 손가락이 목록 끌기를 시작해 목록이 자식을 IgnorePointer 로
       // 막으므로 둘째 손가락이 레일에 닿지 않는다(Flutter DragScrollActivity.shouldIgnorePointer) — 위젯 약속으로 고정한다.
       await tester.pumpWidget(
-        MaterialApp(home: Scaffold(body: MosaicRail(people: twoPeople))),
+        MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: MosaicRail(people: twoPeople))),
       );
       final center = tester.getCenter(find.byType(MosaicRail));
       final first = await tester.startGesture(center);

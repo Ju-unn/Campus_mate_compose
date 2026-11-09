@@ -12,6 +12,7 @@ import 'package:campus_mate/billing/store/view/heart_purchase_banner.dart';
 import 'package:campus_mate/billing/store/view/heart_purchase_bar.dart';
 import 'package:campus_mate/billing/task/view/heart_task_pending_list.dart';
 import 'package:campus_mate/billing/store/view/heart_store_screen.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/tour/view/app_tour_steps.dart';
 import 'package:campus_mate/tour/view/tour_target.dart';
 import 'package:campus_mate/billing/task/view/heart_task_row.dart';
@@ -152,7 +153,7 @@ void main() {
             return true;
           }),
         ],
-        child: MaterialApp.router(routerConfig: router),
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router),
       ),
     );
     unawaited(router.push(AppRoutes.heartStore));
@@ -201,7 +202,7 @@ void main() {
 
       final title = tester.widget<Text>(find.descendant(of: find.byType(AppBar), matching: find.text('하트'))).style!;
       expect((title.fontSize, title.fontWeight, title.color), (18, FontWeight.w700, AppColors.ink));
-      expect(tester.getRect(find.byTooltip('Back')), const Rect.fromLTWH(12, 4, 48, 48));
+      expect(tester.getRect(find.byTooltip('뒤로')), const Rect.fromLTWH(12, 4, 48, 48));
       expect(tester.getTopLeft(find.descendant(of: find.byType(AppBar), matching: find.text('하트'))).dx, 64);
       expect(tester.getRect(find.byTooltip('도움말').first), const Rect.fromLTWH(300, 4, 48, 48));
       final help = tester.widget<Icon3d>(

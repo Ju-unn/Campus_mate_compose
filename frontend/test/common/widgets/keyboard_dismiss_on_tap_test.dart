@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/widgets/keyboard_dismiss_on_tap.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -17,6 +18,8 @@ void main() {
     sent = 0;
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         builder: (context, child) => KeyboardDismissOnTap(child: child!),
         home: Scaffold(
           body: ListView(

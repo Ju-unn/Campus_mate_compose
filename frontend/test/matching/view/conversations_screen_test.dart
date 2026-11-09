@@ -19,6 +19,7 @@ import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/matching/model/data/acceptance.dart';
 import 'package:campus_mate/matching/model/data/card_profile.dart';
@@ -74,7 +75,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: ConversationsScreen()),
+        child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: ConversationsScreen()),
       ),
     );
     await tester.pump();
@@ -215,7 +216,7 @@ void main() {
     addTearDown(router.dispose);
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
-      child: MaterialApp.router(routerConfig: router),
+      child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router),
     ));
     await tester.pumpAndSettle();
 
@@ -507,7 +508,7 @@ void main() {
       addTearDown(router.dispose);
       await tester.pumpWidget(UncontrolledProviderScope(
         container: container,
-        child: MaterialApp.router(routerConfig: router),
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router),
       ));
       await tester.pumpAndSettle();
 
@@ -539,7 +540,7 @@ void main() {
         unawaited(container.read(sentRequestsViewModelProvider.notifier).announceSent());
         await tester.pumpWidget(UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(home: ConversationsScreen()),
+          child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: ConversationsScreen()),
         ));
         await tester.pump();
         await tester.pump();
@@ -653,7 +654,7 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(home: ConversationsScreen()),
+          child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: ConversationsScreen()),
         ),
       );
       await tester.pump();
@@ -757,7 +758,7 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: MaterialApp(navigatorKey: navigatorKey, home: const ConversationsScreen()),
+          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, navigatorKey: navigatorKey, home: const ConversationsScreen()),
         ),
       );
       await tester.pump();
@@ -950,7 +951,7 @@ void main() {
       );
       addTearDown(router.dispose);
       await tester.pumpWidget(
-        UncontrolledProviderScope(container: container, child: MaterialApp.router(routerConfig: router)),
+        UncontrolledProviderScope(container: container, child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router)),
       );
       await tester.pumpAndSettle();
 
@@ -1001,7 +1002,7 @@ void main() {
     ]);
     addTearDown(container.dispose);
     await tester.pumpWidget(
-      UncontrolledProviderScope(container: container, child: const MaterialApp(home: ConversationsScreen())),
+      UncontrolledProviderScope(container: container, child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: ConversationsScreen())),
     );
     await tester.pump();
     expect(listCalls, 1);

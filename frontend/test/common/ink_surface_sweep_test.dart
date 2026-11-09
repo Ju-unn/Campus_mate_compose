@@ -20,6 +20,7 @@ import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/core/router/placeholder_screens.dart';
 import 'package:campus_mate/core/supabase/auth_session_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/profile/basic/model/repository/acquisition_repository_provider.dart';
 import 'package:campus_mate/profile/appearance/model/repository/appearance_type_repository_provider.dart';
@@ -85,6 +86,8 @@ void main() {
     testWidgets('Scaffold 위 ListView 안의 맨 InkWell 을 잡는다(헛통과 막기)', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: ListView(children: [InkWell(onTap: () {}, child: const SizedBox(height: 48))]),
           ),
@@ -102,6 +105,8 @@ void main() {
     testWidgets('자기 Material 로 감싼 InkWell 은 통과시킨다', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: ListView(
               children: [
@@ -261,7 +266,7 @@ Future<void> _pumpScreen(WidgetTester tester, _Screen screen) async {
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
-      child: MaterialApp(theme: AppTheme.light(), home: screen.build()),
+      child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, theme: AppTheme.light(), home: screen.build()),
     ),
   );
   for (var i = 0; i < screen.settle; i++) {

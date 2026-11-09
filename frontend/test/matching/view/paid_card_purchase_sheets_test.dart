@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/matching/view/paid_card_purchase_sheets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -31,6 +32,8 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Builder(
             builder: (context) => TextButton(

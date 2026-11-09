@@ -6,6 +6,7 @@ import 'package:campus_mate/common/widgets/trait_bar.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/matching/model/data/card_detail.dart';
 import 'package:campus_mate/matching/model/data/sent_request.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
@@ -60,7 +61,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: CardDetailScreen(cardId: 'card-1')),
+        child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: CardDetailScreen(cardId: 'card-1')),
       ),
     );
     await tester.pump();
@@ -227,7 +228,7 @@ void main() {
       addTearDown(router.dispose);
       await tester.pumpWidget(UncontrolledProviderScope(
         container: container,
-        child: MaterialApp.router(routerConfig: router),
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router),
       ));
       // 오늘 목록은 이미 한 번 읽혀 있다.
       await container.read(todayCardsViewModelProvider.notifier).refresh();

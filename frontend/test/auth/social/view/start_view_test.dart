@@ -13,6 +13,7 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_lottie.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -53,6 +54,8 @@ Future<(FakeAuthSession, FakeSocialLoginRepository)> _pump(
     UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         theme: AppTheme.light(),
         home: MediaQuery(
           data: MediaQueryData(size: size, padding: padding, textScaler: TextScaler.linear(textScale)),

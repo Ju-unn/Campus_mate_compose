@@ -9,6 +9,7 @@ import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/home/model/repository/home_repository_provider.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/matching/model/data/card_profile.dart';
 import 'package:campus_mate/matching/model/data/daily_card.dart';
@@ -124,7 +125,7 @@ void main() {
           notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
           meRepositoryProvider.overrideWithValue(me),
         ],
-        child: MaterialApp.router(routerConfig: router),
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router),
       ),
     );
     await tester.pumpAndSettle();
@@ -368,7 +369,7 @@ void main() {
 
       // 스토어에서 하트를 채웠다고 치고 뒤로 돌아온다.
       me.profile = Success(_profile(500));
-      await tester.pageBack();
+      await tester.tap(find.byTooltip('뒤로'));
       await tester.pumpAndSettle();
       await tapOpen(tester);
 
@@ -432,7 +433,7 @@ void main() {
         expect(find.text('18 스토어'), findsOneWidget);
 
         me.profile = Success(_profile(500));
-        await tester.pageBack();
+        await tester.tap(find.byTooltip('뒤로'));
         await tester.pumpAndSettle();
         await tapOpen(tester);
 

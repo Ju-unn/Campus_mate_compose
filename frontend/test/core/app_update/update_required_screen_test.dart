@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/consent/model/repository/open_url.dart';
 import 'package:campus_mate/core/app_update/update_required_screen.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -41,7 +42,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [openExternalUrlProvider.overrideWithValue(launcher.call)],
-        child: MaterialApp(home: UpdateRequiredScreen(storeUrl: storeUrl)),
+        child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: UpdateRequiredScreen(storeUrl: storeUrl)),
       ),
     );
   }

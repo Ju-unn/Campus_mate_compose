@@ -142,15 +142,5 @@ void main() {
       expect(context.errorText(const NetworkFailure()), '네트워크 연결을 확인해 주세요');
       expect(context.appErrorText(AppError.tryLater), '잠시 후 다시 시도해 주세요');
     });
-
-    testWidgets('위임자가 없는 MaterialApp(시험)에서도 한국어로 바뀐다', (tester) async {
-      late BuildContext captured;
-      await tester.pumpWidget(MaterialApp(home: Builder(builder: (context) {
-        captured = context;
-        return const SizedBox();
-      })));
-
-      expect(captured.errorText(const UnknownFailure()), '알 수 없는 오류가 발생했습니다');
-    });
   });
 }

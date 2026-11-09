@@ -2,6 +2,7 @@ import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/profile/onboarding/view/hint_line.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +13,8 @@ void main() {
   Future<void> pump(WidgetTester tester, {double textScale = 1}) async {
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: MediaQuery(
           data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
           child: const Scaffold(body: SizedBox(width: 200, child: HintLine(_text))),

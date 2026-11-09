@@ -1,11 +1,12 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   Future<ButtonStyle> styleOf(WidgetTester tester, AppButton button) async {
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: button)));
+    await tester.pumpWidget(MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: button)));
     final elevatedButton = tester.widget<ElevatedButton>(
       find.descendant(of: find.byType(AppButton), matching: find.byType(ElevatedButton)),
     );
@@ -17,6 +18,8 @@ void main() {
       var tapped = false;
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: AppButton(label: '다음으로', onPressed: () => tapped = true),
           ),
@@ -30,7 +33,7 @@ void main() {
 
     testWidgets('onPressed 가 null 이면 비활성 상태다', (tester) async {
       await tester.pumpWidget(
-        const MaterialApp(home: Scaffold(body: AppButton(label: '다음으로', onPressed: null))),
+        const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: AppButton(label: '다음으로', onPressed: null))),
       );
 
       final button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
@@ -41,7 +44,7 @@ void main() {
   group('AppButton 라벨 스타일', () {
     testWidgets('primary 는 button(16/700) 크기를 쓴다 — pen Button `HE8FZ` 라벨 `ifX9K`', (tester) async {
       await tester.pumpWidget(
-        const MaterialApp(home: Scaffold(body: AppButton(label: '다음으로', onPressed: null))),
+        const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: AppButton(label: '다음으로', onPressed: null))),
       );
 
       final text = tester.widget<Text>(find.text('다음으로'));
@@ -52,6 +55,8 @@ void main() {
     testWidgets('text variant 는 16/600 크기를 쓴다 — pen Text 변형 `rK7sg` 라벨', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: AppButton(label: '나중에', onPressed: null, variant: AppButtonVariant.text),
           ),
@@ -99,6 +104,8 @@ void main() {
     testWidgets('trailingIcon 을 주면 라벨 오른쪽 8 에 20×20 아이콘이 붙는다', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: AppButton(label: '알겠어요', onPressed: () {}, trailingIcon: Icons.arrow_forward),
           ),
@@ -112,7 +119,7 @@ void main() {
 
     testWidgets('주지 않으면 지금 그대로 글자 하나뿐이다 (다른 화면 영향 없음)', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(home: Scaffold(body: AppButton(label: '다음으로', onPressed: () {}))),
+        MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: AppButton(label: '다음으로', onPressed: () {}))),
       );
 
       expect(find.descendant(of: find.byType(AppButton), matching: find.byType(Icon)), findsNothing);
@@ -211,7 +218,7 @@ void main() {
   group('AppButton 저장 중(isLoading)', () {
     testWidgets('글자 대신 흰 20 스피너가 돈다', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(home: Scaffold(body: AppButton(label: '저장', onPressed: () {}, isLoading: true))),
+        MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: AppButton(label: '저장', onPressed: () {}, isLoading: true))),
       );
 
       expect(find.text('저장'), findsNothing);
@@ -223,7 +230,7 @@ void main() {
 
     testWidgets('스피너 선 두께는 2 — 앱의 다른 작은 스피너와 같다(대장 09-28, pen `sMuCd` 값이 오면 다시 맞춘다)', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(home: Scaffold(body: AppButton(label: '저장', onPressed: () {}, isLoading: true))),
+        MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: AppButton(label: '저장', onPressed: () {}, isLoading: true))),
       );
 
       expect(tester.widget<CircularProgressIndicator>(find.byType(CircularProgressIndicator)).strokeWidth, 2);
@@ -233,6 +240,8 @@ void main() {
       var tapped = false;
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(body: AppButton(label: '저장', onPressed: () => tapped = true, isLoading: true)),
         ),
       );
@@ -251,7 +260,7 @@ void main() {
 
     testWidgets('낭독기에는 버튼 이름이 그대로 들린다', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(home: Scaffold(body: AppButton(label: '저장', onPressed: () {}, isLoading: true))),
+        MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: AppButton(label: '저장', onPressed: () {}, isLoading: true))),
       );
 
       expect(find.bySemanticsLabel('저장'), findsOneWidget);

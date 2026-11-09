@@ -2,6 +2,7 @@ import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/me/view/me_toast.dart';
 import 'package:flutter/material.dart';
@@ -35,7 +36,7 @@ void main() {
     tester.view.physicalSize = const Size(360, 640);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(const MaterialApp(home: Scaffold(body: _Host())));
+    await tester.pumpWidget(const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: _Host())));
   }
 
   testWidgets('"곧 열려요" 는 clock3 16 흰색 + 글자(N4 · C5 — 15 와 15-5 가 같이 쓴다)', (tester) async {

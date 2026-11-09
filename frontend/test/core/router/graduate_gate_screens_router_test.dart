@@ -15,6 +15,7 @@ import 'package:campus_mate/graduate/model/repository/graduate_verification_repo
 import 'package:campus_mate/graduate/view/graduate_application_screen.dart';
 import 'package:campus_mate/graduate/view/graduate_waiting_screen.dart';
 import 'package:campus_mate/graduate/view/verification_method_screen.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/profile/onboarding/model/data/onboarding_step.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -57,7 +58,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light()),
       ),
     );
     await tester.pumpAndSettle();

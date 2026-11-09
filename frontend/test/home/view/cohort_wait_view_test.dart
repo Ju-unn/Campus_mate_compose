@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
@@ -136,7 +137,7 @@ void main() {
     );
     addTearDown(router.dispose);
     await tester.pumpWidget(
-      UncontrolledProviderScope(container: container, child: MaterialApp.router(routerConfig: router)),
+      UncontrolledProviderScope(container: container, child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router)),
     );
     await tester.pump();
   }

@@ -17,6 +17,7 @@ import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/home/model/repository/home_repository_provider.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
@@ -166,7 +167,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light()),
       ),
     );
     unawaited(router.push(AppRoutes.myProfileManage));
@@ -204,7 +205,7 @@ void main() {
       await pump(tester);
 
       expect(tester.widget<EditAppBar>(find.byType(EditAppBar)).title, '프로필 편집');
-      await tester.tap(find.byTooltip('Back'));
+      await tester.tap(find.byTooltip('뒤로'));
       await tester.pumpAndSettle();
 
       expect(find.text('화면 15'), findsOneWidget);
@@ -718,7 +719,7 @@ void main() {
           notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
           meRepositoryProvider.overrideWithValue(me),
         ],
-        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light()),
       ),
     );
     router.go(AppRoutes.myProfileManage);
@@ -768,7 +769,7 @@ void main() {
           notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
           meRepositoryProvider.overrideWithValue(me),
         ],
-        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light()),
       ),
     );
     router.go(AppRoutes.myProfileManage);
@@ -818,7 +819,7 @@ void main() {
           notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
           meRepositoryProvider.overrideWithValue(me),
         ],
-        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light()),
       ),
     );
     router.go(AppRoutes.myProfileManage);
@@ -869,7 +870,7 @@ void main() {
           notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
           meRepositoryProvider.overrideWithValue(me),
         ],
-        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light()),
       ),
     );
     router.go(AppRoutes.myProfileManage);

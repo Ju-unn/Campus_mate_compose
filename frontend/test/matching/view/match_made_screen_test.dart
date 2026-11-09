@@ -5,6 +5,7 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_lottie.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/matching/view/match_made_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,7 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   testWidgets('상대 닉네임을 넣은 두 줄 서브텍스트를 보여준다', (tester) async {
     await tester.pumpWidget(
-      const ProviderScope(child: MaterialApp(home: MatchMadeScreen(nickname: '토끼'))),
+      const ProviderScope(child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: MatchMadeScreen(nickname: '토끼'))),
     );
 
     expect(find.text('매칭됐어요!'), findsOneWidget);
@@ -28,7 +29,7 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
-        const ProviderScope(child: MaterialApp(home: MatchMadeScreen(nickname: '토끼'))),
+        const ProviderScope(child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: MatchMadeScreen(nickname: '토끼'))),
       );
       await tester.pumpAndSettle();
     }
@@ -72,7 +73,7 @@ void main() {
       tester.view.padding = const FakeViewPadding(top: 40, bottom: 20);
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
-        const ProviderScope(child: MaterialApp(home: MatchMadeScreen(nickname: '토끼'))),
+        const ProviderScope(child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: MatchMadeScreen(nickname: '토끼'))),
       );
       await tester.pumpAndSettle();
 
@@ -97,7 +98,7 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
-        const ProviderScope(child: MaterialApp(home: MatchMadeScreen(nickname: '토끼'))),
+        const ProviderScope(child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: MatchMadeScreen(nickname: '토끼'))),
       );
       await tester.pumpAndSettle();
 
@@ -116,7 +117,7 @@ void main() {
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
 
       await tester.pumpWidget(
-        const ProviderScope(child: MaterialApp(home: MatchMadeScreen(nickname: '토끼'))),
+        const ProviderScope(child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: MatchMadeScreen(nickname: '토끼'))),
       );
       await tester.pumpAndSettle();
 
@@ -128,7 +129,7 @@ void main() {
 
   group('매칭 성사 등장(DESIGN §7 emphasis — 하루 두 번 중 하나)', () {
     Future<void> pump(WidgetTester tester) => tester.pumpWidget(
-          const ProviderScope(child: MaterialApp(home: MatchMadeScreen(nickname: '토끼'))),
+          const ProviderScope(child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: MatchMadeScreen(nickname: '토끼'))),
         );
 
     Entrance entranceOf(WidgetTester tester, Finder child) =>

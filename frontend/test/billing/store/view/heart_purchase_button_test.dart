@@ -1,5 +1,6 @@
 import 'package:campus_mate/billing/store/view/heart_purchase_button.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -11,6 +12,8 @@ void main() {
   Future<void> pump(WidgetTester tester, Widget button, {double width = 360, bool disableAnimations = false}) async {
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: MediaQuery(
           data: MediaQueryData(disableAnimations: disableAnimations),
           child: Scaffold(

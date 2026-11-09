@@ -1,6 +1,7 @@
 import 'package:campus_mate/chat/view/trust_reveal_bubble.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,6 +17,8 @@ void main() {
     tester.platformDispatcher.textScaleFactorTestValue = scale;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await tester.pumpWidget(MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         // 실제처럼 대화 목록(세로 제한 없음) 안에 둔다. pen 카드 폭 328(대화 목록 좌우 여백 16).
         body: ListView(

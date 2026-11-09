@@ -14,6 +14,7 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -51,7 +52,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [heartTaskRepositoryProvider.overrideWithValue(repository)],
-        child: MaterialApp.router(routerConfig: router),
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router),
       ),
     );
     unawaited(router.push(AppRoutes.heartTasks));

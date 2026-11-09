@@ -1,4 +1,5 @@
 import 'package:campus_mate/home/view/auto_marquee.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -16,7 +17,7 @@ void main() {
   );
 
   Future<void> pump(WidgetTester tester) async {
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: AutoMarquee(cycle: cycle))));
+    await tester.pumpWidget(MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: AutoMarquee(cycle: cycle))));
     await tester.pump(); // 한 벌 폭을 잰 다음 프레임
   }
 
@@ -114,7 +115,7 @@ void main() {
   testWidgets('한 벌 폭이 0 이면(그릴 것이 없음) 흐르지도 밀리지도 않고 예외 없이 그린다', (tester) async {
     for (final reduce in [false, true]) {
       tester.platformDispatcher.accessibilityFeaturesTestValue = FakeAccessibilityFeatures(disableAnimations: reduce);
-      await tester.pumpWidget(const MaterialApp(home: Scaffold(body: AutoMarquee(cycle: SizedBox(height: 28)))));
+      await tester.pumpWidget(const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: AutoMarquee(cycle: SizedBox(height: 28)))));
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
       await tester.drag(find.byType(AutoMarquee), const Offset(60, 0));

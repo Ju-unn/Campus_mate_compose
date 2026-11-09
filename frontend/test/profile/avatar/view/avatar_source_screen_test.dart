@@ -9,6 +9,7 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/notice_card.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/profile/avatar/model/repository/photos_repository_provider.dart';
 import 'package:campus_mate/profile/avatar/view/avatar_source_screen.dart';
@@ -70,6 +71,8 @@ void main() {
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: MediaQuery(
             data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
             child: const AvatarSourceScreen(),
@@ -172,7 +175,7 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: MaterialApp(navigatorKey: navigator, home: const Text('04-2 자리')),
+          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, navigatorKey: navigator, home: const Text('04-2 자리')),
         ),
       );
       unawaited(navigator.currentState!.push(MaterialPageRoute<void>(builder: (_) => const AvatarSourceScreen())));

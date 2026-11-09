@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:campus_mate/core/push/push_route.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -30,7 +31,7 @@ void main() {
 
   Future<GoRouter> pumpAt(WidgetTester tester, String initial) async {
     final router = routerAt(initial);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpWidget(MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router));
     await tester.pumpAndSettle();
     return router;
   }
