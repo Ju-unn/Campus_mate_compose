@@ -18,4 +18,5 @@
 4. Flutter SDK, Supabase CLI, GitHub CLI(`gh` — draft PR 생성용)
 5. **graphify** — 설치 · 커밋 hook · 첫 빌드 명령은 `docs/GRAPHIFY.md` §6 에 있다. `graphify-out/` 은 저장소에 없으니 반드시 로컬에서 빌드한다
 6. **IDE 는 저장소 루트가 아니라 `frontend/` 를 연다.** Flutter 프로젝트 루트가 `frontend/` 이기 때문이다
-7. **실존 인물 목업 이미지는 저장소에 없다**(`frontend/CLAUDE.md` §11, `.gitignore` 제외). 필요하면 OneDrive `datingApp` 저장소에서 로컬로만 가져온다
+7. **`git pull` 한 뒤마다 `frontend/` 와 `admin_web/` 두 폴더에서 `flutter pub get` 을 한다.** 문구 생성 파일 `app_localizations*.dart` 는 커밋하지 않으므로(ARB 에서 만들어진다), 안 하면 IDE 에 `undefined_getter` 가 쌓인다(2026-11-09 앱 910개, 관리자 웹은 패키지를 한 번도 받지 않아 더 쌓여 합 약 15,000 — `docs/decisions/2026-11-04-v102-decisions.md` §5-1). 두 폴더에서 받은 뒤 0 이 됐다
+8. **실존 인물 목업 이미지는 저장소에 없다**(`frontend/CLAUDE.md` §11, `.gitignore` 제외). 필요하면 OneDrive `datingApp` 저장소에서 로컬로만 가져온다
