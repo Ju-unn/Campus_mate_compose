@@ -22,7 +22,7 @@ void main() {
 
   const schoolTitle = '학교 메일로 인증';
   const graduateTitle = '졸업증명서로 인증';
-  const schoolBody = '재학생 · 학교 메일이 있는 분. 메일로 받은 코드로 바로 확인해요.';
+  const schoolBody = '학교 메일이 있는 분(재학생 · 졸업생). 메일로 받은 코드로 바로 확인해요.';
   const graduateBody = '졸업해서 학교 메일이 없는 분. 졸업증명서로 확인해요. 확인에 시간이 걸릴 수 있어요.';
 
   Finder card(String title) => find.ancestor(of: find.text(title), matching: find.byType(InkWell));

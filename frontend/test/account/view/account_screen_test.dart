@@ -98,8 +98,8 @@ void main() {
     expect(find.text('실명'), findsNothing);
     expect(find.text('출생연도는 운영 확인에만 쓰여요. 다른 사용자에게는 닉네임만 보여요.'), findsOneWidget);
     expect(find.textContaining('학생증'), findsNothing);
-    // "학생 인증 / 인증 완료" 줄은 이름 그대로 둔다(설계 2장 14번).
-    expect(find.text('학생 인증'), findsOneWidget);
+    // "학교 인증 / 인증 완료" 줄은 남긴다(설계 2장 14번). 이름은 졸업생도 가입해 "학생 인증" → "학교 인증"(1.0.2 결정 19행 ②).
+    expect(find.text('학교 인증'), findsOneWidget);
   });
 
   // 지시문 13 A-7 — 소셜 로그인 뒤라 이메일 대신 로그인 수단과 학교 메일 인증 여부를 보인다.

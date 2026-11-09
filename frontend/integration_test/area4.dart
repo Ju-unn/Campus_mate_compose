@@ -330,7 +330,7 @@ final Map<String, Area1Case> area4Cases = {
     must(button('다시 시도').evaluate().isNotEmpty, '"다시 시도" 버튼이 없음');
     await step('restore');
     await tap(tester, button('다시 시도'));
-    await _seeAll(tester, ['학생 인증', '인증 완료'], timeout: const Duration(seconds: 30));
+    await _seeAll(tester, ['학교 인증', '인증 완료'], timeout: const Duration(seconds: 30));
     return null;
   }),
   'E-SET-18': _session((tester, job) async {

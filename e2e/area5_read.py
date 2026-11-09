@@ -209,7 +209,7 @@ def p_me_01(run, phone):
     check.that(said.get('school', MISSING) == school, f"학교 줄 {said.get('school', MISSING)!r}(기대 {school!r})")
     check.that(said.get('avatar_file', MISSING) == newest,
                f"아바타 파일 {said.get('avatar_file', MISSING)!r}(기대 created_at 이 늦은 ready 행의 {newest!r})")
-    for key, label in (('badge', '"학생 인증" 배지'), ('chip', '"상대에게 이렇게 보여요" 칩')):
+    for key, label in (('badge', '"학교 인증" 배지'), ('chip', '"상대에게 이렇게 보여요" 칩')):
         check.that(said.get(key) is True, f'{label} {said.get(key, MISSING)}(기대 보임)')
     _hearts_line(check, said, balance)
     return check.result('하트 줄은 15b 시트에서 읽음 — 지금 히어로에는 하트 숫자가 없다(시나리오와 다름)')

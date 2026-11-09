@@ -512,7 +512,7 @@ class HeroTest(ReadBase):
 
     def test_01_fails_on_a_wrong_age_school_picture_badge_chip_balance_or_a_sheet_left_open(self):
         for over, word in (({'name_line': 'Aaaaa, 99'}, '이름 줄'), ({'school': UNIVERSITY}, '학교 줄'),
-                           ({'avatar_file': 'e2e-old.png'}, '아바타 파일'), ({'badge': False}, '학생 인증'),
+                           ({'avatar_file': 'e2e-old.png'}, '아바타 파일'), ({'badge': False}, '학교 인증'),
                            ({'chip': False}, '상대에게 이렇게 보여요'),
                            ({'heart_text': '지금 보유한 하트는 0개예요'}, '보유 하트'), ({'sheet_closed': False}, '시트')):
             with self.subTest(over):

@@ -402,7 +402,8 @@ void main() {
 
   group('기본 아바타 시트(pen Q7VmU)', () {
     const sheetTitle = '기본 아바타로 대신했어요';
-    const sheetBody = '서버 오류로 하트 10개 드렸어요. 설정 > 아바타 재생성 에서 다시 만들 수 있어요.';
+    // 작은따옴표가 문구 파일(ICU)에서 빠지지 않고 화면에 그대로 보인다.
+    const sheetBody = "서버 오류로 하트 10개 드렸어요. 나 탭에서 아바타의 '다시 만들기'를 눌러 다시 만들 수 있어요.";
 
     testWidgets('기본 아바타면 리빌 위에 시트를 띄운다 — 버튼은 확인 하나', (tester) async {
       repository.nextResult = const Success(AvatarFallback(_url, 10));
