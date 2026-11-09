@@ -12,6 +12,7 @@ import 'package:campus_mate/community/view/community_feed_screen.dart';
 import 'package:campus_mate/community/view/feed_poll_card.dart';
 import 'package:campus_mate/community/view/poll_donut.dart';
 import 'package:campus_mate/community/view/poll_feed_tabs.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/community/view/poll_time.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -65,7 +66,7 @@ void main() {
           chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
           cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
         ],
-        child: MaterialApp.router(routerConfig: router),
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router),
       ),
     );
     await tester.pumpAndSettle();

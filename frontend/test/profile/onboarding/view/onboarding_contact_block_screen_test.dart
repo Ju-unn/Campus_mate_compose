@@ -2,6 +2,7 @@ import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/profile/onboarding/view/onboarding_contact_block_screen.dart';
 import 'package:campus_mate/safety/model/repository/device_contacts.dart';
 import 'package:flutter/material.dart';
@@ -30,7 +31,7 @@ Widget _app(FakeDeviceContactSource source) {
   );
   return ProviderScope(
     overrides: [deviceContactSourceProvider.overrideWithValue(source)],
-    child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+    child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light()),
   );
 }
 
@@ -81,7 +82,7 @@ void main() {
     final title = tester.widget<Text>(find.descendant(of: find.byType(AppBar), matching: find.text('지인 차단')));
     expect((title.style?.fontSize, title.style?.fontWeight), (18, FontWeight.w700));
 
-    await tester.tap(find.byTooltip('Back'));
+    await tester.tap(find.byTooltip('뒤로'));
     await tester.pumpAndSettle();
     expect(find.text('20d'), findsOneWidget);
   });

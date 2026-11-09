@@ -3,12 +3,13 @@ import 'package:campus_mate/common/widgets/step_marker.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_lottie.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Future<void> _pump(WidgetTester tester, StepMarkerStatus status) {
   return tester.pumpWidget(
-    MaterialApp(home: Scaffold(body: StepMarker(label: '단계', status: status))),
+    MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: StepMarker(label: '단계', status: status))),
   );
 }
 
@@ -45,6 +46,8 @@ void main() {
   testWidgets('세 줄의 라벨 x 가 같고, 스피너 22×22 는 18 칸의 가운데에 넘치게 그려진다', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

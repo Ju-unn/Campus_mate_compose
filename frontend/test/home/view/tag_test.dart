@@ -9,6 +9,7 @@ import 'package:campus_mate/home/model/data/home_summary.dart';
 import 'package:campus_mate/home/model/repository/home_repository_provider.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/home/view/tag.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
@@ -91,6 +92,8 @@ void main() {
         ProviderScope(
           overrides: [universityLogosProvider.overrideWith((ref) => logos == null ? _logosFor(_penSchools) : logos())],
           child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             // 칩 줄과 같이 Wrap 안에 둔다 — 세로가 열려 있어야 칩이 높이 28 로 줄어든다.
             home: Scaffold(body: Wrap(children: [child])),
           ),
@@ -239,7 +242,7 @@ void main() {
         routes: [GoRoute(path: AppRoutes.home, builder: (context, state) => const HomeScreen())],
       );
       addTearDown(router.dispose);
-      await tester.pumpWidget(UncontrolledProviderScope(container: container, child: MaterialApp.router(routerConfig: router)));
+      await tester.pumpWidget(UncontrolledProviderScope(container: container, child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router)));
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
       // 칩 줄 바로 아래 완성도 카드까지 내린다 — 흐르는 칩 줄(5개 이상)은 같은 이름이 복사본마다 있어 이름으로는 못 짚는다.

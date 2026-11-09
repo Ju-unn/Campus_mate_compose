@@ -7,6 +7,7 @@ import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/friend_review/model/data/friend_review_tags.dart';
 import 'package:campus_mate/friend_review/model/repository/friend_review_repository_provider.dart';
 import 'package:campus_mate/friend_review/view/friend_review_compose_sheet.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/referral/model/repository/referral_repository_provider.dart';
 import 'package:campus_mate/referral/view/referral_code_screen.dart';
 import 'package:flutter/material.dart';
@@ -33,7 +34,7 @@ Widget _app(FakeReferralRepository repository, {FakeFriendReviewRepository? revi
       referralRepositoryProvider.overrideWithValue(repository),
       friendReviewRepositoryProvider.overrideWithValue(reviews ?? FakeFriendReviewRepository()),
     ],
-    child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+    child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light()),
   );
 }
 

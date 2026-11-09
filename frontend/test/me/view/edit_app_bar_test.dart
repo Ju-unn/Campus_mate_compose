@@ -1,6 +1,7 @@
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +14,8 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         theme: AppTheme.light(),
         home: Builder(
           builder: (context) => Scaffold(
@@ -34,7 +37,7 @@ void main() {
     await pumpPushed(tester);
 
     expect(tester.getSize(find.byType(AppBar)).height, 56);
-    final back = find.byTooltip('Back');
+    final back = find.byTooltip('뒤로');
     expect(tester.getRect(back), const Rect.fromLTWH(12, 4, 48, 48));
     final icon = tester.widget<Icon>(find.byIcon(AppIcons.arrowLeft));
     expect((icon.size, icon.color), (22, AppColors.ink));
@@ -47,7 +50,7 @@ void main() {
   testWidgets('뒤로를 누르면 앞 화면으로 돌아간다', (tester) async {
     await pumpPushed(tester);
 
-    await tester.tap(find.byTooltip('Back'));
+    await tester.tap(find.byTooltip('뒤로'));
     await tester.pumpAndSettle();
 
     expect(find.text('앞 화면'), findsOneWidget);

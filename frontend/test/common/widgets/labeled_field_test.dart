@@ -1,6 +1,7 @@
 import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,6 +20,8 @@ void main() {
   }) async {
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: MediaQuery(
           data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
           child: Scaffold(
@@ -69,7 +72,7 @@ void main() {
 
   testWidgets('상자 `TDM1r` — 높이 52 · 모서리 12, 누르면 ink 2px(`zJgrU`), placeholder muted(`p3T9Jb`)', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: LabeledField(label: '닉네임', placeholder: '닉네임을 입력해 주세요'))),
+      const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: LabeledField(label: '닉네임', placeholder: '닉네임을 입력해 주세요'))),
     );
     final decoration = tester.widget<TextField>(find.byType(TextField)).decoration!;
     final enabled = decoration.enabledBorder! as OutlineInputBorder;
@@ -153,6 +156,8 @@ void main() {
     Future<void> pumpObscured(WidgetTester tester, {bool? obscureText}) {
       return tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: obscureText == null
                 ? const LabeledField(label: 'Password')

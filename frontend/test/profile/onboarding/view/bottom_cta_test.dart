@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/profile/appearance/view/appearance_type_screen.dart';
 import 'package:campus_mate/profile/ideal/model/repository/ideal_conditions_repository_provider.dart';
 import 'package:campus_mate/profile/ideal/view/ideal_conditions_screen.dart';
@@ -30,7 +31,7 @@ void main() {
             idealConditionsRepositoryProvider.overrideWithValue(FakeIdealConditionsRepository()),
             onboardingRepositoryProvider.overrideWithValue(FakeOnboardingRepository()),
           ],
-          child: MaterialApp(home: screen),
+          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: screen),
         ),
       );
       await tester.pump();

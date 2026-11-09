@@ -5,6 +5,7 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:flutter/material.dart';
@@ -52,6 +53,8 @@ void main() {
     VoidCallback? onPlus,
   }) => tester.pumpWidget(
     MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: Align(
           alignment: Alignment.topLeft,
@@ -387,6 +390,8 @@ void main() {
       final handle = tester.ensureSemantics();
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: Padding(
               // 모서리(0,0)에 붙은 칩은 기준이 눌림 칸 크기를 잘 못 잰다 — 띄워 두면 44 칸에서는 실패한다.
@@ -450,6 +455,8 @@ void main() {
             meRepositoryProvider.overrideWithValue(FakeMeRepository(result)),
           ],
           child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             home: Scaffold(
               body: Align(
                 alignment: Alignment.topLeft,

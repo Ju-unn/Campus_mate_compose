@@ -1,6 +1,7 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/profile/ideal/model/repository/ideal_note_repository_provider.dart';
 import 'package:campus_mate/profile/ideal/view/ideal_note_screen.dart';
 import 'package:campus_mate/profile/onboarding/model/repository/onboarding_repository_provider.dart';
@@ -28,7 +29,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: IdealNoteScreen()),
+        child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: IdealNoteScreen()),
       ),
     );
   }

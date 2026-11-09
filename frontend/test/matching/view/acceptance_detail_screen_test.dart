@@ -7,6 +7,7 @@ import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/matching/model/data/acceptance.dart';
 import 'package:campus_mate/matching/model/data/card_decision.dart';
 import 'package:campus_mate/matching/model/data/card_detail.dart';
@@ -98,7 +99,7 @@ void main() {
     addTearDown(router.dispose);
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
-      child: MaterialApp.router(routerConfig: router),
+      child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router),
     ));
     await tester.pumpAndSettle();
     // 목록은 이미 한 번 읽혀 있다(행의 닉네임이 12 화면 재료다).

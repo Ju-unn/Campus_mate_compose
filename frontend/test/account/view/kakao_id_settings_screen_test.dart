@@ -3,6 +3,7 @@ import 'package:campus_mate/account/view/kakao_id_settings_screen.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/notice_card.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/profile/onboarding/model/repository/kakao_id_repository_provider.dart';
 import 'package:campus_mate/profile/onboarding/view/kakao_id_screen.dart';
 import 'package:flutter/material.dart';
@@ -48,7 +49,7 @@ void main() {
           accountRepositoryProvider.overrideWithValue(account),
           kakaoIdRepositoryProvider.overrideWithValue(kakao),
         ],
-        child: MaterialApp.router(routerConfig: router),
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router),
       ),
     );
     await tester.tap(find.text('열기'));

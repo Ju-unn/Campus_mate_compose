@@ -1,4 +1,5 @@
 import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/tour/view/app_tour_steps.dart';
 import 'package:campus_mate/tour/view/coach_bubble.dart';
@@ -76,6 +77,8 @@ void main() {
       for (final title in titles) {
         await tester.pumpWidget(
           MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             home: Center(
               child: SizedBox(
                 width: 312,
@@ -102,6 +105,8 @@ void main() {
     final body = appTourSteps.first.copy.body(l10n);
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Center(
           child: SizedBox(
             width: 312,

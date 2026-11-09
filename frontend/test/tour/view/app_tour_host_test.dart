@@ -1,6 +1,7 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_ui_state.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
 import 'package:campus_mate/tour/model/repository/tour_seen_store.dart';
@@ -215,6 +216,8 @@ void main() {
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp.router(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           routerConfig: router,
           builder: (context, child) => AppTourHost(router: router, child: child!),
         ),
@@ -704,7 +707,7 @@ void main() {
       expect(room().height, 0);
 
       await tester.pumpWidget(
-        const MaterialApp(home: Column(children: [TourScrollRoom(id: TourTargetId.heartStoreFree)])),
+        const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Column(children: [TourScrollRoom(id: TourTargetId.heartStoreFree)])),
       );
       expect(tester.getSize(find.byType(TourScrollRoom)).height, 0);
     });

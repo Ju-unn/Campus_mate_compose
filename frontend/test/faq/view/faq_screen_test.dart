@@ -13,6 +13,7 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/faq/model/repository/faq_cache.dart';
 import 'package:campus_mate/faq/model/repository/faq_repository.dart';
 import 'package:campus_mate/faq/view/faq_screen.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -42,6 +43,8 @@ void main() {
           openExternalUrlProvider.overrideWithValue((uri) => openUrl(uri)),
         ],
         child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(textScale)),
             child: child!,
@@ -364,6 +367,8 @@ void main() {
           faqCacheProvider.overrideWithValue(FakeFaqCache()),
         ],
         child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Builder(
             builder: (context) => TextButton(
               onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const FaqScreen())),

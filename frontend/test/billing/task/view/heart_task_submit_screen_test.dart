@@ -16,6 +16,7 @@ import 'package:campus_mate/consent/model/repository/open_url.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/profile/avatar/view/photo_tiles.dart';
 import 'package:flutter/material.dart';
@@ -98,7 +99,7 @@ void main() {
             return true;
           }),
         ],
-        child: MaterialApp.router(routerConfig: router),
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router),
       ),
     );
     // 18a 가 떠 있는 채로 18b 로 들어온다 — 18a 가 읽어 둔 목록(항목의 max_photos)을 18b 가 따른다.

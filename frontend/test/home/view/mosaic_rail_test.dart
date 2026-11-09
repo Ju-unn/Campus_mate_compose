@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:campus_mate/home/model/data/home_people.dart';
 import 'package:campus_mate/home/view/mosaic_rail.dart';
 import 'package:campus_mate/home/view/mosaic_tile.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -16,7 +17,7 @@ void main() {
       });
 
   Future<void> pumpRail(WidgetTester tester, [HomePeople? shown]) =>
-      tester.pumpWidget(MaterialApp(home: Scaffold(body: MosaicRail(people: shown ?? people(1)))));
+      tester.pumpWidget(MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: MosaicRail(people: shown ?? people(1)))));
 
   void reduceMotion(WidgetTester tester) {
     tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);

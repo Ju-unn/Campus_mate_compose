@@ -12,6 +12,7 @@ import 'package:campus_mate/home/model/repository/home_repository_provider.dart'
 import 'package:campus_mate/home/model/repository/store_review_url.dart';
 import 'package:campus_mate/home/view/home_grid.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
@@ -88,7 +89,7 @@ void main() {
     );
     addTearDown(router.dispose);
     await tester.pumpWidget(
-      UncontrolledProviderScope(container: container, child: MaterialApp.router(routerConfig: router)),
+      UncontrolledProviderScope(container: container, child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router)),
     );
     await tester.pump();
     return opened;

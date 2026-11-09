@@ -1,6 +1,7 @@
 import 'package:campus_mate/chat/model/data/message.dart';
 import 'package:campus_mate/chat/view/message_bubble.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -16,6 +17,8 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: MediaQuery(
           data: MediaQueryData(size: const Size(360, 780), textScaler: TextScaler.linear(textScale)),
           child: Scaffold(

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/safety/model/repository/safety_repository_provider.dart';
 import 'package:campus_mate/safety/view/block_list_screen.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
@@ -35,7 +36,7 @@ void main() {
     addTearDown(container.dispose);
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
-      child: const MaterialApp(home: BlockListScreen()),
+      child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: BlockListScreen()),
     ));
     await tester.pumpAndSettle();
   }
@@ -200,7 +201,7 @@ void main() {
       addTearDown(container.dispose);
       await tester.pumpWidget(UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: BlockListScreen()),
+        child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: BlockListScreen()),
       ));
       await tester.pump();
 

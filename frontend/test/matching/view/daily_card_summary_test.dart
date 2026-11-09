@@ -7,6 +7,7 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/matching/model/data/card_profile.dart';
 import 'package:campus_mate/matching/model/data/daily_card.dart';
@@ -27,7 +28,7 @@ Widget _scope(Widget child) => ProviderScope(
     );
 
 Future<void> _pump(WidgetTester tester, {DailyCard card = _card}) => tester.pumpWidget(
-      _scope(MaterialApp(home: Scaffold(body: DailyCardSummary(card: card, onTap: () {})))),
+      _scope(MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: DailyCardSummary(card: card, onTap: () {})))),
     );
 
 Future<void> _pumpNarrow(WidgetTester tester, DailyCard card, double scale) async {
@@ -36,6 +37,8 @@ Future<void> _pumpNarrow(WidgetTester tester, DailyCard card, double scale) asyn
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     _scope(MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: MediaQuery(
         data: MediaQueryData(size: const Size(360, 780), textScaler: TextScaler.linear(scale)),
         child: Scaffold(
@@ -222,7 +225,7 @@ void main() {
   testWidgets('카드 전체가 누름 칸 — 누르는 동안 투명도만 내려가고(press 120ms) 크기 · 자리는 그대로, 떼면 onTap', (tester) async {
     var taps = 0;
     await tester.pumpWidget(
-      _scope(MaterialApp(home: Scaffold(body: DailyCardSummary(card: _card, onTap: () => taps++)))),
+      _scope(MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: DailyCardSummary(card: _card, onTap: () => taps++)))),
     );
     final frame = tester.getRect(find.byType(DailyCardSummary));
 
@@ -267,6 +270,8 @@ void main() {
       final card = DailyCard(cardId: 'c1', source: CardSource.daily, profile: _card.profile, expiresAt: DateTime(2026, 10, 8, 7));
       await tester.pumpWidget(
         _scope(MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: MediaQuery(
             data: MediaQueryData(size: const Size(360, 780), textScaler: TextScaler.linear(scale)),
             child: Scaffold(

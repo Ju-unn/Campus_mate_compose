@@ -4,6 +4,7 @@ import 'package:campus_mate/account/model/repository/account_repository.dart';
 import 'package:campus_mate/common/widgets/app_lottie_view.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/common/widgets/select_chip.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
 import 'package:campus_mate/profile/appearance/view/appearance_pickers.dart';
 import 'package:campus_mate/profile/appearance/view/appearance_type_screen.dart';
@@ -184,7 +185,7 @@ void main() {
       isSplashHeld: () => isHeld,
     );
 
-    await tester.pumpWidget(_guestScope(MaterialApp.router(routerConfig: router, theme: AppTheme.light())));
+    await tester.pumpWidget(_guestScope(MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light())));
     await tester.pumpAndSettle();
 
     expect(find.byType(AppLottieView), findsOneWidget);
@@ -206,7 +207,7 @@ void main() {
       onboardingStep: _passedStep,
     );
 
-    await tester.pumpWidget(_guestScope(MaterialApp.router(routerConfig: router, theme: AppTheme.light())));
+    await tester.pumpWidget(_guestScope(MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light())));
     await tester.pumpAndSettle();
 
     expect(find.byType(StartView), findsOneWidget);
@@ -240,7 +241,7 @@ void main() {
           homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
           notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
         ],
-        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light()),
       ),
     );
     unawaited(stepCache.refresh());
@@ -273,7 +274,7 @@ void main() {
           homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
           notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
         ],
-        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light()),
       ),
     );
     await tester.pumpAndSettle();
@@ -296,7 +297,7 @@ void main() {
           meRepositoryProvider.overrideWithValue(FakeMeRepository(const FailureResult(NetworkFailure()))),
           notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
         ],
-        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light()),
       ),
     );
     router.go(AppRoutes.myProfile);
@@ -313,7 +314,7 @@ void main() {
       verificationGate: _passedGate,
       onboardingStep: _passedStep,
     );
-    await tester.pumpWidget(_guestScope(MaterialApp.router(routerConfig: router, theme: AppTheme.light())));
+    await tester.pumpWidget(_guestScope(MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light())));
 
     for (final path in [AppRoutes.verifyCode, AppRoutes.login]) {
       router.go(path);
@@ -342,7 +343,7 @@ void main() {
           messageStreamProvider.overrideWithValue(FakeMessageStream()),
           notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
         ],
-        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light()),
       ),
     );
     router.go('${AppRoutes.chatRoom}/$_matchId');
@@ -372,7 +373,7 @@ void main() {
           messageStreamProvider.overrideWithValue(FakeMessageStream()),
           notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
         ],
-        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light()),
       ),
     );
     router.go('${AppRoutes.chatRoom}/$_matchId');
@@ -426,7 +427,7 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+          child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light()),
         ),
       );
       return router;
@@ -686,7 +687,7 @@ void main() {
           homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
           notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
         ],
-        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light()),
       ),
     );
     await tester.pumpAndSettle();
@@ -721,7 +722,7 @@ void main() {
           homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
           notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
         ],
-        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light()),
       ),
     );
     await tester.pumpAndSettle();
@@ -764,7 +765,7 @@ void main() {
             // 15-4 가 카드 안 지인 리뷰로 내가 받은 리뷰를 읽는다.
             friendReviewRepositoryProvider.overrideWithValue(FakeFriendReviewRepository()),
           ],
-          child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+          child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light()),
         ),
       );
       return router;
@@ -932,7 +933,7 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+          child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light()),
         ),
       );
       await tester.pumpAndSettle();
@@ -1073,7 +1074,7 @@ void main() {
         await tester.pumpWidget(
           UncontrolledProviderScope(
             container: container,
-            child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+            child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light()),
           ),
         );
         await tester.pumpAndSettle();
@@ -1470,7 +1471,7 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+          child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light()),
         ),
       );
       await tester.pumpAndSettle();

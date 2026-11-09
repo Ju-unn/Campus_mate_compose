@@ -5,6 +5,7 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/trait_slider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
@@ -51,7 +52,7 @@ void main() {
           onboardingRepositoryProvider.overrideWithValue(onboarding),
           surveyRepositoryProvider.overrideWithValue(survey),
         ],
-        child: const MaterialApp(home: SurveyScreen()),
+        child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: SurveyScreen()),
       ),
     );
   }
@@ -69,7 +70,7 @@ void main() {
     await container.read(myProfileProvider.future);
     await revisit(container, onboarding, server: OnboardingStep.idealConditions, visiting: OnboardingStep.survey);
     await tester.pumpWidget(
-      UncontrolledProviderScope(container: container, child: const MaterialApp(home: SurveyScreen())),
+      UncontrolledProviderScope(container: container, child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: SurveyScreen())),
     );
     await tester.pumpAndSettle();
     return container;

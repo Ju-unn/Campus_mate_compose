@@ -1,6 +1,7 @@
 import 'package:campus_mate/core/auth/logout_text_button.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,7 +16,7 @@ void main() {
       ProviderScope(
         overrides: [signOutProvider.overrideWithValue(() async => signOutCalls++)],
         // 관문 화면처럼 세로 Column 아래에 둔다 — 높이가 열려 있어야 최소 48 이 보인다.
-        child: const MaterialApp(home: Scaffold(body: Column(children: [LogoutTextButton()]))),
+        child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: Column(children: [LogoutTextButton()]))),
       ),
     );
   }

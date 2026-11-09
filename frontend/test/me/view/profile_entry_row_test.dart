@@ -2,6 +2,7 @@ import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/me/view/profile_entry_row.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +12,8 @@ void main() {
   Future<void> pump(WidgetTester tester, {VoidCallback? onTap}) async {
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Align(
             alignment: Alignment.topLeft,
@@ -81,6 +84,8 @@ void main() {
 
   testWidgets('강조(15 `o9BA0` "친구들이 본 나") — 바탕 #FFF0F2 · 원 #FFFFFF · 아이콘 · 셰브런 #C4224B, 크기 · 그림자는 그대로', (tester) async {
     await tester.pumpWidget(MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Align(
         alignment: Alignment.topLeft,
         child: SizedBox(
@@ -102,6 +107,8 @@ void main() {
 
   testWidgets('마스코트 미리 보기 `I5Dw4` 는 32 — 원 안 가운데(6,6)', (tester) async {
     await tester.pumpWidget(MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Align(
         alignment: Alignment.topLeft,
         child: SizedBox(

@@ -2,6 +2,7 @@ import 'package:campus_mate/auth/gate/model/repository/verification_gate_reposit
 import 'package:campus_mate/auth/media/model/repository/image_compressor_provider.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/graduate/model/repository/graduate_verification_repository_provider.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -44,7 +45,7 @@ class GateHarness {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp(theme: AppTheme.light(), home: screen),
+        child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, theme: AppTheme.light(), home: screen),
       ),
     );
   }

@@ -10,6 +10,7 @@ import 'package:campus_mate/home/model/data/cohort_wait.dart';
 import 'package:campus_mate/home/model/data/home_summary.dart';
 import 'package:campus_mate/home/model/repository/home_repository_provider.dart';
 import 'package:campus_mate/home/view/cohort_wait_view.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/matching/model/data/card_profile.dart';
 import 'package:campus_mate/matching/model/data/daily_card.dart';
@@ -48,7 +49,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: TodayCardsScreen()),
+        child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: TodayCardsScreen()),
       ),
     );
     await tester.pump();
@@ -244,7 +245,7 @@ void main() {
         ],
       );
       addTearDown(container.dispose);
-      Widget app(Widget home) => UncontrolledProviderScope(container: container, child: MaterialApp(home: home));
+      Widget app(Widget home) => UncontrolledProviderScope(container: container, child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: home));
       await tester.pumpWidget(app(const TodayCardsScreen()));
       await tester.pumpAndSettle();
 

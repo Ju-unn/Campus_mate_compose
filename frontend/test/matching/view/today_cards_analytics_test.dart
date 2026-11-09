@@ -4,6 +4,7 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/home/model/repository/home_repository_provider.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/matching/model/data/card_profile.dart';
 import 'package:campus_mate/matching/model/data/daily_card.dart';
 import 'package:campus_mate/matching/model/data/paid_card.dart';
@@ -95,7 +96,7 @@ void main() {
     );
     addTearDown(container.dispose);
     await tester.pumpWidget(
-      UncontrolledProviderScope(container: container, child: MaterialApp.router(routerConfig: router)),
+      UncontrolledProviderScope(container: container, child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router)),
     );
     await tester.pumpAndSettle();
   }

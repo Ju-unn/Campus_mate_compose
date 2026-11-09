@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/profile/avatar/view/photo_tiles.dart';
 import 'package:campus_mate/profile/avatar/viewmodel/photos_ui_state.dart';
 import 'package:campus_mate/profile/avatar/viewmodel/photos_view_model.dart';
@@ -16,6 +17,8 @@ void main() {
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Center(child: SizedBox.fromSize(size: size, child: AddPhotoTile(onTap: () async {}))),
         ),
@@ -80,6 +83,8 @@ void main() {
       addTearDown(container.dispose);
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Align(
             alignment: Alignment.topLeft,
             child: PhotoSlotGrid(

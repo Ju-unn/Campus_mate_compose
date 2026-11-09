@@ -7,6 +7,7 @@ import 'package:campus_mate/chat/viewmodel/chat_room_view_model.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -36,7 +37,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: ChatRoomScreen(matchId: 'm1')),
+        child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: ChatRoomScreen(matchId: 'm1')),
       ),
     );
     await tester.pumpAndSettle();
@@ -179,6 +180,8 @@ void main() {
   group('저장된 아이디 "변경"(pen p0XJA6 dB7yu · Ek58H → 16e-1)', () {
     Future<void> pumpSheet(WidgetTester tester, {VoidCallback? onChangeKakaoId}) async {
       await tester.pumpWidget(MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: TrustGateSheet(
             deadlineAt: DateTime.now().add(const Duration(hours: 20)),
@@ -232,6 +235,8 @@ void main() {
         tester.platformDispatcher.textScaleFactorTestValue = scale;
         addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
         await tester.pumpWidget(MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: TrustGateSheet(
               deadlineAt: DateTime.now().add(const Duration(hours: 20)),
@@ -277,7 +282,7 @@ void main() {
       );
       addTearDown(router.dispose);
       await tester.pumpWidget(
-        UncontrolledProviderScope(container: container, child: MaterialApp.router(routerConfig: router)),
+        UncontrolledProviderScope(container: container, child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router)),
       );
       await tester.pumpAndSettle();
     }

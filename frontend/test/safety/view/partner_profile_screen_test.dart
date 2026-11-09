@@ -12,6 +12,7 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/friend_review/model/repository/friend_review_repository_provider.dart';
 import 'package:campus_mate/friend_review/view/friend_review_card.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
 import 'package:campus_mate/matching/view/profile_avatar_header.dart';
@@ -95,7 +96,7 @@ void main() {
     );
     addTearDown(router.dispose);
     await tester.pumpWidget(
-      UncontrolledProviderScope(container: container, child: MaterialApp.router(routerConfig: router)),
+      UncontrolledProviderScope(container: container, child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router)),
     );
     if (pushed) {
       unawaited(router.push('${AppRoutes.partnerProfile}/p2'));
@@ -458,7 +459,7 @@ void main() {
       addTearDown(container.dispose);
       await tester.pumpWidget(UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: PartnerProfileScreen(profileId: 'p2')),
+        child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: PartnerProfileScreen(profileId: 'p2')),
       ));
       await tester.pump();
 

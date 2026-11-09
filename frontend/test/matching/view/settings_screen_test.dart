@@ -23,6 +23,7 @@ import 'package:campus_mate/faq/view/faq_screen.dart';
 import 'package:campus_mate/home/model/data/cohort_wait.dart';
 import 'package:campus_mate/home/model/repository/home_repository_provider.dart';
 import 'package:campus_mate/home/model/data/home_summary.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
@@ -174,7 +175,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp.router(routerConfig: router),
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router),
       ),
     );
     await tester.pump();

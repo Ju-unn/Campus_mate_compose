@@ -2,6 +2,7 @@ import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/matching/model/data/card_profile.dart';
 import 'package:campus_mate/matching/model/data/sent_request.dart';
 import 'package:campus_mate/matching/view/acceptance_row.dart';
@@ -37,6 +38,8 @@ void main() {
       ProviderScope(
         overrides: [universityLogosProvider.overrideWith((ref) => const <String, String>{})],
         child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: Align(
               alignment: Alignment.topLeft,

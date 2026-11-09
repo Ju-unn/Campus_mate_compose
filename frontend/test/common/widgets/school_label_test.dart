@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,6 +39,8 @@ void main() {
       ProviderScope(
         overrides: [universityLogosProvider.overrideWith((ref) => logos)],
         child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: Align(alignment: Alignment.topLeft, child: SizedBox(width: 200, child: label)),
           ),

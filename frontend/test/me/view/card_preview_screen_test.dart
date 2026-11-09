@@ -16,6 +16,7 @@ import 'package:campus_mate/friend_review/model/repository/friend_review_reposit
 import 'package:campus_mate/friend_review/view/friend_review_card.dart';
 import 'package:campus_mate/friend_review/view/partner_reviews_section.dart';
 import 'package:campus_mate/friend_review/viewmodel/friend_review_list_view_model.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/matching/model/data/card_detail.dart';
 import 'package:campus_mate/matching/model/data/card_profile.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
@@ -200,7 +201,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light()),
       ),
     );
     // 15 가 다 읽은 뒤 [beforeOpen] 으로 서버 값을 바꾸고 15-4 를 연다 — 15 에 머무는 사이 리뷰가 늘어난 경우.
@@ -241,7 +242,7 @@ void main() {
       await pump(tester);
 
       expect(tester.widget<EditAppBar>(find.byType(EditAppBar)).title, '남이 보는 내 프로필');
-      await tester.tap(find.byTooltip('Back'));
+      await tester.tap(find.byTooltip('뒤로'));
       await tester.pumpAndSettle();
 
       expect(find.text('화면 15'), findsOneWidget);

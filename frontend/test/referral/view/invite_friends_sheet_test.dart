@@ -7,6 +7,7 @@ import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/referral/model/repository/invite_share.dart';
 import 'package:campus_mate/referral/model/repository/referral_repository_provider.dart';
@@ -54,6 +55,8 @@ void main() {
           }),
         ],
         child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Builder(
             builder: (context) => Scaffold(
               body: TextButton(onPressed: () => showInviteFriendsSheet(context), child: const Text('열기')),

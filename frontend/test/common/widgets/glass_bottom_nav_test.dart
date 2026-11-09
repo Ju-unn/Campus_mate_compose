@@ -6,6 +6,7 @@ import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/core/haptics/haptics_gateway.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -65,7 +66,7 @@ Future<FakeHapticsGateway> _pump(
         hapticsGatewayProvider.overrideWithValue(haptics),
         chatBadgeCountProvider.overrideWithValue(badge),
       ],
-      child: MaterialApp.router(routerConfig: router),
+      child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router),
     ),
   );
   await tester.pumpAndSettle();

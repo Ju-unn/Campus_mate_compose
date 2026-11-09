@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:campus_mate/chat/view/chat_list_row.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +14,8 @@ void main() {
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     // 실제 행과 같은 자리 — Row 안 Column 이라 가로·세로 모두 제한이 없다.
     await tester.pumpWidget(MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Center(
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -66,6 +69,8 @@ void main() {
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       // 실제 화면처럼 리스트 안 — 세로 제한이 없다.
       await tester.pumpWidget(MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: ListView(
             children: [

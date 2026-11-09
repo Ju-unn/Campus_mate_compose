@@ -14,6 +14,7 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 import '../../../billing/store/view/pretendard.dart';
@@ -29,7 +30,7 @@ const domainHint = '@snu.ac.kr · @yonsei.ac.kr · @korea.ac.kr 외 여러 곳';
 void main() {
   Future<void> pumpScreen(WidgetTester tester) async {
     await tester.pumpWidget(
-      const ProviderScope(child: MaterialApp(home: SignUpScreen())),
+      const ProviderScope(child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: SignUpScreen())),
     );
   }
 
@@ -136,7 +137,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [schoolEmailRepositoryProvider.overrideWithValue(repository)],
-          child: const MaterialApp(home: SignUpScreen()),
+          child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: SignUpScreen()),
         ),
       );
       await tester.enterText(find.byType(TextField), 'hong@snu.ac.kr');
@@ -156,7 +157,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [schoolEmailRepositoryProvider.overrideWithValue(repository)],
-          child: const MaterialApp(home: SignUpScreen()),
+          child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: SignUpScreen()),
         ),
       );
       await tester.enterText(find.byType(TextField), 'hong@snu.ac.kr');
@@ -174,7 +175,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [schoolEmailRepositoryProvider.overrideWithValue(repository)],
-          child: const MaterialApp(home: SignUpScreen()),
+          child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: SignUpScreen()),
         ),
       );
       await tester.enterText(find.byType(TextField), 'hong@unknown.ac.kr');
@@ -227,7 +228,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [signOutProvider.overrideWithValue(() async => signOutCalls++)],
-          child: const MaterialApp(home: SignUpScreen()),
+          child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: SignUpScreen()),
         ),
       );
 
@@ -320,7 +321,7 @@ void main() {
         ],
       );
       addTearDown(router.dispose);
-      await tester.pumpWidget(UncontrolledProviderScope(container: container, child: MaterialApp.router(routerConfig: router)));
+      await tester.pumpWidget(UncontrolledProviderScope(container: container, child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router)));
       return container;
     }
 

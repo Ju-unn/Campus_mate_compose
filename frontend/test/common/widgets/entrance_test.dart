@@ -1,12 +1,13 @@
 import 'package:campus_mate/common/widgets/entrance.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// 처음 그릴 때 한 번 — 투명 + 아래에서 제자리로(DESIGN §7). transform · opacity 만 쓴다.
 void main() {
   Future<void> pump(WidgetTester tester, Entrance entrance) => tester.pumpWidget(
-        MaterialApp(home: Scaffold(body: Align(alignment: Alignment.topLeft, child: entrance))),
+        MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: Align(alignment: Alignment.topLeft, child: entrance))),
       );
 
   double opacityOf(WidgetTester tester) =>

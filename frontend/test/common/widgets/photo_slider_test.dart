@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:campus_mate/common/widgets/photo_slider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -58,6 +59,8 @@ void main() {
   }) async {
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Align(
             alignment: Alignment.topLeft,
@@ -100,6 +103,8 @@ void main() {
     final photos = _photos(2);
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Align(
             alignment: Alignment.topLeft,
@@ -121,6 +126,8 @@ void main() {
     // [bordered] 가 null 이면 인자를 아예 안 넘긴다 — 기본값을 시험한다.
     Future<void> pumpBordered(WidgetTester tester, {bool? bordered, Widget? badge}) => tester.pumpWidget(
           MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             home: Scaffold(
               body: Align(
                 alignment: Alignment.topLeft,
@@ -150,6 +157,8 @@ void main() {
       final photos = _photos(2);
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: Align(
               alignment: Alignment.topLeft,

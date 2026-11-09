@@ -1,6 +1,7 @@
 import 'package:campus_mate/chat/view/chat_input_bar.dart';
 import 'package:campus_mate/common/widgets/keyboard_dismiss_on_tap.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -56,6 +57,8 @@ void main() {
     // `InkWell` 은 가장 가까운 Material 에 그린다 — 그게 Scaffold 면 키보드가 올라와 입력 바가
     // 움직여도 눌림 테두리가 제자리에 남아 공중에 뜬다(실기기 2026-09-27).
     await tester.pumpWidget(MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: Column(
           children: [
@@ -80,6 +83,8 @@ void main() {
     Future<void> pump(WidgetTester tester) async {
       sent = 0;
       await tester.pumpWidget(MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         builder: (context, child) => KeyboardDismissOnTap(child: child!),
         home: Scaffold(
           body: Column(
@@ -155,6 +160,8 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Column(
             children: [

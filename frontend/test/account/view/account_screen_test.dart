@@ -13,6 +13,7 @@ import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -64,7 +65,7 @@ void main() {
         accountRepositoryProvider.overrideWithValue(fake),
         universityLogosProvider.overrideWith((ref) => logos),
       ],
-      child: const MaterialApp(home: AccountScreen()),
+      child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: AccountScreen()),
     ));
     // 로고 그림은 끝나지 않는 요청이라 pumpAndSettle 은 그림 쪽을 기다리지 않는다.
     await tester.pumpAndSettle();
@@ -327,7 +328,7 @@ void main() {
       addTearDown(router.dispose);
       await tester.pumpWidget(ProviderScope(
         overrides: [accountRepositoryProvider.overrideWithValue(fake)],
-        child: MaterialApp.router(routerConfig: router),
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router),
       ));
       await tester.pumpAndSettle();
       expect(fake.accountFetches, 1);

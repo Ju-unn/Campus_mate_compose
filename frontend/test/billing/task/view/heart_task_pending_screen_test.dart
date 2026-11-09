@@ -1,4 +1,5 @@
 import 'package:campus_mate/billing/task/view/heart_task_pending_screen.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -9,7 +10,7 @@ void main() {
     addTearDown(tester.view.reset);
     tester.platformDispatcher.textScaleFactorTestValue = textScale;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-    await tester.pumpWidget(const MaterialApp(home: HeartTaskPendingScreen()));
+    await tester.pumpWidget(const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: HeartTaskPendingScreen()));
   }
 
   testWidgets('pen 18c — 마스코트 88 · 제목 · 설명 두 줄, 앱바 · 버튼 없음', (tester) async {
