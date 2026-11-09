@@ -221,6 +221,13 @@ enum AppError {
 
   /// 오늘 탭(10)이 실패 종류 없이 실패 패널을 그릴 때의 글자 — 실패 종류가 있으면 그 글자를 쓴다.
   cardsLoad,
+
+  /// 서버가 422 `photo_looks_like_document`(학생증 · 신분증처럼 글자 많은 사진)로 거절했다(04-2 · 15-7). 서버 임시 문구 대신
+  /// 앱 고정 글자를 보인다 — 서버 문구와 글자가 다르다(서버는 code 로만 가른다).
+  photoDocument,
+
+  /// 자기소개 초안(AI)을 만들지 못했다(06-1b) — 빈 칸에 직접 쓰게 한다.
+  bioDraft,
 }
 
 /// 출생연도가 나이 하한에 걸렸다(04-1). [fromYear] 년생부터 가입할 수 있다 — 서버 422(schemas.py)와 같은 글자.
@@ -228,6 +235,27 @@ final class BirthYearFailure extends Failure {
   const BirthYearFailure(this.fromYear);
 
   final int fromYear;
+}
+
+/// 사진 칸이 이미 다 찼다(04-2 · 15-7). [max] 장까지 올릴 수 있다.
+final class PhotoMaxFailure extends Failure {
+  const PhotoMaxFailure(this.max);
+
+  final int max;
+}
+
+/// 여러 장을 골랐는데 [count] 장은 얼굴이 보이지 않아 칸에 넣지 않았다(04-2 · 15-7). 한 장도 못 넣었으면 [AppError.noFace].
+final class PhotoRejectedFailure extends Failure {
+  const PhotoRejectedFailure(this.count);
+
+  final int count;
+}
+
+/// 글이 [min] 자보다 짧다(06-2a "이런 사람이 좋아요") — 서버 422(schemas.py `IDEAL_NOTE_MIN_LENGTH`)와 같은 글자.
+final class NoteTooShortFailure extends Failure {
+  const NoteTooShortFailure(this.min);
+
+  final int min;
 }
 
 /// [AppError] 하나를 [Failure] 로 싣는 실패 — 뷰모델이 문자열 없이 `Failure?` 하나로 에러를 상태에 담게 한다.

@@ -3,6 +3,7 @@ import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/common/widgets/select_chip.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -17,12 +18,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-// 화면 문구 — pen uPNnZ(2026-09-28 값표).
-const _headline = 'CampusMate를 어떻게 알게 되셨나요?'; // pen CmStT
-const _subtitle = '하나만 골라주세요.\n더 많은 학교에 알리는 데 참고할게요.'; // pen BX9US
-const _startLabel = '시작하기'; // pen k4ym5O
-const _skipLabel = '건너뛰기'; // pen k8Mb37
-const _otherLabel = '어디서 알게 되셨나요?'; // pen s8u4Y (힌트 · 글자 수 표시 없음)
+// 화면 문구 — pen uPNnZ(2026-09-28 값표): 제목 CmStT · 부제 BX9US · 시작하기 k4ym5O · 건너뛰기 k8Mb37 ·
+// 기타 입력 s8u4Y(힌트 · 글자 수 표시 없음).
 
 // 토큰에 없는 pen 값.
 const _skipPadding = EdgeInsets.symmetric(horizontal: 12); // pen k8Mb37 76×48 padding [0,12]
@@ -57,7 +54,7 @@ class AcquisitionScreen extends ConsumerWidget {
         action: TextButton(
           onPressed: () => context.go(AppRoutes.onboardingContactBlock),
           style: TextButton.styleFrom(padding: _skipPadding, minimumSize: _skipSize),
-          child: Text(_skipLabel, style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText)),
+          child: Text(context.l10n.commonSkip, style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText)),
         ),
       ),
       body: SafeArea(
@@ -72,31 +69,31 @@ class AcquisitionScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(_headline, style: AppTypography.headline.copyWith(color: AppColors.ink)),
+                      Text(context.l10n.profileAcquisitionHeadline, style: AppTypography.headline.copyWith(color: AppColors.ink)),
                       const SizedBox(height: AppSpacing.xs),
-                      Text(_subtitle, style: AppTypography.body.copyWith(color: AppColors.body)),
+                      Text(context.l10n.profileAcquisitionSubtitle, style: AppTypography.body.copyWith(color: AppColors.body)),
                       const SizedBox(height: AppSpacing.xl),
                       _ChannelChips(selected: state.channel, onSelect: viewModel.select),
                       if (state.isOther) ...[
                         const SizedBox(height: AppSpacing.md), // pen 칩 끝 y272 → 입력 y288
                         LabeledField(
-                          label: _otherLabel,
+                          label: context.l10n.profileAcquisitionOtherLabel,
                           initialValue: state.note,
                           onChanged: viewModel.changeNote,
                           inputFormatters: [LengthLimitingTextInputFormatter(acquisitionNoteMaxLength)],
                         ),
                       ],
                       // 저장 실패 문구 — pen uPNnZ 에 없는 상태라 가안(칩 · 입력칸 아래 빨간 한 줄). 결정 필요로 보고.
-                      if (state.errorMessage != null) ...[
+                      if (state.error != null) ...[
                         const SizedBox(height: AppSpacing.md),
-                        Text(state.errorMessage!, style: AppTypography.caption.copyWith(color: AppColors.error)),
+                        Text(context.errorText(state.error!), style: AppTypography.caption.copyWith(color: AppColors.error)),
                       ],
                     ],
                   ),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
-              AppButton(label: _startLabel, onPressed: state.canSubmit ? viewModel.submit : null),
+              AppButton(label: context.l10n.profileAcquisitionStart, onPressed: state.canSubmit ? viewModel.submit : null),
             ],
           ),
         ),

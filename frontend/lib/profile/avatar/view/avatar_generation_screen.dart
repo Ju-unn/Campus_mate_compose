@@ -3,6 +3,8 @@ import 'dart:ui' show ImageFilter, TileMode;
 
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_lottie_view.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -134,11 +136,11 @@ class _GeneratingIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _StatusView(
-      title: '아바타를 만들고 있어요',
-      subtitle: '선택한 사진으로 아바타를 만드는 중이에요. 잠시만 기다려 주세요.',
+    return _StatusView(
+      title: context.l10n.profileAvatarGeneratingTitle,
+      subtitle: context.l10n.profileAvatarGeneratingSubtitle,
       visualTop: _paintingTop,
-      visual: _PaintingScene(),
+      visual: const _PaintingScene(),
     );
   }
 }
@@ -282,7 +284,7 @@ class _AvatarReveal extends ConsumerWidget {
                   const SizedBox(height: _topGap),
                   // 두 줄 고정(대장 결정 10-17, pen 도 같은 줄바꿈) — 312 폭에 한 줄로 들어가도 이 자리에서 접는다.
                   Text(
-                    '짜잔, 매칭 전에는\n이렇게 보여요',
+                    context.l10n.profileAvatarRevealTitle,
                     textAlign: TextAlign.center,
                     style: AppTypography.headline.copyWith(color: AppColors.ink),
                   ),
@@ -299,7 +301,7 @@ class _AvatarReveal extends ConsumerWidget {
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   Text(
-                    '매칭 전에는 AI가 그려준 아바타만 보여요. 상호 수락 후 신뢰 확인을 마치면 실제 사진이 공개돼요.',
+                    context.l10n.profileAvatarRevealBody,
                     textAlign: TextAlign.center,
                     style: AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w500, height: 1.5, color: AppColors.body),
                   ),
@@ -308,7 +310,7 @@ class _AvatarReveal extends ConsumerWidget {
                   // 가운데 · 폭 312 · 줄높이 1.5(312 폭 두 줄 42).
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '내 아바타가 홈 화면에서 다른 회원에게 보일 수 있어요',
+                    context.l10n.profileAvatarRevealHomeNotice,
                     textAlign: TextAlign.center,
                     style: AppTypography.bodySmall.copyWith(height: 1.5, color: AppColors.muted),
                   ),
@@ -316,7 +318,7 @@ class _AvatarReveal extends ConsumerWidget {
               ),
             ),
           ),
-          AppButton(label: '확인했어요', onPressed: onConfirm),
+          AppButton(label: context.l10n.profileAvatarRevealConfirm, onPressed: onConfirm),
         ],
       ),
     );
@@ -366,10 +368,10 @@ class _LockedPhoto extends StatelessWidget {
     return Semantics(
       container: true,
       image: true,
-      label: '나만 보는 실제 사진, 가려져 있어요',
+      label: context.l10n.profileAvatarRevealLockedSemantics,
       child: ExcludeSemantics(
         child: _CompareColumn(
-          label: '나만 보는 실제 사진',
+          label: context.l10n.profileAvatarRevealLockedLabel,
           labelStyle: _CompareColumn.labelBase.copyWith(fontWeight: FontWeight.w600, color: AppColors.muted),
           cell: ClipRRect(
             borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -412,7 +414,7 @@ class _AvatarPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final avatar = url;
     return _CompareColumn(
-      label: '상대에게 보이는 모습',
+      label: context.l10n.profileAvatarRevealPreviewLabel,
       labelStyle: _CompareColumn.labelBase.copyWith(fontWeight: FontWeight.w700, color: AppColors.ink),
       // 테두리는 그림 위에 그린다 — 아래에 깔면 cover 그림이 선을 덮는다.
       cell: DecoratedBox(
@@ -505,17 +507,17 @@ class _CompensationSheet extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.md),
             Text(
-              '기본 아바타로 대신했어요',
+              context.l10n.profileAvatarCompensationTitle,
               style: AppTypography.title.copyWith(color: AppColors.ink, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: AppSpacing.md),
             // 하트 수는 서버가 준 값 그대로다 — 앱에 숫자를 박으면 규칙이 바뀔 때 앱만 거짓말을 한다.
             Text(
-              '서버 오류로 하트 $hearts개 드렸어요. 설정 > 아바타 재생성 에서 다시 만들 수 있어요.',
+              context.l10n.profileAvatarCompensationBody(hearts: hearts),
               style: AppTypography.body.copyWith(color: AppColors.body, height: 1.5),
             ),
             const SizedBox(height: AppSpacing.md),
-            AppButton(label: '확인', onPressed: onConfirm),
+            AppButton(label: context.l10n.commonConfirm, onPressed: onConfirm),
           ],
         ),
       ),
@@ -523,34 +525,34 @@ class _CompensationSheet extends StatelessWidget {
   }
 }
 
-/// 05-12b(pen `euW4T` · `c7QuSm`) — 분홍 목도리 마스코트 아래 힌트 한 줄 14/400 muted. 서버 문구가 있으면 같은 자리 · 같은 글꼴로
-/// 그 문구를 둔다. 부제 · 버튼 "다시 시도" 는 pen 원문 그대로다(대장 전달 10-15 — "시도해주세요" 붙여 쓰기도 원문).
+/// 05-12b(pen `euW4T` · `c7QuSm`) — 분홍 목도리 마스코트 아래 힌트 한 줄 14/400 muted. 실패 종류가 있으면 같은 자리 · 같은 글꼴로
+/// 그 글자를 둔다. 부제 · 버튼 "다시 시도" 는 pen 원문 그대로다(대장 전달 10-15 — "시도해주세요" 붙여 쓰기도 원문).
 class _RetryPrompt extends StatelessWidget {
   const _RetryPrompt({required this.state, required this.onRetry});
 
   final AvatarGenerationUiState state;
   final Future<void> Function() onRetry;
 
-  /// 서버 규칙(`MAX_CONSECUTIVE_FAILURES` 5 — 연속 실패 5번까지 무료, 5번째에 기본 아바타 + 하트)과 같은 숫자다.
-  /// 종전 pen 원문 "3번까지" 는 서버와 달라 사용자 결정(10-15 "추천")으로 고쳤다(pen 도 함께 정정).
-  static const String _freeRetryHint = '5번까지는 무료로 다시 시도할 수 있어요';
-
   /// 상태 틀 위에서 마스코트까지(pen 05-12b `euW4T`).
   static const double _mascotTop = 45;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final error = state.error;
     return _StatusView(
-      title: '아바타 생성에 실패했어요',
-      subtitle: '사진이 흐릿하거나 서버가 혼잡했을 수 있어요. 다른 사진으로 다시 시도해주세요.',
+      title: l10n.profileAvatarRetryTitle,
+      subtitle: l10n.profileAvatarRetrySubtitle,
       visualTop: _mascotTop,
       visual: Image.asset('assets/images/mascot-female-sad.png', width: 220, height: 220, fit: BoxFit.contain, excludeFromSemantics: true),
       below: Text(
-        state.errorMessage ?? _freeRetryHint,
+        // 힌트 숫자는 서버 규칙(`MAX_CONSECUTIVE_FAILURES` 5 — 연속 실패 5번까지 무료, 5번째에 기본 아바타 + 하트)과 같다.
+        // 종전 pen 원문 "3번까지" 는 서버와 달라 사용자 결정(10-15 "추천")으로 고쳤다(pen 도 함께 정정).
+        error == null ? l10n.profileAvatarRetryFreeHint : context.errorText(error),
         textAlign: TextAlign.center,
         style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
       ),
-      action: AppButton(label: '다시 시도', onPressed: onRetry),
+      action: AppButton(label: l10n.commonRetry, onPressed: onRetry),
     );
   }
 }

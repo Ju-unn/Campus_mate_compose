@@ -43,10 +43,10 @@ Future<bool> showPaidCardHeartsShortSheet(
   final goToStore = await showSafetySheet<bool>(
     context,
     (_) => _PaidCardSheet(
-      title: l10n.matchingPaidHeartsShortTitle,
+      title: l10n.commonHeartsShortTitle,
       description: heartBalance == null
           ? l10n.matchingPaidHeartsShortBody(cost: cost)
-          : l10n.matchingPaidHeartsShortBodyWithBalance(cost: cost, balance: heartBalance),
+          : l10n.commonHeartsShortBodyWithBalance(cost: cost, balance: heartBalance),
       primaryLabel: l10n.matchingPaidHeartsShortCta,
       primaryHasHeart: false,
       secondaryLabel: l10n.commonClose,

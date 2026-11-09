@@ -73,7 +73,7 @@ void main() {
 
     final state = container.read(photosViewModelProvider);
     expect(state.photos, isEmpty);
-    expect(state.errorMessage, '얼굴이 보이는 사진을 골라 주세요');
+    expect(state.error, _noFace);
   });
 
   test('여러 장을 한 번에 고르면 얼굴이 있는 것만 들어간다', () async {
@@ -86,7 +86,7 @@ void main() {
 
     final state = container.read(photosViewModelProvider);
     expect([for (final photo in state.photos) photo.file!.path], ['a.jpg']);
-    expect(state.errorMessage, '2장은 얼굴이 보이지 않아 빠졌어요');
+    expect(state.error, _rejectedCount(2));
   });
 
   test('일부만 빠지면 몇 장이 빠졌는지 알린다', () async {
@@ -96,7 +96,7 @@ void main() {
 
     await viewModel.addPhoto();
 
-    expect(container.read(photosViewModelProvider).errorMessage, '1장은 얼굴이 보이지 않아 빠졌어요');
+    expect(container.read(photosViewModelProvider).error, _rejectedCount(1));
   });
 
   test('한 장도 못 들어가면 장수 대신 다시 고르라고 알린다', () async {
@@ -108,7 +108,7 @@ void main() {
 
     final state = container.read(photosViewModelProvider);
     expect(state.photos, isEmpty);
-    expect(state.errorMessage, '얼굴이 보이는 사진을 골라 주세요');
+    expect(state.error, _noFace);
   });
 
   test('압축에 실패한 사진도 빠진 장으로 세고 기다리는 표시를 내린다', () async {
@@ -121,7 +121,7 @@ void main() {
     final state = container.read(photosViewModelProvider);
     expect(state.photos, isEmpty);
     expect(state.isCheckingPhotos, isFalse);
-    expect(state.errorMessage, '얼굴이 보이는 사진을 골라 주세요');
+    expect(state.error, _noFace);
   });
 
   test('갤러리가 예외를 던져도 기다리는 표시가 굳지 않는다', () async {
@@ -169,13 +169,13 @@ void main() {
 
   test('copyWith 는 넘기지 않은 표시를 그대로 이어받는다', () {
     // 검사가 늦게 끝난 addPhoto 가 isSubmitting 을 지우면 같은 사진을 두 번 올릴 수 있다.
-    const state = PhotosUiState(isSubmitting: true, errorMessage: '앗');
+    const state = PhotosUiState(isSubmitting: true, error: UnknownFailure());
 
     final next = state.copyWith(photos: [SelectedPhoto(File('a.jpg'))]);
 
     expect(next.isSubmitting, isTrue);
-    expect(next.errorMessage, '앗');
-    expect(next.copyWith(errorMessage: null).errorMessage, isNull);
+    expect(next.error, isA<UnknownFailure>());
+    expect(next.copyWith(error: null).error, isNull);
   });
 
   test('검출기가 예외를 던지면 막지 않고 통과시킨다', () async {
@@ -187,7 +187,7 @@ void main() {
 
     final state = container.read(photosViewModelProvider);
     expect(state.photos.length, 1);
-    expect(state.errorMessage, isNull);
+    expect(state.error, isNull);
   });
 
   test('살펴보는 동안 isCheckingPhotos 가 켜진다', () async {
@@ -285,7 +285,7 @@ void main() {
       await viewModel.addPhoto();
     }
 
-    expect(container.read(photosViewModelProvider).errorMessage, '사진은 최대 4장까지 올릴 수 있어요');
+    expect(container.read(photosViewModelProvider).error, isA<PhotoMaxFailure>().having((failure) => failure.max, 'max', 4));
   });
 
   test('2장 이상 + 아바타 원본 1장이면 제출할 수 있고 성공하면 completed 가 켜진다', () async {
@@ -329,7 +329,7 @@ void main() {
 
     final state = container.read(photosViewModelProvider);
     expect(state.completed, isFalse);
-    expect(state.errorMessage, '아바타 원본 사진을 먼저 골라 주세요');
+    expect(state.error, _rejected('아바타 원본 사진을 먼저 골라 주세요'));
     expect(onboardingRepository.fetchCount, 0);
   });
 
@@ -364,7 +364,7 @@ void main() {
     await viewModel.submit();
 
     expect(container.read(photosViewModelProvider).completed, isFalse);
-    expect(container.read(photosViewModelProvider).errorMessage, isNotNull);
+    expect(container.read(photosViewModelProvider).error, isNotNull);
   });
 
   group('서버가 글자 많은 사진을 거절(422 `photo_looks_like_document`)', () {
@@ -389,7 +389,7 @@ void main() {
 
       final state = container.read(photosViewModelProvider);
       expect(state.documentRejected, isTrue);
-      expect(state.errorMessage, isNull);
+      expect(state.error, isNull);
       expect(paths(), ['a.jpg', 'c.jpg']);
       expect((state.isSubmitting, state.completed), (false, false));
       expect(avatarRepository.generateCount, 0);
@@ -452,7 +452,7 @@ void main() {
       final state = container.read(photosViewModelProvider);
       expect(paths(), isEmpty);
       expect(state.documentRejected, isTrue);
-      expect(state.errorMessage, isNull, reason: '알 수 없는 오류로 떨어지지 않는다');
+      expect(state.error, isNull, reason: '알 수 없는 오류로 떨어지지 않는다');
     });
 
     test('모르는 code 는 지금처럼 서버 문구를 그대로 보이고 사진은 그대로다', () async {
@@ -463,7 +463,7 @@ void main() {
 
       final state = container.read(photosViewModelProvider);
       expect(state.documentRejected, isFalse);
-      expect(state.errorMessage, '부적절한 사진이에요');
+      expect(state.error, _rejected('부적절한 사진이에요'));
       expect(paths(), ['a.jpg', 'b.jpg', 'c.jpg']);
     });
   });
@@ -655,3 +655,10 @@ void main() {
   });
 
 }
+
+final _noFace = isA<AppErrorFailure>().having((failure) => failure.error, 'error', AppError.noFace);
+
+Matcher _rejectedCount(int count) => isA<PhotoRejectedFailure>().having((failure) => failure.count, 'count', count);
+
+Matcher _rejected(String message) =>
+    isA<ServerRejectedFailure>().having((failure) => failure.serverMessage, 'serverMessage', message);

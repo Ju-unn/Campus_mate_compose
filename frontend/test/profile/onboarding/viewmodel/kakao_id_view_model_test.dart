@@ -80,7 +80,7 @@ void main() {
     await vm.submit();
 
     expect(container.read(onboardingStepListenableProvider).value, OnboardingStep.kakaoId);
-    expect(container.read(kakaoIdViewModelProvider).errorMessage, isNotNull);
+    expect(container.read(kakaoIdViewModelProvider).error, isNotNull);
     expect(onboardingRepository.fetchCount, 0);
   });
 
@@ -140,12 +140,12 @@ void main() {
     });
   });
 
-  test('제출에 실패하면 errorMessage 가 채워진다', () async {
+  test('제출에 실패하면 error 가 채워진다', () async {
     repository.nextResult = const FailureResult(UnknownFailure());
     final vm = container.read(kakaoIdViewModelProvider.notifier);
     vm.changeKakaoId('my_kakao_id');
     await vm.submit();
-    expect(container.read(kakaoIdViewModelProvider).errorMessage, isNotNull);
+    expect(container.read(kakaoIdViewModelProvider).error, isA<UnknownFailure>());
     expect(container.read(kakaoIdViewModelProvider).completed, isFalse);
   });
 

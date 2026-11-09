@@ -4,6 +4,8 @@ import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/notice_card.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -46,11 +48,11 @@ class AvatarSourceScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: AppSpacing.lg),
-                      Text('아바타로 만들 사진을 골라주세요',
+                      Text(context.l10n.profileAvatarSourceHeadline,
                           style: AppTypography.headline.copyWith(color: AppColors.ink)),
                       const SizedBox(height: AppSpacing.xs),
                       Text(
-                        '고른 사진 한 장이 아바타로 변환돼요.',
+                        context.l10n.profileAvatarSourceSubtitle,
                         style: AppTypography.body.copyWith(color: AppColors.body, height: 1.6),
                       ),
                       const SizedBox(height: AppSpacing.xl),
@@ -59,14 +61,14 @@ class AvatarSourceScreen extends ConsumerWidget {
                         onSelect: state.isSubmitting ? null : viewModel.setAvatarSource,
                       ),
                       const SizedBox(height: AppSpacing.md),
-                      const NoticeCard(
+                      NoticeCard(
                         icon: AppIcons.lock,
-                        title: '상호 수락 전에는 아바타만 보여요',
-                        body: '올린 실제 사진은 서로 수락하고 신뢰 확인을 마친 뒤에 공개돼요.',
+                        title: context.l10n.profileAvatarSourceNoticeTitle,
+                        body: context.l10n.profileAvatarSourceNoticeBody,
                       ),
-                      if (state.errorMessage != null) ...[
+                      if (state.error != null) ...[
                         const SizedBox(height: AppSpacing.xs),
-                        Text(state.errorMessage!,
+                        Text(context.errorText(state.error!),
                             style: AppTypography.caption.copyWith(color: AppColors.error)),
                       ],
                       // 아바타 변환 예시 2장(pen `q7Rp0G`, 사용자 결정 10-14) — 안내 아래 24. 오류 문구는 안내 바로 아래에 두고
@@ -79,16 +81,19 @@ class AvatarSourceScreen extends ConsumerWidget {
               ),
               const SizedBox(height: AppSpacing.md),
               if (state.isSubmitting) ...[
-                const Center(
+                Center(
                   child: AppToast(
-                    leading: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onInk),
+                    leading: const CircularProgressIndicator(strokeWidth: 2, color: AppColors.onInk),
                     // pen `04-3` 과 글자까지 같아야 한다 — 왜 아직 그림이 없는지 알려 주는 유일한 안내다.
-                    label: '아바타는 만드는 동안 다음 질문을 이어 가요',
+                    label: context.l10n.profileAvatarSourceSubmittingToast,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
               ],
-              AppButton(label: '이 사진으로 아바타 만들기', onPressed: state.canSubmit ? viewModel.submit : null),
+              AppButton(
+                label: context.l10n.profileAvatarSourceSubmit,
+                onPressed: state.canSubmit ? viewModel.submit : null,
+              ),
             ],
           ),
         ),

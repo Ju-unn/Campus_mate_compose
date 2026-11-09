@@ -75,15 +75,15 @@ class BasicInfoScreen extends ConsumerWidget {
                 ),
                 // 오류는 **스크롤 밖**, 누른 버튼 바로 위다 — 스크롤 맨 아래에 두면 "다음"을 눌러도
                 // 화면에 안 보인다(서버 409 닉네임 중복도 여기로 온다).
-                if (state.errorMessage != null) ...[
+                if (state.error != null) ...[
                   const SizedBox(height: AppSpacing.sm),
-                  Text(state.errorMessage!, style: AppTypography.caption.copyWith(color: AppColors.error)),
+                  Text(context.errorText(state.error!), style: AppTypography.caption.copyWith(color: AppColors.error)),
                 ],
                 const SizedBox(height: AppSpacing.md),
                 // 보내는 중(pen 04-1 Button · Loading 추가 예정)에는 글자 자리에 도는 표시 · 누름 막음. 잡혀 있던 입력칸은
                 // 먼저 놓는다 — 잠금(IgnorePointer)은 이미 열린 키보드의 입력까지는 못 막는다.
                 AppButton(
-                  label: '다음',
+                  label: context.l10n.commonNext,
                   isLoading: state.isSubmitting,
                   onPressed: state.canSubmit
                       ? () {
@@ -122,12 +122,12 @@ class _Form extends StatelessWidget {
       children: [
         const SizedBox(height: AppSpacing.xl),
         Text(
-          '닉네임과 기본 정보를\n알려주세요',
+          context.l10n.profileBasicInfoHeadline,
           style: AppTypography.headline.copyWith(color: AppColors.ink),
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          '정확한 정보일수록 더 잘 맞는 상대를 만나요.',
+          context.l10n.profileBasicInfoSubtitle,
           style: AppTypography.body.copyWith(color: AppColors.body),
         ),
         const SizedBox(height: AppSpacing.xl),
@@ -142,18 +142,19 @@ class _Form extends StatelessWidget {
 
   /// 입력칸 · 성별 · MBTI — 보내는 동안 같이 흐려진다.
   Widget _inputs(BuildContext context) {
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         LabeledField(
           // "· 필수" 는 3b 실명 · 3c 학과 · 학번과 같은 표기다. 선택 항목인 내 MBTI 에는 붙이지 않는다.
-          label: '닉네임 · 필수',
+          label: l10n.profileBasicInfoNicknameLabel,
           initialValue: state.nicknameInput,
           onChanged: viewModel.changeNickname,
-          helper: '2~5자, 한글 또는 영문',
+          helper: l10n.profileBasicInfoNicknameHelper,
           errorText: _errorText(context, state.nicknameError),
-          successText: state.nicknameCheck == NicknameCheck.available ? context.l10n.profileNicknameAvailable : null,
-          pendingText: state.nicknameCheck == NicknameCheck.checking ? context.l10n.profileNicknameChecking : null,
+          successText: state.nicknameCheck == NicknameCheck.available ? l10n.profileNicknameAvailable : null,
+          pendingText: state.nicknameCheck == NicknameCheck.checking ? l10n.profileNicknameChecking : null,
           inputFormatters: nicknameInputFormatters,
         ),
         const SizedBox(height: AppSpacing.md),
@@ -162,11 +163,11 @@ class _Form extends StatelessWidget {
           children: [
             Expanded(
               child: LabeledField(
-                label: '출생연도 · 필수',
-                placeholder: '예: 2003',
+                label: l10n.profileBasicInfoBirthYearLabel,
+                placeholder: l10n.profileBasicInfoBirthYearPlaceholder,
                 initialValue: state.birthYearInput,
                 onChanged: viewModel.changeBirthYear,
-                helper: '숫자 4자리',
+                helper: l10n.profileBasicInfoBirthYearHelper,
                 errorText: _errorText(context, state.birthYearError),
                 keyboardType: TextInputType.number,
                 inputFormatters: birthYearInputFormatters,
@@ -175,8 +176,8 @@ class _Form extends StatelessWidget {
             const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: LabeledField(
-                label: '키 (cm) · 필수',
-                placeholder: '예: 170',
+                label: l10n.profileBasicInfoHeightLabel,
+                placeholder: l10n.profileBasicInfoHeightPlaceholder,
                 initialValue: state.heightInput,
                 onChanged: viewModel.changeHeight,
                 errorText: _errorText(context, state.heightError),
@@ -188,26 +189,26 @@ class _Form extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.xs),
         LabeledField(
-          label: '전화번호 · 필수',
+          label: l10n.profileBasicInfoPhoneLabel,
           placeholder: '010-0000-0000',
           initialValue: state.phoneNumberInput,
           onChanged: (value) => _changePhoneNumber(context, value),
           keyboardType: TextInputType.phone,
           inputFormatters: const [PhoneNumberFormatter()],
-          helper: '다른 사람이 나를 지인으로 등록했을 때만 사용돼요',
+          helper: l10n.profileBasicInfoPhoneHelper,
           errorText: _errorText(context, state.phoneNumberError),
         ),
         const SizedBox(height: AppSpacing.sm),
-        Text('성별 · 필수', style: AppTypography.labelSmall.copyWith(color: AppColors.body)),
+        Text(l10n.profileBasicInfoGenderLabel, style: AppTypography.labelSmall.copyWith(color: AppColors.body)),
         const SizedBox(height: AppSpacing.xs),
         _GenderRow(state: state, viewModel: viewModel),
         const SizedBox(height: 20),
-        Text('내 MBTI', style: AppTypography.labelSmall.copyWith(color: AppColors.body)),
+        Text(l10n.profileBasicInfoMbtiLabel, style: AppTypography.labelSmall.copyWith(color: AppColors.body)),
         const SizedBox(height: AppSpacing.xs),
         MbtiPoleToggle(
           selected: state.mbtiPoles,
           onTap: viewModel.toggleMbtiPole,
-          unknownLabel: '모름',
+          unknownLabel: l10n.profileBasicInfoMbtiUnknown,
           isUnknownSelected: state.isMbtiUnknown,
           onUnknownTap: viewModel.toggleMbtiUnknown,
         ),
@@ -227,7 +228,7 @@ class _GenderRow extends StatelessWidget {
     return Row(
       children: [
         SelectChip(
-          label: '남성',
+          label: context.l10n.profileBasicInfoGenderMale,
           width: 76,
           radius: AppRadius.pill,
           isSelected: state.gender == 'male',
@@ -235,7 +236,7 @@ class _GenderRow extends StatelessWidget {
         ),
         const SizedBox(width: AppSpacing.sm),
         SelectChip(
-          label: '여성',
+          label: context.l10n.profileBasicInfoGenderFemale,
           width: 76,
           radius: AppRadius.pill,
           isSelected: state.gender == 'female',

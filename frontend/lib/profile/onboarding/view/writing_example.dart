@@ -1,3 +1,4 @@
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
@@ -19,7 +20,7 @@ class WritingExample extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('이렇게 적어요', style: style),
+        Text(context.l10n.profileWritingExampleCaption, style: style),
         // 캡션 ↔ 첫 카드 8 — 대장 값에 없어 카드 사이와 같게 둔다(pen 확인 대상).
         const SizedBox(height: AppSpacing.xs),
         for (final (index, sentence) in sentences.indexed) ...[

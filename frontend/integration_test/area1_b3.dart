@@ -43,13 +43,20 @@ Future<PhotosUiState> _pick(WidgetTester tester, List<String> names, {List<int>?
 /// 얼굴 사진이 [count] 장보다 적게 남았으면 사진 세트 탓이다 — 판정하지 않는다.
 void _facesKept(PhotosUiState state, int count) {
   if (state.photos.length < count) {
-    throw E2eBlocked('얼굴 사진이 기기 얼굴 검사에서 빠짐(${state.photos.length}/$count장, ${state.errorMessage}) — 사진 세트 확인');
+    throw E2eBlocked('얼굴 사진이 기기 얼굴 검사에서 빠짐(${state.photos.length}/$count장, ${_b3ErrorText(state)}) — 사진 세트 확인');
   }
+}
+
+/// 상태의 실패를 화면과 같은 글자로(없으면 null).
+String? _b3ErrorText(PhotosUiState state) {
+  final error = state.error;
+  return error == null ? null : failureText(AppLocalizationsKo(), error);
 }
 
 /// [message] 가 뷰모델 상태와 토스트(3초) 둘 다에 있어야 한다.
 void _notice(WidgetTester tester, PhotosUiState state, String message) {
-  must(state.errorMessage == message, '문구가 "$message" 가 아님: ${state.errorMessage}');
+  final text = _b3ErrorText(state);
+  must(text == message, '문구가 "$message" 가 아님: $text');
   must(find.text(message).evaluate().isNotEmpty, '"$message" 토스트가 화면에 없음');
 }
 

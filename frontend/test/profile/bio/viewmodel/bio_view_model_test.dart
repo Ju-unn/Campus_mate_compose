@@ -53,7 +53,7 @@ void main() {
     final state = container.read(bioViewModelProvider);
     expect(state.bio, '');
     expect(state.draftLoaded, isTrue);
-    expect(state.errorMessage, '초안을 만들지 못했어요. 직접 써 주세요');
+    expect(state.error, _kind(AppError.bioDraft));
   });
 
   test('초안은 한 번만 부른다(서버는 두 번째부터 저장해 둔 초안을 그대로 준다)', () async {
@@ -190,3 +190,5 @@ void main() {
   });
 
 }
+
+Matcher _kind(AppError error) => isA<AppErrorFailure>().having((failure) => failure.error, 'error', error);

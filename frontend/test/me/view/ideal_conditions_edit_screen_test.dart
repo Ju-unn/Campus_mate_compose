@@ -122,6 +122,22 @@ void main() {
     expect(ignoreChecks(tester), [false, false]);
   });
 
+  // 끝값(나이 위끝 35 · 키 아래끝 150 · 위끝 190)은 "이상" · "이하" 를 붙여 읽는다(DESIGN.md §8.5). 기대 글자는 1.0.2 B8 전
+  // `_ageSummary` · `_heightSummary` 가 이어 붙여 만들던 글자 그대로다 — 문장을 경우마다 한 키로 나눈 뒤에도 같아야 한다.
+  for (final (name, profile, age, height) in [
+    ('나이 위끝 · 키 양끝', _profile(ageMin: 22, ageMax: 35, heightMin: 150, heightMax: 190), '22세 ~ 35세 이상', '150cm 이하 ~ 190cm 이상'),
+    ('키 아래끝만', _profile(heightMin: 150, heightMax: 175), '25세 ~ 30세', '150cm 이하 ~ 175cm'),
+    ('키 위끝만', _profile(heightMin: 160, heightMax: 190), '25세 ~ 30세', '160cm ~ 190cm 이상'),
+  ]) {
+    testWidgets('끝값 요약($name): "$age" · "$height"', (tester) async {
+      await pump(tester, profile: profile);
+
+      expect(find.text(age), findsOneWidget);
+      expect(find.text(height), findsOneWidget);
+      expect(ignoreChecks(tester), [false, false]);
+    });
+  }
+
   testWidgets('"상관없어요" 두 경우(나이 전 구간 · 키 없음)는 체크된 채 열린다', (tester) async {
     await pump(tester, profile: _profile(ageMin: 19, ageMax: 35, heightMin: null, heightMax: null));
 

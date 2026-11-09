@@ -11,8 +11,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final bioViewModelProvider = NotifierProvider<BioViewModel, BioUiState>(BioViewModel.new);
 
-const _draftFailedMessage = '초안을 만들지 못했어요. 직접 써 주세요';
-
 /// 자기소개 초안 생성(06-2b)과 저장(06-3)의 흐름을 맡는다.
 class BioViewModel extends Notifier<BioUiState> {
   /// "직접 쓸게요" 를 누른 뒤 뒤늦게 도착한 초안이 사용자가 쓰던 글을 덮지 않게 막는 표식.
@@ -76,7 +74,7 @@ class BioViewModel extends Notifier<BioUiState> {
     return state.copyWith(
       isLoadingDraft: false,
       draftLoaded: true,
-      errorMessage: _draftFailedMessage,
+      error: const AppErrorFailure(AppError.bioDraft),
     );
   }
 
@@ -88,16 +86,16 @@ class BioViewModel extends Notifier<BioUiState> {
     if (!state.canSubmit) {
       return;
     }
-    state = state.copyWith(isSubmitting: true, errorMessage: null);
+    state = state.copyWith(isSubmitting: true, error: null);
     try {
       final result = await ref.read(bioRepositoryProvider).submit(state.bio.trim());
       reportIfOnboardingBlocked(ref, result);
       state = result.when(
         onSuccess: (_) => state.copyWith(isSubmitting: false, completed: true),
-        onFailure: (failure) => state.copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage()),
+        onFailure: (failure) => state.copyWith(isSubmitting: false, error: failure),
       );
     } catch (_) {
-      state = state.copyWith(isSubmitting: false, errorMessage: const UnknownFailure().toDisplayMessage());
+      state = state.copyWith(isSubmitting: false, error: const UnknownFailure());
       return;
     }
     _discardDraftIfCompleted();

@@ -115,17 +115,17 @@ class IdealConditionsViewModel extends Notifier<IdealConditionsUiState> {
       return;
     }
     // 지난 저장의 completed 를 내린다 — 되돌아와 다시 저장하다 실패하면 다음 화면으로 넘어가면 안 된다.
-    state = state.copyWith(isSubmitting: true, errorMessage: null, completed: false);
+    state = state.copyWith(isSubmitting: true, error: null, completed: false);
     try {
       final repository = ref.read(idealConditionsRepositoryProvider);
       final result = await repository.submit(_submission());
       reportIfOnboardingBlocked(ref, result);
       state = result.when(
         onSuccess: (_) => state.copyWith(isSubmitting: false, completed: true),
-        onFailure: (failure) => state.copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage()),
+        onFailure: (failure) => state.copyWith(isSubmitting: false, error: failure),
       );
     } catch (_) {
-      state = state.copyWith(isSubmitting: false, errorMessage: const UnknownFailure().toDisplayMessage());
+      state = state.copyWith(isSubmitting: false, error: const UnknownFailure());
       return;
     }
     _notifySavedIfCompleted();

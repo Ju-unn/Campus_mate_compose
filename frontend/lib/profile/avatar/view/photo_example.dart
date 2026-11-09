@@ -1,3 +1,4 @@
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -13,40 +14,43 @@ class PhotoExample extends StatelessWidget {
   /// 04-2 "이런 사진이 좋아요" — 두 칸이 폭을 나눠 채운다(사진 칸 158 과 같은 폭).
   /// 그림은 AI 로 만든 가상 인물이다(실존 인물 아님).
   const PhotoExample.goodPhoto({super.key})
-      : _caption = '이런 사진이 좋아요',
-        _images = const [
-          (asset: 'assets/images/example-photo-park-v1.webp', label: '올바른 사진 예시, 공원에서 찍은 일상 사진'),
-          (asset: 'assets/images/example-photo-cafe-v1.webp', label: '올바른 사진 예시, 카페 앞에서 찍은 일상 사진'),
-        ],
+      : _isAvatar = false,
         _tileHeight = null;
 
   /// 04-3 · 15b-4 · 15b-5 아바타 변환 예시 — 두 칸이 폭을 나눠 채우고 높이는 130(pen `q7Rp0G` · `wznui` · `M3beY` 칸 158×130).
   /// 그림 둘 다 변환된 일러스트다(사진 원본이 아니다). 이름은 실존 인물 사진 규칙(`avatar-*` gitignore)에 걸리지 않게 지었다.
   const PhotoExample.avatar({super.key})
-      : _caption = '내 사진이 이런 일러스트 아바타로 바뀌어요',
-        _images = const [
-          (asset: 'assets/images/example-illust-a-v1.webp', label: '아바타 일러스트 예시, 안경 쓴 남학생'),
-          (asset: 'assets/images/example-illust-b-v1.webp', label: '아바타 일러스트 예시, 단발머리 여학생'),
-        ],
+      : _isAvatar = true,
         _tileHeight = 130;
 
-  final String _caption;
-  final List<ExampleImage> _images;
+  /// 아바타 변환 예시인지(아니면 04-2 사진 예시).
+  final bool _isAvatar;
 
   /// 칸 높이. 칸 폭은 늘 둘이 나눠 채운다. null 이면 폭과 같은 정사각이다(04-2 pen `D5fQG` 158).
   final double? _tileHeight;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final caption = _isAvatar ? l10n.profilePhotoExampleAvatarCaption : l10n.profilePhotoExampleGoodCaption;
+    final List<ExampleImage> images = _isAvatar
+        ? [
+            (asset: 'assets/images/example-illust-a-v1.webp', label: l10n.profilePhotoExampleAvatarGlasses),
+            (asset: 'assets/images/example-illust-b-v1.webp', label: l10n.profilePhotoExampleAvatarBob),
+          ]
+        : [
+            (asset: 'assets/images/example-photo-park-v1.webp', label: l10n.profilePhotoExampleGoodPark),
+            (asset: 'assets/images/example-photo-cafe-v1.webp', label: l10n.profilePhotoExampleGoodCafe),
+          ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(_caption, style: AppTypography.bodySmall.copyWith(color: AppColors.body)),
+        Text(caption, style: AppTypography.bodySmall.copyWith(color: AppColors.body)),
         // 캡션 ↔ 그림 8 — 대장 값에 없어 정한 값(pen 확인 대상).
         const SizedBox(height: AppSpacing.xs),
         Row(
           children: [
-            for (final (index, image) in _images.indexed) ...[
+            for (final (index, image) in images.indexed) ...[
               if (index > 0) const SizedBox(width: AppSpacing.sm),
               _tile(image),
             ],

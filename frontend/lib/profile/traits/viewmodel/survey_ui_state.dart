@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
 
@@ -8,7 +9,7 @@ class SurveyUiState {
     this.religion,
     this.isSmoker,
     this.isSubmitting = false,
-    this.errorMessage,
+    this.error,
     this.completed = false,
   });
 
@@ -19,7 +20,7 @@ class SurveyUiState {
   final Religion? religion;
   final bool? isSmoker;
   final bool isSubmitting;
-  final String? errorMessage;
+  final Failure? error;
   final bool completed;
 
   /// 11문항(9축 · 종교 · 흡연)이 다 골라져 있다 — 06-1 에서 돌아왔을 때 마지막(흡연) 문항에서 열지 정한다.

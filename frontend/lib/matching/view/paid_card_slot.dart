@@ -111,7 +111,7 @@ Future<void> handlePurchaseNotice(BuildContext context, WidgetRef ref, PurchaseN
     return;
   }
   if (paid is! PaidCardOffered) {
-    showPollToast(context, context.l10n.matchingPaidHeartsShortTitle);
+    showPollToast(context, context.l10n.commonHeartsShortTitle);
     return;
   }
   final balance = await _heartBalance(ref);

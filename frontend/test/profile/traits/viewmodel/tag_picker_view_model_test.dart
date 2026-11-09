@@ -116,7 +116,7 @@ void main() {
     await vm.submit();
 
     expect(container.read(onboardingStepListenableProvider).value, OnboardingStep.interests);
-    expect(container.read(tagPickerViewModelProvider(TagPickerKind.interests)).errorMessage, isNotNull);
+    expect(container.read(tagPickerViewModelProvider(TagPickerKind.interests)).error, isNotNull);
     expect(onboardingRepository.fetchCount, 0);
   });
 

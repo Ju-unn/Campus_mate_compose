@@ -2,9 +2,12 @@ import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/mbti_pole_toggle.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/viewmodel/ideal_conditions_edit_view_model.dart';
 import 'package:campus_mate/profile/appearance/view/appearance_pickers.dart';
@@ -39,9 +42,10 @@ class IdealConditionsScreen extends ConsumerWidget {
     // 온보딩 모드만 설문(흡연 문항)으로 돌아간다. 시스템 뒤로도 같다 — 라우터는 이 화면을 두르지 않는다(두 겹이면 안내까지 뜬다).
     // 편집 모드는 push 라 편집 앱바가 평소대로 닫는다.
     final back = isEditing ? null : onboardingBack(ref, isBusy: state.isSubmitting);
+    final l10n = context.l10n;
     final scaffold = Scaffold(
       appBar: isEditing
-          ? const EditAppBar(title: '이상형 조건 수정')
+          ? EditAppBar(title: l10n.profileIdealEditTitle)
           : OnboardingAppBar(current: 0, total: 3, onBack: back),
       body: SafeArea(
         top: false,
@@ -53,10 +57,10 @@ class IdealConditionsScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('어떤 사람이 좋아요?', style: AppTypography.headline.copyWith(color: AppColors.ink)),
+                  Text(l10n.profileIdealHeadline, style: AppTypography.headline.copyWith(color: AppColors.ink)),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '얼굴상·인상은 1~3개씩 골라 주세요.',
+                    l10n.profileIdealSubtitle,
                     style: AppTypography.body.copyWith(color: AppColors.body),
                   ),
                 ],
@@ -68,19 +72,19 @@ class IdealConditionsScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _SectionTitle('선호하는 얼굴상', hint: '1~3개'),
+                    _SectionTitle(l10n.profileIdealAnimalSection, hint: l10n.profileIdealPickHint),
                     AnimalTypePicker(
                       selected: state.preferredAnimalTypes.toSet(),
                       onTap: viewModel.toggleAnimalType,
                     ),
                     const SizedBox(height: AppSpacing.xl),
-                    const _SectionTitle('선호하는 인상', hint: '1~3개'),
+                    _SectionTitle(l10n.profileIdealImpressionSection, hint: l10n.profileIdealPickHint),
                     ImpressionTypePicker(
                       selected: state.preferredImpressionTypes.toSet(),
                       onTap: viewModel.toggleImpressionType,
                     ),
                     const SizedBox(height: AppSpacing.xl),
-                    const _SectionTitle('선호하는 성향 (MBTI)'),
+                    _SectionTitle(l10n.profileIdealMbtiSection),
                     MbtiPoleToggle(
                       poles: IdealConditionsUiState.mbtiPoles,
                       selected: {
@@ -92,11 +96,11 @@ class IdealConditionsScreen extends ConsumerWidget {
                     // pen 06-1 `QrUdQ` 안내 `MED5L` — 제목 옆이 아니라 칩 묶음 아래 8, 12/normal muted, 한 줄 자동 폭(앱 1.0.1).
                     // 서버는 축마다 따로 봐서 두 극을 다 골라도 그 축은 상관없다.
                     const SizedBox(height: AppSpacing.xs),
-                    Text('고르지 않거나 둘 다 고르면 상관없어요.', style: AppTypography.caption.copyWith(color: AppColors.muted)),
+                    Text(l10n.profileIdealMbtiHint, style: AppTypography.caption.copyWith(color: AppColors.muted)),
                     const SizedBox(height: AppSpacing.xl),
-                    const _SectionTitle('선호하는 나이 범위'),
+                    _SectionTitle(l10n.profileIdealAgeSection),
                     _RangeField(
-                      summary: _ageSummary(state),
+                      summary: _ageSummary(l10n, state),
                       values: RangeValues(
                         state.preferredAgeMin.toDouble(),
                         state.preferredAgeMax.toDouble(),
@@ -104,17 +108,17 @@ class IdealConditionsScreen extends ConsumerWidget {
                       min: IdealConditionsUiState.ageFloor.toDouble(),
                       max: IdealConditionsUiState.ageCeiling.toDouble(),
                       divisions: IdealConditionsUiState.ageCeiling - IdealConditionsUiState.ageFloor,
-                      endLabels: const ('19세', '1세 단위', '35세 이상'),
-                      ignoreLabel: '나이는 상관없어요',
+                      endLabels: (l10n.profileIdealAgeFloorLabel, l10n.profileIdealAgeStepLabel, l10n.profileIdealAgeCeilingLabel),
+                      ignoreLabel: l10n.profileIdealAgeIgnore,
                       ignored: state.ageIgnored,
                       onChanged: (values) =>
                           viewModel.changeAgeRange(values.start.round(), values.end.round()),
                       onIgnoredChanged: viewModel.changeAgeIgnored,
                     ),
                     const SizedBox(height: AppSpacing.xl),
-                    const _SectionTitle('선호하는 키 범위'),
+                    _SectionTitle(l10n.profileIdealHeightSection),
                     _RangeField(
-                      summary: _heightSummary(state),
+                      summary: _heightSummary(l10n, state),
                       values: RangeValues(
                         state.preferredHeightMin.toDouble(),
                         state.preferredHeightMax.toDouble(),
@@ -124,8 +128,12 @@ class IdealConditionsScreen extends ConsumerWidget {
                       divisions:
                           (IdealConditionsUiState.heightCeiling - IdealConditionsUiState.heightFloor) ~/
                               IdealConditionsUiState.heightStep,
-                      endLabels: const ('150cm 이하', '5cm 단위', '190cm 이상'),
-                      ignoreLabel: '키는 상관없어요',
+                      endLabels: (
+                        l10n.profileIdealHeightFloorLabel,
+                        l10n.profileIdealHeightStepLabel,
+                        l10n.profileIdealHeightCeilingLabel,
+                      ),
+                      ignoreLabel: l10n.profileIdealHeightIgnore,
                       ignored: state.heightIgnored,
                       onChanged: (values) =>
                           viewModel.changeHeightRange(values.start.round(), values.end.round()),
@@ -145,16 +153,16 @@ class IdealConditionsScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (state.errorMessage != null) ...[
+                  if (state.error != null) ...[
                     Text(
-                      state.errorMessage!,
+                      context.errorText(state.error!),
                       style: AppTypography.caption.copyWith(color: AppColors.error),
                     ),
                     const SizedBox(height: AppSpacing.xs),
                   ],
                   // 편집 모드만 "저장" 과 저장 중 스피너(D8)를 쓴다 — 온보딩 모양은 그대로 둔다.
                   AppButton(
-                    label: isEditing ? '저장' : '다음',
+                    label: isEditing ? l10n.commonSave : l10n.commonNext,
                     onPressed: state.canSubmit ? viewModel.submit : null,
                     isLoading: isEditing && state.isSubmitting,
                   ),
@@ -168,22 +176,27 @@ class IdealConditionsScreen extends ConsumerWidget {
     return isEditing ? scaffold : BackExitScope(onBack: back, child: scaffold);
   }
 
-  /// 위 끝값은 "이상", 아래 끝값은 "이하"로 읽어준다(DESIGN.md §8.5 프리셋 표기).
-  String _ageSummary(IdealConditionsUiState state) {
-    final max = state.preferredAgeMax == IdealConditionsUiState.ageCeiling
-        ? '${state.preferredAgeMax}세 이상'
-        : '${state.preferredAgeMax}세';
-    return '${state.preferredAgeMin}세 ~ $max';
+  /// 위 끝값은 "이상", 아래 끝값은 "이하"로 읽어준다(DESIGN.md §8.5 프리셋 표기). 끝값인지는 여기서 가르고, 문장은 경우마다
+  /// 한 문장 그대로 문구 파일에 있다(조각을 이어 붙이지 않는다).
+  String _ageSummary(AppLocalizations l10n, IdealConditionsUiState state) {
+    final min = state.preferredAgeMin;
+    final max = state.preferredAgeMax;
+    return max == IdealConditionsUiState.ageCeiling
+        ? l10n.profileIdealAgeSummaryOpenMax(min: min, max: max)
+        : l10n.profileIdealAgeSummary(min: min, max: max);
   }
 
-  String _heightSummary(IdealConditionsUiState state) {
-    final min = state.preferredHeightMin == IdealConditionsUiState.heightFloor
-        ? '${state.preferredHeightMin}cm 이하'
-        : '${state.preferredHeightMin}cm';
-    final max = state.preferredHeightMax == IdealConditionsUiState.heightCeiling
-        ? '${state.preferredHeightMax}cm 이상'
-        : '${state.preferredHeightMax}cm';
-    return '$min ~ $max';
+  String _heightSummary(AppLocalizations l10n, IdealConditionsUiState state) {
+    final min = state.preferredHeightMin;
+    final max = state.preferredHeightMax;
+    final openMin = min == IdealConditionsUiState.heightFloor;
+    final openMax = max == IdealConditionsUiState.heightCeiling;
+    return switch ((openMin, openMax)) {
+      (true, true) => l10n.profileIdealHeightSummaryOpenBoth(min: min, max: max),
+      (true, false) => l10n.profileIdealHeightSummaryOpenMin(min: min, max: max),
+      (false, true) => l10n.profileIdealHeightSummaryOpenMax(min: min, max: max),
+      (false, false) => l10n.profileIdealHeightSummary(min: min, max: max),
+    };
   }
 }
 
@@ -224,11 +237,11 @@ class _SmokingSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionTitle('흡연하는 사람'),
+        _SectionTitle(context.l10n.profileIdealSmokingSection),
         AcceptsSmokerPicker(acceptsSmoker: acceptsSmoker, onSelected: onSelected),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          '싫어요를 고르면 흡연하지 않는 분을 먼저 보여 드려요.',
+          context.l10n.profileIdealSmokingHint,
           style: AppTypography.caption.copyWith(color: AppColors.muted),
         ),
       ],

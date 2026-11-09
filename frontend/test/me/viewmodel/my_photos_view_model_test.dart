@@ -184,7 +184,10 @@ void main() {
     await viewModel().save();
     await container.read(myProfileProvider.future);
 
-    expect(state().errorMessage, '사진이 바뀌었어요, 다시 열어 주세요');
+    expect(
+      state().error,
+      isA<ServerRejectedFailure>().having((failure) => failure.serverMessage, 'serverMessage', '사진이 바뀌었어요, 다시 열어 주세요'),
+    );
     expect(state().completed, isFalse);
     expect(state().isSubmitting, isFalse);
     expect([for (final photo in state().photos) photo.key], ['p-a', 'p-b']);
@@ -199,7 +202,7 @@ void main() {
     await viewModel().save();
 
     expect(state().documentRejected, isTrue);
-    expect(state().errorMessage, isNull);
+    expect(state().error, isNull);
     expect([for (final photo in state().photos) photo.key], ['p-a', 'p-b', 'p-c']);
     viewModel().removePhoto(2);
     expect(state().documentRejected, isFalse);

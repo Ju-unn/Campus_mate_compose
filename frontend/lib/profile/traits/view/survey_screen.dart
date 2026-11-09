@@ -2,10 +2,13 @@ import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/common/widgets/trait_slider.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
 import 'package:campus_mate/profile/onboarding/view/onboarding_back.dart';
 import 'package:campus_mate/profile/traits/view/choice_pickers.dart';
@@ -19,18 +22,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 typedef _Axis = ({int axis, String headline, String left, String right});
 
 /// 줄바꿈 자리도 pen 값이다(05-01~05-09, erd3 2026-09-26) — 기기 폭에 맡기면 두 줄이 어디서 끊길지
-/// 매번 달라져서, 짧은 질문이 한 줄로 붙고 긴 질문만 두 줄이 된다.
-const List<_Axis> _axes = [
-  (axis: 1, headline: '밖에 나가서 활동하는 걸\n좋아하시나요?', left: '집이 편해요', right: '밖이 좋아요'),
-  (axis: 2, headline: '낯선 사람과 빨리\n친해지는 편인가요?', left: '낯을 많이 가려요', right: '금방 친해져요'),
-  (axis: 3, headline: '미리 계획을\n세우는 편인가요?', left: '즉흥적이에요', right: '계획적이에요'),
-  (axis: 4, headline: '연애할 때 연락을\n자주 하는 편인가요?', left: '필요할 때만 해요', right: '자주 연락해요'),
-  (axis: 5, headline: '감정 표현이\n풍부한 편인가요?', left: '담백해요', right: '표현이 풍부해요'),
-  (axis: 6, headline: '술자리를\n즐기는 편인가요?', left: '거의 안 마셔요', right: '자주 즐겨요'),
-  (axis: 7, headline: '운동을 꾸준히\n하는 편인가요?', left: '관심 없어요', right: '꾸준히 해요'),
-  (axis: 8, headline: '마음이 확실하면 관계를\n빠르게 진전시키나요?', left: '천천히요', right: '빠르게요'),
-  (axis: 9, headline: '새로운 걸 시도하는 걸\n좋아하시나요?', left: '익숙한 게 편해요', right: '새로운 걸 찾아요'),
-];
+/// 매번 달라져서, 짧은 질문이 한 줄로 붙고 긴 질문만 두 줄이 된다. 글자는 문구 파일에 있고, 서버로는 축 번호와 값만 간다.
+List<_Axis> _axes(AppLocalizations l10n) => [
+      (axis: 1, headline: l10n.profileSurveyAxis1Question, left: l10n.profileSurveyAxis1Left, right: l10n.profileSurveyAxis1Right),
+      (axis: 2, headline: l10n.profileSurveyAxis2Question, left: l10n.profileSurveyAxis2Left, right: l10n.profileSurveyAxis2Right),
+      (axis: 3, headline: l10n.profileSurveyAxis3Question, left: l10n.profileSurveyAxis3Left, right: l10n.profileSurveyAxis3Right),
+      (axis: 4, headline: l10n.profileSurveyAxis4Question, left: l10n.profileSurveyAxis4Left, right: l10n.profileSurveyAxis4Right),
+      (axis: 5, headline: l10n.profileSurveyAxis5Question, left: l10n.profileSurveyAxis5Left, right: l10n.profileSurveyAxis5Right),
+      (axis: 6, headline: l10n.profileSurveyAxis6Question, left: l10n.profileSurveyAxis6Left, right: l10n.profileSurveyAxis6Right),
+      (axis: 7, headline: l10n.profileSurveyAxis7Question, left: l10n.profileSurveyAxis7Left, right: l10n.profileSurveyAxis7Right),
+      (axis: 8, headline: l10n.profileSurveyAxis8Question, left: l10n.profileSurveyAxis8Left, right: l10n.profileSurveyAxis8Right),
+      (axis: 9, headline: l10n.profileSurveyAxis9Question, left: l10n.profileSurveyAxis9Left, right: l10n.profileSurveyAxis9Right),
+    ];
 
 /// 9축 + 종교 + 흡연 = 11화면(DESIGN.md 화면 05-01~05-11).
 /// 축 개수는 뷰모델이 들고 있는 하나만 본다 — 화면에서 또 세면 둘이 어긋난 걸 아무도 못 본다.
@@ -66,7 +69,7 @@ class _SurveyScreenState extends ConsumerState<SurveyScreen> {
 
   @override
   Widget build(BuildContext context) {
-    assert(_axes.length == SurveyUiState.axisCount, '축 문항 수와 페이지 번호 계산이 어긋났다');
+    assert(_axes(context.l10n).length == SurveyUiState.axisCount, '축 문항 수와 페이지 번호 계산이 어긋났다');
     final state = ref.watch(surveyViewModelProvider);
     final viewModel = ref.read(surveyViewModelProvider.notifier);
     // 첫 문항은 앞 단계(04-6)로, 나머지는 이전 문항으로 간다. 저장 중에는 눌러도 아무 일이 없다
@@ -103,7 +106,7 @@ class _SurveyScreenState extends ConsumerState<SurveyScreen> {
                   physics: const NeverScrollableScrollPhysics(),
                   onPageChanged: (page) => setState(() => _page = page),
                   children: [
-                    for (final axis in _axes)
+                    for (final axis in _axes(context.l10n))
                       _TraitSliderPage(
                         axis: axis,
                         value: state.answers[axis.axis],
@@ -120,14 +123,14 @@ class _SurveyScreenState extends ConsumerState<SurveyScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (state.errorMessage != null) ...[
+                  if (state.error != null) ...[
                     Text(
-                      state.errorMessage!,
+                      context.errorText(state.error!),
                       style: AppTypography.caption.copyWith(color: AppColors.error),
                     ),
                     const SizedBox(height: AppSpacing.xs),
                   ],
-                  AppButton(label: '다음', onPressed: _canAdvance(state) ? _advance : null),
+                  AppButton(label: context.l10n.commonNext, onPressed: _canAdvance(state) ? _advance : null),
                 ],
               ),
             ),
@@ -145,7 +148,7 @@ class _SurveyScreenState extends ConsumerState<SurveyScreen> {
     return switch (_page) {
       _religionPage => state.religion != null,
       _smokePage => state.canSubmit,
-      final page => state.answers.containsKey(_axes[page].axis),
+      final page => state.answers.containsKey(_axes(context.l10n)[page].axis),
     };
   }
 
@@ -199,7 +202,7 @@ class _ReligionPage extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('종교가 있으신가요?', style: AppTypography.headline.copyWith(color: AppColors.ink)),
+        Text(context.l10n.profileSurveyReligionQuestion, style: AppTypography.headline.copyWith(color: AppColors.ink)),
         const SizedBox(height: AppSpacing.xl),
         ReligionPicker(selected: selected, onSelected: onSelected),
       ],
@@ -218,7 +221,7 @@ class _SmokePage extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('담배를 피우시나요?', style: AppTypography.headline.copyWith(color: AppColors.ink)),
+        Text(context.l10n.profileSurveySmokeQuestion, style: AppTypography.headline.copyWith(color: AppColors.ink)),
         const SizedBox(height: AppSpacing.xl),
         SmokePicker(isSmoker: isSmoker, onSelected: onSelected),
       ],

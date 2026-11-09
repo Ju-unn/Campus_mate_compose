@@ -1,6 +1,7 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/notice_card.dart';
 import 'package:campus_mate/core/analytics/analytics_values.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -79,10 +80,10 @@ class _AvatarRegenPickScreenState extends ConsumerState<AvatarRegenPickScreen> {
                             title: context.l10n.meAvatarRegenNoticeTitle,
                             body: context.l10n.meAvatarRegenNoticeBody,
                           ),
-                          if (state.errorMessage != null) ...[
+                          if (state.error != null) ...[
                             const SizedBox(height: AppSpacing.xs),
                             Text(
-                              state.errorMessage!,
+                              context.errorText(state.error!),
                               style: AppTypography.caption.copyWith(color: AppColors.error),
                             ),
                           ],

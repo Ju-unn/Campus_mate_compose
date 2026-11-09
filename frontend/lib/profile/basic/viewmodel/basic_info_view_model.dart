@@ -118,7 +118,7 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
       return;
     }
     // 지난 저장의 completed 를 내린다 — 되돌아와 다시 저장하다 실패하면 다음 화면으로 넘어가면 안 된다.
-    state = _copyWith(isSubmitting: true, errorMessage: null, completed: false);
+    state = _copyWith(isSubmitting: true, error: null, completed: false);
     state = await _submittedState();
     _discardDraftIfCompleted();
     _refreshOnboardingStepIfCompleted();
@@ -147,7 +147,7 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
       reportIfOnboardingBlocked(ref, result);
       return _stateFromResult(result);
     } catch (_) {
-      return _copyWith(isSubmitting: false, errorMessage: const UnknownFailure().toDisplayMessage());
+      return _copyWith(isSubmitting: false, error: const UnknownFailure());
     }
   }
 
@@ -164,7 +164,7 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
     if (failure is ServerRejectedFailure && failure.hasCode(_phoneNumberInvalidCode)) {
       return _copyWith(isSubmitting: false, rejectedPhoneDigits: state.phoneDigits);
     }
-    return _copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage());
+    return _copyWith(isSubmitting: false, error: failure);
   }
 
   /// 서버 `POST /profile-onboarding/basic-info` 422 본문의 `code`(가입용 번호 규칙에 걸림).
@@ -188,7 +188,7 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
     Set<String>? mbtiPoles,
     bool? isMbtiUnknown,
     bool? isSubmitting,
-    Object? errorMessage = _keep,
+    Object? error = _keep,
     bool? completed,
   }) {
     return BasicInfoUiState(
@@ -204,7 +204,7 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
       mbtiPoles: mbtiPoles ?? state.mbtiPoles,
       isMbtiUnknown: isMbtiUnknown ?? state.isMbtiUnknown,
       isSubmitting: isSubmitting ?? state.isSubmitting,
-      errorMessage: identical(errorMessage, _keep) ? state.errorMessage : errorMessage as String?,
+      error: identical(error, _keep) ? state.error : error as Failure?,
       completed: completed ?? state.completed,
     );
   }

@@ -34,7 +34,7 @@ class KakaoIdViewModel extends Notifier<KakaoIdUiState> {
   }
 
   void changeKakaoId(String value) {
-    state = _copyWith(kakaoIdInput: value, errorMessage: null);
+    state = _copyWith(kakaoIdInput: value, error: null);
   }
 
   Future<void> submit() async {
@@ -42,7 +42,7 @@ class KakaoIdViewModel extends Notifier<KakaoIdUiState> {
       return;
     }
     // 지난 저장의 completed 를 내린다 — 되돌아와 다시 저장하다 실패하면 다음 화면으로 넘어가면 안 된다.
-    state = _copyWith(isSubmitting: true, errorMessage: null, completed: false);
+    state = _copyWith(isSubmitting: true, error: null, completed: false);
     state = await _submittedState();
     _refreshOnboardingStepIfCompleted();
   }
@@ -54,14 +54,14 @@ class KakaoIdViewModel extends Notifier<KakaoIdUiState> {
       reportIfOnboardingBlocked(ref, result);
       return _stateFromResult(result);
     } catch (_) {
-      return _copyWith(isSubmitting: false, errorMessage: const UnknownFailure().toDisplayMessage());
+      return _copyWith(isSubmitting: false, error: const UnknownFailure());
     }
   }
 
   KakaoIdUiState _stateFromResult(Result<void> result) {
     return result.when(
       onSuccess: (_) => _copyWith(isSubmitting: false, completed: true),
-      onFailure: (failure) => _copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage()),
+      onFailure: (failure) => _copyWith(isSubmitting: false, error: failure),
     );
   }
 
@@ -75,13 +75,13 @@ class KakaoIdViewModel extends Notifier<KakaoIdUiState> {
   KakaoIdUiState _copyWith({
     String? kakaoIdInput,
     bool? isSubmitting,
-    Object? errorMessage = _keep,
+    Object? error = _keep,
     bool? completed,
   }) {
     return KakaoIdUiState(
       kakaoIdInput: kakaoIdInput ?? state.kakaoIdInput,
       isSubmitting: isSubmitting ?? state.isSubmitting,
-      errorMessage: identical(errorMessage, _keep) ? state.errorMessage : errorMessage as String?,
+      error: identical(error, _keep) ? state.error : error as Failure?,
       completed: completed ?? state.completed,
     );
   }

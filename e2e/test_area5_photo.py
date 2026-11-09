@@ -405,10 +405,14 @@ class AppContractTest(unittest.TestCase):
     def test_the_literals_the_app_looks_for_are_in_the_real_screens(self):
         screens = tools.lib_screens_text()
         for literal in ('저장', '사진 수정', '실제 사진 교체', '다시 만들기 · 20', '하트 충전하기', '구매하기', '하트가 모자라요', '지금 보유한 하트는',
-                        '사진은 최대 $_maxPhotos장까지 올릴 수 있어요', '얼굴이 보이는 사진을 골라 주세요', '$rejected장은 얼굴이 보이지 않아 빠졌어요',
-                        '아바타로 변환 중이에요', '아바타를 다시 만들까요?', '프로필 편집'):
+                        '얼굴이 보이는 사진을 골라 주세요', '아바타로 변환 중이에요', '아바타를 다시 만들까요?', '프로필 편집'):
             with self.subTest(literal):
                 self.assertTrue(literal in screens, f'{literal!r} 가 frontend/lib 에 없다')
+        # 장수가 든 두 안내는 Dart 보간이 아니라 문구 파일(ARB)의 에러 키 자리표시자다(1.0.2 B8 묶음 ⑧-a). 에러 글자를 만드는 곳이 그 키를 읽는다.
+        error_text = lib('core', 'l10n', 'error_text.dart')
+        for template in ('사진은 최대 {max}장까지 올릴 수 있어요', '{count}장은 얼굴이 보이지 않아 빠졌어요'):
+            with self.subTest(template):
+                self.assertTrue(label_backed(template, [error_text], tools.arb_messages()), f'{template!r} 를 error_text.dart 가 읽지 않는다')
         # 시트 CTA — 20 은 서버 값이라 템플릿이다(문구 파일 ARB 의 자리표시자, 1.0.2 B8). 시트가 그 키를 읽는다.
         self.assertTrue(label_backed('{cost} 쓰고 만들기', [lib('me', 'view', 'avatar_regen_sheet.dart')], tools.arb_messages()))
         # 알약 글자는 히어로 코드의 글자 그대로여야 한다 — 위 묶음 검사는 주석에 남은 옛 글자("· 10", app_routes.dart)에도 걸려 통과했다.
@@ -416,7 +420,7 @@ class AppContractTest(unittest.TestCase):
         self.assertIn("const _regenPill = '다시 만들기 · 20';", dart('area5.dart'))
         self.assertIn("'아바타를 만들지 못했어요.\\n하트는 차감되지 않았어요.'", screens)
         self.assertIn(f'PHOTOS_CHANGED = "{CHANGED}"', (ROOT / 'core' / 'errors.py').read_text(encoding='utf-8'))
-        # 안내 두 개(NONE_KEPT · ONE_DROPPED)는 앱이 글자를 들고 찾지 않는다 — 뷰모델의 errorMessage 를 그대로 말하고 PC 가 견준다.
+        # 안내 두 개(NONE_KEPT · ONE_DROPPED)는 앱이 글자를 들고 찾지 않는다 — 뷰모델의 error 를 화면 글자로 바꿔 말하고 PC 가 견준다.
         for literal in ('저장', '20 쓰고 만들기', '하트 충전하기', '구매하기', '하트', '하트가 모자라요', CHANGED, MAX_NOTICE, '아바타로 변환 중이에요', '사진 수정', '프로필 편집'):
             with self.subTest('app ' + literal):
                 self.assertTrue(f"'{literal}'" in app_dart(), f'{literal!r} 가 area5_photo.dart 에 없다')

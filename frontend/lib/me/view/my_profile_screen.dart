@@ -2,6 +2,7 @@ import 'package:campus_mate/billing/store/view/heart_balance_chip.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -152,12 +153,12 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> with MeToastH
   /// 거절돼 서버 문구가 있으면(402 — 시트를 연 사이 잔액이 줄었을 때 등) 그 문구를 같은 자리 · 모양으로.
   void _onAvatarChanged(AvatarGenerationUiState? previous, AvatarGenerationUiState next) {
     if (previous?.isGenerating != true || next.isGenerating) return;
-    final message = next.errorMessage;
+    final error = next.error;
     switch (next.status) {
       case AvatarGenerationStatus.ready || AvatarGenerationStatus.fallback:
         ref.invalidate(myProfileProvider);
       case AvatarGenerationStatus.failed:
-        showTimedToast(message == null ? _failedToast(context.l10n) : _alertToast(message));
+        showTimedToast(error == null ? _failedToast(context.l10n) : _alertToast(context.errorText(error)));
       default:
         break;
     }

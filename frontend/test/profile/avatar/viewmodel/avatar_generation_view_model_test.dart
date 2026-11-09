@@ -85,7 +85,7 @@ void main() {
 
     final blocking = await viewModel().generate();
 
-    expect(blocking, '아바타 원본 사진을 먼저 골라 주세요');
+    expect(blocking, _rejected('아바타 원본 사진을 먼저 골라 주세요'));
     expect(state().status, AvatarGenerationStatus.failed);
   });
 
@@ -278,24 +278,24 @@ void main() {
       expect(repository.statusCount, 1);
     });
 
-    test('하트가 모자라다고(402) 답하면 그 문구를 돌려주고 상태를 묻지 않는다', () async {
+    test('하트가 모자라다고(402) 답하면 그 실패를 돌려주고 상태를 묻지 않는다', () async {
       // 시트를 연 사이에 잔액이 줄었을 때. 화면 15 가 이 문구를 토스트로 보여 준다.
       repository.nextResult = const FailureResult(ServerRejectedFailure('하트가 모자라요'));
 
       final message = await viewModel().regenerate();
 
-      expect(message, '하트가 모자라요');
+      expect(message, _rejected('하트가 모자라요'));
       expect(state().status, AvatarGenerationStatus.failed);
-      expect(state().errorMessage, '하트가 모자라요');
+      expect(state().error, _rejected('하트가 모자라요'));
       expect(repository.statusCount, 0);
     });
 
-    test('등록이 실패하면 실패 문구를 돌려준다', () async {
+    test('등록이 실패하면 그 실패를 돌려준다', () async {
       repository.nextResult = const FailureResult(ServerUnavailableFailure());
 
       final message = await viewModel().regenerate();
 
-      expect(message, '잠시 뒤 다시 시도해 주세요');
+      expect(message, isA<ServerUnavailableFailure>());
       expect(state().canRetry, isTrue);
     });
   });
@@ -334,3 +334,6 @@ void main() {
   });
 
 }
+
+Matcher _rejected(String message) =>
+    isA<ServerRejectedFailure>().having((failure) => failure.serverMessage, 'serverMessage', message);

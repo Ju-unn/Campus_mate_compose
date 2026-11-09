@@ -123,7 +123,7 @@ void main() {
 
       expect(me.photoSaves, isEmpty);
       expect(avatars.regenerateCount, 0);
-      expect(container.read(avatarRegenPickViewModelProvider).errorMessage, isNotNull);
+      expect(container.read(avatarRegenPickViewModelProvider).error, isA<UnknownFailure>());
     });
   });
 

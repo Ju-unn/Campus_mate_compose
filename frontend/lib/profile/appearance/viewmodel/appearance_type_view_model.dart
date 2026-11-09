@@ -80,7 +80,7 @@ class AppearanceTypeViewModel extends Notifier<AppearanceTypeUiState> {
       return AppearanceTypeUiState(
         animalType: state.animalType,
         impressionType: state.impressionType,
-        errorMessage: const UnknownFailure().toDisplayMessage(),
+        error: const UnknownFailure(),
       );
     }
   }
@@ -95,7 +95,7 @@ class AppearanceTypeViewModel extends Notifier<AppearanceTypeUiState> {
       onFailure: (failure) => AppearanceTypeUiState(
         animalType: state.animalType,
         impressionType: state.impressionType,
-        errorMessage: failure.toDisplayMessage(),
+        error: failure,
       ),
     );
   }

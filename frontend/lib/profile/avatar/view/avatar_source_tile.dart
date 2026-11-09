@@ -1,3 +1,4 @@
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -51,7 +52,10 @@ class AvatarSourceTile extends StatelessWidget {
                       children: [
                         const Icon(AppIcons.check, size: 12, color: AppColors.onPrimary),
                         const SizedBox(width: AppSpacing.xxs),
-                        Text('아바타로 선택', style: AppTypography.badge.copyWith(color: AppColors.onPrimary)),
+                        Text(
+                          context.l10n.profileAvatarSourceSelectedBadge,
+                          style: AppTypography.badge.copyWith(color: AppColors.onPrimary),
+                        ),
                       ],
                     ),
                   ),

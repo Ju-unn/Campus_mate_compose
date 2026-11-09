@@ -51,11 +51,19 @@ class SmokePicker extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: ChoiceCell(label: '한다', isSelected: isSmoker == true, onTap: () => onSelected(true)),
+            child: ChoiceCell(
+              label: context.l10n.profileSmokeYes,
+              isSelected: isSmoker == true,
+              onTap: () => onSelected(true),
+            ),
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
-            child: ChoiceCell(label: '안 한다', isSelected: isSmoker == false, onTap: () => onSelected(false)),
+            child: ChoiceCell(
+              label: context.l10n.profileSmokeNo,
+              isSelected: isSmoker == false,
+              onTap: () => onSelected(false),
+            ),
           ),
         ],
       ),
@@ -79,11 +87,19 @@ class AcceptsSmokerPicker extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: ChoiceCell(label: '싫어요', isSelected: acceptsSmoker == false, onTap: () => onSelected(false)),
+            child: ChoiceCell(
+              label: context.l10n.profileAcceptsSmokerNo,
+              isSelected: acceptsSmoker == false,
+              onTap: () => onSelected(false),
+            ),
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
-            child: ChoiceCell(label: '상관없어요', isSelected: acceptsSmoker == true, onTap: () => onSelected(true)),
+            child: ChoiceCell(
+              label: context.l10n.profileAcceptsSmokerAny,
+              isSelected: acceptsSmoker == true,
+              onTap: () => onSelected(true),
+            ),
           ),
         ],
       ),

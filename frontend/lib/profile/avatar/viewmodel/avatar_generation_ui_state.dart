@@ -1,3 +1,5 @@
+import 'package:campus_mate/common/failure.dart';
+
 enum AvatarGenerationStatus { idle, generating, ready, failed, fallback }
 
 /// 아바타 결과 화면(DESIGN.md 05-12 계열)의 상태.
@@ -5,7 +7,7 @@ class AvatarGenerationUiState {
   const AvatarGenerationUiState({
     this.status = AvatarGenerationStatus.idle,
     this.avatarUrl,
-    this.errorMessage,
+    this.error,
     this.showCompensationDialog = false,
     this.compensationHearts = 0,
   });
@@ -14,7 +16,7 @@ class AvatarGenerationUiState {
 
   /// 서버가 완성해서 준 **전체 주소**. 그대로 `Image.network` 에 넘긴다 — 앞에 무엇도 붙이지 않는다.
   final String? avatarUrl;
-  final String? errorMessage;
+  final Failure? error;
   final bool showCompensationDialog;
 
   /// 5회 실패 보상으로 받은 하트 수. **서버가 준 값**이라 앱에 10 을 박지 않는다.

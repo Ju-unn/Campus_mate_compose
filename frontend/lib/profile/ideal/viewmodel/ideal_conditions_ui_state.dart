@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
 
@@ -19,7 +20,7 @@ class IdealConditionsUiState {
     this.preferredImpressionTypes = const [],
     this.acceptsSmoker,
     this.isSubmitting = false,
-    this.errorMessage,
+    this.error,
     this.completed = false,
   });
 
@@ -54,7 +55,7 @@ class IdealConditionsUiState {
   /// 설문 9축의 "모르면 미리 고르지 않는다" 와 같은 생각이다. 안 골라도 "다음" 은 눌리고, null 은 서버로 보내지 않는다.
   final bool? acceptsSmoker;
   final bool isSubmitting;
-  final String? errorMessage;
+  final Failure? error;
   final bool completed;
 
   bool get canSubmit {
@@ -171,7 +172,7 @@ class IdealConditionsUiState {
     List<ImpressionType>? preferredImpressionTypes,
     bool? acceptsSmoker,
     bool? isSubmitting,
-    String? errorMessage,
+    Failure? error,
     bool? completed,
   }) {
     return IdealConditionsUiState(
@@ -186,7 +187,7 @@ class IdealConditionsUiState {
       preferredImpressionTypes: preferredImpressionTypes ?? this.preferredImpressionTypes,
       acceptsSmoker: acceptsSmoker ?? this.acceptsSmoker,
       isSubmitting: isSubmitting ?? this.isSubmitting,
-      errorMessage: errorMessage,
+      error: error,
       completed: completed ?? this.completed,
     );
   }

@@ -1,5 +1,7 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
@@ -17,6 +19,7 @@ class AppearanceTypeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(appearanceTypeViewModelProvider);
     final viewModel = ref.read(appearanceTypeViewModelProvider.notifier);
+    final l10n = context.l10n;
     return Scaffold(
       appBar: const OnboardingAppBar(current: 3, total: 6),
       body: SafeArea(
@@ -29,10 +32,10 @@ class AppearanceTypeScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('어떤 얼굴상인가요?', style: AppTypography.headline.copyWith(color: AppColors.ink)),
+                  Text(l10n.profileAppearanceHeadline, style: AppTypography.headline.copyWith(color: AppColors.ink)),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '동물상 하나, 인상 하나를 골라주세요. 매칭에 참고돼요.',
+                    l10n.profileAppearanceSubtitle,
                     style: AppTypography.body.copyWith(color: AppColors.body),
                   ),
                 ],
@@ -44,14 +47,14 @@ class AppearanceTypeScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _SectionLabel('동물상'),
+                    _SectionLabel(l10n.profileAppearanceAnimalSection),
                     AnimalTypePicker(
                       selected: {?state.animalType},
                       onTap: viewModel.changeAnimalType,
                     ),
                     // 두 섹션 사이 24(pen `mpvfQ` 실측).
                     const SizedBox(height: AppSpacing.lg),
-                    _SectionLabel('인상'),
+                    _SectionLabel(l10n.profileAppearanceImpressionSection),
                     ImpressionTypePicker(
                       selected: {?state.impressionType},
                       onTap: viewModel.changeImpressionType,
@@ -65,14 +68,14 @@ class AppearanceTypeScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (state.errorMessage != null) ...[
+                  if (state.error != null) ...[
                     Text(
-                      state.errorMessage!,
+                      context.errorText(state.error!),
                       style: AppTypography.caption.copyWith(color: AppColors.error),
                     ),
                     const SizedBox(height: AppSpacing.xs),
                   ],
-                  AppButton(label: '다음', onPressed: state.canSubmit ? viewModel.submit : null),
+                  AppButton(label: l10n.commonNext, onPressed: state.canSubmit ? viewModel.submit : null),
                 ],
               ),
             ),

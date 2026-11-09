@@ -47,7 +47,7 @@ class IdealNoteViewModel extends Notifier<IdealNoteUiState> {
     }
     // 짧은 글은 서버도 422 로 돌려보낸다 — 보내지 않고 오류로 바꾼다. 다시 쓰면 copyWith 가 지운다.
     if (!state.isLongEnough) {
-      state = state.copyWith(errorMessage: IdealNoteUiState.lengthHint);
+      state = state.copyWith(error: const NoteTooShortFailure(IdealNoteUiState.minLength));
       return;
     }
     await _send(state.note.trim());
@@ -55,17 +55,17 @@ class IdealNoteViewModel extends Notifier<IdealNoteUiState> {
 
   Future<void> _send(String note) async {
     // 같은 세션에서 다시 저장하면 지난 저장의 completed 가 남아 있다 — 내리지 않으면 실패해도 다음 화면으로 넘어간다.
-    state = state.copyWith(isSubmitting: true, errorMessage: null, completed: false);
+    state = state.copyWith(isSubmitting: true, error: null, completed: false);
     try {
       final repository = ref.read(idealNoteRepositoryProvider);
       final result = await repository.submit(note);
       reportIfOnboardingBlocked(ref, result);
       state = result.when(
         onSuccess: (_) => state.copyWith(isSubmitting: false, completed: true),
-        onFailure: (failure) => state.copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage()),
+        onFailure: (failure) => state.copyWith(isSubmitting: false, error: failure),
       );
     } catch (_) {
-      state = state.copyWith(isSubmitting: false, errorMessage: const UnknownFailure().toDisplayMessage());
+      state = state.copyWith(isSubmitting: false, error: const UnknownFailure());
       return;
     }
     _discardDraftIfCompleted();

@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/profile/traits/viewmodel/tag_picker_kind.dart';
 
@@ -15,13 +16,13 @@ class TagPickerUiState {
   const TagPickerUiState({
     this.selected = const {},
     this.isSubmitting = false,
-    this.errorMessage,
+    this.error,
     this.completed = false,
   });
 
   final Set<String> selected;
   final bool isSubmitting;
-  final String? errorMessage;
+  final Failure? error;
   final bool completed;
 
   /// 최소·최대 개수는 [TagPickerKind] 에서 온다(서버보다 UX 상 먼저 막는다).
@@ -45,13 +46,13 @@ class TagPickerUiState {
   TagPickerUiState copyWith({
     Set<String>? selected,
     bool? isSubmitting,
-    String? errorMessage,
+    Failure? error,
     bool? completed,
   }) {
     return TagPickerUiState(
       selected: selected ?? this.selected,
       isSubmitting: isSubmitting ?? this.isSubmitting,
-      errorMessage: errorMessage,
+      error: error,
       completed: completed ?? this.completed,
     );
   }
