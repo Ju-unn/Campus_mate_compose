@@ -218,6 +218,9 @@ enum AppError {
   /// 무료로 하트 모으기 인증샷의 월 한도 429(18b). 공용 429 글자(잠시 후 다시 시도)는 달이 바뀌어야 풀리는 한도와 맞지 않아 따로 둔다 —
   /// 서버 `errors.HEART_TASK_MONTHLY_LIMIT` 과 같은 글자.
   heartTaskMonthlyLimit,
+
+  /// 오늘 탭(10)이 실패 종류 없이 실패 패널을 그릴 때의 글자 — 실패 종류가 있으면 그 글자를 쓴다.
+  cardsLoad,
 }
 
 /// 출생연도가 나이 하한에 걸렸다(04-1). [fromYear] 년생부터 가입할 수 있다 — 서버 422(schemas.py)와 같은 글자.
