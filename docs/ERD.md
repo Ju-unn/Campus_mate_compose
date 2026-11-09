@@ -80,7 +80,7 @@ erDiagram
 | `universities` · `university_email_domains` | `anon` · `authenticated` 전체 | 가입 화면의 학교·도메인 확인 |
 | `region_group_settings` | `authenticated` 전체 | 다음 지급 시각 표시 |
 | `profiles` | 본인 행 (`id`) | |
-| `profile_private` | 본인 행 (`profile_id`) · 컬럼 grant `profile_id` · `real_name` 만 | 16e 본인 실명 조회. 번호 암호문·`phone_hmac`·카카오톡 아이디는 내려가지 않는다. 앱은 `select *` 대신 컬럼을 지정한다. 본인 `kakao_id`(16e · 14f · 16e-1)는 FastAPI 가 내려준다(§11-20). 16e 는 실명도 서버 `GET /account` 로 받는다(실명 · 출생연도 · 학교 · 가입일 · 카톡을 한 번에). 컬럼 grant 는 남아 있지만 지금 앱은 이 표를 직접 읽지 않는다. **2026-10-12 추가: 새 암호문 열 `real_name_enc` · `kakao_id_enc` 는 grant 하지 않는다**(`20261011010000`) — 읽기는 서버가 `service_role` 로 `decrypt_profile_private` 를 불러서만 한다(§3). M2(`20261012010000`)로 평문 `real_name` 열이 지워져 그 컬럼 grant 도 없다 — `authenticated` 의 컬럼 grant 는 `profile_id` 하나다 |
+| `profile_private` | 본인 행 (`profile_id`) · 컬럼 grant `profile_id` 만 | 번호 암호문·`phone_hmac`·카카오톡 아이디 암호문은 내려가지 않는다. 앱은 이 표를 직접 읽지 않는다. 본인 `kakao_id`(16e · 14f · 16e-1)는 FastAPI `GET /account` 가 내려준다(§11-20). 실명은 받지 않는다 — 학생증 인증 제거(2026-10-17) 뒤 `GET /account` 응답에 싣지 않고 앱도 읽지 않는다(옛 계정에 암호문 `real_name_enc` 가 남아 있어도 읽지 않는다). 암호문 열 `real_name_enc` · `kakao_id_enc` 는 grant 하지 않는다(`20261011010000`) — 읽기는 서버가 `service_role` 로 `decrypt_profile_private` 를 불러서만 한다(§3). 평문 `real_name` · `kakao_id` 열은 없다(`20261012010000` 이 지웠고 그 컬럼 grant 도 함께 사라졌다) |
 | `student_verification_attempts` | 없음 | FastAPI 전용 — 본인 반려 사유는 FastAPI 응답으로 내려주고, 재시도 횟수는 행 수로 FastAPI 가 센다(§12-4) |
 | `profile_photos` · `profile_avatars` · `survey_answers` | 본인 행 (`profile_id`) | |
 | `profile_vectors` | 없음 | FastAPI 전용 |
@@ -246,7 +246,7 @@ erDiagram
 
     profile_private {
         uuid profile_id PK, FK "조각1"
-        bytea real_name_enc "2026-10-11 적용 · 민감 · 실명 pgcrypto 암호문(3b 입력 · 학생증 이름 대조 · 본인만 16e 조회) · 키 PHONE_ENCRYPTION_KEY · grant 없음 · 2026-10-12 M2 뒤 실명의 유일한 저장소"
+        bytea real_name_enc "2026-10-11 적용 · 민감 · 실명 pgcrypto 암호문(학생증 인증 시절에 받은 옛 값만 남아 있다 — 새로 받지 않고 서버도 내려주지 않는다) · 키 PHONE_ENCRYPTION_KEY · grant 없음"
         bytea phone_number "조각2 · 민감 · 04-1 · pgcrypto 암호문"
         bytea phone_hmac "조각6 적용 · 민감 · 지인 차단 · 추천 같은 번호 대조 · 유니크 안 검(검토5 해결)"
         smallint phone_hmac_key_version "조각6 적용 · 기본 1 · 같은 버전끼리만 대조"
@@ -332,7 +332,7 @@ erDiagram
 - `profiles.university_id` 는 `on delete restrict` — 프로필이 남아 있는 대학은 지울 수 없다. `university_email_domains` 는 대학을 따라 cascade 로 지워진다
 - `universities.name` 은 unique 다(시드가 이름으로 도메인을 짝짓는다). `university_email_domains.domain` 은 소문자 도메인 형식 check `^[a-z0-9-]+(\.[a-z0-9-]+)+$`. 도메인 1개는 대학 1개에만 속하고, 서울 밖 캠퍼스도 따로 나누지 않는다(§11-10)
 - 조각 4에서 `universities.region_group` 에 `region_group_settings` FK 를 걸 때는 같은 마이그레이션에서 `seoul` 행을 먼저 넣는다
-- 민감 값(`real_name` · `phone_number` · `phone_hmac` · `kakao_id`)은 `profile_private` 로 분리했다. 서버 코드가 남의 프로필을 `select *` 로 읽어도 민감 값이 딸려 나오지 않는다. 접근 감사 로그는 테이블 없이 FastAPI 구조화 로그로 남긴다(§11-13). 운영자도 FastAPI 관리 기능으로만 조회하고 Supabase 대시보드·SQL 로 직접 보지 않는다(§11-18)
+- 민감 값(실명 암호문 `real_name_enc` · `phone_number` · `phone_hmac` · 카카오톡 아이디 암호문 `kakao_id_enc`)은 `profile_private` 로 분리했다. 서버 코드가 남의 프로필을 `select *` 로 읽어도 민감 값이 딸려 나오지 않는다. 접근 감사 로그는 테이블 없이 FastAPI 구조화 로그로 남긴다(§11-13). 운영자도 FastAPI 관리 기능으로만 조회하고 Supabase 대시보드·SQL 로 직접 보지 않는다(§11-18)
 - **실명 · 카카오톡 아이디 암호화(M1 `20261011010000`, 결정 §11-29)** — 전화번호와 같은 `pgp_sym_encrypt` · 같은 키(`PHONE_ENCRYPTION_KEY`, FastAPI Secret Manager 전용)로 `real_name_enc` · `kakao_id_enc`(`bytea`)에 둔다. 함수는 `set_real_name` · `set_kakao_id` · `decrypt_profile_private` 셋 — 전부 security invoker, `service_role` 만 실행, 키는 RPC JSON 바디로만(세부 `docs/SUPABASE.md` §8). 평문 열은 M2 로 없어졌다(아래 줄)
 - **M2 운영 적용(2026-10-12, `20261012010000` · 운영 기록 버전 `20261012070722`, ERD_DECISIONS §11-30)** — 평문 열 `text real_name`(조각 1) · `text kakao_id`(조각 2)를 지워 위 그림에서도 뺐고, 그 설명(3b 입력 · 학생증 이름 대조 · 본인만 16e 조회 / 04-1b 필수 입력 · 신뢰 확인 통과 뒤 상대에게만 · 주인이 `withdrawn` 이면 주지 않음)은 암호문 열 줄로 옮겼다. 함수는 `set_real_name` · `set_kakao_id` · `decrypt_profile_private` 셋만 남았다. 서버(리비전 `00063` 부터)는 복호화로만 읽고 실패를 오류로 올린다(`docs/SUPABASE.md` §8). `authenticated` 의 `select (real_name)` 컬럼 grant 는 열과 함께 사라졌다. 되돌릴 수 없다 — 롤백 마이그레이션 · 사용자 백업 없음(`backend/DEPLOY.md` §4-4)
 - `student_verification` 은 boolean이 아니라 상태값(`none` `pending` `verified` `rejected`, 2026-09-14 확정)이다. 3b의 "조금 더 확인이 필요해요" 대기 상태를 담아야 하기 때문이다
@@ -684,7 +684,7 @@ erDiagram
 - **`referrals`(2026-09-28 적용)**: RLS 켬 · 정책 0 · `service_role` 만. 두 FK `on delete cascade`, check `referrals_not_self`, 인덱스 `referrals_referrer_id_index`. DB 함수 `redeem_referral(referee, code)` 가 코드 검사 → 행 넣기 → 양쪽 `grant_hearts(50, 'referral', ref_id = referee_id)` 를 한 트랜잭션에 한다. 같은 번호 두 갈래(추천인과 같은 번호 · 이 번호로 이미 보상받음)와 자기 코드는 같은 422 로 막는다 — `phone_hmac` 이 빈 옛 계정은 비교하지 않는다. 정지 · 탈퇴 추천인 코드는 404
 - **`heart_task_submissions`(2026-09-28 적용)**: 부분 unique `heart_task_submissions_one_reviewing (profile_id, task) where status = 'submitted'`(항목마다 검수 중 하나) · 인덱스 `(profile_id, created_at)`. 함수 `heart_task_monthly_limit`(1 · 3) · `heart_task_status`(18a 상태, 한국 시간 달력 월) · `submit_heart_task`(검수 중 `CM409` · 한도 `CM429`). 트리거 `heart_task_submissions_guard`(고정 칸 · 끝 상태 · `reviewed_at` 찍기 · 검수 뒤엔 `storage_path → null` 만) · `heart_task_submissions_grant`(검수 중 → 승인일 때만 `grant_hearts(reward_hearts, 'free_task', id)`). 운영자는 대시보드에서 `status` 를 바꾼다(`backend/DEPLOY.md` §4-5)
   - **인증샷 여러 장 · 단톡방 이어서 제출(마이그레이션 `20261019100000`, 운영 적용) — 바로 위 문장 중 아래가 이 마이그레이션으로 바뀌었다.** ① `storage_path text` 는 **`storage_paths text[] not null default '{}'`** 로 바뀌었다(check `heart_task_submissions_paths_max` 0~3개 · `heart_task_submissions_proof_while_reviewing`: 검수 중이면 1~3개). 옛 줄은 `array[storage_path]` 로 채웠고 옛 칸과 옛 check 는 지웠다. ② 부분 unique `heart_task_submissions_one_reviewing` 을 **지웠다** — 단톡방은 검수 중이어도 월 한도 안이면 이어서 낼 수 있다. ③ `submit_heart_task(p_id, p_profile, p_task, p_paths text[], p_reward, p_now)` 로 인자가 바뀌어 옛 함수를 지우고 새로 만들었다: **사람 · 항목마다 `pg_advisory_xact_lock`** 아래에서 이번 달 `검수 중 + 승인` 이 한도에 찼는지 보고, 찼고 검수 중이 있으면 `CM409`(결과를 기다려 달라), 없으면 `CM429`(이번 달 끝), 경로가 0개 · 4개 이상이면 `22023`. ④ guard 트리거는 검수 중에는 `storage_paths` 를 고정하고 검수가 끝난 뒤에는 `'{}'` 로 비우기만 허용한다(60일 정리). `heart_task_status`(18a 상태) · 월 한도 함수 · 승인 트리거 · `admin_review_heart_task` 는 그대로다. 배포 순서 주의: 옛 서버는 `storage_path` · `p_path` 를 쓰므로 마이그레이션 직후 서버를 바로 배포해야 하고, 서버만 이전 리비전으로 되돌리면 깨진다(`backend/DEPLOY.md` §4-14).
-- **`grant_hearts` 가 음수(하트 쓰기)도 받는다**(2026-09-28 `20260928020000`, 시그니처 그대로) — 아바타 다시 만들기 10하트 차감 등(**20하트**, 2026-10-14 사용자 결정 — 금액은 서버 상수 `AVATAR_REGEN_HEARTS` 라 스키마 변경 없음. FAQ 답변 두 곳의 숫자만 `20261014120000_faq_avatar_regen_cost_20` 이 고쳤다)
+- **`grant_hearts` 가 음수(하트 쓰기)도 받는다**(2026-09-28 `20260928020000`, 시그니처 그대로) — 아바타 다시 만들기 **20하트** 차감 등(**20하트**, 2026-10-14 사용자 결정 — 금액은 서버 상수 `AVATAR_REGEN_HEARTS` 라 스키마 변경 없음. FAQ 답변 두 곳의 숫자만 `20261014120000_faq_avatar_regen_cost_20` 이 고쳤다)
 - 커뮤니티 투표 하트는 자동 적립(`heart_transactions.reason = poll_vote`), 주간 상한은 원장 집계로 검사 — **하루 첫 투표 5하트 · 주간 상한 15하트**(`20261016144525`, 2026-10-16 사용자 확정, 원장 합 + 5 ≤ 15). 에브리타임 보상은 서버 상수 40 이 제출 행의 `reward_hearts` 로 적힌다(스키마 변경 없음)
 - 추천 어뷰징 "동일 기기 차단"(설계 §2.7)을 판단할 기기 식별값의 저장처가 아직 없다 — 검토6
 

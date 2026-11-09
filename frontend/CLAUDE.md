@@ -73,7 +73,7 @@
 
 **수집 · 분석 규칙** (Firebase Analytics · Crashlytics · Performance)
 
-- **약관 동의(02-c) 전에는 수집하지 않는다.** `AndroidManifest.xml` `firebase_analytics_collection_enabled` · `firebase_crashlytics_collection_enabled` · `firebase_performance_collection_enabled` = false, `Info.plist` `FIREBASE_ANALYTICS_COLLECTION_ENABLED` · `FirebaseCrashlyticsCollectionEnabled` · `FIREBASE_PERFORMANCE_COLLECTION_ENABLED` = false 로 꺼 두고, 동의를 마친 로그인 사용자일 때만 앱이 켠다 (`lib/core/analytics/collection_consent.dart`, `main.dart` `_syncCollection`).
+- **약관 동의(02-c) 전에는 수집하지 않는다.** `AndroidManifest.xml` `firebase_analytics_collection_enabled` · `firebase_crashlytics_collection_enabled` · `firebase_performance_collection_enabled` = false, `Info.plist` `FIREBASE_ANALYTICS_COLLECTION_ENABLED` · `FirebaseCrashlyticsCollectionEnabled` · `firebase_performance_collection_enabled`(이 키만 소문자) = false 로 꺼 두고, 동의를 마친 로그인 사용자일 때만 앱이 켠다 (`lib/core/analytics/collection_consent.dart`, `main.dart` `_syncCollection`).
 - **성능 측정은 자동 수집(앱 시작 시간 · 화면 렌더링)만 쓴다.** 사용자 지정 추적(`HttpMetric` · `Trace`)은 만들지 않는다 (서버 요청 주소에 계정 번호가 섞일 수 있다).
 - **광고 식별자 · 광고 맞춤은 쓰지 않는다.** 안드로이드 `google_analytics_adid_collection_enabled` · `google_analytics_default_allow_ad_personalization_signals` = false 와 `AD_ID` 권한 제거, iOS `GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_PERSONALIZATION_SIGNALS` = false. Flutter 3.47 이 Firebase 를 SPM 으로 가져와 Podfile 의 `$FirebaseAnalyticsWithoutAdIdSupport` 줄은 iOS 에서 듣지 않는다 — 광고 식별자 부품(`GoogleAppMeasurementIdentitySupport` · `GoogleAdsOnDeviceConversion`)을 빼는 것은 워크플로 잡 env `FIREBASE_ANALYTICS_WITHOUT_ADID=true`(`ios-testflight.yml` · `ios-build.yml`)가 맡는다. **맥에서 직접 `flutter build ios` / `flutter build ipa` 할 때도 이 환경변수를 줘야 한다.**
 - **개인정보는 보내지 않는다.** 사용자 id · 속성 · 오류 사용자 키를 설정하지 않고, 이벤트 매개변수는 정해진 종류값(`lib/core/analytics/analytics_values.dart`) · 작은 정수 · 상품 ID 뿐이다. 앱이 버틴 API 오류(5xx · 연결 실패 · 시간 초과)의 비치명 Crashlytics 기록은 종류 · 상태 코드 · 경로 패턴만 보낸다.
@@ -83,7 +83,7 @@
 
 ### 2.2 빌드 · 운영 규칙
 
-- **안드로이드 릴리스 빌드 전에 같은 셸에서 `export KAKAO_NATIVE_APP_KEY=...` 를 한다.** `android/app/build.gradle.kts` 가 환경변수 → `android/local.properties` → 빈 문자열 순으로 읽어 매니페스트 `kakao<키>` 스킴을 채우고, 이 값은 `--dart-define` 과 **별개**다. 환경변수가 비면 릴리스 빌드(`assembleRelease` · `bundleRelease`)가 `KAKAO_NATIVE_APP_KEY 가 비었습니다` 로 실패한다 (디버그 빌드는 그대로). 빌드 뒤 AAB 매니페스트에서 스킴이 채워졌는지 확인한다. 절차는 `run.md` "AAB 빌드".
+- **안드로이드 릴리스 빌드 전에 같은 셸에서 `export KAKAO_NATIVE_APP_KEY=...` 를 한다.** `android/app/build.gradle.kts` 가 환경변수 → `android/local.properties` → 빈 문자열 순으로 읽어 매니페스트 `kakao<키>` 스킴을 채우고, 이 값은 `--dart-define` 과 **별개**다. 환경변수가 비면 릴리스 빌드(`assembleRelease` · `bundleRelease`)가 `KAKAO_NATIVE_APP_KEY 가 비었습니다` 로 실패한다 (디버그 빌드는 그대로). 빌드 뒤 AAB 매니페스트에서 스킴이 채워졌는지 확인한다. versionCode 는 `--build-number` 로 업로드마다 +1 하고, 빌드 뒤 매니페스트 `versionName` 도 확인한다. 절차는 `run.md` "AAB 빌드".
 - **앱 버전 이름은 pubspec 이 아니라 `--build-name` 으로 정한다** — 빼면 1.0.0 으로 기록돼 나중에 서버 `MIN_APP_VERSION` 에 갇힌다.
 - iOS TestFlight 워크플로(`ios-testflight.yml`)는 `build_name` 입력으로 버전 이름을 받고, 업로드가 끝나면 Crashlytics 에 dSYM 도 올린다 (실패해도 잡은 성공 + 노란 경고만, `run.md` "iOS TestFlight").
 - **구글 심사 대응으로 운영 DB 에 시험 데이터**(가상 계정 20 · 카드 1 · 채팅방 3, 심사원 로그인 계정 포함)가 들어 있다. 제거 전에는 e2e 하네스의 전체 cleanup 을 돌리지 않는다. 하네스는 `E2E_ENV` 가 운영이 아니면 `require_cloud` 가 gcloud 를 부르는 길을 막는다(로컬 안전장치). 제거는 심사 통과를 확인한 뒤 사용자에게 먼저 묻고, 심사원 비밀번호를 무작위로 바꿔 막은 다음에 한다 (`../backend/DEPLOY.md` §4-16. 되돌리기 스크립트는 저장소 밖 바탕화면 `E2E_결과\심사용_시험계정_10-27\`).
@@ -281,15 +281,15 @@ if (status == statusPending) { ... }   // 대기 상태일 때만 처리
   | `app_icons.dart` | `AppIcons` | §5.3 Lucide 이름 매핑 |
   | `app_theme.dart` | `AppTheme` | 위를 조립한 `ThemeData light()` |
 
-- **아이콘은 Lucide (`lucide_icons`)** 로 통일한다. 위젯에서 `LucideIcons.*` 를 직접 부르지 않고 `AppIcons` 상수를 거친다 (DESIGN.md §5.3)
+- **아이콘은 Lucide (`lucide_icons_flutter`)** 로 통일한다. 위젯에서 `LucideIcons.*` 를 직접 부르지 않고 `AppIcons` 상수를 거친다 (DESIGN.md §5.3)
   - **예외: 하트 재화 글리프.** 잔액·번들·리워드·CTA·아바타 코스트·설정 보유하트 등 "재화" 의미의 하트는 Lucide 가 아니라 이미지 자산 `assets/images/heart-flat-vector-v3.png` 를 쓴다 (DESIGN.md §5.4·§8.10). 바텀 내비 오늘 탭·호감 하트·매칭 기록 등 비(非)재화 하트는 계속 Lucide `heart`. 재화 글리프는 다크 배경에서도 읽히는 렌더 + `@2x`/`@3x` 자산 + `Semantics(label: '하트')` 를 갖춘다
 - **버튼은 공용 `AppButton`(`common/widgets/app_button.dart`, pen Button `HE8FZ`)을 그대로 쓰고 라벨 크기를 화면에서 바꾸지 않는다.** 라벨은 16/700(`AppTypography.button`) — 채움 버튼은 높이 52 · 모서리 14, text 변형은 높이 48 · 16/600, 탈퇴 시트 `neutral` 만 18/700 이다(DESIGN.md §8.3). 10b · 받은 신청 프로필 보기의 아이콘 결정 버튼은 `AppTypography.label` 18/700 이다. `{colors.primary}` (#FF385C) 위 흰 글씨는 대비 3.52:1 이라 큰 글씨 예외(18.66px 이상 굵은 글씨)에 의존해야 하는데 16/700 은 그 예외에 들지 않는다 — 미결이다(DESIGN.md §2.1 · §8.3 · §13-151)
 - **`{colors.primary}` 는 채움 전용.** 흰 배경 위 텍스트에는 `{colors.primary-text}` (#C4224B) 를 쓴다
-- **사용자는 전 화면에서 닉네임으로만 표시한다. 실명(`real_name`)은 서버 응답에 담지 않는다** (DESIGN.md §8.7 · 설계 문서 §7.3, ERD.md §11-2). 실명은 `profile_private`(민감 컬럼, 암호문)에만 있고 본인 조회(16e)만 허용한다. `김○○` 같은 마스킹 표시는 쓰지 않는다
+- **사용자는 전 화면에서 닉네임으로만 표시한다. 실명(`real_name`)은 서버 응답에 담지 않는다** (DESIGN.md §8.7 · 설계 문서 §7.3, ERD.md §11-2). 실명은 받지도 보이지도 않는다 — 학생증 인증 제거(2026-10-17) 뒤 서버 `GET /account` 도 싣지 않고 앱도 읽지 않는다(옛 계정의 암호문이 `profile_private.real_name_enc` 에 남아 있어도 읽지 않는다). `김○○` 같은 마스킹 표시는 쓰지 않는다
 - **`MediaQuery.disableAnimations` 를 존중한다.** 켜져 있으면 모든 모션 시간을 0으로 만들고 최종 상태를 즉시 그린다
 - **글자 크기는 `AppTypography` 토큰으로만 정한다.** 기준은 48 · 32 · 24 · 20 · 18 · 16 · 14 · 12 · 10(모두 짝수)이고, 화면에 `fontSize: 숫자` 를 쓰지 않는다 — 토큰을 쓰고 굵기 · 줄 높이만 `copyWith` 로 바꾼다. `test/core/theme/font_size_tokens_test.dart` 가 `lib/core/theme` 밖의 `fontSize:` 를 잡는다(예외는 `auth/social/view/social_login_button.dart` 카카오 · 구글 공식 버튼 한 파일). DESIGN.md §3.2
 - **움직이는 그림(Lottie)은 `AppLottieView`(`lib/common/widgets/app_lottie_view.dart`) 한 곳으로만 부른다.** `package:lottie` 를 다른 파일에서 부르면 `test/common/widgets/app_lottie_view_test.dart` 가 실패한다. 장면은 `AppLottie` 표(`core/theme/app_lottie.dart`)에 한 줄 더하고 화면은 경로 글자를 직접 쓰지 않는다. 에셋은 `assets/lottie/<이름>.json` + 그림 `assets/lottie/images/<이름>/`(json 의 그림 폴더 `assets[].u` 가 `images/<이름>/` — 폴더 항목은 하위 폴더를 담지 않아 pubspec 에 그림 폴더를 따로 적는다). 크기 예산은 json 100KB · 장면 하나(그림 포함) 400KB. 색은 그림 속 색 그대로 둔다(앱 토큰으로 바꾸지 않는다). "동작 줄이기" 면 장면마다 정한 멈춤 프레임에 선다. 지킴 시험 `test/core/theme/app_lottie_test.dart`. DESIGN.md §7
-- **눌림 효과(잉크)는 움직이는 쪽 안에 가둔다** — `InkWell` 등을 스크롤 · 페이지 · 애니메이션 안에 둘 때는 `Material(type: MaterialType.transparency)` 로 감싼다 (`.claude/team/COMMON.md` §4-2). 새 화면을 만들 때와 리뷰할 때마다 본다
+- **눌림 효과(잉크)는 움직이는 쪽 안에 가둔다** — `InkWell` 등을 스크롤 · 페이지 · 애니메이션 안에 둘 때는 `Material(type: MaterialType.transparency)` 로 감싼다. 새 화면을 만들 때와 리뷰할 때마다 본다
 
 ### 7.2 화면 문구 · 에러 문구 (ARB)
 
