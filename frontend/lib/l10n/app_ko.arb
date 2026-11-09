@@ -266,6 +266,7 @@
   "errorFriendCodeTryLater": "잠시 후 다시 시도해 주세요.",
   "errorFriendReviewAlreadyWritten": "이미 리뷰를 남겼어요",
   "errorGraduateEmailInvalid": "이전 학교 메일 형식을 다시 확인해 주세요",
+  "errorHeartTaskMonthlyLimit": "이번 달에는 더 인증할 수 없어요",
   "errorHeightRange": "120~230 사이로 입력해 주세요",
   "errorLoginCancelled": "로그인이 취소됐어요",
   "errorMeLoad": "잠시 뒤 다시 시도해 주세요",
