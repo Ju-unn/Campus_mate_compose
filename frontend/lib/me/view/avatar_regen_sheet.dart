@@ -61,8 +61,8 @@ class _AvatarRegenSheet extends StatelessWidget {
     if (heartBalance < cost) {
       // 제목은 서버 HEARTS_NOT_ENOUGH 와 같은 글(계획서 C8).
       return (
-        l10n.meAvatarRegenSheetShortTitle,
-        l10n.meAvatarRegenSheetShortBody(cost: cost, balance: heartBalance),
+        l10n.commonHeartsShortTitle,
+        l10n.commonHeartsShortBodyWithBalance(cost: cost, balance: heartBalance),
         _ChoiceButton(label: l10n.meAvatarRegenSheetCharge, choice: AvatarRegenChoice.chargeHearts, heart: const _HeartGlyph()),
       );
     }
