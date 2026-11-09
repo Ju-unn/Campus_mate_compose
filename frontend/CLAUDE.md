@@ -86,7 +86,7 @@
 - **안드로이드 릴리스 빌드 전에 같은 셸에서 `export KAKAO_NATIVE_APP_KEY=...` 를 한다.** `android/app/build.gradle.kts` 가 환경변수 → `android/local.properties` → 빈 문자열 순으로 읽어 매니페스트 `kakao<키>` 스킴을 채우고, 이 값은 `--dart-define` 과 **별개**다. 환경변수가 비면 릴리스 빌드(`assembleRelease` · `bundleRelease`)가 `KAKAO_NATIVE_APP_KEY 가 비었습니다` 로 실패한다 (디버그 빌드는 그대로). 빌드 뒤 AAB 매니페스트에서 스킴이 채워졌는지 확인한다. 절차는 `run.md` "AAB 빌드".
 - **앱 버전 이름은 pubspec 이 아니라 `--build-name` 으로 정한다** — 빼면 1.0.0 으로 기록돼 나중에 서버 `MIN_APP_VERSION` 에 갇힌다.
 - iOS TestFlight 워크플로(`ios-testflight.yml`)는 `build_name` 입력으로 버전 이름을 받고, 업로드가 끝나면 Crashlytics 에 dSYM 도 올린다 (실패해도 잡은 성공 + 노란 경고만, `run.md` "iOS TestFlight").
-- **구글 심사 대응으로 운영 DB 에 시험 데이터**(가상 계정 20 · 카드 1 · 채팅방 3, 심사원 로그인 계정 포함)가 들어 있다. 제거 전에는 e2e 하네스의 전체 cleanup 을 돌리지 않는다. 제거는 심사 통과를 확인한 뒤 사용자에게 먼저 묻고, 심사원 비밀번호를 무작위로 바꿔 막은 다음에 한다 (`../backend/DEPLOY.md` §4-16. 스크립트는 저장소 밖).
+- **구글 심사 대응으로 운영 DB 에 시험 데이터**(가상 계정 20 · 카드 1 · 채팅방 3, 심사원 로그인 계정 포함)가 들어 있다. 제거 전에는 e2e 하네스의 전체 cleanup 을 돌리지 않는다. 하네스는 `E2E_ENV` 가 운영이 아니면 `require_cloud` 가 gcloud 를 부르는 길을 막는다(로컬 안전장치). 제거는 심사 통과를 확인한 뒤 사용자에게 먼저 묻고, 심사원 비밀번호를 무작위로 바꿔 막은 다음에 한다 (`../backend/DEPLOY.md` §4-16. 되돌리기 스크립트는 저장소 밖 바탕화면 `E2E_결과\심사용_시험계정_10-27\`).
 - **웹 버전은 계획이다(구현 전).** 앱은 그대로 운영하면서 웹을 더한다 — 방식 A(`frontend/` 코드를 같이 쓰고 웹에서 안 되는 부분만 웹용 파일로 나눈다). **앱 쪽 기존 파일은 지우거나 바꾸지 않고 옆에 더한다**, 별도 브랜치, 합치기 전 `flutter.yml` · `ios-build.yml` 통과, **패키지 추가는 하나씩 사용자 승인**. 근거 · 막힐 곳: `../docs/decisions/2026-10-27-web-version-decision.md`.
 
 ### 2.3 기능 규칙 모음
@@ -283,7 +283,7 @@ if (status == statusPending) { ... }   // 대기 상태일 때만 처리
 
 - **아이콘은 Lucide (`lucide_icons`)** 로 통일한다. 위젯에서 `LucideIcons.*` 를 직접 부르지 않고 `AppIcons` 상수를 거친다 (DESIGN.md §5.3)
   - **예외: 하트 재화 글리프.** 잔액·번들·리워드·CTA·아바타 코스트·설정 보유하트 등 "재화" 의미의 하트는 Lucide 가 아니라 이미지 자산 `assets/images/heart-flat-vector-v3.png` 를 쓴다 (DESIGN.md §5.4·§8.10). 바텀 내비 오늘 탭·호감 하트·매칭 기록 등 비(非)재화 하트는 계속 Lucide `heart`. 재화 글리프는 다크 배경에서도 읽히는 렌더 + `@2x`/`@3x` 자산 + `Semantics(label: '하트')` 를 갖춘다
-- **버튼은 공용 `AppButton`(`common/widgets/app_button.dart`)을 그대로 쓰고 라벨 크기를 화면에서 바꾸지 않는다.** 라벨은 16/700(`AppTypography.button`) — 채움 버튼은 높이 52 · 모서리 14, text 변형은 높이 48 · 16/600, 탈퇴 시트 `neutral` 만 18/700 이다(DESIGN.md §8.3). 10b · 받은 신청 프로필 보기의 아이콘 결정 버튼은 `AppTypography.label` 18/700 이다. `{colors.primary}` (#FF385C) 위 흰 글씨는 대비 3.52:1 이라 큰 글씨 예외(18.66px 이상 굵은 글씨)에 의존해야 하는데 16/700 은 그 예외에 들지 않는다 — 미결이다(DESIGN.md §2.1 · §8.3 · §13-151)
+- **버튼은 공용 `AppButton`(`common/widgets/app_button.dart`, pen Button `HE8FZ`)을 그대로 쓰고 라벨 크기를 화면에서 바꾸지 않는다.** 라벨은 16/700(`AppTypography.button`) — 채움 버튼은 높이 52 · 모서리 14, text 변형은 높이 48 · 16/600, 탈퇴 시트 `neutral` 만 18/700 이다(DESIGN.md §8.3). 10b · 받은 신청 프로필 보기의 아이콘 결정 버튼은 `AppTypography.label` 18/700 이다. `{colors.primary}` (#FF385C) 위 흰 글씨는 대비 3.52:1 이라 큰 글씨 예외(18.66px 이상 굵은 글씨)에 의존해야 하는데 16/700 은 그 예외에 들지 않는다 — 미결이다(DESIGN.md §2.1 · §8.3 · §13-151)
 - **`{colors.primary}` 는 채움 전용.** 흰 배경 위 텍스트에는 `{colors.primary-text}` (#C4224B) 를 쓴다
 - **사용자는 전 화면에서 닉네임으로만 표시한다. 실명(`real_name`)은 서버 응답에 담지 않는다** (DESIGN.md §8.7 · 설계 문서 §7.3, ERD.md §11-2). 실명은 `profile_private`(민감 컬럼, 암호문)에만 있고 본인 조회(16e)만 허용한다. `김○○` 같은 마스킹 표시는 쓰지 않는다
 - **`MediaQuery.disableAnimations` 를 존중한다.** 켜져 있으면 모든 모션 시간을 0으로 만들고 최종 상태를 즉시 그린다
