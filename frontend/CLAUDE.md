@@ -1,6 +1,6 @@
 # CLAUDE.md — CampusMate
 
-이 문서는 **CampusMate** 프로젝트에서 코드를 작성하거나 수정할 때 반드시 따라야 하는 규칙을 정의한다.
+이 문서는 **CampusMate** 프로젝트에서 코드를 작성하거나 수정할 때 반드시 따라야 하는 **지금 규칙**을 정의한다. 규칙이 바뀐 경위(언제 · 누가 · 어느 PR)는 여기 적지 않는다 — git 이력과 `../docs/decisions/` 결정 기록에 있다.
 
 - **언어**: Dart
 - **프로젝트 형태**: Flutter 앱 (Android + iOS), MVVM + Riverpod
@@ -23,12 +23,13 @@
 3. **dp 값은 화면 비율에 대응시킬 것.** 고정이 맞는 값(아이콘 크기, 코너 반경, 테두리 두께)만 그대로 쓴다.
 4. **애매한 부분은 임의로 결정하지 말고 사용자에게 먼저 질문할 것.**
 5. **하나의 작업이 끝나면 거기서 멈추고 사용자의 검토를 받을 것.**
-6. **MVVM 에 맞게, 기능(조각)별로 패키지를 나눌 것.** 각 기능 아래 `model` / `view` / `viewmodel` 을 둔다.
+6. **MVVM 에 맞게, 기능(조각)별로 패키지를 나눌 것.** 각 기능 아래 `model/{repository,data}` / `view` / `viewmodel` 을 둔다 (§3.2 — auth · profile · billing 은 세부 기능 폴더가 한 층 더 있다).
 7. **모든 비(non-)private 클래스는 테스트를 가질 것.** 테스트 없는 클래스가 포함된 채로 커밋 메시지를 제안하지 않는다.
 8. **새 의존성 추가는 사전에 사용자에게 확인할 것.**
 9. **git 작업(브랜치·커밋·푸시·PR) 전에 `../docs/GIT.md` 를 먼저 읽을 것.** 커밋 메시지는 gitmoji + Conventional Commits 형식, `main` 직접 푸시 금지, 커밋→푸시→draft PR 까지만 하고 merge 는 사용자가 한다.
 10. **코드베이스를 탐색하기 전에 지식 그래프를 먼저 조회할 것** (`../docs/GRAPHIFY.md`). "X 는 어디서 쓰이나", "흐름 추적" 같은 질문은 `python -m graphify query` 가 먼저다. Grep·Read 로 뒤지는 건 그래프가 답을 못 줄 때만. **문서를 고친 작업 끝에는 `/graphify . --update` 를 실행**한다 (코드는 커밋 hook 이 자동 갱신).
 11. **Supabase 작업(스키마·RLS·Storage·Auth) 전에 `../docs/SUPABASE.md` 를 먼저 읽을 것** (금지 규칙 요약은 §10.1). 스키마 변경은 반드시 저장소 루트 `supabase/migrations/*.sql` 파일로 남기고, 프로젝트 URL·키·ref 는 문서와 코드에 쓰지 않는다. **클라우드 쓰기는 매번 사용자가 직접 승인한 뒤에만** 한다.
+12. **화면 문구는 한글을 코드에 쓰지 않고 `lib/l10n/app_ko.arb` 에만 둔다 (§7.2). 에러 상태는 `String` 이 아니라 `Failure?` 로 담는다 (§7.2). 파일을 새로 만들 때는 §3.2 폴더 규칙을 따른다.** 어기면 `test/l10n/` · `test/core/theme/` 의 지킴 시험이 실패한다 (§8 표).
 
 ---
 
@@ -38,48 +39,64 @@
 | --- | --- |
 | 앱 이름 | CampusMate |
 | 패키지명 | `io.github.juunn.campusmate` |
-| 플랫폼 | Android + iOS |
+| 플랫폼 | Android + iOS (웹 버전은 계획 단계 — 아래 "웹 버전") |
 | 프레임워크 | Flutter (Dart) |
 | 상태 관리 | Riverpod (`Notifier`) |
 | 라우팅 | `go_router` |
-| 백엔드 | **FastAPI**(비즈니스 로직) + **Supabase**(Auth·DB·RLS·Storage) — 2026-09-12 확정, 설계 문서 §1·§7 |
+| 백엔드 | **FastAPI**(비즈니스 로직) + **Supabase**(Auth·DB·RLS·Storage) — 설계 문서 §1·§7 |
 | 벡터 검색 | PostgreSQL + pgvector |
 | 임베딩 | OpenAI `text-embedding-3-small` (512차원) |
-| 인증 | 카카오·구글 소셜 로그인(애플은 개발자 계정 승인 뒤, iOS 만) + 학교 메일 6자리 인증코드 1회(가입 때 한 번, 별도 임시 연결로) + **학생증 또는 졸업증명서 사진 검증** — **2026-10-17 사용자 결정으로 학생증 · 졸업증명서 사진 인증을 없앴다(서버 PR #582 · 앱 PR #583, 실명도 받지 않는다). 같은 해 2026-10-19 졸업생 길만 되살렸다: 학교 메일이 없는 졸업생은 졸업증명서 사진 + 관리자 검수(문서확인번호를 발급 기관 사이트에서 조회)로 학교 메일 사람과 같은 상태가 된다 — 서버 스위치 `GRADUATE_VERIFICATION_ENABLED`(코드 기본 꺼짐, 운영은 2026-10-19 에 켰다)가 켜져야 앱에 방법 고르기가 나온다(결정 배경 `docs/decisions/2026-10-19-graduate-verification-decision.md`, 화면 DESIGN.md §9 02-0 ~ 02-g-4).** |
-| 가입 자격 | **연 나이 기준 만 19세 이상**(만 19세가 되는 해 1월 1일부터, 청소년보호법 방식, Asia/Seoul 기준 — 2026-09-13 확정, ERD.md §11-1), 재학생·졸업생 모두 가능. 앱 등급 19+ (설계 문서 §13 미결1). **2026-09-29 사용자 결정으로 문구 개정** — 계산(올해 − 출생연도 ≥ 19)은 그대로, 화면 · 서버에 보이는 문구는 "만 19세 이상" 이 아니라 **"{올해−19}년생부터 가입할 수 있어요"**(2026년이면 "2007년생부터", 해가 바뀌면 저절로 바뀐다 — `basic_info_ui_state.dart` · `profile_onboarding/schemas.py`) |
-| 핵심 형태 | **가변 주기 큐레이션 카드(남녀 중 적은 쪽 활성 인원 5단계 사다리: 50 미만 주 1회 → 50+ 주 2회 → 500+ 주 3회 → 1,000+ 주 4회 → 2,000+ 매일, `backend/app/cards/ladder.py`) + 상호 수락 + 매칭 후 신뢰 확인 게이트.** 2026-10-10: 무료 카드는 점수 상위 80% 구간 무작위(**2026-10-28 사용자 결정으로 개정: 상위 20~90% 구간 무작위, 상위 20% 는 유료 전용**), 유료 카드는 주기마다 상위 20% 사전 선정(`backend/app/matching/band.py` · `backend/app/cards/paid_offer.py`, 설계 문서 §6.8). 카드 결정 버튼은 "대화 신청하기"·대화 탭은 "받은 신청"으로 바뀌었다(main 반영 PR #443, 앱 배포 전 → 2026-11-03 개정: 10-20 제출 빌드(1.0.0)부터 앱에 들어 있다) |
+| 인증 | 카카오·구글 소셜 로그인(애플은 iOS 만) + 학교 메일 6자리 인증코드 1회(가입 때 한 번, 별도 임시 연결로). **학생증 · 졸업증명서 사진 인증과 실명 입력은 없다.** 예외로 **졸업생 길**: 학교 메일이 없는 졸업생은 졸업증명서 사진 + 관리자 검수(문서확인번호를 발급 기관 사이트에서 조회)로 학교 메일 사람과 같은 상태가 된다. 서버 스위치 `GRADUATE_VERIFICATION_ENABLED`(코드 기본 꺼짐, 운영은 켜져 있다)가 켜져야 앱에 인증 방법 고르기가 나온다 (`../docs/decisions/2026-10-19-graduate-verification-decision.md`, 화면 DESIGN.md §9 02-0 ~ 02-g-4) |
+| 가입 자격 | **연 나이 기준 만 19세 이상**(만 19세가 되는 해 1월 1일부터, 청소년보호법 방식, Asia/Seoul 기준 — ERD.md §11-1), 재학생·졸업생 모두 가능. 앱 등급 19+ (설계 문서 §13 미결1). 계산은 올해 − 출생연도 ≥ 19이고, 화면 · 서버에 보이는 문구는 "만 19세 이상" 이 아니라 **"{올해−19}년생부터 가입할 수 있어요"**(해가 바뀌면 저절로 바뀐다 — ARB `errorBirthYear` · `backend/app/profile_onboarding/schemas.py`) |
+| 핵심 형태 | **가변 주기 큐레이션 카드(남녀 중 적은 쪽 활성 인원 5단계 사다리: 50 미만 주 1회 → 50+ 주 2회 → 500+ 주 3회 → 1,000+ 주 4회 → 2,000+ 매일, `backend/app/cards/ladder.py`) + 상호 수락 + 매칭 후 신뢰 확인 게이트.** 무료 카드는 점수 상위 20~90% 구간 무작위, 상위 20% 는 유료 전용. 유료 카드는 주기마다 상위 20% 사전 선정(`backend/app/matching/band.py` · `backend/app/cards/paid_offer.py`, 설계 문서 §6.8). 카드 결정 버튼은 "대화 신청하기", 대화 탭은 "받은 신청". 뽑을 수 있는 후보가 1명뿐이면 유료 제안을 접고 그 사람을 무료 카드로 준다 (설계 §6.8 · §13 미결45, `../backend/DEPLOY.md` §4-21, DESIGN.md §13-154) |
 | 핵심 차별점 | **지인 리뷰** — 추천 코드로 연결된 지인이 남긴 평가를 카드에 노출 (설계 문서 §2.8) |
-| 출시 방식 | **학교별 코호트 순차 오픈** — 14일 모집 후 예고한 날짜에 카드 지급 시작 (설계 문서 §2.9) |
-| 수익 모델 | 가입비 없음(남녀 동일 무료). **하트 1개 = 60원**(2026-09-14 가격 개편, 종전 40원 폐기 — DESIGN.md §13-114), 추가 카드 50하트(**구매 시점은 자유, 지급 주기당 1장**), 아바타 재생성 20하트(최초 1회 무료 — **2026-10-14 사용자 결정으로 개정, 종전 10하트**. 서버 `AVATAR_REGEN_HEARTS`, 앱은 서버 `avatar_regen_cost` 를 그대로 보인다. 온보딩 5회 실패 보상 10하트는 별개) (설계 문서 §2.4). 2026-10-10: 추가 카드(유료 카드)의 서버 · DB 는 운영 반영 완료(PR #440), 앱 UI 는 PR #443 으로 main 반영(앱 배포 전 → 2026-11-03 개정: 10-20 제출 빌드(1.0.0)부터 앱에 들어 있다), 인앱결제는 미구현. **2026-10-13 개정(종전 "인앱결제는 미구현")**: 하트 구매 인앱결제는 **안드로이드(구글 플레이) 구현**(DB PR #498 · 서버 PR #499 운영 반영, 앱 PR #506 main 반영 — 실기기 결제 샌드박스 시험 전), **iOS(애플 결제)는 미구현**이라 iOS 앱은 구매 영역을 숨긴다. 첫 구매 보너스 +50(100하트 이상 · 한 번). DESIGN.md §8.10 · ERD.md §6. **2026-10-14 개정(종전 "iOS(애플 결제)는 미구현 · 구매 영역 숨김")**: iOS 도 **App Store 인앱결제로 하트를 산다**(서버 PR #519 · 앱 PR #520 · 후속 PR #521 main 반영, 사용자 결정 "첫 출시에 포함" — 운영 배포 · TestFlight 샌드박스 시험은 문서 담당이 확인 못 함. **2026-10-14 밤 개정: 서버는 운영 리비전 `00075-gbw` 로 배포됐다(대장 전달 값, `backend/DEPLOY.md` §5)** — TestFlight 샌드박스 시험 결과는 여전히 못 받았다). 구매 영역은 웹 · 데스크톱만 숨긴다. 가격은 안드로이드와 같고 화면은 스토어 가격 우선. DB 변경 없음(`purchases.store = app_store`). 서버 계약 `backend/DEPLOY.md` §4-10 |
-| 채팅 실시간 | **2026-10-13 사용자 결정** — 카톡식 안 읽음 '1'(종전 "읽음 표시 없음" 번복) + 목록 · 안 읽은 수 · '1' 을 사용자 채널 `user:<profile_id>`(Supabase Realtime Broadcast, 서버가 쏜다)로 실시간 반영. 채널이 안 붙으면 폴링(목록 3초 · 읽음 2초)으로 돈다. `backend/DEPLOY.md` §4-8 · ERD.md §4 |
-| 앱 · 서버 의존성(2026-10-13 ~ 14 추가, 사용자 승인) | `flutter_local_notifications ^22.3.2` — 앱이 앞에 있을 때 받은 푸시를 안드로이드 헤드업 알림으로 띄운다(PR #503). 이 패키지 때문에 안드로이드 **core library desugaring**(`coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")`, `android/app/build.gradle.kts`)을 켰다 — gradle 라이브러리가 "새 의존성" 규칙에 걸리는지는 사용자 사후 확인 대상. `in_app_purchase ^3.3.1` — 구글 플레이 하트 구매(PR #506, 승인 원문 "인앱 결제 새 패키지 승인할게" 10-12). **2026-10-14 추가**: 아이폰 하트 구매는 같은 `in_app_purchase` 가 끌고 오는 `in_app_purchase_storekit`(transitive, `pubspec.lock` — 최소 iOS 15.5 라 StoreKit 2)을 쓴다 — **앱 새 패키지는 없다**(`Transaction.unfinished` 를 직접 부르려면 이 패키지를 직접 의존성으로 올려야 해서 하지 않았다). 서버는 **`cryptography>=50`**(`backend/pyproject.toml`, 2026-10-14 사용자 승인) — App Store 서명(JWS) 인증서 체인 검증 · App Store Server API 토큰(ES256) · 탈퇴 때 애플 토큰 철회. google-auth 가 이미 끌고 오던 것을 이름으로 적어 조용히 빠지지 않게 했다 |
-| 앱 의존성(2026-11-02 추가, 사용자 승인) | `package_info_plus ^10.2.2` 설치된 앱의 버전 이름을 읽어 서버 최소 버전(`GET /app/version`, env `MIN_APP_VERSION`)과 견주는 강제 업데이트(`lib/core/app_update/`). 승인 원문: 선택지 「package_info_plus 추가 (추천)」(2026-11-02). lock 에 본체와 `package_info_plus_platform_interface` 둘만 늘었다. |
-| 앱 의존성(2026-11-03 추가, 사용자 승인) | `lottie ^3.8.2`(잠금 3.8.2, xvrh/lottie-flutter) 움직이는 그림(Lottie JSON) — 스플래시 · 아바타 생성 중 · 매칭 성사 · 진행 중 단계 표시(앱 1.0.2). 승인 원문: 「필요한 스킬 설치 및 lottie 라이브러리 ? 설치 승인할게」(2026-11-03). lock 에는 본체와 `archive`(4.6.0) · `posix`(6.5.4) 둘만 늘었고 다른 패키지 버전은 바뀌지 않았다. 다만 lottie 3.8.x 가 Flutter 3.47 이상을 요구해 lock 의 `sdks` Flutter 하한이 `>=3.44.0` → `>=3.47.0` 으로 올랐다(CI · 워크플로는 이미 3.47.3). **앱은 `lib/common/widgets/app_lottie_view.dart`(`AppLottieView`) 하나로만 쓴다** — `lib` 의 다른 파일이 `package:lottie` 를 부르면 `test/common/widgets/app_lottie_view_test.dart` 가 실패한다. 장면 표는 `lib/core/theme/app_lottie.dart`(`AppLottie`, 화면은 경로 글자를 직접 쓰지 않는다), 파일은 `assets/lottie/<이름>.json` + 그림 `assets/lottie/images/<이름>/`(json 의 그림 폴더 `assets[].u` 가 `images/<이름>/` — 폴더 항목은 하위 폴더를 담지 않아 pubspec 에 그림 폴더를 따로 적는다). 크기 예산: json 100KB · 장면 하나(그림 포함) 400KB(`test/core/theme/app_lottie_test.dart` 가 지킨다). 색은 그림 속 색 그대로(앱 토큰으로 바꾸지 않는다). "동작 줄이기"면 장면마다 정한 멈춤 프레임에 선다. |
-| 앱 의존성(2026-11-04 추가, 사용자 승인) | `flutter_localizations`(sdk) · `intl ^0.20.3`(잠금 0.20.3) 을 직접 의존성으로 — 1.0.2 문구 ARB 정리(B8). 승인 원문 「1 승인」(2026-11-04, 대장 전달). **`pubspec.lock` 은 이 둘이 `transitive` → `direct main` 으로 바뀐 두 줄뿐이다**(둘 다 이미 다른 패키지가 끌고 오던 것이라 버전 변화 · 새 패키지 0). 문구 파일은 `lib/l10n/app_ko.arb` **한 파일**(한국어만)이고 `l10n.yaml` 이 `AppLocalizations`(`lib/l10n/app_localizations*.dart`)를 만든다 — **생성 파일은 커밋하지 않는다**(`.gitignore`): `flutter pub get` · `flutter run` · `flutter build` 가 만들고, `flutter test` · `flutter analyze` 만으로는 만들지 않는다(없으면 "Undefined name AppLocalizations") — 그래서 ARB 를 고친 뒤에는 `flutter pub get` 을 먼저 한다(CI 는 `flutter pub get` 으로 시작해 영향 없음). 화면은 `context.l10n.<키>`(`lib/core/l10n/l10n_context.dart` — 한국어 대체가 없다: `l10n.yaml` 의 `nullable-getter: false` 라 위임자가 없으면 바로 실패한다. 그래서 시험의 `MaterialApp` 도 앱처럼 `localizationsDelegates: AppLocalizations.localizationsDelegates` · `supportedLocales: AppLocalizations.supportedLocales` 를 단다 — 도우미 없이 두 줄, 지킴 `test/l10n/test_app_delegates_test.dart`)로 읽고, 에러 문구는 키를 `error` 로 시작해 한 덩어리로 모은 뒤 `lib/core/l10n/error_text.dart` 한 파일에서만 읽는다(사용자 결정 「1」, `context.errorText(failure)` — 뷰모델은 `Failure` 종류만). 앱이 머티리얼 · 쿠퍼티노 한국어 위임자를 켜므로 앱의 기본 영어 글자(뒤로 가기 툴팁 · 새로고침 · 붙여넣기 등)가 한국어로 바뀐다. 비슷한 기능을 묶은 PR 로 차례로 옮겼고(2026-11-04 밤 사용자 결정 「아니다 비슷한 기능 묶어서 하자 1번으로」, 종전 "기능 하나 = PR 하나" 개정 — 묶음은 아래 "앱 1.0.2" 행) **①~⑧ 끝(PR #661 · #667~#670 · #672~#674 · #675 · #677)** — 모든 화면 문구가 ARB 에 있고 `lib/` 전체에서 한글 문자열 리터럴이 금지된다(`test/l10n/no_hangul_literal_test.dart`). 임시 껍데기 `Failure.toDisplayMessage()` 는 ⑧-b 에서 지웠다. ⑧-c(이 PR)에서 시험 위임자도 조였다(사용자 결정 「B안으로 조이기」 2026-11-09 — `l10n.yaml` `nullable-getter: false` · `l10n_context.dart` 의 한국어 대체 삭제 · 시험 `MaterialApp` 에 위임자). |
-| 사용 통계 · 오류 수집 · 성능 측정(2026-10-20 추가, 사용자 승인) | `firebase_analytics ^12.0.1`(잠금 12.6.0) — Firebase Analytics 사용 통계. 승인 원문 **"출시전으로 해 지금 넣어줘"**(2026-10-20, 사용자 직접 지시). `firebase_crashlytics ^5.0.1`(잠금 5.4.0) — 앱이 죽은 기록(오류 수집). 승인 원문 **"1번"**(2026-10-20, 사용자가 "애널리틱스와 같이 크래시리틱스 추가"를 고른 것, 목적 오류 수집). `firebase_performance ^0.11.6`(잠금 0.11.6) — Firebase Performance Monitoring 성능 측정. 승인 원문 **"성능측정도 넣어 지금"**(2026-10-20, 사용자 직접 지시) — **자동 수집(앱 시작 시간 · 화면 렌더링)만 쓴다. 사용자 지정 추적(`HttpMetric` · `Trace`)은 만들지 않는다**(서버 요청 주소에 계정 번호가 섞일 수 있다). 최신 0.12 는 `firebase_core ^5` 를 요구해 현재 `firebase_core ^4` 에 맞는 0.11 대를 골랐다. 셋 다 `firebase_core ^4.1.1` · `firebase_messaging` 과 같은 FlutterFire 묶음이라 다른 패키지 버전은 바뀌지 않았다(`pubspec.lock` 에 8개만 추가: `firebase_analytics` · `firebase_analytics_platform_interface` · `firebase_analytics_web` · `firebase_crashlytics` · `firebase_crashlytics_platform_interface` · `firebase_performance` · `firebase_performance_platform_interface` · `firebase_performance_web`). 안드로이드는 Gradle 플러그인 `com.google.firebase.crashlytics 3.0.8` · `com.google.firebase.firebase-perf 2.0.2`(`android/settings.gradle.kts` · `android/app/build.gradle.kts`)가 필요하다. **약관 동의(02-c) 전에는 수집하지 않는다** — `AndroidManifest.xml` `firebase_analytics_collection_enabled` · `firebase_crashlytics_collection_enabled` · `firebase_performance_collection_enabled` = false, `Info.plist` `FIREBASE_ANALYTICS_COLLECTION_ENABLED` · `FirebaseCrashlyticsCollectionEnabled` · `FIREBASE_PERFORMANCE_COLLECTION_ENABLED` = false 로 꺼 두고, 동의를 마친 로그인 사용자일 때만 앱이 켠다(`lib/core/analytics/collection_consent.dart`, main.dart `_syncCollection`). 광고 식별자 · 광고 맞춤은 쓰지 않는다(안드로이드 `google_analytics_adid_collection_enabled` · `google_analytics_default_allow_ad_personalization_signals` = false 와 `AD_ID` 권한 제거, iOS `GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_PERSONALIZATION_SIGNALS` = false 와 Podfile `$FirebaseAnalyticsWithoutAdIdSupport` — **2026-11-04 밤 개정: iOS 에서는 이 Podfile 줄이 듣지 않는다**(Flutter 3.47 이 Firebase 를 SPM 으로 가져온다). 워크플로 잡 env `FIREBASE_ANALYTICS_WITHOUT_ADID=true` 가 맡도록 고쳤다(PR #665 `fix/ios-dsym-upload`, 2026-11-04 21:06 merge `db1283e9`; PR 의 ios-build 에서 Core 로 컴파일되고 앱 Frameworks 에 두 부품이 없었다 — 대장 전달 값) — 아래 "앱 1.0.2" 행 "광고 식별자 부품"). **개인정보는 보내지 않는다** — 사용자 id · 속성 · 오류 사용자 키를 설정하지 않고, 이벤트 매개변수는 정해진 종류값(`lib/core/analytics/analytics_values.dart`) · 작은 정수 · 상품 ID 뿐이다. **이벤트 이름 · 값 목록 · 보내는 자리는 `docs/ANALYTICS_EVENTS.md` 표가 기준이다 — 이벤트를 더하거나 고치면 이 표도 함께 고친다**(2026-11-02 앱 1.0.1 에서 가입 단계 · 카드 · 하트 상점 · 푸시 열기 · 앱 투어 · 커뮤니티 이벤트와, 앱이 버틴 API 오류(5xx · 연결 실패 · 시간 초과)의 비치명 Crashlytics 기록을 더했다 — 오류는 종류 · 상태 코드 · 경로 패턴만 보낸다). iOS `PrivacyInfo.xcprivacy` 에 제품 상호작용 · 기기 ID · 성능 데이터(분석)와 충돌 데이터(앱 기능)를 연결 안 됨 · 추적 안 함으로 선언했다. 개인정보 처리방침(노션)의 수집 항목 갱신은 이 저장소 밖 일이다(**방침을 고치면 홈페이지 사본 `../site/privacy/index.html` 도 같이 고친다** — `../docs/decisions/2026-10-20-launch-day-decisions.md` §3) |
-| 채팅 상한 | **없음** — 매칭 후 24h/48h 신뢰 확인 게이트가 방치된 대화를 정리 (설계 문서 §2.5). **채팅은 텍스트만, 이미지 전송 불가** |
-
-**현재 상태 (2026-11-03 갱신, 앞 판 2026-10-30; 2026-11-04 밤 두 스토어 상태 개정 포함):** 기능 구현은 끝났고 앱 1.0.0 은 **아직 공개 전 — 두 스토어 심사 · 공개 대기**다(2026-11-03 사용자 확인; 11-02 는 출시 계획일이었다. 2026-11-03 정정: 같은 날 앞 판(PR #644)이 적은 "2026-11-02 에 출시됐다" 는 잘못 전달된 값이었고, 10-30 판의 "스토어 심사 중이다(10-20 제출 뒤 두 스토어의 결과는 이 문서 담당이 확인하지 못했다)" 가 사실에 맞다). 앱 **1.0.1** 은 PR #642 가 merge 됐고(11-03, `61f8c1a5`) 서버도 배포했으며 빌드(안드로이드 AAB vc19 · 아이폰 TestFlight 26)는 만들어 뒀지만 둘 다 제출 전이다 — 1.0.0 이 공개된 뒤 사용자가 제출한다. **같은 날 서버는 두 번 더 배포했다(후속 문서 정리): `00099-7gp`(PR #646, 후보가 1명뿐이면 유료 제안을 접고 무료 카드로) → `00100-jh4`(PR #647, 푸시 고치기 4건 + 업로드 제외 목록 `backend/.gcloudignore`) — 현재 서버 리비전은 `00100-jh4` 이고 두 배포 모두 앱 변경 · DB 변경은 없다(`../backend/DEPLOY.md` §4-21 · §4-22).** 이 줄 아래가 지금의 기준이고, 날짜별로 쌓였던 종전 서술은 문서 맨 아래 "갱신 이력" 에 그대로 있다. **2026-11-04 개정(문서 정리 — 대장 전달 값): 앱 1.0.2 가 main 에 쌓이고 있다.** 1.0.1 빌드(`a793d122`) 뒤에 main 에 들어온 앱 변경(투어 4단계 문구 · 로그아웃 푸시 토큰 · 흡연 "상관없어요" 칸 · 첫 방문 문구 · 06-1 정리 · Lottie · 글자 크기 토큰 · iOS dSYM)은 **모두 앱 1.0.2 로 나가고 아직 빌드 · 제출 전이다** — 아래 "앱 1.0.2" 행. 서버는 2026-11-04 `00101-bc9`(흡연 칸 규칙, 운영 마이그레이션 102개)로 나갔고 배포 창고 정리 규칙이 켜져 되돌림 하한이 `00086` 이 됐다(`../backend/DEPLOY.md` §4-23 · §4-24). 앱 1.0.0 은 여전히 공개 전이다(2026-11-03 사용자 확인 이후 바뀌었다는 전달을 받지 못했다). **2026-11-04 밤 후속 개정(문서 2차 — 대장 전달 값): 두 스토어 상태가 정해졌다.** 구글 Play 가 1.0.0(AAB vc18)을 "기기 인증으로 제한된 로그인" 으로 **반려**했고, 그 대응으로 안드로이드 전용 숨은 심사원 로그인(PR #662, `c64a7df7`)을 넣은 **1.0.2(AAB vc20)** 로 다시 제출했다(사용자가 프로덕션 심사에 제출함 — 「구글 심사 제출했어」 2026-11-04 저녁 — 대장 전달, 관리형 게시, 결과 대기). 애플은 1.0 이 **이미 승인되어 "개발자 출시 대기"** 이고 사용자가 수동 출시로 막아 두었다 — 사용자 결정: 1.0 을 그대로 두고 출시일에 1.0 을 낸 뒤 바로 1.0.2 를 업데이트로 제출한다(TestFlight 27 에는 광고 식별자 부품 2개가 들어 있어 사용자 결정 「1」로 27 대신 28 로 제출 — 아래 "앱 1.0.2" 행). 1.0.1(AAB vc19 · TestFlight 26)은 제출하지 않았다(사용자가 1.0.2 로 제출한다 — 근거: `../docs/decisions/2026-11-04-v102-decisions.md` 16번). 위 "아직 빌드 · 제출 전" 은 이 개정으로 바뀌었다 — 아래 "앱 출시" · "앱 1.0.1" · "앱 1.0.2" 행.
-
-| 영역 | 지금 |
-| --- | --- |
-| 앱 출시 | **2026-11-04 밤 개정(대장 전달 값): 두 스토어 상태가 정해졌다.** ① **구글**: Play 가 1.0.0(AAB vc18)을 "기기 인증으로 제한된 로그인" 사유로 **반려**했다. 대응으로 안드로이드 전용 숨은 심사원 로그인(PR #662, `c64a7df7`, 아래 "앱 1.0.2" 행)을 넣어 **1.0.2(AAB vc20, main `c64a7df7`, 업로드 키 서명 = vc19 와 같은 인증서, 카카오 스킴 채워짐)** 로 다시 제출했다 — 19:04 빌드, 내부 테스트로 올려 플레이에서 받은 앱으로 카카오 · 구글 · 심사원 로그인을 사용자가 확인했고, 사용자가 프로덕션 심사에 제출했다(관리형 게시, 「구글 심사 제출했어」 2026-11-04 저녁 — 대장 전달, 결과 대기). ② **애플**: 1.0 이 **이미 승인되어 "개발자 출시 대기"** 이고 사용자가 수동 출시로 막아 두었다(제출 빌드는 앞 문서대로 TestFlight 25 로 읽는다 — 대장은 버전만 전달했다). 사용자 결정(대장 질문 선택지 1 = "1.0 을 그대로 두고 출시일에 1.0 출시 → 바로 1.0.2 업데이트 제출" 에 대한 사용자 답 「구글vc20부터 해야겟다」, 대장 전달 — 이 답을 선택지 1 로 처리한 것은 대장): 1.0 을 그대로 두고, 출시일에 1.0 을 출시한 뒤 바로 1.0.2(**TestFlight 27**, main `9091964f` — 심사원 입구 없음, 18:30 업로드 성공, 사용자 TestFlight 확인)를 업데이트로 제출할 예정이었으나, **27 에는 광고 식별자 부품 2개(`GoogleAppMeasurementIdentitySupport` · `GoogleAdsOnDeviceConversion`)가 들어 있어 사용자 결정 「1」(2026-11-04, 대장 전달)로 빼기로 했고 애플 1.0.2 는 27 대신 28 로 제출한다**(아래 "앱 1.0.2" 행). 28(run 41826406768)은 2026-11-04 21:20 success — 부품 없음 · dSYM 첫 성공(아래 "앱 1.0.2" 행). ③ **1.0.1**(AAB vc19 · TestFlight 26)은 제출하지 않았다 — 사용자가 1.0.2 로 제출한다 (근거: 결정 기록 16번). **종전 2026-11-03 서술**: **앱 1.0.0 은 아직 공개 전 — 두 스토어 심사 · 공개 대기**(2026-11-03 사용자 확인, 출시 계획일은 11-02 였다. 2026-11-03 정정: 같은 날 앞 판(PR #644)의 "2026-11-02 앱 1.0.0 출시" 는 잘못 전달된 값이었고, 종전 "(10-20 제출 기준) 애플 TestFlight 빌드 25 + 앱 내 구입 5개 심사 대기, 구글 프로덕션 AAB vc18(제출 6) 검토 중" 이 맞는 서술이다) — 심사 · 공개 대기 중인 1.0.0 은 애플 **TestFlight 빌드 25** + 앱 내 구입 5개, 구글 프로덕션 **AAB vc18** 이다. 국가 대한민국만, 수동(관리형) 출시. TestFlight 24 · vc13 ~ vc17 은 폐기(vc17 까지 안드로이드 카카오 복귀 스킴 키가 빈 값이었다 — 아래 "빌드 규칙"). 카드 오픈은 서울 학교 64곳 **2026-11-02(월) 07:00 KST**(시험 학교 1곳만 열림) — **2026-10-28 개정: 운영 DB 에서 이 날짜를 null(열림)로 풀었다**(사용자 원문 「현재 심사 2개다 실패여서 11월2일 이거 그냥 풀어줘 통과하면 정확한 날짜 정해서 다시 막아야할거같아」). 지금 서울 학교 카드는 열려 있다. 심사 통과 뒤 날짜를 정해 다시 막아야 한다 — 1.0.0 이 아직 공개 전이라 지금도 열려 있는 것으로 읽는다(2026-11-03 정정: 앞 판은 "했다는 전달을 받지 못했다(사용자에게 확인할 일)" 로 적었다). 저장소 마이그레이션은 그대로(11-02)라 운영과 다르다 — `../backend/DEPLOY.md` §4-17 |
-| 앱 1.0.1 (2026-11-02 사용자 결정 — 구조 · 문구 정리보다 먼저 낸다) | **PR #642(브랜치 `feat/app-update-101`) 2026-11-03 merge(`61f8c1a5`), 서버 배포 완료(`00098-67v`), 앱 빌드(AAB vc19 · TestFlight 26) 만듦 · 제출 전, DB 변경 없음.** (문서 PR #644 는 `a793d122` — #643 은 base 브랜치가 지워져 자동으로 닫혀 같은 브랜치로 다시 연 것이다.) 담은 것: 학번 칸 숫자 키패드 · 반각 숫자 1~3자리(`auth/school_info/model/data/student_number.dart`) · 키 칸 오류 문구 "120~230 사이로 입력해 주세요" + 맨 앞 0 막기 · 선호 MBTI 안내 "고르지 않거나 둘 다 고르면 상관없어요." 를 토글 아래로(pen `MED5L`) · 오늘 탭 띠 "다음에 만날 사람들"(오늘 · 내일 도착일 때만, `isArrivingSoon`) · 유료 카드 머리글에서 "N명이" 빼기 · **강제 업데이트**(서버 `GET /app/version`, env `MIN_APP_VERSION`, 앱 `lib/core/app_update/`, 화면 pen `zSzOG` 01-2, 새 의존성 `package_info_plus` — 위 의존성 행) · **사용 통계 이벤트 15종 + 앱이 버틴 API 오류(5xx · 연결 실패)의 비치명 Crashlytics 기록**(표 `docs/ANALYTICS_EVENTS.md`) · 안드로이드 릴리스 빌드는 카카오 키가 비면 실패 · iOS TestFlight 워크플로 `build_name` 입력 · lint 규칙 5개(§10) · e2e 하네스 로컬 안전장치(`E2E_ENV` 가 운영이 아니면 `require_cloud` 가 gcloud 를 부르는 길을 막는다). 순서(2026-11-03 현재): 사용자 승인 → merge(끝) → 서버 배포(**`MIN_APP_VERSION` 은 비운 채**, 끝) → AAB `vc19`(`--build-number=19 --build-name=1.0.1`, 매니페스트 `versionName` 1.0.1 · 카카오 스킴 채워짐 · 업로드 키 서명 확인, 바탕화면 `CampusMate_AAB`) · TestFlight 26(`build_name` 1.0.1, 업로드 성공) 만들기(끝) → **두 스토어 제출은 1.0.0 공개 뒤 사용자가 한다(아직 제출 전)** → **2026-11-04 밤 개정: 1.0.1 은 제출하지 않았다** (근거: 결정 기록 16번) — 사용자가 1.0.2 로 제출한다(위 "앱 출시" 행; 1.0.1 빌드 vc19 · TestFlight 26 은 만들어 두기만 했다). 강제 업데이트 코드(`GET /app/version`)는 1.0.2 에도 들어 있으므로, 아래 `MIN_APP_VERSION` 을 올릴 때의 기준 버전은 1.0.2 가 된다(문서 담당 해석 — 올리는 시점은 사용자 결정). **`MIN_APP_VERSION` 은 두 스토어에 고친 빌드가 모두 공개된 뒤에만 올린다**(`../backend/DEPLOY.md` §2 · §4-20). 화면 규칙은 `docs/DESIGN.md` §13-156 |
-| 앱 1.0.2 (2026-11-04 밤 개정: main 에 쌓이고 두 스토어 제출 단계로 들어갔다 — 종전 "진행 중 · 앱 빌드 · 제출은 아직". 1.0.1 다음 앱 업데이트, 사용자 계획 승인 2026-11-03) | **main 에 들어온 것(전부 1.0.1 빌드 `a793d122` 뒤)**: 투어 4단계 문구 "다음 카드는 O요일 오전 7시에 열려요" + 홈페이지 문구(PR #649, `d83c3c62`) · 로그아웃 때 서버에 남던 푸시 토큰 찾아 지우기 L1(PR #650, `566dea71`) · e2e 단위 시험 정리(PR #651, `3e0a13e5`) · iOS TestFlight 뒤 Crashlytics dSYM 올리기 + `build_name` 기본값 1.0.2(PR #652, `c047f453`) · **흡연 "상관없어요" 칸**(서버 PR #653 `9e523699` + DB `profiles.accepts_smoker` + 앱 PR #654 `c8ce12a2`, A6) · 첫 방문 0장 문구 "다음 카드를 준비하고 있어요"(PR #654, A2) · 06-1 머리줄 "1~3개" 오른쪽 끝 + 제목 6개 #3F3F3F(PR #654 · #655 `59b69242`, A3) · 고르는 칸 글자 16/600 · **Lottie**(새 의존성 `lottie`, 공통 구조 + 스플래시 · 아바타 만드는 중 · 매칭 성사 · 단계 스피너 4곳, PR #656 `621db8f9`, A8) · **글자 크기 토큰**(48 · 32 · 24 · 20 · 18 · 16 · 14 · 12 · 10 짝수, badge 10 · subtitle 18, 화면 `fontSize:` 금지 + 지킴 시험, PR #657 `31578a14`, B1). 화면 규칙은 `docs/DESIGN.md` §13-157, 결정 기록은 `../docs/decisions/2026-11-04-v102-decisions.md`, 서버는 `../backend/DEPLOY.md` §4-23 · §4-24. **B7 · B8 · 심사원 로그인 (2026-11-04 밤 개정 — 종전 "진행 중")**: ① **패키지 구조 정리 B7 끝**(사용자 「1」): 1단계 PR #659 `3ce12710`(14개 기능의 `model/` 을 `model/repository` · `model/data` 로), 2단계 PR #660 `b0c60b74`(profile 7 · auth 5 · billing 2 세부 기능으로). 새 폴더 규칙은 아래 §3 에 있다. ② **문구 ARB B8 은 ①~⑧ 끝(PR #661 · #667~#670 · #672~#674 · #675 · #677)**(`flutter_localizations` · `intl` 승인 「1 승인」, 위 의존성 행): PR #661 `9091964f` — 인프라 · 공통 에러 · notifications · faq. 나머지 기능은 비슷한 기능을 묶어 차례로 옮겼다(사용자 결정 「아니다 비슷한 기능 묶어서 하자 1번으로」, 2026-11-04 밤, 종전 "기능 하나 = PR 하나" 를 개정): ① consent + referral + core + common + tour ② graduate + auth + home ③ account + safety + friend_review ④ community + chat ⑤ profile ① 공유 + me ⑥ billing ⑦ matching ⑧ profile ② 나머지(⑧-a) + 마무리(⑧-b — 임시 껍데기 `toDisplayMessage()` 삭제 · 에러 자리 지킴 시험). 이제 `lib/` 전체에서 한글 문자열 리터럴이 금지된다(`test/l10n/no_hangul_literal_test.dart`). **⑧-c(이 PR)에서 시험 위임자도 조였다(사용자 결정 「B안으로 조이기」 2026-11-09 — `l10n.yaml` `nullable-getter: false` · `l10n_context.dart` 의 한국어 대체 삭제 · 시험 `MaterialApp` 에 위임자).** ③ **구글 심사원 로그인**(PR #662 `c64a7df7`, 사용자 결정 「A로 해 로고 7번으로 하자」): 구글 Play 가 1.0.0(vc18)을 "기기 인증으로 제한된 로그인" 으로 반려해, 시작 화면(01) 로고 자리(장면 Rect(10,44,340,180) 를 화면에 cover 로 옮긴 사각형)를 5초 안에 7번 누르면 영어 "Reviewer sign-in" 시트가 열리고 이메일 · 비밀번호로 Supabase `signInWithPassword` 로 들어간다(가입 없음 · 분석 `login` 이벤트 없음 · 낭독기 제외 · 이미 로그인된 상태면 입구 없음). **안드로이드 전용**이다 — iOS · 웹에는 입구가 없다(사용자 결정 「애플은 그러면 기존 방식으로 하면 될거같아 / 애플은 넣지말자 기록해도」, 애플 가이드라인 2.3.1 숨은 기능 규칙). **서버 · DB 코드 변경은 없다** — 기존 심사용 계정(id 앞 8자 `acdbb0fc`)에 운영 Auth 관리자 API 로 비밀번호를 붙였다(운영 쓰기, 사용자 승인; 값은 저장소에 적지 않는다, `../backend/DEPLOY.md` §4-16). `LabeledField` 에 `obscureText`(기본 false), ARB 키 `authSocialReviewer*` 5개(영어 그대로), 오류 문구는 `errorText` 그대로라 한국어다. **심사 통과 뒤 비밀번호를 무작위로 바꿔 막는다.** 심사원이 탈퇴하면 되돌릴 수 없어 심사 안내문에 금지로 적었다. pen 시안은 없다(`docs/DESIGN.md` §9 01-3 · §13-158). 입구와 소셜 버튼이 겹치지 않는지 지키는 시험은 PR #663(`376216d6`, `start_view_test.dart`)으로 들어갔다. **빌드 · 제출 (2026-11-04 밤, 대장 전달 값)**: **TestFlight 27**(1.0.2, main `9091964f` — 심사원 입구가 없는 판) 18:30 업로드 성공, 사용자가 TestFlight 에서 확인했다. **TestFlight 28**(1.0.2, main `db1283e9`, 광고 식별자 부품 제거판)은 2026-11-04 21:20 success — 업로드 "EXPORT SUCCEEDED", dSYM 단계 로그 "Successfully uploaded Crashlytics symbols"(dSYM 첫 성공), 확인 단계의 앱 Frameworks 목록에 `GoogleAppMeasurementIdentitySupport` · `GoogleAdsOnDeviceConversion` 없음, `##[warning]` 0건(대장이 gh 로 직접 확인). **AAB vc20**(1.0.2, main `c64a7df7`, 업로드 키 서명 = vc19 와 같은 인증서, 카카오 스킴 채워짐) 19:04 빌드, 내부 테스트로 올려 플레이에서 받은 앱으로 카카오 · 구글 · 심사원 로그인을 사용자가 확인했고 사용자가 프로덕션 심사에 제출했다(관리형 게시, 「구글 심사 제출했어」 2026-11-04 저녁 — 대장 전달, 결과 대기). 애플 1.0 은 승인 · 출시 대기라 출시일에 1.0 을 내고 바로 1.0.2 를 업데이트로 제출한다 — 제출 빌드는 27 이 아니라 **28**(위 "앱 출시" 행). **광고 식별자 부품 (검토 담당 지적, 대장 전달 값)**: TestFlight 26 · 27 에는 광고 식별자 부품 2개(`GoogleAppMeasurementIdentitySupport` · `GoogleAdsOnDeviceConversion`)가 들어 있었다. Flutter 3.47 이 Firebase 를 SPM 으로 가져와 Podfile 의 `$FirebaseAnalyticsWithoutAdIdSupport` 줄이 듣지 않는다. 그 역할은 워크플로 잡 env `FIREBASE_ANALYTICS_WITHOUT_ADID=true`(`ios-testflight.yml` · `ios-build.yml`)가 맡도록 고쳤다(PR #665 `fix/ios-dsym-upload`, 2026-11-04 21:06 merge `db1283e9`; PR 의 ios-build 에서 Core 로 컴파일되고 앱 Frameworks 에 두 부품이 없었다 — 대장 전달 값). 맥에서 직접 `flutter build ios` / `flutter build ipa` 할 때도 이 환경변수를 줘야 한다. 사용자 결정 「1」(2026-11-04)로 빼기로 했다. TestFlight 28(run 41826406768, main `db1283e9`)은 2026-11-04 21:20 success — 업로드 "EXPORT SUCCEEDED", dSYM 단계 로그 "Successfully uploaded Crashlytics symbols"(dSYM 첫 성공), 확인 단계의 앱 Frameworks 목록에 `GoogleAppMeasurementIdentitySupport` · `GoogleAdsOnDeviceConversion` 없음, `##[warning]` 0건(대장이 gh 로 직접 확인). 분석 이벤트가 광고 식별자 부품 없는 구성에서도 들어오는지는 실기기 확인 전이다. **TestFlight 25(애플이 승인한 1.0.0, `2dfdad56`)는 26 과 Flutter 3.47.3 · Podfile · Firebase 잠금이 같아 같은 광고 식별자 부품이 들어 있을 수 있다 — 확인 못 함**(25 보관본이 없다). 1.0 을 어떻게 할지는 사용자 결정 대기다. 28 은 #662 심사원 로그인 코드를 담지만 iOS 에서는 실행 시 `_isAndroid()`(`start_view.dart:167`)로 걸러져 입구가 없다(코드는 실려 있음). **확인 못 한 것**: 안드로이드 · 아이폰 실기기 확인(Lottie 부드러움 · 발열, 10px 글자 읽기, 흡연 설명 줄 수) · **iOS 쪽**: 분석 이벤트가 광고 식별자 부품 없는 구성(Core)에서도 들어오는지(실기기 확인 전) · TestFlight 25 의 광고 식별자 부품 여부(보관본 없음) · dSYM 은 28 에서 첫 성공해 이 항목에서 뺐다(실행 #27 의 경고 원인 SPM, 고침 PR #665) · 로그아웃 푸시 토큰의 iOS 권한 거부 뒤 `getToken` 동작 · 구글 심사 결과(제출한 뒤의 결과는 전달받지 못했다) |
-| 서버 · DB | **2026-11-04 개정: 현재 리비전은 `00101-bc9`**(2026-11-04 배포, 트래픽 100% — 서버 PR #653 흡연 "상관없어요" 감점 규칙 · 저장 / 읽기 API, 직전 `00100-jh4`) **이고 운영 마이그레이션은 102개 = 저장소 102개**(마지막 `20261104090000_profiles_accepts_smoker`, DB 칸을 서버 배포보다 먼저 적용). 배포 창고 정리 규칙(업로드 버킷 30일 · 이미지 창고 최근 15개)으로 **되돌림 하한이 `00086`** 이다. 상세 `../backend/DEPLOY.md` §4-23 · §4-24 · §5. 아래 서술은 `00100-jh4` 시점의 종전 값이다. Cloud Run 리비전 **`00100-jh4`**(2026-11-03 배포, 트래픽 100% — 서버만 바뀜, **DB 변경 없음 · 앱 변경 없음**: 푸시 고치기 4건(푸시 서버 연결 · 인증 오류가 채팅 · 신청 · 수락을 500 으로 만들지 않음 · 아침 묶음 한 번만 · 신뢰 확인 리마인드 21시대 · 07시대도 아침 8시로 · 죽은 토큰 정리 로그) + 업로드 제외 목록 `backend/.gcloudignore`, PR #647 merge `c3d7f454` 뒤 사용자 승인 「1」. 직전 `00099-7gp`(2026-11-03 — 서버만 바뀜, **DB 변경 없음 · 앱 변경 없음**: 후보가 1명뿐이면 유료 제안을 접고 무료 카드로, PR #646 merge `c7d086af`. 직전 `00098-67v`(2026-11-03 — 서버만 바뀜, **DB 변경 없음**: 앱 1.0.1 의 강제 업데이트 `GET /app/version`, PR #642 merge `61f8c1a5` 뒤 사용자 승인 「1」, env `MIN_APP_VERSION` 은 아직 없다. 직전 `00097-h87`(2026-10-30 — 서버만 바뀜, **DB 변경 없음 · 앱 변경 없음**: 새벽 4시 정리 배치 ⑥ — 나누기가 실패해 취향 단어 칸이 빈 사람을 매일 최대 20명 다시 채움, PR #640. 직전 `00096-pv6`(2026-10-30 — 서버 · DB 만 바뀜, **앱 변경 없음**: 매칭 글 속 취향 부딪힘 — 자기소개 · "이런 사람이 좋아요" 에서 좋아함 ↔ 싫어함이 부딪히면 총점 × 0.6, 마이그레이션 `20261030010000_taste_clash`, PR #638. 직전 `00095-7sz`(2026-10-29 — 서버만 바뀜, **앱 변경 없음**: 학번 숫자 1~3자리 규칙 · 가입 직후 첫 카드 · 무료 카드 하루 한 장 · 학번 오류 문구 "숫자를 입력해 주세요". 앱 vc18 · TestFlight 25 는 서버의 문자열 오류를 학번 칸 아래에 그대로 띄운다; 약관 동의 판 `2026-10-20`, 졸업생 스위치 켜짐은 그대로)))))), 운영 마이그레이션 **101개 = 저장소 101개**(마지막 `20261030010000_taste_clash`). 상세는 `../backend/DEPLOY.md` §4-22 · §4-21 · §4-20 · §4-19 · §4-18 · §4-17 · §5, DB 는 `../docs/ERD.md` 상태줄. 종전 `00099-7gp` · `00098-67v` · 101개는 PR #646 · #642 값(2026-11-03), `00097-h87` · 101개는 PR #640 값(10-30), `00096-pv6` · 101개는 PR #638 값(DB 는 #640 에서 그대로), `00095-7sz` · 100개는 10-29 값, `00092-2zr` · 97개는 10-27 값, `00093-5s8` · 99개는 10-28 값(매칭 점수 개편 PR #633), `00091-rnc` · 96개는 10-20 값이다. **2026-11-03 대장 확인 — `00100-jh4` 때(`../backend/DEPLOY.md` §4-22)**: `/health` 200 · 무인증 `GET /app/version` 의 `min_version` null · 무인증 401 · 새 리비전 ERROR 로그 0 · `FCM 전송 예외` · `FCM 인증 실패` 로그 0 · 빌드 로그 `inflating: /workspace/.venv` 0줄. **`00099-7gp` 때(§4-21)**: `/health` 200 · 무인증 `GET /cards/today` 401 · 무인증 `POST /batch/cleanup` 401 · ERROR 0 · env 27개. **`00098-67v` 때(§4-20)**: `/health` 200 · `GET /app/version` 200 `{"min_version":null}` + `Cache-Control: public, max-age=300` · 무인증 `POST /batch/cleanup` 401 · 새 리비전 ERROR 로그 0 · env 27개 그대로(`MIN_APP_VERSION` 없음). 새벽 4시 정리 배치 ⑥ 은 10-31 ~ 11-03 매일 04:00 `/batch/cleanup` 200(7~14초) · `취향 단어 다시 채우기 실패` 로그 0건을 대장이 조회했다(`refilled_taste` 값 자체는 못 봤다, §4-19) |
-| 카드 지급 한계 (2026-10-29, 사용자 결정 대기 → 2026-11-03 사용자 결정으로 개정: 결정됨 · 서버 구현 검토 PASS, 서버 PR merge · 배포 전 → 같은 날 후속 개정: 서버 PR #646 merge(`c7d086af`) · 서버 배포 `00099-7gp` 로 운영 반영) | 후보가 1명뿐이면 유료 제안이 그 1명을 가져가 **무료 카드가 0장**이다(첫 카드 · 배치 모두, `00098-67v` 까지의 운영 동작) — 무료/유료 중 누구를 우선할지는 사용자 결정 대기였으나 **2026-11-03 사용자가 정했다: 후보가 1명이면 유료를 건너뛰고 무료로 준다**(원문, 대장 전달 「후보가 1명이면 유료를 건너뛰고 무료로 주기 2번으로 가는게 맞는거 같아」 — 선택지 ②). 서버 구현은 **검토 PASS**(브랜치 `fix/free-card-when-solo`)이고 **서버 PR merge · 배포 전**이라 운영에는 아직 없다(→ **같은 날 후속 개정: 서버 PR #646 merge(`c7d086af`) · 서버 배포 `00099-7gp` 로 운영 반영**): 뽑을 수 있는 후보가 1명뿐이라 무료가 0장이 되면, 첫 카드와 지급 배치(`_issue_to_owner`)가 그 주기의 유료 제안을 `replaced` 로 접고 그 사람을 무료 카드로 준다(무료로 줄 사람이 따로 있으면 종전대로 유료 1 · 무료 1; 받은 사람은 `pickable=false` 라 오늘 탭이 같은 사람으로 제안을 다시 만들지 않는다). 남는 한계 2가지(지급일이 아닌 날 카드 0장 + 후보 1명이면 유료 제안으로 보이다가 다음 지급일 배치에서 무료로 나감 / 구매와 접기가 같은 순간에 겹치면 같은 상대를 유료 · 무료로 둘 다 받을 수 있음)는 설계 §6.8 · `../backend/DEPLOY.md` §4-21. 화면 11 은 카드 0 + 후보 있음이면 "오늘 카드는 확인했어요" 를 보여 첫 방문자에게 어색하다 — 후보 1명 원인은 서버 PR 배포로 풀리고 더 드문 경우(`pickable` 이 하위 10% 뿐 등)만 남는다, 문구 손질은 그대로 1.0.2 이후(**→ 2026-11-04 개정: 문구를 "다음 카드를 준비하고 있어요" 로 바꿨다 — 앱 PR #654, 앱 1.0.2, 사용자 승인 2026-11-03 「1」; 위 "오늘 카드는 확인했어요" 는 종전 문구의 기록이다**). 설계 §2.1 · §6.8 · §13 미결45, `docs/DESIGN.md` §13-154 |
-| 심사용 시험 데이터 | 구글 심사 대응으로 운영 DB 에 가상 계정 20 · 카드 1 · 채팅방 3 이 들어 있다(2026-10-27 00:26 KST). **공개 전 · 심사 통과 뒤 제거 필수 — 2026-11-03 정정: 1.0.0 은 아직 공개 전이다(사용자 확인; 앞 판은 "출시(11-02)가 지났다, 제거 여부를 확인한다" 로 적었으나 그것은 잘못 전달된 값이었다). 제거했다는 전달은 받지 못했다**(심사 통과를 확인한 뒤 사용자에게 먼저 묻고, 스크립트는 저장소 밖 바탕화면 `E2E_결과\심사용_시험계정_10-27\`). 그 전에는 하네스 전체 cleanup 을 돌리지 않는다. `../backend/DEPLOY.md` §4-16 **2026-11-04 밤 추가(심사원 로그인, 대장 전달 값)**: 이 시험 데이터를 보는 심사 계정(id 앞 8자 `acdbb0fc`)에 안드로이드 숨은 심사원 로그인(앱 1.0.2, 위 "앱 1.0.2" 행)용 비밀번호를 붙였고 로그인 이메일도 심사 안내문에 맞춰 바꿨다(운영 Auth 쓰기, 사용자 승인; 값은 이 저장소에 적지 않는다). 구글 1.0.0(vc18)은 반려됐고 1.0.2(vc20)를 프로덕션 심사에 제출했으며(결과 대기) 이 데이터는 **지금도 필요하다** — 심사 통과를 확인한 뒤 사용자에게 먼저 묻고, 비밀번호를 무작위로 바꿔 막은 다음 시험 데이터를 제거한다. 하네스 전체 cleanup 금지는 그대로다 |
-| 웹 버전 (계획, 구현 전) | 2026-10-27 사용자 결정: 앱은 그대로 운영하면서 **웹 버전을 추가**한다 — 방식 A(`frontend/` 코드를 같이 쓰고 웹에서 안 되는 부분만 웹용 파일로 나눈다). **앱 쪽 기존 파일은 지우거나 바꾸지 않고 옆에 더한다**, 별도 브랜치, 합치기 전 `flutter.yml` · `ios-build.yml` 통과, **패키지 추가는 하나씩 사용자 승인**. 코드 수정 없이 `flutter build web --release` 는 오류 0개(대장 전달). 근거 · 막힐 곳: `../docs/decisions/2026-10-27-web-version-decision.md` |
-| 가입 | 소셜 로그인 + 학교 메일 1회. 학생증 · 실명 사진 인증은 2026-10-17 폐지, **졸업생 길(졸업증명서 + 관리자 검수)** 은 2026-10-19 도입 |
-| 수집 · 분석 | Firebase Analytics · Crashlytics · Performance — **약관 동의 뒤에만** 켠다(위 의존성 행). 개인 값 · 광고 식별자는 보내지 않는다. iOS dSYM 업로드는 출시 후 **→ 2026-11-04 개정: iOS dSYM 업로드는 끝났다**(앱 PR #652 — TestFlight 업로드 뒤 보관본의 dSYM 을 Crashlytics 에도 올리는 단계, 실패해도 잡은 성공 + 노란 경고만, 안내는 `run.md` "iOS TestFlight"; 맥 러너에서 돌려 보지 않았다 — 1.0.2 TestFlight 첫 실행 때 확인) **→ 2026-11-04 밤 후속 개정: TestFlight 27 첫 실행에서 이 단계가 경고로 건너뛰어졌다**("upload-symbols 또는 dSYMs 폴더 없음") — 건너뛰었으므로 dSYM 은 올라가지 않은 것으로 읽는다. 원인은 Flutter 3.47 이 Firebase 를 SPM 으로 가져오는 구조다(대장 전달 값). 고침 PR #665 가 merge 됐고(`db1283e9`, 2026-11-04 21:06) TestFlight 28(run 41826406768, main `db1283e9`)에서 dSYM 단계가 "Successfully uploaded Crashlytics symbols" 로 첫 성공했다(2026-11-04 21:20 success, 대장이 gh 로 직접 확인 — 이제 "끝났다" 는 동작이 확인됐다는 뜻이다. 종전에는 코드가 들어갔다는 뜻이었다) |
+| 출시 방식 | **학교별 코호트 순차 오픈** — 14일 모집 후 예고한 날짜에 카드 지급 시작 (설계 문서 §2.9). 학교별 오픈 날짜는 운영 DB 값이 기준이다 (`../backend/DEPLOY.md` §4-17) |
+| 수익 모델 | 가입비 없음(남녀 동일 무료). **하트 1개 = 60원**(DESIGN.md §13-114), 추가 카드 50하트(**구매 시점은 자유, 지급 주기당 1장**), 아바타 재생성 20하트(최초 1회 무료. 서버 `AVATAR_REGEN_HEARTS`, 앱은 서버 `avatar_regen_cost` 를 그대로 보인다. 온보딩 5회 실패 보상 10하트는 별개), 첫 구매 보너스 +50(100하트 이상 · 한 번) (설계 문서 §2.4). 하트는 **안드로이드는 구글 플레이 인앱결제, iOS 는 App Store 인앱결제(StoreKit 2)** 로 산다. 가격은 둘이 같고 화면은 스토어 가격을 우선한다. 구매 영역은 웹 · 데스크톱에서만 숨긴다. DB 는 같은 `purchases` 표(`store = app_store` 로 구분). DESIGN.md §8.10 · ERD.md §6 · 서버 계약 `../backend/DEPLOY.md` §4-10 |
+| 채팅 | 카톡식 안 읽음 '1'. 목록 · 안 읽은 수 · '1' 을 사용자 채널 `user:<profile_id>`(Supabase Realtime Broadcast, 서버가 쏜다)로 실시간 반영하고, 채널이 안 붙으면 폴링(목록 3초 · 읽음 2초)으로 돈다 (`../backend/DEPLOY.md` §4-8 · ERD.md §4). **채팅 상한 없음** — 매칭 후 24h/48h 신뢰 확인 게이트가 방치된 대화를 정리한다 (설계 문서 §2.5). **채팅은 텍스트만, 이미지 전송 불가** |
 | 기기 · 등급 | 아이폰 전용(iPad 는 호환 모드), 안드로이드 세로 고정 없음(접이식은 시험 안 함). 연령 등급 앱스토어 한국 19+ · 구글 18+ |
-| 출시 후로 미룬 것 (2026-11-03: 1.0.0 은 아직 공개 전이지만 1.0.1 이 먼저 나가므로 "1.0.0 공개 뒤 앱 업데이트로 미룬 것" 으로 읽는다; 2026-11-04 개정: 1.0.1 은 제출하지 않았으므로 "1.0.2 로 나가는 앱 업데이트" 로 읽는다; 같은 날 앞 판의 "출시가 지나" 는 잘못 전달된 값이었다) | 스크린샷 방지 · 패키지 구조 정리(model 하위 폴더)(→ 2026-11-04: 사용자 「1」로 1.0.2 B7 로 당겨 진행 중, 위 "앱 1.0.2" 행) · 졸업생 D8 자기 취소 · 하트 스토어 대기 목록 · 안드로이드 큰 알림 아이콘 · 카드 신고 버튼(반려 시) · 환불 정책 B · iOS dSYM(→ 2026-11-04: 끝, 앱 PR #652; 같은 날 밤 TestFlight 27 에서 경고로 건너뜀, 고치는 중 — 위 "수집 · 분석" 행) · 카카오 연결 해제 웹훅 · 아이패드 전용 화면 · **앱 업데이트 6건(2026-10-29 점검, `docs/DESIGN.md` §13-154) — 2026-11-02 앱 1.0.1 에서 5건을 끝냈다**(PR #642, 2026-11-03 merge `61f8c1a5`; 1.0.1 은 아직 제출 전; 종전 서술: 학번 숫자 키패드 · 3자리 끊기 / 키 오류 문구("숫자 3자리를 확인해 주세요" → 범위 문구) · 맨 앞 0 막기 / 선호 MBTI "둘 다 고르면 상관없어요" 안내 / "내일 만날 사람들" 띠 문구 / 유료 카드 "N명이" 빼기 / 첫 방문 0장일 때 "오늘 카드는 확인했어요" 문구): 학번 숫자 키패드 · 3자리 끊기 / 키 오류 "120~230 사이로 입력해 주세요" · 맨 앞 0 막기 / 선호 MBTI 안내 "고르지 않거나 둘 다 고르면 상관없어요."(칩 아래) / 띠 "다음에 만날 사람들" / 유료 카드 머리글 "나와 성향이 잘 맞는 사람이 기다리고 있어요". **남은 1건: 첫 방문 0장일 때 "오늘 카드는 확인했어요" 문구.** **→ 2026-11-04 개정: 그 1건도 앱 1.0.2 에서 끝냈다**(PR #654, "다음 카드를 준비하고 있어요"). `docs/DESIGN.md` §13-155 의 "칸에도 넣을까요?" 안내는 다음 앱 업데이트 몫이다. **흡연 칸 '상관없음' 은 2026-11-03 사용자 결정으로 1.0.2 에 넣는다**(원문, 대장 전달 「흡연 상관없음 칸 만들자 1.0.2에」 — 이상형 조건에 "상대 흡연 상관없어요" 칸, DB 칸 · 서버 점수 · 앱 · pen 이 바뀌어 pen 시안부터; 종전 서술 "다음 앱 업데이트 몫" 은 1.0.2 로 정해졌다). **→ 2026-11-04 개정: 흡연 칸은 구현됐다**(서버 PR #653 · 앱 PR #654, 위 "앱 1.0.2" 행). **1.0.2 에서 정리할 계획(사용자 결정 2026-11-02 — 1.0.1 을 먼저 내고 구조 · 문구 정리는 1.0.2)**: 화면 문구를 ARB 로 모으기(`flutter_localizations` · `intl` 은 새 의존성이라 사용자 승인이 먼저 — **2026-11-04 승인 「1 승인」**, 에러 문구는 한 파일 안 `error` 로 시작하는 키 묶음으로 모은다(사용자 「1」); 위 의존성 행) · 색 / 크기 / 간격 토큰 정리 · 공통 컴포넌트 · 패키지 구조(위 "패키지 구조 정리" — MVVM 유지, 세부 기능마다 MVVM, `model/repository` · `model/data`) · lint 2단계(고쳐야 걸리는 규칙 — `unawaited_futures` · `prefer_const_constructors` · `prefer_final_locals` 등) · SonarQube(저장소는 공개지만 라이선스가 없어 5만 줄 무료 한도 기준) |
 
-**빌드 규칙 (2026-10-20 사고 뒤 추가).** 안드로이드 릴리스 빌드 전에 같은 셸에서 `export KAKAO_NATIVE_APP_KEY=...` 를 한다 — `android/app/build.gradle.kts` 가 환경변수 → `android/local.properties` → 빈 문자열 순으로 읽어 매니페스트 `kakao<키>` 스킴을 채우고, 이 값은 `--dart-define` 과 **별개**다. 빌드 뒤 AAB 매니페스트에서 스킴이 채워졌는지 확인한다. 절차는 `run.md` "AAB 빌드". **2026-11-02 앱 1.0.1 부터** 환경변수가 비면 안드로이드 릴리스 빌드(`assembleRelease` · `bundleRelease`)가 `KAKAO_NATIVE_APP_KEY 가 비었습니다` 로 **실패한다**(디버그 빌드는 그대로). 앱 버전 이름은 pubspec 이 아니라 `--build-name`(1.0.1)으로 정한다 — 빼면 1.0.0 으로 기록돼 나중에 서버 `MIN_APP_VERSION` 에 갇힌다. **2026-11-04 추가: iOS TestFlight 워크플로의 `build_name` 기본값은 1.0.2 이고(앱 PR #652), 업로드가 끝나면 Crashlytics 에 dSYM 도 올린다(`run.md`).**
+실제 DB 적용 상태는 `../docs/ERD.md` 상태줄, 서버 리비전 · 배포 절차는 `../backend/DEPLOY.md` §5, 디자인은 `docs/DESIGN.md` 를 기준으로 한다. DESIGN.md §13 에 열린 채 남은 행에 걸리는 구현은 먼저 사용자에게 묻는다. 앱 버전 · 스토어 제출 · 심사 상태는 금방 낡으므로 이 문서에 적지 않는다 (`../docs/decisions/2026-11-04-v102-decisions.md`).
 
-실제 DB 적용 상태는 `../docs/ERD.md` 상태줄, 디자인은 `docs/DESIGN.md` 를 기준으로 한다. DESIGN.md §13 에 열린 채 남은 행에 걸리는 구현은 먼저 사용자에게 묻는다.
+### 2.1 의존성과 쓰는 법
 
-### 2.1 문서 지도
+새 의존성은 사용자 승인 없이 넣지 않는다 (승인 원문은 `../docs/decisions/` — Firebase 3종은 `2026-10-20-launch-day-decisions.md`, 나머지는 `2026-11-04-v102-decisions.md` §6).
+
+| 의존성 | 용도와 규칙 |
+| --- | --- |
+| `flutter_local_notifications ^22.3.2` | 앱이 앞에 있을 때 받은 푸시를 안드로이드 헤드업 알림으로 띄운다. 이 패키지 때문에 안드로이드 **core library desugaring**(`coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")`, `android/app/build.gradle.kts`)이 켜져 있다 — gradle 라이브러리가 "새 의존성" 규칙에 걸리는지는 사용자 사후 확인 대상 |
+| `in_app_purchase ^3.3.1` | 하트 구매(구글 플레이 · App Store). iOS 는 이 패키지가 끌고 오는 `in_app_purchase_storekit`(transitive, 최소 iOS 15.5 = StoreKit 2)을 쓴다 — `Transaction.unfinished` 를 직접 부르려면 직접 의존성으로 올려야 하므로 쓰지 않는다 |
+| 서버 `cryptography>=50` | `backend/pyproject.toml`. App Store 서명(JWS) 인증서 체인 검증 · App Store Server API 토큰(ES256) · 탈퇴 때 애플 토큰 철회 |
+| `package_info_plus ^10.2.2` | 설치된 앱의 버전 이름을 읽어 서버 최소 버전(`GET /app/version`, env `MIN_APP_VERSION`)과 견주는 강제 업데이트(`lib/core/app_update/`, 화면 pen `zSzOG` 01-2). **`MIN_APP_VERSION` 은 두 스토어에 고친 빌드가 모두 공개된 뒤에만 올린다** (`../backend/DEPLOY.md` §2 · §4-20) |
+| `lottie ^3.8.2` | 움직이는 그림(Lottie JSON). Flutter 3.47 이상을 요구한다. 쓰는 법은 §7.1 |
+| `flutter_localizations`(sdk) · `intl ^0.20.3` | 화면 문구 ARB. 쓰는 법은 §7.2 |
+| `firebase_analytics ^12.0.1` · `firebase_crashlytics ^5.0.1` · `firebase_performance ^0.11.6` | 사용 통계 · 앱이 죽은 기록(오류 수집) · 성능 측정. 최신 performance 0.12 는 `firebase_core ^5` 를 요구해 현재 `firebase_core ^4` 에 맞는 0.11 대를 쓴다. 규칙은 아래 "수집 · 분석" |
+
+**수집 · 분석 규칙** (Firebase Analytics · Crashlytics · Performance)
+
+- **약관 동의(02-c) 전에는 수집하지 않는다.** `AndroidManifest.xml` `firebase_analytics_collection_enabled` · `firebase_crashlytics_collection_enabled` · `firebase_performance_collection_enabled` = false, `Info.plist` `FIREBASE_ANALYTICS_COLLECTION_ENABLED` · `FirebaseCrashlyticsCollectionEnabled` · `FIREBASE_PERFORMANCE_COLLECTION_ENABLED` = false 로 꺼 두고, 동의를 마친 로그인 사용자일 때만 앱이 켠다 (`lib/core/analytics/collection_consent.dart`, `main.dart` `_syncCollection`).
+- **성능 측정은 자동 수집(앱 시작 시간 · 화면 렌더링)만 쓴다.** 사용자 지정 추적(`HttpMetric` · `Trace`)은 만들지 않는다 (서버 요청 주소에 계정 번호가 섞일 수 있다).
+- **광고 식별자 · 광고 맞춤은 쓰지 않는다.** 안드로이드 `google_analytics_adid_collection_enabled` · `google_analytics_default_allow_ad_personalization_signals` = false 와 `AD_ID` 권한 제거, iOS `GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_PERSONALIZATION_SIGNALS` = false. Flutter 3.47 이 Firebase 를 SPM 으로 가져와 Podfile 의 `$FirebaseAnalyticsWithoutAdIdSupport` 줄은 iOS 에서 듣지 않는다 — 광고 식별자 부품(`GoogleAppMeasurementIdentitySupport` · `GoogleAdsOnDeviceConversion`)을 빼는 것은 워크플로 잡 env `FIREBASE_ANALYTICS_WITHOUT_ADID=true`(`ios-testflight.yml` · `ios-build.yml`)가 맡는다. **맥에서 직접 `flutter build ios` / `flutter build ipa` 할 때도 이 환경변수를 줘야 한다.**
+- **개인정보는 보내지 않는다.** 사용자 id · 속성 · 오류 사용자 키를 설정하지 않고, 이벤트 매개변수는 정해진 종류값(`lib/core/analytics/analytics_values.dart`) · 작은 정수 · 상품 ID 뿐이다. 앱이 버틴 API 오류(5xx · 연결 실패 · 시간 초과)의 비치명 Crashlytics 기록은 종류 · 상태 코드 · 경로 패턴만 보낸다.
+- **이벤트 이름 · 값 목록 · 보내는 자리는 `docs/ANALYTICS_EVENTS.md` 표가 기준이다 — 이벤트를 더하거나 고치면 이 표도 함께 고친다.**
+- 안드로이드는 Gradle 플러그인 `com.google.firebase.crashlytics 3.0.8` · `com.google.firebase.firebase-perf 2.0.2`(`android/settings.gradle.kts` · `android/app/build.gradle.kts`)가 필요하다. iOS `PrivacyInfo.xcprivacy` 에 제품 상호작용 · 기기 ID · 성능 데이터(분석)와 충돌 데이터(앱 기능)를 연결 안 됨 · 추적 안 함으로 선언했다.
+- 개인정보 처리방침(노션)의 수집 항목 갱신은 이 저장소 밖 일이다. **방침을 고치면 홈페이지 사본 `../site/privacy/index.html` 도 같이 고친다** (`../docs/decisions/2026-10-20-launch-day-decisions.md` §3).
+
+### 2.2 빌드 · 운영 규칙
+
+- **안드로이드 릴리스 빌드 전에 같은 셸에서 `export KAKAO_NATIVE_APP_KEY=...` 를 한다.** `android/app/build.gradle.kts` 가 환경변수 → `android/local.properties` → 빈 문자열 순으로 읽어 매니페스트 `kakao<키>` 스킴을 채우고, 이 값은 `--dart-define` 과 **별개**다. 환경변수가 비면 릴리스 빌드(`assembleRelease` · `bundleRelease`)가 `KAKAO_NATIVE_APP_KEY 가 비었습니다` 로 실패한다 (디버그 빌드는 그대로). 빌드 뒤 AAB 매니페스트에서 스킴이 채워졌는지 확인한다. 절차는 `run.md` "AAB 빌드".
+- **앱 버전 이름은 pubspec 이 아니라 `--build-name` 으로 정한다** — 빼면 1.0.0 으로 기록돼 나중에 서버 `MIN_APP_VERSION` 에 갇힌다.
+- iOS TestFlight 워크플로(`ios-testflight.yml`)는 `build_name` 입력으로 버전 이름을 받고, 업로드가 끝나면 Crashlytics 에 dSYM 도 올린다 (실패해도 잡은 성공 + 노란 경고만, `run.md` "iOS TestFlight").
+- **구글 심사 대응으로 운영 DB 에 시험 데이터**(가상 계정 20 · 카드 1 · 채팅방 3, 심사원 로그인 계정 포함)가 들어 있다. 제거 전에는 e2e 하네스의 전체 cleanup 을 돌리지 않는다. 제거는 심사 통과를 확인한 뒤 사용자에게 먼저 묻고, 심사원 비밀번호를 무작위로 바꿔 막은 다음에 한다 (`../backend/DEPLOY.md` §4-16. 스크립트는 저장소 밖).
+- **웹 버전은 계획이다(구현 전).** 앱은 그대로 운영하면서 웹을 더한다 — 방식 A(`frontend/` 코드를 같이 쓰고 웹에서 안 되는 부분만 웹용 파일로 나눈다). **앱 쪽 기존 파일은 지우거나 바꾸지 않고 옆에 더한다**, 별도 브랜치, 합치기 전 `flutter.yml` · `ios-build.yml` 통과, **패키지 추가는 하나씩 사용자 승인**. 근거 · 막힐 곳: `../docs/decisions/2026-10-27-web-version-decision.md`.
+
+### 2.3 기능 규칙 모음
+
+- **구글 심사원 로그인(안드로이드 전용).** 시작 화면(01) 로고 자리를 5초 안에 7번 누르면 영어 "Reviewer sign-in" 시트가 열리고 이메일 · 비밀번호로 Supabase `signInWithPassword` 로 들어간다. 가입 없음 · 분석 `login` 이벤트 없음 · 낭독기 제외 · 이미 로그인된 상태면 입구 없음. iOS · 웹에는 입구가 없다 — 코드는 모든 빌드에 실려 있지만 `start_view.dart` 의 `_isAndroid()` 가 iOS 에서 걸러낸다 (애플 가이드라인 2.3.1 숨은 기능 규칙). 서버 · DB 코드는 따로 없고 기존 심사용 계정(id 앞 8자 `acdbb0fc`)에 운영 Auth 관리자 API 로 비밀번호를 붙여 쓴다 (값은 저장소에 적지 않는다, `../backend/DEPLOY.md` §4-16). `LabeledField` 의 `obscureText`(기본 false) · ARB 키 `authSocialReviewer*` 5개(영어 그대로) · 오류 문구는 `errorText` 그대로(한국어). **심사 통과 뒤 비밀번호를 무작위로 바꿔 막는다.** 심사원이 탈퇴하면 되돌릴 수 없어 심사 안내문에 금지로 적었다. 입구와 소셜 버튼이 겹치지 않는지는 `start_view_test.dart` 가 지킨다. DESIGN.md §9 01-3 · §13-158.
+- **카드 지급 한계(알려진 것).** 지급일이 아닌 날 카드 0장 + 후보 1명이면 유료 제안으로 보이다가 다음 지급일 배치에서 무료로 나간다. 구매와 접기가 같은 순간에 겹치면 같은 상대를 유료 · 무료로 둘 다 받을 수 있다 (`../backend/DEPLOY.md` §4-21). 첫 방문 0장이면 화면 11 은 "다음 카드를 준비하고 있어요" 를 보인다.
+- **출시 후로 미룬 것(지금 하지 않는다):** 스크린샷 방지 · 졸업생 D8 자기 취소 · 하트 스토어 대기 목록 · 안드로이드 큰 알림 아이콘 · 카드 신고 버튼(반려 시) · 환불 정책 B · 카카오 연결 해제 웹훅 · 아이패드 전용 화면 · DESIGN.md §13-155 의 "칸에도 넣을까요?" 안내.
+- **계획으로만 있는 정리:** 색 / 크기 / 간격 토큰 정리 · 공통 컴포넌트 · SonarQube(저장소는 공개지만 라이선스가 없어 5만 줄 무료 한도 기준) · lint 2단계(§10, B4). 시작은 사용자가 정한다.
+
+### 2.4 문서 지도
 
 | 파일 | 역할 |
 | --- | --- |
@@ -87,13 +104,16 @@
 | `../docs/superpowers/plans/2026-09-05-foundation-setup.md` | 조각 0 실행 계획 (작업 단위) |
 | `../docs/ERD.md` | **DB 기준 — 테이블·컬럼·RLS·권한(grant) 표.** 스키마·RLS 작업 전 필독. 상태줄이 조각별 적용 상태의 기준 |
 | `../docs/ERD_DECISIONS.md` | ERD 결정 기록(§11)·끝난 검토(§12 해결 행)·조각 0 적용 범위(§10) |
-| `../docs/decisions/` | 기술 결정 기록 — 한 결정에 한 파일(`날짜-주제-decision.md`) 또는 하루 묶음. 졸업생 인증(10-19) · 출시 당일(10-20) · 웹 버전(10-27) · 앱 1.0.2 결정(11-04) |
+| `../docs/decisions/` | 기술 결정 기록 — 한 결정에 한 파일(`날짜-주제-decision.md`) 또는 하루 묶음. 졸업생 인증(10-19) · 출시 당일(10-20) · 웹 버전(10-27) · 앱 1.0.2 결정(11-04, 11-08 ~ 09 추가분 포함) |
+| `../docs/history/` | 지나간 운영 기록(배포 리비전 · DB 적용 날짜 · 운영 쓰기 기록). 지금 규칙이 아니라 이력 |
 | `../docs/GIT.md` | **Git 규칙 — gitmoji 커밋 형식, 브랜치 전략, 푸시 규칙.** git 작업 전 필독 |
 | `../docs/GRAPHIFY.md` | **코드베이스 탐색 규칙 — 지식 그래프 조회·갱신.** Grep 전에 그래프 먼저 |
 | `../docs/SUPABASE.md` | **Supabase 작업 규칙 — 키·식별자, 마이그레이션 파일, 클라우드 적용 절차, RLS·grant 체크리스트.** Supabase 작업 전 필독 (요약은 §10.1) |
 | `../docs/SETUP.md` | 새 PC 준비 — 스킬·Pencil·폰트·SDK·graphify·IDE (§12) |
+| `../backend/DEPLOY.md` | 서버 배포 · 운영 절차 · 서버 계약 · 현재 리비전(§5) |
 | `docs/DESIGN.md` | 디자인 시스템 전문. 색·타이포·컴포넌트·미결 항목 |
-| `docs/ANALYTICS_EVENTS.md` | 사용 통계 이벤트 · 앱이 버틴 오류(Crashlytics 비치명)의 단일 기준표(앱 1.0.1). 이벤트를 더하거나 고치면 이 표도 같이 고친다 |
+| `docs/ANALYTICS_EVENTS.md` | 사용 통계 이벤트 · 앱이 버틴 오류(Crashlytics 비치명)의 단일 기준표. 이벤트를 더하거나 고치면 이 표도 같이 고친다 |
+| `run.md` | 실행 · AAB 빌드 · TestFlight · 아이콘 절차 |
 | `assets/images/` | DESIGN.md 기준 확정 채택된 UI용 PNG 자산 |
 | *(별도 저장소)* `datingApp.pen` · `preview/*.png` | Pencil 시안 원본과 화면 미리보기. OneDrive `datingApp` 저장소에 있음 (이 저장소에는 없음) |
 
@@ -123,26 +143,31 @@ lib/
 │   │   └── data/              데이터 모양과 순수 규칙
 │   ├── view/                  화면과 위젯
 │   └── viewmodel/             UiState · ViewModel
-├── auth/<세부 기능>/          조각 1 — 학생인증: social · school_email · school_info · gate · media
+├── auth/<세부 기능>/          조각 1 — 가입 인증: social · school_email · school_info · gate · media
 ├── profile/<세부 기능>/       조각 2 — 프로필 입력: onboarding · basic · appearance · traits · ideal · bio · avatar
 ├── billing/<세부 기능>/       조각 7 — 결제: store · task
 │                              (위 세 줄의 `<세부 기능>/` 안은 `<기능>/` 과 같은 모양이다: model/{repository,data} · view · viewmodel)
+├── l10n/                      app_ko.arb (문구 파일, 한국어만) — 생성 파일(app_localizations*.dart)은 커밋하지 않는다
+├── main.dart
 ├── common/                    값 타입(Failure · Result), 공용 위젯 — 기능 폴더가 아니다
 └── core/                      기능 폴더가 아니다
     ├── draft/             온보딩 입력 임시 저장(DraftStore · DraftScreen)
     ├── supabase/          클라이언트 초기화, 테이블 상수
     ├── router/            go_router 라우팅
-    ├── push/               FCM 초기화·토큰 관리
-    ├── analytics/          사용 통계(Firebase Analytics) · 오류 수집(Crashlytics) · 성능 측정(Performance) — 약관 동의 뒤에만 켠다
+    ├── push/              FCM 초기화·토큰 관리
+    ├── analytics/         사용 통계 · 오류 수집 · 성능 측정 — 약관 동의 뒤에만 켠다
+    ├── app_update/        강제 업데이트(서버 최소 버전과 비교)
+    ├── l10n/              context.l10n 확장(l10n_context.dart) · 에러 문구(error_text.dart)
+    ├── auth · http · offline · lifecycle · haptics · back_exit · env.dart   세션 · API 클라이언트 · 오프라인 화면 · 앱 복귀 새로고침 · 햅틱 · 뒤로가기 종료
     └── theme/             디자인 토큰 (DESIGN.md §12 매핑)
 ```
 
-`<기능>` 14개(2026-11-04 앱 1.0.2 패키지 구조 정리 1단계로 `model/` 을 둘로 나눴다): tour · faq · account · community · notifications · referral · me · consent · friend_review · graduate · home · chat · safety · matching. **큰 기능 3개 — auth · profile · billing — 는 2단계로 `<기능>/<세부 기능>/` 한 층을 더 나눴다(2026-11-04 사용자 승인 — profile 7 · auth 5 · billing 2).**
+`<기능>` 14개: tour · faq · account · community · notifications · referral · me · consent · friend_review · graduate · home · chat · safety · matching. **큰 기능 3개 — auth · profile · billing — 는 `<기능>/<세부 기능>/` 한 층을 더 둔다.**
 
 | 폴더 | 넣는 것 | 넣지 않는 것 |
 | --- | --- | --- |
 | `model/repository/` | abstract Repository · Gateway · Store · Client(약속), `Http…` · `Supabase…` · SDK 구현, Riverpod provider 파일(`…_provider.dart`), 기기 저장 | 엔티티 · enum · 상수 · 순수 함수 |
-| `model/data/` | 엔티티, enum, 값 객체, 상수(링크 · 문구 · 한도), `…Submission` · `…Request` 같은 요청 값, sealed 결과 타입, 서버 · SDK 를 안 부르는 순수 규칙 함수 | 서버 · SDK 호출, provider |
+| `model/data/` | 엔티티, enum, 값 객체, 상수(링크 · 한도), `…Submission` · `…Request` 같은 요청 값, sealed 결과 타입, 서버 · SDK 를 안 부르는 순수 규칙 함수 | 서버 · SDK 호출, provider |
 | `view/` | 화면 · 위젯 | 상태 만들기, 서버 호출 |
 | `viewmodel/` | UiState · ViewModel (`BuildContext` · `Widget` 금지) | 위젯 |
 
@@ -155,7 +180,7 @@ lib/
 **세부 기능 규칙** (auth · profile · billing)
 
 - 세부 기능마다 `<기능>/` 과 같은 모양(`model/{repository,data}` · `view` · `viewmodel`)이다. 화면이 없는 세부 기능(`auth/gate` · `auth/media`)은 `model/` 만 둔다.
-- 파일이 많고(나누기 전 auth 42 · profile 90 · billing 39개) 화면 묶음이 뚜렷한 기능만 세부 기능으로 나눈다. 서버 호출 하나(Repository 한 개)가 여러 묶음에 걸쳐 있으면 나누지 않는다(matching · chat 은 나누지 않았다).
+- 파일이 많고 화면 묶음이 뚜렷한 기능만 세부 기능으로 나눈다. 서버 호출 하나(Repository 한 개)가 여러 묶음에 걸쳐 있으면 나누지 않는다(matching · chat 은 나누지 않았다).
 - **세부 기능끼리 import 는 한 방향만**(순환 금지). 지금 방향: `profile/{basic,appearance,traits,ideal,bio,avatar}` → `profile/onboarding`, `profile/ideal` → `profile/{appearance,traits}`, `billing/store` → `billing/task`, `billing/task` → `profile/avatar`, `auth/school_email` → `profile/onboarding`, `profile/avatar` · `billing/task` → `auth/media`. 새 import 가 이 방향을 거스르면(순환이 생기면) 둘이 같이 쓰는 조각을 더 안쪽 세부 기능으로 옮긴다.
 - 여러 세부 기능이 같이 쓰는 값 · 위젯은 가장 안쪽에 둔다 — `profile/onboarding`(단계 흐름 · `profile_enums` · `hint_line` · `writing_example`), `auth/media`(얼굴 검사 · 사진 압축).
 
@@ -214,7 +239,7 @@ if (tags.exceeds(maxCount)) { ... }
 
 - 동작이 한눈에 명확하지 않거나 의도·예외 처리가 헷갈릴 수 있는 부분은 **한국어 주석 또는 명시적 코드**로 의도를 드러낸다
 - 매직 넘버, 암시적 null 처리, 분기의 의미는 이름이나 주석으로 분명히 한다
-- 문자열과 색상은 **상수/토큰을 통해서만** 참조한다
+- 문자열과 색상은 **상수/토큰을 통해서만** 참조한다 (화면 문구는 ARB, §7.2)
 
 ```dart
 // 나쁜 예 — 0이 무슨 의미인지 불명확
@@ -239,6 +264,8 @@ if (status == statusPending) { ... }   // 대기 상태일 때만 처리
 
 ## 7. UI 작업 규칙
 
+### 7.1 디자인 · 토큰 · 움직임
+
 - **DESIGN.md 먼저.** 해당 화면의 컴포넌트 스펙(§8)과 화면 목록(§9)을 읽고 시작한다. 시안에 없는 화면·상태를 만들어야 하면 **먼저 질문한다**
 - **토큰만 사용한다.** `lib/core/theme/` 에 아래 파일을 두고, 위젯은 여기서만 값을 가져온다 (DESIGN.md §12)
 
@@ -250,24 +277,29 @@ if (status == statusPending) { ... }   // 대기 상태일 때만 처리
   | `app_radius.dart` | `AppRadius` | §5.1 |
   | `app_motion.dart` | `AppMotion` | §7 |
   | `app_elevation.dart` | `AppElevation` | §6 |
-  | `app_lottie.dart` | `AppLottie` | §7 Lottie 장면 표(2026-11-04) |
+  | `app_lottie.dart` | `AppLottie` | §7 Lottie 장면 표 |
+  | `app_icons.dart` | `AppIcons` | §5.3 Lucide 이름 매핑 |
   | `app_theme.dart` | `AppTheme` | 위를 조립한 `ThemeData light()` |
 
-  `app_icons.dart`(`AppIcons`, §5.3 Lucide 이름 매핑)는 첫 화면 조각에서 추가한다.
-
 - **아이콘은 Lucide (`lucide_icons`)** 로 통일한다. 위젯에서 `LucideIcons.*` 를 직접 부르지 않고 `AppIcons` 상수를 거친다 (DESIGN.md §5.3)
-  - **예외: 하트 재화 글리프.** 잔액·번들·리워드·CTA·아바타 코스트·설정 보유하트 등 "재화" 의미의 하트는 Lucide 가 아니라 이미지 자산 `assets/images/heart-flat-vector-v3.png` 를 쓴다 (2026-09-10, DESIGN.md §5.4·§8.10). 바텀 내비 오늘 탭·호감 하트·매칭 기록 등 비(非)재화 하트는 계속 Lucide `heart`. 재화 글리프는 다크 배경에서도 읽히는 렌더 + `@2x`/`@3x` 자산 + `Semantics(label: '하트')` 를 갖춘다
-- ~~**버튼 라벨은 18/700.**~~ **2026-10-17 문서 정리로 정정(코드 기준) — 앱 공용 버튼 `AppButton`(`common/widgets/app_button.dart`) 의 라벨은 16/700(`AppTypography.button`)이다.** pen Button `HE8FZ` 2026-10-01 개편 값으로, 채움 버튼은 높이 52 · 모서리 14 · 라벨 16/700, text 변형은 높이 48 · 16/600, 탈퇴 시트 `neutral` 만 18/700 이다(DESIGN.md §8.3). 10b · 받은 신청 프로필 보기의 아이콘 결정 버튼은 `AppTypography.label` 18/700 이다. 종전 문장의 이유는 그대로 사실이다: `{colors.primary}` (#FF385C) 위 흰 글씨는 대비 3.52:1 이라 **큰 글씨 예외(18.66px 이상 굵은 글씨)에 의존해야 하는데, 16/700 은 그 예외에 들지 않는다** — 미결이다(DESIGN.md §2.1 · §8.3 · §13-151). 새 버튼은 `AppButton` 을 그대로 쓰고 라벨 크기를 화면에서 바꾸지 않는다
+  - **예외: 하트 재화 글리프.** 잔액·번들·리워드·CTA·아바타 코스트·설정 보유하트 등 "재화" 의미의 하트는 Lucide 가 아니라 이미지 자산 `assets/images/heart-flat-vector-v3.png` 를 쓴다 (DESIGN.md §5.4·§8.10). 바텀 내비 오늘 탭·호감 하트·매칭 기록 등 비(非)재화 하트는 계속 Lucide `heart`. 재화 글리프는 다크 배경에서도 읽히는 렌더 + `@2x`/`@3x` 자산 + `Semantics(label: '하트')` 를 갖춘다
+- **버튼은 공용 `AppButton`(`common/widgets/app_button.dart`)을 그대로 쓰고 라벨 크기를 화면에서 바꾸지 않는다.** 라벨은 16/700(`AppTypography.button`) — 채움 버튼은 높이 52 · 모서리 14, text 변형은 높이 48 · 16/600, 탈퇴 시트 `neutral` 만 18/700 이다(DESIGN.md §8.3). 10b · 받은 신청 프로필 보기의 아이콘 결정 버튼은 `AppTypography.label` 18/700 이다. `{colors.primary}` (#FF385C) 위 흰 글씨는 대비 3.52:1 이라 큰 글씨 예외(18.66px 이상 굵은 글씨)에 의존해야 하는데 16/700 은 그 예외에 들지 않는다 — 미결이다(DESIGN.md §2.1 · §8.3 · §13-151)
 - **`{colors.primary}` 는 채움 전용.** 흰 배경 위 텍스트에는 `{colors.primary-text}` (#C4224B) 를 쓴다
-- **사용자는 전 화면에서 닉네임으로만 표시한다. 실명(`real_name`)은 서버 응답에 담지 않는다** (2026-09-10 개정, DESIGN.md §8.7 · 설계 문서 §7.3, ERD.md §11-2 — "설계 문서 §7 예외 2"는 설계 문서에 없는 참조였다). 실명은 `3b`에서 입력받아 `profile_private.real_name`(민감 컬럼)에만 저장하고, 학생증 대조와 본인 조회(16e) 전용이다. 예전 `김○○` 마스킹 방식은 폐기
+- **사용자는 전 화면에서 닉네임으로만 표시한다. 실명(`real_name`)은 서버 응답에 담지 않는다** (DESIGN.md §8.7 · 설계 문서 §7.3, ERD.md §11-2). 실명은 `profile_private`(민감 컬럼, 암호문)에만 있고 본인 조회(16e)만 허용한다. `김○○` 같은 마스킹 표시는 쓰지 않는다
 - **`MediaQuery.disableAnimations` 를 존중한다.** 켜져 있으면 모든 모션 시간을 0으로 만들고 최종 상태를 즉시 그린다
-- **글자 크기는 `AppTypography` 토큰으로만 정한다**(2026-11-04, 앱 PR #657). 기준은 48 · 32 · 24 · 20 · 18 · 16 · 14 · 12 · 10(모두 짝수)이고, 화면에 `fontSize: 숫자` 를 쓰지 않는다 — 토큰을 쓰고 굵기 · 줄 높이만 `copyWith` 로 바꾼다. `test/core/theme/font_size_tokens_test.dart` 가 `lib/core/theme` 밖의 `fontSize:` 를 잡는다(예외는 `auth/social/view/social_login_button.dart` 카카오 · 구글 공식 버튼 한 파일). DESIGN.md §3.2
-- **움직이는 그림(Lottie)은 `AppLottieView` 로만 부른다**(2026-11-04, 앱 PR #656). `package:lottie` 를 직접 쓰지 않고, 장면은 `AppLottie` 표(`core/theme/app_lottie.dart`)에 한 줄 더한다. 에셋은 `assets/lottie/<이름>.json` + 그림 `assets/lottie/images/<이름>/`(pubspec 에 그림 폴더도 적는다), 크기 예산 json 100KB · 장면 400KB, 색은 그림 속 색 그대로, "동작 줄이기" 면 장면마다 정한 프레임에 멈춘다. 어기면 `test/core/theme/app_lottie_test.dart` · `test/common/widgets/app_lottie_view_test.dart` 가 알린다. DESIGN.md §7
-- **화면 문구는 문구 파일 한 곳에서만 정한다**(2026-11-04, 앱 1.0.2 B8). `lib/l10n/app_ko.arb`(한국어만)에 키를 더하고 `context.l10n.<키>` 로 읽는다 — 키 이름은 `<기능><화면/요소><뜻>`(예 `faqSearchHint`), 뜻과 글자가 모두 같은 공용 문구는 `common<뜻>`. (B8 이행은 글자를 바꾸지 않고 옮기기만 했다.) 서버와 글자까지 같아야 하는 값(프로필 태그 · 투표 기본 선택지 · 서버 문구 비교 상수)은 옮기지 않고 `// l10n-ignore(wire|server-text): 이유` 마커를 단다. 로그(`debugPrint`) · `assert` · `throw` · `RegExp` 안의 글자는 면제다
-- **에러 문구는 키가 `error` 로 시작하고, 글자로 바꾸는 곳은 `lib/core/l10n/error_text.dart` 한 파일뿐이다.** 뷰모델은 문자열을 만들지 않고 `Failure` 종류만 상태에 담고, view 가 `context.errorText(failure)` 로 읽는다. **에러 자리(뷰모델 · UiState 에서 이름에 error · failure · rejection 이 든 칸)는 `Failure?` · `AppError?` 만** — `String` 이면 `test/l10n/error_slot_type_test.dart` 가 잡는다(view 위젯의 글자 인자 `LabeledField.errorText` · `AppToast.label` 은 대상 아님). 에러가 아닌 곳에서 `error*` 키를 쓰거나 `error_text.dart` 가 일반 키를 쓰면 `test/l10n/error_key_scope_test.dart` 가 잡는다
-- **`lib/` 전체에 한글 문자열 리터럴이 없다**(생성 폴더 `lib/l10n/` 제외, 위 마커 · 면제만 예외). 모든 화면 문구가 ARB 에 있고(1.0.2 B8 ①~⑧) `test/l10n/no_hangul_literal_test.dart` 가 lib 전체를 검사한다. ARB 형식(정렬 · 중복 · 자리표시자 · 안 쓰는 키)은 `test/l10n/arb_test.dart` 가 지킨다
-- **시험의 `MaterialApp` · `MaterialApp.router` 는 앱(`lib/main.dart`)과 같은 위임자를 단다**(1.0.2 B8 ⑧-c, 사용자 결정 「B안으로 조이기」 2026-11-09): 도우미 없이 `localizationsDelegates: AppLocalizations.localizationsDelegates` · `supportedLocales: AppLocalizations.supportedLocales` 두 줄. `context.l10n` 에 한국어 대체가 없어 빠뜨리면 문구를 읽는 위젯이 바로 실패하고, 문구를 안 읽는 위젯(머티리얼 영어 기본 글자 'Back' 등으로 조용히 도는 곳)은 `test/l10n/test_app_delegates_test.dart` 가 잡는다. 머티리얼 기본 글자는 앱과 같은 한국어다(뒤로 버튼 툴팁 "뒤로"). lib 은 `AppLocalizationsKo()` 를 직접 만들지 않는다(`test/l10n/no_direct_korean_l10n_test.dart`)
-- **시험에서 `tester.pageBack()` 은 쓰지 않는다** — SDK 가 영어 'Back' 툴팁을 박아 두었다(`flutter_test` `widget_tester.dart:1172`). 대신 `tester.tap(find.byTooltip('뒤로'))`
+- **글자 크기는 `AppTypography` 토큰으로만 정한다.** 기준은 48 · 32 · 24 · 20 · 18 · 16 · 14 · 12 · 10(모두 짝수)이고, 화면에 `fontSize: 숫자` 를 쓰지 않는다 — 토큰을 쓰고 굵기 · 줄 높이만 `copyWith` 로 바꾼다. `test/core/theme/font_size_tokens_test.dart` 가 `lib/core/theme` 밖의 `fontSize:` 를 잡는다(예외는 `auth/social/view/social_login_button.dart` 카카오 · 구글 공식 버튼 한 파일). DESIGN.md §3.2
+- **움직이는 그림(Lottie)은 `AppLottieView`(`lib/common/widgets/app_lottie_view.dart`) 한 곳으로만 부른다.** `package:lottie` 를 다른 파일에서 부르면 `test/common/widgets/app_lottie_view_test.dart` 가 실패한다. 장면은 `AppLottie` 표(`core/theme/app_lottie.dart`)에 한 줄 더하고 화면은 경로 글자를 직접 쓰지 않는다. 에셋은 `assets/lottie/<이름>.json` + 그림 `assets/lottie/images/<이름>/`(json 의 그림 폴더 `assets[].u` 가 `images/<이름>/` — 폴더 항목은 하위 폴더를 담지 않아 pubspec 에 그림 폴더를 따로 적는다). 크기 예산은 json 100KB · 장면 하나(그림 포함) 400KB. 색은 그림 속 색 그대로 둔다(앱 토큰으로 바꾸지 않는다). "동작 줄이기" 면 장면마다 정한 멈춤 프레임에 선다. 지킴 시험 `test/core/theme/app_lottie_test.dart`. DESIGN.md §7
+- **눌림 효과(잉크)는 움직이는 쪽 안에 가둔다** — `InkWell` 등을 스크롤 · 페이지 · 애니메이션 안에 둘 때는 `Material(type: MaterialType.transparency)` 로 감싼다 (`.claude/team/COMMON.md` §4-2). 새 화면을 만들 때와 리뷰할 때마다 본다
+
+### 7.2 화면 문구 · 에러 문구 (ARB)
+
+- **화면 문구는 문구 파일 한 곳에서만 정한다.** `lib/l10n/app_ko.arb`(한국어만, `l10n.yaml` 이 `AppLocalizations` 를 만든다)에 키를 더하고 `context.l10n.<키>`(`lib/core/l10n/l10n_context.dart`)로 읽는다. 키 이름은 `<기능><화면/요소><뜻>`(예 `faqSearchHint`), 뜻과 글자가 모두 같은 공용 문구는 `common<뜻>`.
+- **`lib/` 전체에 한글 문자열 리터럴이 없다**(생성 폴더 `lib/l10n/` 제외). 서버와 글자까지 같아야 하는 값(프로필 태그 · 투표 기본 선택지 · 서버 문구 비교 상수)은 옮기지 않고 `// l10n-ignore(wire|server-text): 이유` 마커를 단다. 로그(`debugPrint`) · `assert` · `throw` · `RegExp` 안의 글자는 면제다. 서버가 문구를 비교하는 상수(`l10n-ignore(server-text)` 자리)는 앱 글자만 바꾸면 비교가 깨지므로 서버와 같이 바꾼다 (전체 목록은 `grep -rn "l10n-ignore" lib`). 지킴 시험 `test/l10n/no_hangul_literal_test.dart`. ARB 형식(정렬 · 중복 · 자리표시자 · 안 쓰는 키)은 `test/l10n/arb_test.dart` 가 지킨다.
+- **ARB 를 고치면 `flutter pub get` 을 먼저 한다.** 생성 파일(`lib/l10n/app_localizations*.dart`)은 커밋하지 않고(`.gitignore`) `flutter pub get` · `flutter run` · `flutter build` 가 만든다. `flutter test` · `flutter analyze` 만으로는 만들지 않아, 없으면 "Undefined name AppLocalizations" 가 난다 (CI 는 `flutter pub get` 으로 시작해 영향 없음).
+- **에러 문구는 키가 `error` 로 시작하고, 글자로 바꾸는 곳은 `lib/core/l10n/error_text.dart` 한 파일뿐이다.** 뷰모델은 문자열을 만들지 않고 `Failure`(`common/failure.dart` 의 sealed 종류)만 상태에 담고, view 가 `context.errorText(failure)` 로 읽는다. **에러 자리(뷰모델 · UiState 에서 이름에 error · failure · rejection 이 든 칸)는 `Failure?` · `AppError?` 만** — `String` 이면 `test/l10n/error_slot_type_test.dart` 가 잡는다(view 위젯의 글자 인자 `LabeledField.errorText` · `AppToast.label` 은 대상 아님). 에러가 아닌 곳에서 `error*` 키를 쓰거나 `error_text.dart` 가 일반 키를 쓰면 `test/l10n/error_key_scope_test.dart` 가 잡는다. 서버가 준 문구를 그대로 보이는 가지(거절 종류)만 ARB 를 쓰지 않는다 (서버 `detail` 이 기준)
+- **`context.l10n` 에는 한국어 대체가 없다.** `l10n.yaml` 의 `nullable-getter: false` 라 위임자(`AppLocalizations.localizationsDelegates`)가 없는 곳에서 읽으면 바로 실패한다. lib 은 `AppLocalizationsKo()` 를 직접 만들지 않는다(`test/l10n/no_direct_korean_l10n_test.dart`).
+- **시험의 `MaterialApp` · `MaterialApp.router` 는 앱(`lib/main.dart`)과 같은 위임자를 단다**: 도우미 없이 `localizationsDelegates: AppLocalizations.localizationsDelegates` · `supportedLocales: AppLocalizations.supportedLocales` 두 줄. 빠뜨리면 문구를 읽는 위젯이 바로 실패하고, 문구를 안 읽는 위젯(머티리얼 영어 기본 글자 'Back' 등으로 조용히 도는 곳)은 `test/l10n/test_app_delegates_test.dart` 가 잡는다(위임자를 일부러 빼는 시험은 그 파일의 예외 목록에만 둔다). 앱은 머티리얼 · 쿠퍼티노 한국어 위임자를 켜므로 기본 글자(뒤로 가기 툴팁 · 새로고침 · 붙여넣기 등)도 한국어다.
+- **시험에서 `tester.pageBack()` 은 쓰지 않는다** — SDK 가 영어 'Back' 툴팁을 박아 두었다(`flutter_test` `widget_tester.dart`). 대신 `tester.tap(find.byTooltip('뒤로'))`
 
 ---
 
@@ -290,6 +322,21 @@ if (status == statusPending) { ... }   // 대기 상태일 때만 처리
 - 쪼갠 data 조각의 시험은 당분간 원본 시험 파일 자리에 둔다(예: `contact_name_store_test` 가 `data/contact_label.dart` 도 본다)
 - private 클래스·함수는 직접 테스트하지 않고 public 진입점을 통해 커버한다
 - 목(mock)은 `mocktail` 을 쓰되, Repository 는 **Fake 구현을 우선**한다
+
+**지킴 시험 (규칙을 어기면 실패한다)**
+
+| 시험 | 지키는 규칙 |
+| --- | --- |
+| `test/l10n/no_hangul_literal_test.dart` | `lib/` 에 한글 문자열 리터럴 금지, `l10n-ignore` 마커 형식 |
+| `test/l10n/arb_test.dart` | ARB 형식(정렬 · 중복 · 자리표시자 · 안 쓰는 키) |
+| `test/l10n/error_key_scope_test.dart` | `error*` 키는 `error_text.dart` 에서만, `error_text.dart` 는 일반 키 금지 |
+| `test/l10n/error_slot_type_test.dart` | 에러 자리는 `Failure?` · `AppError?` (`String` 금지) |
+| `test/l10n/no_direct_korean_l10n_test.dart` | lib 에서 `AppLocalizationsKo` 직접 생성 금지 |
+| `test/l10n/test_app_delegates_test.dart` | 시험의 `MaterialApp` 은 앱과 같은 문구 위임자를 단다 |
+| `test/core/theme/font_size_tokens_test.dart` | 화면에 `fontSize: 숫자` 금지 |
+| `test/core/theme/app_lottie_test.dart` | Lottie 장면 표 · 에셋 · pubspec 그림 폴더 · 크기 예산 |
+| `test/common/widgets/app_lottie_view_test.dart` | `package:lottie` 는 `AppLottieView` 한 곳에서만 |
+| `test/auth/social/view/start_view_test.dart` | 심사원 로그인 입구와 소셜 버튼이 겹치지 않음 |
 
 ---
 
@@ -315,7 +362,10 @@ flutter analyze                  # 정적 분석
 flutter build apk --debug
 ```
 
-`flutter analyze` 는 `analysis_options.yaml` 에서 lint 규칙 5개를 켠 채 돈다(2026-11-02 앱 1.0.1: `always_declare_return_types` · `always_use_package_imports` · `cancel_subscriptions` · `avoid_void_async` · `prefer_final_in_for_each` — 지금 걸리는 곳이 0건인 규칙만, 새로 쓰는 코드의 기준이다). 고쳐야 걸리는 규칙(`unawaited_futures` · `prefer_const_constructors` · `prefer_final_locals` 등)은 1.0.2 코드 정리 때 켠다.
+`flutter analyze` 는 `analysis_options.yaml` 에서 lint 규칙을 켠 채 돈다 — 새로 쓰는 코드의 기준이다.
+
+- 이미 켜진 5개: `always_declare_return_types` · `always_use_package_imports` · `cancel_subscriptions` · `avoid_void_async` · `prefer_final_in_for_each`
+- 고쳐야 걸리는 8개(**B4 PR 로 켬**): `unawaited_futures` · `prefer_final_locals` · `prefer_single_quotes` · `prefer_const_constructors` · `prefer_const_declarations` · `close_sinks` · `only_throw_errors` · `avoid_dynamic_calls`
 
 Supabase 마이그레이션(**저장소 루트**에서 실행 — `supabase/` 가 `frontend/` 밖에 있다):
 
@@ -390,9 +440,12 @@ supabase test db                 # RLS 정책 SQL 테스트
 - [ ] DESIGN.md 의 해당 컴포넌트 스펙을 읽고 시작했는가?
 - [ ] 색·타이포·간격·라운드를 `core/theme/` 토큰으로만 참조했는가?
 - [ ] 글자 크기를 `AppTypography` 토큰으로만 정했는가? (`fontSize:` 숫자 금지 — 지킴 시험이 잡는다)
+- [ ] 화면 문구를 ARB(`context.l10n`)에만 두고 한글 리터럴을 쓰지 않았는가? ARB 를 고친 뒤 `flutter pub get` 을 했는가?
+- [ ] 에러를 `Failure?` 로 담고 view 에서 `context.errorText` 로 읽었는가? (`String` 에러 칸 금지)
+- [ ] 새 위젯 시험의 `MaterialApp` 에 문구 위임자 두 줄을 달았는가?
 - [ ] 움직이는 그림을 `AppLottieView` + `AppLottie` 표로만 썼는가?
 - [ ] 아이콘을 `AppIcons` 를 통해 Lucide 로 썼는가?
-- [ ] `primary` 위 텍스트가 `AppButton` 공용 값(16/700, 위 §7 2026-10-17 정정)을 따르는가? 화면에서 따로 키우거나 줄이지 않았는가?
+- [ ] `primary` 위 텍스트가 `AppButton` 공용 값(16/700, 위 §7.1)을 따르는가? 화면에서 따로 키우거나 줄이지 않았는가?
 - [ ] 사용자를 닉네임으로 표시하고, 실명이 서버 응답에 들어가지 않는가?
 - [ ] 축소 모션 설정을 존중하는가?
 
@@ -405,13 +458,3 @@ supabase test db                 # RLS 정책 SQL 테스트
 - [ ] 새 의존성을 사용자에게 확인받았는가?
 - [ ] 사용 통계 이벤트를 더하거나 고쳤다면 `docs/ANALYTICS_EVENTS.md` 표도 함께 고쳤는가? (매개변수에 개인 값 · 오류 메시지가 없는가?)
 - [ ] 키·비밀값이 저장소에 들어가지 않았는가?
-
----
-
-## 갱신 이력
-
-<details><summary>§2 "현재 상태" 종전 서술 (2026-10-09 ~ 2026-10-17, 2026-10-20 문서 정리로 옮겼다 — 내용 그대로)</summary>
-
-> **현재 상태:** 기능 구현은 끝났고 출시 준비 단계다(2026-10-09: 소셜 로그인 전환 운영 반영 완료, 하네스(E2E) 소셜 로그인 맞춤과 출시 점검 진행 중). **2026-10-14 갱신**: 10-13 ~ 14 에 안드로이드 인앱결제 · 채팅 읽음 '1' 과 실시간 · 앞 화면 알림 · 유리 하단 내비 · 뒤로가기 한 번 더 눌러 종료가 main 에 들어왔다. 10-14 저녁에는 아이폰 인앱결제(App Store, PR #519 · #520 · #521)와 연락처 안내 문구 정정(PR #518)이 들어왔다(운영 배포 여부는 문서 담당 미확인). 운영 서버 리비전 `00070-jz7`, 운영 마이그레이션 71개(대장 전달 값). 안드로이드는 구글 플레이 내부 테스트(AAB, `run.md`)로 폰 시험 중이고, 하네스(E2E)는 하단 내비 · 앞 화면 알림 · 읽음 '1' 변경에 맞춰 고치는 중이다. **2026-10-17 갱신(main `fccc5e2d`, PR #563 ~ #579)**: 홈 6칸 입체 칸 · 리뷰 띠 서버 값 · 하단 내비 끌기 · 15-7 사진 확대 · 받은 신청 "프로필 보기" · 무료 하트 조정(에브리타임 40 · 투표 5 · 주 15) · 채팅 첫 입장 안내 카드 · 아바타 확인 가입 맨 끝(5b 리빌) · 온보딩 뒤로가기가 main 에 들어왔다(`docs/DESIGN.md` §13-151). 운영 서버는 **2026-10-17 배포로 `00083-pwx`** 이고 이 묶음의 서버 변경이 모두 들어 있다. 운영 마이그레이션은 저장소와 같은 76개다(`../backend/DEPLOY.md` §4-13). **새 앱 빌드(안드로이드 vc9 · TestFlight)는 아직이다** — 새 앱 빌드는 서버 배포 뒤에 낸다는 원칙대로 이제 낸다. 실제 DB 적용 상태는 `../docs/ERD.md` 상태줄, 디자인은 `docs/DESIGN.md` 를 기준으로 한다. DESIGN.md §13 에 열린 채 남은 행에 걸리는 구현은 먼저 사용자에게 묻는다.
-
-</details>
