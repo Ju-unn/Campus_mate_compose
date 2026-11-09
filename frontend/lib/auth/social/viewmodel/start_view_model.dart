@@ -1,6 +1,7 @@
 import 'package:campus_mate/auth/social/model/data/social_provider.dart';
 import 'package:campus_mate/auth/social/model/repository/social_login_repository_provider.dart';
 import 'package:campus_mate/auth/social/viewmodel/start_ui_state.dart';
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -31,10 +32,12 @@ class StartViewModel extends Notifier<StartUiState> {
   }
 
   /// 로그아웃하며 남긴 알림(탈퇴 · 로그인 만료 · 03 학교 메일 충돌 — `LoginNotice`)을 같은 토스트 자리에 띄운다.
-  void showNotice(String message, {bool isInfo = false}) {
+  /// 이미 만든 글자([message]) 또는 실패 종류([failure], 화면이 글자로 바꾼다) 중 하나를 싣는다.
+  void showNotice({String? message, Failure? failure, bool isInfo = false}) {
+    assert((message == null) != (failure == null), 'showNotice needs exactly one of message or failure');
     state = StartUiState(
       inProgress: state.inProgress,
-      toast: StartToast(message: message, isCancellation: false, isInfo: isInfo),
+      toast: StartToast(message: message, failure: failure, isCancellation: false, isInfo: isInfo),
     );
   }
 

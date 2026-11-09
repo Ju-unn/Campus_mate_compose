@@ -11,7 +11,6 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
-import 'package:campus_mate/referral/model/data/invite_share_text.dart';
 import 'package:campus_mate/referral/model/repository/invite_share.dart';
 import 'package:campus_mate/referral/viewmodel/my_referral_code_provider.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
@@ -68,13 +67,15 @@ class _InviteFriendsSheetState extends ConsumerState<InviteFriendsSheet> {
   /// 카카오 서버에 템플릿을 묻는 동안 반응이 없어 보이지 않게 스피너를 켠다. 실패해도 [_share] 가 삼켜 여기서 끈다.
   Future<void> _shareToKakao(String code) async {
     if (_sharing) return;
+    final text = context.l10n.referralShareText(code: code);
     setState(() => _sendingToKakao = true);
-    await _share(() => ref.read(shareInviteProvider)(code));
+    await _share(() => ref.read(shareInviteProvider)(code, text));
     if (mounted) setState(() => _sendingToKakao = false);
   }
 
   /// "다른 앱으로 보내기" — 카카오를 거치지 않고 기기 공유 창을 바로 연다.
-  Future<void> _shareToOtherApps(String code) => _share(() => ref.read(shareTextProvider)(inviteShareText(code)));
+  Future<void> _shareToOtherApps(String code) =>
+      _share(() => ref.read(shareTextProvider)(context.l10n.referralShareText(code: code)));
 
   Future<void> _share(Future<void> Function() send) async {
     if (_sharing) return;

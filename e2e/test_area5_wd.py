@@ -515,7 +515,7 @@ class AppContractTest(unittest.TestCase):
     def test_the_screens_say_the_numbers_the_module_counts_on(self):
         self.assertIn('static const _defaultDuration = Duration(seconds: 2);', lib('core', 'router', 'splash_hold.dart'))  # LOGIN_MS 의 2초
         sign_up = lib('auth', 'school_email', 'view', 'sign_up_screen.dart')
-        self.assertIn('_notice = LoginNotice.take()?.message;', sign_up)  # 02 가 처음 그려질 때 한 번 꺼낸다
+        self.assertIn('_notice = LoginNotice.take();', sign_up)  # 02 가 처음 그려질 때 한 번 꺼낸다(탈퇴 · 만료는 실패 종류 — 그릴 때 글자로)
         self.assertIn('Timer(const Duration(seconds: 3)', sign_up)  # 3초 뒤 사라진다
         # 로그아웃하면 닿는 곳은 시작 화면이다(소셜 로그인 전환) — 앱이 알림을 읽는 화면(screen('start'))도 한 번만 꺼내 3초 뒤 지운다.
         start = lib('auth', 'social', 'view', 'start_view.dart')

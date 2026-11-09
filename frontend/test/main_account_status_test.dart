@@ -10,9 +10,11 @@ import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/draft/draft_store.dart';
 import 'package:campus_mate/core/http/api_client_provider.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
 import 'package:campus_mate/home/model/repository/home_repository_provider.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/main.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/profile/onboarding/model/repository/onboarding_repository_provider.dart';
@@ -65,7 +67,8 @@ void main() {
     status.observe(const WithdrawnFailure());
 
     expect(signOutCalls, 1);
-    expect(LoginNotice.take()?.message, '탈퇴한 계정이에요');
+    final notice = LoginNotice.take()!;
+    expect(failureText(AppLocalizationsKo(), notice.failure!), '탈퇴한 계정이에요');
   });
 
   group('로그인한 사용자', () {

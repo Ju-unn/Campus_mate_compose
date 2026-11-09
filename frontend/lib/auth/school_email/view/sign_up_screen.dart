@@ -4,6 +4,7 @@ import 'package:campus_mate/account/model/data/login_notice.dart';
 import 'package:campus_mate/auth/school_email/viewmodel/sign_up_ui_state.dart';
 import 'package:campus_mate/auth/school_email/viewmodel/sign_up_view_model.dart';
 import 'package:campus_mate/auth/school_email/viewmodel/verify_code_view_model.dart';
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/auth/logout_text_button.dart';
@@ -48,13 +49,14 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   final _emailController = TextEditingController();
 
   /// 탈퇴한 계정이 로그아웃되며 남긴 알림(pen V12leV · EuJqq). 3초 뒤 지운다(04-2 토스트와 같은 시간).
-  String? _notice;
+  /// 실패 종류로 남긴 알림은 그릴 때 `context.errorText` 로 글자로 바꾼다.
+  ({String? message, Failure? failure, bool isInfo})? _notice;
   Timer? _noticeTimer;
 
   @override
   void initState() {
     super.initState();
-    _notice = LoginNotice.take()?.message;
+    _notice = LoginNotice.take();
     if (_notice != null) {
       _noticeTimer = Timer(const Duration(seconds: 3), () => setState(() => _notice = null));
     }
@@ -76,6 +78,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       if (failure != null) showGateToast(context, context.errorText(failure));
     });
     final goBack = widget.hasMethodPicker ? methodBack(ref, isBusy: false) : null;
+    final notice = _notice;
 
     final scaffold = Scaffold(
       appBar: goBack == null ? null : MethodBackAppBar(onBack: goBack),
@@ -116,11 +119,11 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       Text(context.errorText(state.error!), style: AppTypography.caption.copyWith(color: AppColors.error)),
                     ],
                     const Spacer(),
-                    if (_notice != null) ...[
+                    if (notice != null) ...[
                       Center(
                         child: AppToast(
                           leading: const Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk),
-                          label: _notice!,
+                          label: notice.message ?? context.errorText(notice.failure!),
                         ),
                       ),
                       const SizedBox(height: AppSpacing.sm), // CTA 바로 위 12(pen KJnpw)

@@ -9,13 +9,20 @@ import 'package:campus_mate/core/auth/account_status_listenable.dart';
 /// 스플래시도 다시 뜬다 — 로그아웃 전에 띄운 토스트는 함께 사라지고, provider 도 새로 시작해 값을 넘기지 못한다.
 /// 그래서 로그아웃 직전에 여기 남기고, 시작 화면(`StartView`)이 [take] 로 꺼낸다(Ruling 36).
 /// [isInfo] 면 오류가 아닌 안내다 — 시작 화면이 경고 대신 info 아이콘을 단다(03 학교 메일 충돌 "카카오로 다시 로그인", 10-17).
+///
+/// 알림은 둘 중 하나를 싣는다: 화면이 이미 문구 파일로 만든 글자(`message`, 03 의 다시 로그인 안내) 또는 실패 종류
+/// (`failure`, 탈퇴 · 로그인 만료 — 모델은 글자를 만들지 않는다). 띄우는 화면이 `failure` 를 `context.errorText` 로 바꾼다.
 abstract final class LoginNotice {
-  static ({String message, bool isInfo})? _notice;
+  static ({String? message, Failure? failure, bool isInfo})? _notice;
 
-  static void post(String message, {bool isInfo = false}) => _notice = (message: message, isInfo: isInfo);
+  static void post(String message, {bool isInfo = false}) =>
+      _notice = (message: message, failure: null, isInfo: isInfo);
+
+  /// 실패 종류만 남긴다 — 글자는 띄우는 화면이 정한다(경고 아이콘).
+  static void postFailure(Failure failure) => _notice = (message: null, failure: failure, isInfo: false);
 
   /// 한 번만 값을 주고 비운다 — 로그인 화면에 다시 들어와도 또 뜨지 않는다.
-  static ({String message, bool isInfo})? take() {
+  static ({String? message, Failure? failure, bool isInfo})? take() {
     final notice = _notice;
     _notice = null;
     return notice;
@@ -34,6 +41,6 @@ void signOutWhenWithdrawn(AccountStatus status, Future<void> Function() signOut)
   if (notice == null) {
     return;
   }
-  LoginNotice.post(notice.toDisplayMessage());
+  LoginNotice.postFailure(notice);
   unawaited(signOut());
 }

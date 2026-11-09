@@ -8,6 +8,8 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -22,6 +24,13 @@ class MockGoTrueClient extends Mock implements GoTrueClient {}
 
 class MockSession extends Mock implements Session {}
 
+/// 남긴 알림을 화면에 보일 글자로 — 실패 종류로 남긴 알림은 error_text 가 바꾼 글자다(기대 글자는 옛 글자 그대로).
+String? _takeNoticeText() {
+  final notice = LoginNotice.take();
+  if (notice == null) return null;
+  return notice.message ?? failureText(AppLocalizationsKo(), notice.failure!);
+}
+
 void main() {
   // LoginNotice 는 전역 값이다 — 테스트끼리 값이 새지 않게 매번 비운다(대장 요구).
   tearDown(LoginNotice.take);
@@ -31,6 +40,15 @@ void main() {
 
     expect(LoginNotice.take()?.message, '탈퇴한 계정이에요');
     expect(LoginNotice.take(), isNull);
+  });
+
+  test('signOutWhenWithdrawn 은 글자가 아니라 실패 종류를 남긴다 — 글자는 알림을 띄우는 화면이 바꾼다', () {
+    signOutWhenWithdrawn(AccountStatus.withdrawn, () async {});
+
+    final notice = LoginNotice.take();
+    expect(notice?.failure, isA<WithdrawnFailure>());
+    expect(notice?.message, isNull);
+    expect(notice?.isInfo, isFalse);
   });
 
   test('signOutWhenWithdrawn 은 withdrawn 이 아니면 아무것도 하지 않는다', () async {
@@ -48,7 +66,7 @@ void main() {
 
     signOutWhenWithdrawn(AccountStatus.expired, () async => signOutCalls++);
 
-    expect(LoginNotice.take()?.message, '세션이 만료됐어요, 다시 로그인해 주세요');
+    expect(_takeNoticeText(), '세션이 만료됐어요, 다시 로그인해 주세요');
     expect(signOutCalls, 1);
   });
 
@@ -107,7 +125,7 @@ void main() {
     test('direct withdraw: WithdrawViewModel success → notice posted and signOut once', () async {
       await container.read(withdrawViewModelProvider.notifier).withdraw();
 
-      expect(LoginNotice.take()?.message, '탈퇴한 계정이에요');
+      expect(_takeNoticeText(), '탈퇴한 계정이에요');
       expect(signOutCalls, 1);
     });
 
@@ -118,7 +136,7 @@ void main() {
       await container.read(withdrawViewModelProvider.notifier).withdraw();
 
       expect(container.read(withdrawViewModelProvider).error, isNull);
-      expect(LoginNotice.take()?.message, '탈퇴한 계정이에요');
+      expect(_takeNoticeText(), '탈퇴한 계정이에요');
       expect(signOutCalls, 1);
     });
 
@@ -131,7 +149,7 @@ void main() {
         api.send('GET', '/cards/today', (_) {}),
       ]);
 
-      expect(LoginNotice.take()?.message, '탈퇴한 계정이에요');
+      expect(_takeNoticeText(), '탈퇴한 계정이에요');
       expect(signOutCalls, 1);
     });
 
@@ -157,7 +175,7 @@ void main() {
           .send('DELETE', '/cards/push-tokens/tok', (_) {});
 
       expect(listenable.value, AccountStatus.withdrawn);
-      expect(LoginNotice.take()?.message, '탈퇴한 계정이에요');
+      expect(_takeNoticeText(), '탈퇴한 계정이에요');
       expect(signOutCalls, 1);
     });
 
@@ -171,7 +189,7 @@ void main() {
       ]);
 
       expect(listenable.value, AccountStatus.expired);
-      expect(LoginNotice.take()?.message, '세션이 만료됐어요, 다시 로그인해 주세요');
+      expect(_takeNoticeText(), '세션이 만료됐어요, 다시 로그인해 주세요');
       expect(signOutCalls, 1);
     });
   });

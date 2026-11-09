@@ -23,8 +23,9 @@ class StartUiState {
 /// 취소는 폭을 내용에 맞추고 `info` 아이콘(높이 40), 실패 · 로그아웃 알림은 버튼 폭에 `triangle-alert`(두 줄이면 높이 60).
 /// 안내([isInfo], 03 학교 메일 충돌 뒤 "카카오로 로그인해 주세요")는 버튼 폭에 `info` 다.
 ///
-/// 글자는 여기서 정하지 않는다 — 글자의 출처가 셋이다: 로그인 실패의 종류([failure], 화면이 `context.errorText` 로 바꾼다),
-/// 뒤로가기 한 번 더 안내([isBackExitHint], 화면이 문구 파일에서 읽는다), 로그아웃하며 남긴 알림이 이미 글자로 만들어 둔 [message].
+/// 글자는 여기서 정하지 않는다 — 글자의 출처가 셋이다: 실패의 종류([failure] — 로그인 실패 · 탈퇴 · 로그인 만료 알림, 화면이
+/// `context.errorText` 로 바꾼다), 뒤로가기 한 번 더 안내([isBackExitHint], 화면이 문구 파일에서 읽는다), 03 다시 로그인 안내처럼
+/// 화면이 이미 글자로 만들어 둔 [message].
 class StartToast {
   const StartToast({
     this.message,
@@ -41,7 +42,7 @@ class StartToast {
   /// 이미 글자로 만들어진 알림(`LoginNotice`). 실패 · 뒤로가기 안내면 null.
   final String? message;
 
-  /// 로그인이 실패한 종류. 알림 · 뒤로가기 안내면 null.
+  /// 로그인이 실패한 종류 · 실패 종류로 남긴 로그아웃 알림(탈퇴 · 로그인 만료). 글자 알림 · 뒤로가기 안내면 null.
   final Failure? failure;
 
   /// "한 번 더 누르면 종료돼요" 안내.

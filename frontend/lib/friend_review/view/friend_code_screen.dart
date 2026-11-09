@@ -235,7 +235,7 @@ class _CodeNote extends StatelessWidget {
 }
 
 /// 붙여 넣은 " k7 m-2qx " 도 같은 코드로 — 대문자로 바꾸고 영숫자만 남겨 코드 길이(6)까지. 최종 검증은 서버가 한다.
-/// 공유 문구 전체(`inviteShareText`)를 붙이면 "추천 코드" 바로 뒤 토큰만 쓴다 — 앞의 "CampusMate" 를 코드로 고르지 않게(대장 10-13).
+/// 공유 문구 전체(문구 파일 `referralShareText`)를 붙이면 "추천 코드" 바로 뒤 토큰만 쓴다 — 앞의 "CampusMate" 를 코드로 고르지 않게(대장 10-13).
 /// 한글은 칸에 남지 않아 "추천 코드" 는 붙여 넣을 때만 보인다.
 class _FriendCodeFormatter extends TextInputFormatter {
   const _FriendCodeFormatter();

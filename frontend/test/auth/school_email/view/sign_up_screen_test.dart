@@ -265,6 +265,15 @@ void main() {
       expect(find.byType(AppToast), findsNothing);
     });
 
+    testWidgets('실패 종류로 남긴 알림(탈퇴)은 화면이 글자로 바꿔 CTA 위에 보여 준다', (tester) async {
+      LoginNotice.postFailure(const WithdrawnFailure());
+      await pumpScreen(tester);
+
+      final toast = find.byType(AppToast);
+      expect(find.descendant(of: toast, matching: find.text('탈퇴한 계정이에요')), findsOneWidget);
+      expect(find.descendant(of: toast, matching: find.byIcon(AppIcons.alertTriangle)), findsOneWidget);
+    });
+
     testWidgets('login screen shows no toast without a notice', (tester) async {
       await pumpScreen(tester);
 

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
@@ -85,9 +86,13 @@ void main() {
   late List<String> shared;
   late Future<void> Function(String) share;
 
+  /// 카카오 먼저 공유에 화면이 함께 넘긴 공유 글.
+  late List<String> sharedTexts;
+
   setUp(() {
     referral = FakeReferralRepository();
     shared = [];
+    sharedTexts = [];
     share = (text) async => shared.add(text);
   });
 
@@ -113,7 +118,10 @@ void main() {
         homeNowProvider.overrideWithValue(() => now),
         referralRepositoryProvider.overrideWithValue(referral),
         // 19 단추는 16i "카카오톡으로 보내기"와 같은 카카오 먼저 공유를 쓴다 — 넘긴 코드를 모은다.
-        shareInviteProvider.overrideWithValue((code) => share(code)),
+        shareInviteProvider.overrideWithValue((code, text) {
+          sharedTexts.add(text);
+          return share(code);
+        }),
         // 하단 내비 뱃지가 수락 대기·안 읽은 메시지를 읽는다(§8.8).
         cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
         chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
@@ -149,6 +157,7 @@ void main() {
       await tapInvite(tester);
 
       expect(shared, ['K7QMX2']);
+      expect(sharedTexts, ['CampusMate 에서 같이 해요! 가입할 때 추천 코드 K7QMX2 를 넣어 줘.']);
     });
 
     testWidgets('코드를 못 받으면 공유하지 않고 실패 문구를 토스트로 보인다. 화면은 그대로', (tester) async {
@@ -159,7 +168,7 @@ void main() {
       await tapInvite(tester);
 
       expect(shared, isEmpty);
-      expect(find.text(const NetworkFailure().toDisplayMessage()), findsOneWidget);
+      expect(find.text(failureText(AppLocalizationsKo(), const NetworkFailure())), findsOneWidget);
       expect(find.byType(AppToast), findsOneWidget);
       expect(find.text('친구에게 초대 링크 보내기'), findsOneWidget);
       // 나타날 때 나 탭 · 홈 토스트와 같이 아래 8 에서 press 동안 올라온다(D4).
@@ -189,7 +198,7 @@ void main() {
 
       await tapInvite(tester);
 
-      expect(find.text(const UnknownFailure().toDisplayMessage()), findsOneWidget);
+      expect(find.text(failureText(AppLocalizationsKo(), const UnknownFailure())), findsOneWidget);
     });
   });
 

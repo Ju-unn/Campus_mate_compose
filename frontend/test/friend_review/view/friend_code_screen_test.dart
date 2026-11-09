@@ -13,7 +13,7 @@ import 'package:campus_mate/friend_review/view/friend_review_card.dart';
 import 'package:campus_mate/friend_review/view/friend_review_compose_sheet.dart';
 import 'package:campus_mate/friend_review/view/my_friend_reviews_section.dart';
 import 'package:campus_mate/friend_review/view/written_reviews_screen.dart';
-import 'package:campus_mate/referral/model/data/invite_share_text.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -181,10 +181,10 @@ void main() {
       expect(find.text('K7M2QX'), findsOneWidget);
     });
 
-    testWidgets('공유 문구 전체(inviteShareText)를 붙여 넣으면 "추천 코드" 바로 뒤 토큰만 — CAMPUS 를 고르지 않는다', (tester) async {
+    testWidgets('공유 문구 전체(referralShareText)를 붙여 넣으면 "추천 코드" 바로 뒤 토큰만 — CAMPUS 를 고르지 않는다', (tester) async {
       await pump(tester);
 
-      await tester.enterText(field(), inviteShareText('K7M2QX'));
+      await tester.enterText(field(), AppLocalizationsKo().referralShareText(code: 'K7M2QX'));
       await tester.pump();
 
       expect(find.text('K7M2QX'), findsOneWidget);
@@ -194,7 +194,7 @@ void main() {
     testWidgets('이미 친 글 뒤에 공유 문구를 붙여도, 소문자 코드여도 "추천 코드" 뒤 토큰 — 친 글은 버린다', (tester) async {
       await pump(tester);
 
-      await tester.enterText(field(), 'AB${inviteShareText('k7m2qx')}');
+      await tester.enterText(field(), 'AB${AppLocalizationsKo().referralShareText(code: 'k7m2qx')}');
       await tester.pump();
 
       expect(find.text('K7M2QX'), findsOneWidget);
