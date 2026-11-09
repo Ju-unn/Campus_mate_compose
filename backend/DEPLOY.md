@@ -1006,7 +1006,7 @@ DB 변경 없음, 새 env 없음, 앱 변경 없음(서버만). 배경: §4-18 "
 
 ## 4-20. 강제 업데이트 `GET /app/version` (서버 PR #642 안의 커밋 `24472397`)
 
-DB 변경 없음, 새 시크릿 · 새 Cloud Tasks 큐 · 새 Scheduler job 없음, env 는 `MIN_APP_VERSION` 하나가 **선택**이다(운영에는 아직 넣지 않았다 — 안 넣으면 아무도 안 막는다). 앱 쪽 짝은 `frontend/lib/core/app_update/`(화면 `frontend/docs/DESIGN.md` §9 01-2, 규칙 설계 문서 §4.7). 새 의존성 `package_info_plus` 의 승인 원문은 `frontend/CLAUDE.md` §2 의존성 행.
+DB 변경 없음, 새 시크릿 · 새 Cloud Tasks 큐 · 새 Scheduler job 없음, env 는 `MIN_APP_VERSION` 하나가 **선택**이다(운영에는 아직 넣지 않았다 — 안 넣으면 아무도 안 막는다). 앱 쪽 짝은 `frontend/lib/core/app_update/`(화면 `frontend/docs/DESIGN.md` §9 01-2, 규칙 설계 문서 §4.7). 새 의존성 `package_info_plus` 의 승인 원문은 `frontend/CLAUDE.md` §2.1 의존성 표(원문은 `docs/decisions/2026-11-04-v102-decisions.md` §6).
 
 | 항목 | 값 |
 | --- | --- |
