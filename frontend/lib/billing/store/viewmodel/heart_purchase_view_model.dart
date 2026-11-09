@@ -112,7 +112,7 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
 
   void _markUnavailable(HeartUnavailable cause) {
     if (!ref.mounted) return;
-    debugPrint(cause.logLine);
+    debugPrint('하트 상점 결제 불가: ${cause.reason.name} (못 찾은 상품 ${cause.missingProducts}개)');
     state = state.copyWith(
       availability: HeartStoreAvailability.unavailable,
       banner: HeartPurchaseNotice.unavailable,

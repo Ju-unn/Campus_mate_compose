@@ -11,13 +11,6 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
-/// 월 한도 429. 공용 429 문구("잠시 후 다시 시도")는 달이 바뀌어야 풀리는 한도와 맞지 않아
-/// 서버 `errors.HEART_TASK_MONTHLY_LIMIT` 과 같은 문구를 여기 둔다(17b 하루 상한 · 신고 상한과 같은 처리).
-const String heartTaskMonthlyLimitMessage = '이번 달에는 더 인증할 수 없어요';
-
-/// 압축이 사진을 못 읽었을 때. 서버 `errors.PHOTO_UNREADABLE` 과 같은 문구.
-const String heartTaskPhotoUnreadableMessage = '사진을 다시 확인해 주세요';
-
 /// image_picker 는 플랫폼 플러그인이라 단위 테스트에서 부를 수 없어 훅으로 갈아끼운다(3b 와 같다).
 /// [remaining] 장까지 고르게 한다. 1 이면 image_picker 가 한 장 고르기로 바꿔 준다.
 Future<List<File>> _pickFromGallery(int remaining) async {
@@ -61,7 +54,8 @@ class HeartTaskSubmitViewModel extends Notifier<HeartTaskSubmitUiState> {
     final compressed = await _compressAll(compressor, photos);
     if (compressed == null) {
       if (!ref.mounted) return;
-      state = HeartTaskSubmitUiState(photos: photos, errorMessage: heartTaskPhotoUnreadableMessage);
+      // 압축이 사진을 못 읽었다 — 서버 `errors.PHOTO_UNREADABLE` 과 같은 글자.
+      state = HeartTaskSubmitUiState(photos: photos, error: const AppErrorFailure(AppError.photoUnreadable));
       return;
     }
 
@@ -77,9 +71,11 @@ class HeartTaskSubmitViewModel extends Notifier<HeartTaskSubmitUiState> {
       onFailure: (failure) {
         // 응답만 끊겼거나 다른 기기가 먼저 냈을 수 있다 — 18a 로 돌아가면 서버 상태가 보이게 다시 읽는다.
         ref.invalidate(heartTasksViewModelProvider);
+        // 월 한도 429 — 공용 429 글자("잠시 후 다시 시도")는 달이 바뀌어야 풀리는 한도와 맞지 않아 월 한도 종류로 바꾼다
+        // (서버 `errors.HEART_TASK_MONTHLY_LIMIT` 과 같은 글자, 17b 하루 상한 · 신고 상한과 같은 처리).
         return HeartTaskSubmitUiState(
           photos: photos,
-          errorMessage: failure is RateLimitedFailure ? heartTaskMonthlyLimitMessage : failure.toDisplayMessage(),
+          error: failure is RateLimitedFailure ? const AppErrorFailure(AppError.heartTaskMonthlyLimit) : failure,
         );
       },
     );

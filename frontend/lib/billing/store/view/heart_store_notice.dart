@@ -1,3 +1,4 @@
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -9,15 +10,13 @@ import 'package:flutter/material.dart';
 class HeartStoreNotice extends StatelessWidget {
   const HeartStoreNotice({super.key});
 
-  static const String text = '추가 카드는 다음 카드가 올 때까지 한 장만 열 수 있어요. 산 카드는 결정할 때까지 사라지지 않아요.';
-
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(color: AppColors.surfaceSoft, borderRadius: BorderRadius.circular(AppRadius.sm)),
-      child: Text(text, style: AppTypography.body.copyWith(color: AppColors.body)),
+      child: Text(context.l10n.billingStoreNotice, style: AppTypography.body.copyWith(color: AppColors.body)),
     );
   }
 }

@@ -6,6 +6,7 @@ import 'package:campus_mate/billing/task/model/data/heart_task_pending.dart';
 import 'package:campus_mate/billing/task/model/repository/heart_task_repository_provider.dart';
 import 'package:campus_mate/billing/task/view/heart_task_pending_list.dart';
 import 'package:campus_mate/billing/task/view/heart_task_row.dart';
+import 'package:campus_mate/billing/task/view/heart_task_text.dart';
 import 'package:campus_mate/billing/task/view/heart_tasks_screen.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
@@ -13,6 +14,7 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -223,7 +225,7 @@ void main() {
         await pump(tester);
 
         expect(find.text(text), findsOneWidget);
-        expect(text, '반려 · ${reason.label}');
+        expect(text, '반려 · ${reason.label(AppLocalizationsKo())}');
       });
     }
 

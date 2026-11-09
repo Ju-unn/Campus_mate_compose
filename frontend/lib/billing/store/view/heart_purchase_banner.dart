@@ -1,10 +1,13 @@
 import 'package:campus_mate/billing/store/model/data/heart_purchase_notice.dart';
 import 'package:campus_mate/billing/store/model/data/heart_unavailable.dart';
 import 'package:campus_mate/billing/store/model/data/payment_store.dart';
+import 'package:campus_mate/billing/store/view/heart_store_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 /// 하트 상점 앱바 바로 아래 배너(pen Alert 마스터 `teNRJ` — 15e-6 `xJ0HR` · 15e-7 `b8MFOu` · 15e-8 여섯 개).
@@ -31,14 +34,17 @@ class HeartPurchaseBanner extends StatelessWidget {
         _ => AppIcons.alertTriangle,
       };
 
-  String get _caption {
+  String _caption(AppLocalizations l10n) {
     final cause = unavailable;
-    if (notice == HeartPurchaseNotice.unavailable && store == PaymentStore.appStore && cause != null) return cause.appStoreCaption;
-    return notice.captionOn(store) ?? '';
+    if (notice == HeartPurchaseNotice.unavailable && store == PaymentStore.appStore && cause != null) {
+      return cause.appStoreCaption(l10n);
+    }
+    return notice.captionOn(l10n, store) ?? '';
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final error = notice.isError;
     return Semantics(
       liveRegion: true,
@@ -56,13 +62,13 @@ class HeartPurchaseBanner extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    notice.title,
+                    notice.title(l10n),
                     style: AppTypography.labelSmall.copyWith(color: error ? AppColors.error : AppColors.ink, height: 1.5),
                   ),
                   // pen Texts gap 2 — 토큰(4)보다 작은 pen 값.
                   const SizedBox(height: 2),
                   Text(
-                    _caption,
+                    _caption(l10n),
                     style: AppTypography.caption.copyWith(color: AppColors.muted, height: 1.5),
                   ),
                 ],

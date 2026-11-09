@@ -54,6 +54,7 @@ String appErrorKindText(AppLocalizations l10n, AppError error) => switch (error)
       AppError.saveFailed => l10n.errorSaveFailed,
       AppError.noFace => l10n.errorNoFace,
       AppError.meLoad => l10n.errorMeLoad,
+      AppError.heartTaskMonthlyLimit => l10n.errorHeartTaskMonthlyLimit,
     };
 
 String _takenText(AppLocalizations l10n, SchoolEmailTakenFailure failure) {

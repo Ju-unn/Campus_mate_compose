@@ -2,6 +2,7 @@ import 'package:campus_mate/billing/task/model/data/heart_task_pending.dart';
 import 'package:campus_mate/billing/task/view/heart_task_pending_list.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -158,21 +159,22 @@ void main() {
 
   group('제출 시각 글자', () {
     final now = DateTime(2026, 10, 19, 18, 5);
+    final l10n = AppLocalizationsKo();
 
     test('오늘이면 "오늘 HH:mm 제출"(24시간, 두 자리)', () {
-      expect(heartTaskPendingTimeLabel(DateTime(2026, 10, 19, 9, 5), now), '오늘 09:05 제출');
-      expect(heartTaskPendingTimeLabel(DateTime(2026, 10, 19, 14, 20), now), '오늘 14:20 제출');
+      expect(heartTaskPendingTimeLabel(l10n, DateTime(2026, 10, 19, 9, 5), now), '오늘 09:05 제출');
+      expect(heartTaskPendingTimeLabel(l10n, DateTime(2026, 10, 19, 14, 20), now), '오늘 14:20 제출');
     });
 
     test('오늘이 아니면 날짜를 붙인다(pen 에 없는 모양 — "M월 d일 HH:mm 제출")', () {
-      expect(heartTaskPendingTimeLabel(DateTime(2026, 10, 18, 23, 59), now), '10월 18일 23:59 제출');
+      expect(heartTaskPendingTimeLabel(l10n, DateTime(2026, 10, 18, 23, 59), now), '10월 18일 23:59 제출');
     });
 
     test('UTC 로 온 시각은 기기 시각으로 바꿔 읽는다', () {
       final utc = DateTime.utc(2026, 10, 19, 5, 20);
       final local = utc.toLocal();
       final expected = '오늘 ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')} 제출';
-      expect(heartTaskPendingTimeLabel(utc, local), expected);
+      expect(heartTaskPendingTimeLabel(l10n, utc, local), expected);
     });
   });
 

@@ -10,6 +10,7 @@ import 'package:campus_mate/billing/store/view/heart_purchase_bar.dart';
 import 'package:campus_mate/billing/store/view/heart_purchase_button.dart';
 import 'package:campus_mate/billing/store/view/heart_purchase_sheet.dart';
 import 'package:campus_mate/billing/store/view/heart_store_notice.dart';
+import 'package:campus_mate/billing/store/view/heart_store_text.dart';
 import 'package:campus_mate/billing/store/viewmodel/heart_purchase_ui_state.dart';
 import 'package:campus_mate/billing/store/viewmodel/heart_purchase_view_model.dart';
 import 'package:campus_mate/billing/task/view/heart_task_actions.dart';
@@ -20,12 +21,15 @@ import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/core/analytics/analytics_values.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/me/view/me_toast.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/tour/view/app_tour_steps.dart';
@@ -151,7 +155,7 @@ class _HeartStoreScreenState extends ConsumerState<HeartStoreScreen> {
   /// (성공 `X0G8Fz` · `ksBC8` · 이미 처리 `bs9a7` 은 circle-check, 취소 `imxbJ` · 환불(pen 후속)은 info).
   Widget? _toastFor(HeartPurchaseUiState state) {
     if (state.phase == HeartPurchasePhase.verifying) {
-      return const AppToast(leading: PurchaseSpinner(size: 16, color: AppColors.onInk), label: '하트를 넣고 있어요');
+      return AppToast(leading: const PurchaseSpinner(size: 16, color: AppColors.onInk), label: context.l10n.billingStoreGranting);
     }
     final toast = _toast;
     if (toast == null) return null;
@@ -159,19 +163,20 @@ class _HeartStoreScreenState extends ConsumerState<HeartStoreScreen> {
         (toast.notice == HeartPurchaseNotice.canceled || toast.notice == HeartPurchaseNotice.revoked);
     return AppToast(
       leading: Icon(info ? AppIcons.info : AppIcons.circleCheck, size: 16, color: AppColors.onInk),
-      label: toast.message,
+      label: heartPurchaseToastText(context.l10n, toast),
     );
   }
 
   /// 하단 바 버튼(pen `ipbPs`): 사기 전 primary "100하트 받기 · 5,700원" · 결제 창 대기 / 확인 중 회색 + 도는 표시 ·
   /// 지급 지연 회색 "지급 확인 중이에요" · 결제 불가 회색 "구매할 수 없어요". 스토어 연결 중(pen 에 없음)은 같은 글자의 회색.
   Widget _bar(HeartPurchaseUiState state) {
+    final l10n = context.l10n;
     final bundle = state.selectedBundle;
     final (label, busy) = switch (state.phase) {
-      HeartPurchasePhase.purchasing => ('결제 진행 중이에요', true),
-      HeartPurchasePhase.verifying => ('결제 확인 중이에요', true),
-      HeartPurchasePhase.delayed => ('지급 확인 중이에요', false),
-      HeartPurchasePhase.idle => (_idleLabel(state, bundle), false),
+      HeartPurchasePhase.purchasing => (l10n.billingPurchasing, true),
+      HeartPurchasePhase.verifying => (l10n.billingStoreVerifying, true),
+      HeartPurchasePhase.delayed => (l10n.billingStoreDelayed, false),
+      HeartPurchasePhase.idle => (_idleLabel(l10n, state, bundle), false),
     };
     return HeartPurchaseBar(
       bundle: bundle,
@@ -182,10 +187,12 @@ class _HeartStoreScreenState extends ConsumerState<HeartStoreScreen> {
   }
 
   /// 결제 불가이거나, 스토어는 열렸는데 이 상품의 가격 · 계정 표시가 없으면 "구매할 수 없어요".
-  String _idleLabel(HeartPurchaseUiState state, HeartBundle bundle) {
+  String _idleLabel(AppLocalizations l10n, HeartPurchaseUiState state, HeartBundle bundle) {
     final unavailable = state.availability == HeartStoreAvailability.unavailable ||
         (state.availability == HeartStoreAvailability.available && !state.canBuy(bundle.productId));
-    return unavailable ? '구매할 수 없어요' : '${bundle.quantityLabel} 받기 · ${bundle.priceLabel}';
+    return unavailable
+        ? l10n.billingStoreCannotBuy
+        : l10n.billingStoreBuyLabel(quantity: bundle.quantityLabel(l10n), price: bundle.priceLabel(l10n));
   }
 
   /// pen `RRpV8`(AppBar · Sub 360×56): 안쪽 [0,12], 뒤로 48 (x12), 제목 "하트" 18/700 (x64), 오른쪽 3D 도움말 24 (누름 48, x300).
@@ -205,10 +212,10 @@ class _HeartStoreScreenState extends ConsumerState<HeartStoreScreen> {
               ),
             )
           : null,
-      title: Text('하트', style: AppTypography.subNavTitle.copyWith(color: AppColors.ink)),
+      title: Text(context.l10n.commonHeart, style: AppTypography.subNavTitle.copyWith(color: AppColors.ink)),
       actions: [
         IconButton(
-          tooltip: '도움말',
+          tooltip: context.l10n.billingHelpTooltip,
           constraints: const BoxConstraints.tightFor(width: 48, height: 48),
           onPressed: () => context.push(AppRoutes.faq),
           icon: const Icon3d(AppIcon3d.help, size: 24),
@@ -246,14 +253,15 @@ class _BalanceBlock extends ConsumerWidget {
         (profile) => profile.value?.when(onSuccess: (value) => value.heartBalance, onFailure: (_) => null),
       ),
     );
+    final l10n = context.l10n;
     return Semantics(
-      label: balance == null ? '보유 하트를 불러오는 중' : '보유 하트 $balance개',
+      label: balance == null ? l10n.billingStoreBalanceLoading : l10n.billingBalanceChipLabel(count: balance),
       excludeSemantics: true,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
         child: Column(
           children: [
-            Text('보유 하트', style: AppTypography.labelSmall.copyWith(color: AppColors.muted)),
+            Text(l10n.billingStoreBalanceTitle, style: AppTypography.labelSmall.copyWith(color: AppColors.muted)),
             const SizedBox(height: 6),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -261,7 +269,7 @@ class _BalanceBlock extends ConsumerWidget {
                 Image.asset(_heartAsset, width: 44, height: 44, excludeFromSemantics: true),
                 const SizedBox(width: AppSpacing.xs),
                 Text(
-                  balance == null ? '-' : '${formatWon(balance)}개',
+                  balance == null ? '-' : l10n.billingStoreBalanceCount(count: formatWon(balance)),
                   style: AppTypography.display.copyWith(color: AppColors.ink),
                 ),
               ],
@@ -284,7 +292,7 @@ class _PurchaseSection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('구매하기', style: AppTypography.title.copyWith(color: AppColors.ink)),
+        Text(context.l10n.billingStorePurchaseSection, style: AppTypography.title.copyWith(color: AppColors.ink)),
         const SizedBox(height: AppSpacing.sm),
         const HeartStoreNotice(),
         const SizedBox(height: AppSpacing.sm),
@@ -325,15 +333,15 @@ class _FreeSection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('무료로 모으기', style: AppTypography.title.copyWith(color: AppColors.ink)),
+        Text(context.l10n.billingStoreFreeSection, style: AppTypography.title.copyWith(color: AppColors.ink)),
         const SizedBox(height: AppSpacing.xxs + AppSpacing.xs + AppSpacing.xxs),
         if (state.isLoading)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
             child: Center(child: CircularProgressIndicator()),
           )
-        else if (state.errorMessage case final message?)
-          _LoadError(message: message, onRetry: () => ref.invalidate(heartTasksViewModelProvider))
+        else if (state.error case final error?)
+          _LoadError(message: context.errorText(error), onRetry: () => ref.invalidate(heartTasksViewModelProvider))
         else
           for (final (index, task) in state.tasks.indexed) ...[
             if (index > 0) const SizedBox(height: AppSpacing.xxs),
@@ -360,7 +368,7 @@ class _LoadError extends StatelessWidget {
           style: AppTypography.body.copyWith(color: AppColors.muted),
         ),
         const SizedBox(height: AppSpacing.sm),
-        AppButton(label: '다시 시도', variant: AppButtonVariant.text, onPressed: onRetry),
+        AppButton(label: context.l10n.commonRetry, variant: AppButtonVariant.text, onPressed: onRetry),
       ],
     );
   }

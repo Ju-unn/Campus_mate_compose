@@ -1,7 +1,10 @@
 import 'package:campus_mate/billing/store/model/repository/payment_store_provider.dart';
+import 'package:campus_mate/billing/store/view/heart_store_text.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/consent/model/data/consent_links.dart';
 import 'package:campus_mate/consent/model/repository/open_url.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -12,12 +15,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 결제 안내(pen 마스터 `bBjRD` PaymentNotice — 15e 구매 섹션 끝 `saa1s` · 18d 시트 맨 아래 `LWg2m`).
 /// 두 줄 12/400 muted + 링크 "유료 서비스 약관 ›" 12/600 primaryText, 모두 줄높이 1.5 · 줄 사이 4.
-/// 두 줄은 이 기기 스토어의 글자다([PaymentStore] — App Store 판은 pen 후속).
+/// 두 줄은 이 기기 스토어의 글자다(PaymentStore — App Store 판은 pen 후속, 글자는 문구 파일 ARB).
 /// 청약철회 · 환불 문구는 법률 검토 전까지 이 한 줄로 둔다(계획서 결정 I-4).
 class HeartPaymentNotice extends ConsumerStatefulWidget {
   const HeartPaymentNotice({super.key});
-
-  static const String termsLabel = '유료 서비스 약관 ›';
 
   @override
   ConsumerState<HeartPaymentNotice> createState() => _HeartPaymentNoticeState();
@@ -28,14 +29,15 @@ class _HeartPaymentNoticeState extends ConsumerState<HeartPaymentNotice> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final muted = AppTypography.caption.copyWith(color: AppColors.muted, height: 1.5);
     final store = ref.watch(paymentStoreProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(store.paymentLine, style: muted),
+        Text(store.paymentLine(l10n), style: muted),
         const SizedBox(height: AppSpacing.xxs),
-        Text(store.refundLine, style: muted),
+        Text(store.refundLine(l10n), style: muted),
         const SizedBox(height: AppSpacing.xxs),
         Align(
           alignment: Alignment.centerLeft,
@@ -47,7 +49,7 @@ class _HeartPaymentNoticeState extends ConsumerState<HeartPaymentNotice> {
               child: Semantics(
                 link: true,
                 child: Text(
-                  HeartPaymentNotice.termsLabel,
+                  l10n.billingPaymentTermsLink,
                   style: AppTypography.caption.copyWith(
                     color: AppColors.primaryText,
                     fontWeight: FontWeight.w600,
@@ -67,6 +69,7 @@ class _HeartPaymentNoticeState extends ConsumerState<HeartPaymentNotice> {
     if (_opening) return; // 여는 호출이 끝나기 전에 다시 눌러도 두 번 열지 않는다
     _opening = true;
     final messenger = ScaffoldMessenger.of(context);
+    final failedText = context.errorText(const UnknownFailure());
     bool opened;
     try {
       opened = await ref.read(openUrlProvider)(paidServiceTermsLink);
@@ -76,7 +79,7 @@ class _HeartPaymentNoticeState extends ConsumerState<HeartPaymentNotice> {
       _opening = false;
     }
     if (!opened) {
-      showSafetyToast(messenger, const UnknownFailure().toDisplayMessage(), icon: AppIcons.alertTriangle);
+      showSafetyToast(messenger, failedText, icon: AppIcons.alertTriangle);
     }
   }
 }

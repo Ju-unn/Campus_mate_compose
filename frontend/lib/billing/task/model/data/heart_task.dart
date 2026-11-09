@@ -24,16 +24,15 @@ enum HeartTaskKind {
 /// 18a 상태 넷(DESIGN §8.10). 판정은 서버가 한다(계획서 "API 계약").
 enum HeartTaskState { open, reviewing, done, rejected }
 
-/// 운영자가 고르는 반려 사유(계획서 D3). [label] 은 18b-2 "반려 사유: …" 뒤에 붙는다.
+/// 운영자가 고르는 반려 사유(계획서 D3). [code] 는 서버 값 그대로다 — 글자는 view 쪽 확장(heart_task_text.dart)이 정한다.
 enum HeartTaskRejectReason {
-  dateMissing('date_missing', '날짜가 안 보여요'),
-  notVerified('not_verified', '게시글·공유가 확인되지 않아요'),
-  reused('reused', '이미 쓴 캡처예요');
+  dateMissing('date_missing'),
+  notVerified('not_verified'),
+  reused('reused');
 
-  const HeartTaskRejectReason(this.code, this.label);
+  const HeartTaskRejectReason(this.code);
 
   final String code;
-  final String label;
 
   static HeartTaskRejectReason? tryParse(String? code) {
     for (final reason in values) {

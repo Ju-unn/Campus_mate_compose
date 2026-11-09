@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -80,6 +81,7 @@ class _CountLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Wrap(
       spacing: AppSpacing.xs,
       runSpacing: AppSpacing.xxs,
@@ -88,11 +90,14 @@ class _CountLine extends StatelessWidget {
         // "3/3장" 을 그대로 읽으면 "3 슬래시 3" 이라 낭독만 풀어 준다. pen 14/600 ink, 줄높이 속성 없음 · 렌더 20.
         Semantics(
           container: true,
-          label: '사진 $maxPhotos장 중 $count장',
+          label: l10n.billingTaskPhotoCountLabel(max: maxPhotos, count: count),
           excludeSemantics: true,
-          child: Text('$count/$maxPhotos장', style: AppTypography.labelSmall.copyWith(color: AppColors.ink, height: 20 / 14)),
+          child: Text(
+            l10n.billingTaskPhotoCount(count: count, max: maxPhotos),
+            style: AppTypography.labelSmall.copyWith(color: AppColors.ink, height: 20 / 14),
+          ),
         ),
-        Text('1장은 꼭 올려 주세요 · 최대 $maxPhotos장', style: AppTypography.caption.copyWith(color: AppColors.muted)),
+        Text(l10n.billingTaskPhotoHint(max: maxPhotos), style: AppTypography.caption.copyWith(color: AppColors.muted)),
       ],
     );
   }
@@ -109,9 +114,10 @@ class _FilledSlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Semantics(
       container: true,
-      label: index == 0 ? '사진 1, 필수' : '사진 ${index + 1}',
+      label: index == 0 ? l10n.billingTaskPhotoSlotRequired : l10n.billingTaskPhotoSlot(number: index + 1),
       child: ClipRRect(
         key: heartTaskPhotoSlotKey(index),
         borderRadius: BorderRadius.circular(AppRadius.md),
@@ -139,7 +145,7 @@ class _FilledSlot extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: AppSpacing.xxs),
                     decoration: BoxDecoration(color: AppColors.surfaceInk, borderRadius: BorderRadius.circular(AppRadius.pill)),
-                    child: Text('필수', style: AppTypography.badge.copyWith(color: AppColors.onInk)),
+                    child: Text(l10n.billingTaskPhotoRequiredBadge, style: AppTypography.badge.copyWith(color: AppColors.onInk)),
                   ),
                 ),
               ),
@@ -165,7 +171,7 @@ class _RemoveButton extends StatelessWidget {
     return Semantics(
       container: true,
       button: true,
-      label: '사진 ${index + 1} 빼기',
+      label: context.l10n.billingTaskPhotoRemove(number: index + 1),
       child: GestureDetector(
         key: heartTaskPhotoRemoveKey(index),
         behavior: HitTestBehavior.opaque,

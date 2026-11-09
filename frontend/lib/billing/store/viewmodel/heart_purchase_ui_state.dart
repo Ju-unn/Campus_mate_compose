@@ -11,10 +11,9 @@ enum HeartPurchasePhase { idle, purchasing, verifying, delayed }
 enum HeartStoreAvailability { loading, available, unavailable }
 
 /// 잠깐 뜨는 토스트(pen Toast `I8UOWm`). 화면이 2초 보여 주고 [HeartPurchaseViewModel.clearToast] 로 지운다.
+/// 글자는 view 쪽 `heartPurchaseToastText`(heart_store_text.dart)가 종류로 고른다.
 sealed class HeartPurchaseToast {
   const HeartPurchaseToast();
-
-  String get message;
 }
 
 /// 성공(15e-4 `X0G8Fz` · 15e-5 `ksBC8`). 서버 응답 숫자로만 말한다(계획서 6-4, 사용자 확정 문구 10-13).
@@ -23,10 +22,6 @@ final class GrantedToast extends HeartPurchaseToast {
 
   final int hearts;
   final int bonusHearts;
-
-  @override
-  String get message =>
-      bonusHearts == 0 ? '$hearts하트가 들어왔어요' : '${hearts + bonusHearts}하트가 들어왔어요(보너스 $bonusHearts 포함)';
 }
 
 /// 취소 · 이미 처리(15e-8).
@@ -34,9 +29,6 @@ final class NoticeToast extends HeartPurchaseToast {
   const NoticeToast(this.notice);
 
   final HeartPurchaseNotice notice;
-
-  @override
-  String get message => notice.title;
 }
 
 /// 처음 고른 번들(pen `J0o8uB` 100하트) — [defaultHeartBundleIndex] 와 같은 상품. 기본 인자라 상수로 둔다.

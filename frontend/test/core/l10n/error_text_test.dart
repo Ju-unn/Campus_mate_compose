@@ -60,6 +60,7 @@ void main() {
     (const AppErrorFailure(AppError.saveFailed), '저장하지 못했어요. 잠시 후 다시 시도해 주세요'),
     (const AppErrorFailure(AppError.noFace), '얼굴이 보이는 사진을 골라 주세요'),
     (const AppErrorFailure(AppError.meLoad), '잠시 뒤 다시 시도해 주세요'),
+    (const AppErrorFailure(AppError.heartTaskMonthlyLimit), '이번 달에는 더 인증할 수 없어요'),
   ];
 
   group('failureText', () {

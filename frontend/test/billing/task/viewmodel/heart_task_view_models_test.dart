@@ -47,13 +47,13 @@ void main() {
     expect(state.tasks.map((task) => task.kind), HeartTaskKind.values);
   });
 
-  test('18a 읽기가 실패하면 문구를 둔다', () async {
+  test('18a 읽기가 실패하면 실패 종류를 둔다', () async {
     repository.tasks = const FailureResult(NetworkFailure());
     container.listen(heartTasksViewModelProvider, (_, _) {});
 
     await pumpEventQueue();
 
-    expect(container.read(heartTasksViewModelProvider).errorMessage, '네트워크 연결을 확인해 주세요');
+    expect(container.read(heartTasksViewModelProvider).error, isA<NetworkFailure>());
   });
 
   test('사진을 고르지 않고 닫으면 아무것도 바뀌지 않는다', () async {
@@ -138,7 +138,7 @@ void main() {
     expect(repository.submitted, isEmpty);
     expect(compressor.discardedPaths, ['a.jpg']);
     final state = container.read(heartTaskSubmitViewModelProvider);
-    expect(state.errorMessage, heartTaskPhotoUnreadableMessage);
+    expect(state.error, const AppErrorFailure(AppError.photoUnreadable));
     expect(state.photos.length, 2); // 고른 사진은 남아 다시 누를 수 있다
   });
 
@@ -176,7 +176,7 @@ void main() {
     });
   }
 
-  test('월 한도 429 는 공용 문구가 아니라 월 한도 문구다', () async {
+  test('월 한도 429 는 공용 429 가 아니라 월 한도 종류다', () async {
     repository.submitResult = const FailureResult(RateLimitedFailure());
     final viewModel = submitViewModel();
 
@@ -184,7 +184,7 @@ void main() {
     await viewModel.submit(HeartTaskKind.kakaoShare);
 
     final state = container.read(heartTaskSubmitViewModelProvider);
-    expect(state.errorMessage, heartTaskMonthlyLimitMessage);
+    expect(state.error, const AppErrorFailure(AppError.heartTaskMonthlyLimit));
     expect(state.submitted, isFalse);
     expect(state.photos, [photo]);
   });
@@ -199,12 +199,12 @@ void main() {
     await viewModel.submit(HeartTaskKind.kakaoShare);
     await pumpEventQueue();
 
-    expect(container.read(heartTaskSubmitViewModelProvider).errorMessage, '이미 확인 중이에요, 결과를 기다려 주세요');
+    expect(container.read(heartTaskSubmitViewModelProvider).error, const ServerRejectedFailure('이미 확인 중이에요, 결과를 기다려 주세요'));
     // 다른 기기가 먼저 냈거나 응답만 끊겼다 — 18a 로 돌아가면 "검수중" 이 보여야 한다.
     expect(repository.fetchCount, 2);
   });
 
-  test('압축이 사진을 못 읽으면 올리지 않고 사진 문구를 둔다', () async {
+  test('압축이 사진을 못 읽으면 올리지 않고 사진 종류를 둔다', () async {
     compressor.nextError = Exception('unreadable');
     final viewModel = submitViewModel();
 
@@ -212,7 +212,7 @@ void main() {
     await viewModel.submit(HeartTaskKind.kakaoShare);
 
     expect(repository.submitted, isEmpty);
-    expect(container.read(heartTaskSubmitViewModelProvider).errorMessage, heartTaskPhotoUnreadableMessage);
+    expect(container.read(heartTaskSubmitViewModelProvider).error, const AppErrorFailure(AppError.photoUnreadable));
   });
 
   test('보내는 중에 한 번 더 눌러도 한 번만 올린다', () async {

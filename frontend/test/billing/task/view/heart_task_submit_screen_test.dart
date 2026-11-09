@@ -38,6 +38,7 @@ void main() {
   // 시험 기본 글꼴(Ahem)은 글자 폭이 실제와 달라 개수 줄("0/3장" + 힌트)이 접힌다 — 실제 글꼴로 pen 치수를 잰다.
   setUpAll(loadPretendard);
   late FakeHeartTaskRepository repository;
+  late FakeImageCompressor compressor;
   // 없는 파일이어도 된다 — 위젯 테스트의 가짜 시계에서는 파일을 실제로 읽지 않는다.
   final photos = [File('proof1.jpg'), File('proof2.jpg'), File('proof3.jpg')];
   final photo = photos.first;
@@ -51,6 +52,7 @@ void main() {
 
   setUp(() {
     repository = FakeHeartTaskRepository();
+    compressor = FakeImageCompressor();
     nextPick = [photo];
     asked = [];
     openedInApp = [];
@@ -84,7 +86,7 @@ void main() {
       ProviderScope(
         overrides: [
           heartTaskRepositoryProvider.overrideWithValue(repository),
-          imageCompressorProvider.overrideWithValue(FakeImageCompressor()),
+          imageCompressorProvider.overrideWithValue(compressor),
           openUrlProvider.overrideWithValue((uri) {
             openedInApp.add(uri);
             return open(uri);
@@ -208,10 +210,37 @@ void main() {
     // 토스트 타이머는 프레임을 걸지 않아 pumpAndSettle 이 기다리지 않는다.
     await tester.pumpAndSettle();
 
-    expect(find.text(heartTaskMonthlyLimitMessage), findsOneWidget);
+    expect(find.text('이번 달에는 더 인증할 수 없어요'), findsOneWidget);
     expect(find.text('18c'), findsNothing);
     await tester.pump(const Duration(seconds: 3));
-    expect(find.text(heartTaskMonthlyLimitMessage), findsNothing);
+    expect(find.text('이번 달에는 더 인증할 수 없어요'), findsNothing);
+  });
+
+  testWidgets('압축이 사진을 못 읽으면 사진 문구 토스트 — 서버 PHOTO_UNREADABLE 과 같은 글자', (tester) async {
+    compressor.nextError = Exception('unreadable');
+    await pump(tester);
+    await tester.tap(find.text('사진 추가').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('제출하기'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('사진을 다시 확인해 주세요'), findsOneWidget);
+    expect(repository.submitted, isEmpty);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('서버가 거절하면(검수 중 409) 서버 글자를 그대로 토스트로 보인다', (tester) async {
+    repository.submitResult = const FailureResult(ServerRejectedFailure('이미 확인 중이에요, 결과를 기다려 주세요'));
+    await pump(tester);
+
+    await tester.tap(find.text('사진 추가').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('제출하기'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('이미 확인 중이에요, 결과를 기다려 주세요'), findsOneWidget);
+    expect(find.text('18c'), findsNothing);
+    await tester.pump(const Duration(seconds: 3));
   });
 
   // 사진 칸 — 안내 묶음과 [제출하기] 사이, 옛 업로더(moNIO 220) 자리를 대체한다(값표: 사진 블록 uvkY2 3장 · r7wOTV 1장,

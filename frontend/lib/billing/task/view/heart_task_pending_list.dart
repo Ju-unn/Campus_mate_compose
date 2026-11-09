@@ -1,21 +1,25 @@
 import 'package:campus_mate/billing/task/model/data/heart_task_pending.dart';
 import 'package:campus_mate/billing/task/view/heart_task_chip.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 /// 제출 시각 글자. 오늘이면 pen 그대로 "오늘 14:20 제출", 다른 날은 날짜를 붙인다("10월 18일 23:59 제출" — pen 에 없는 모양).
 /// 서버 시각은 UTC 로 오므로 기기 시각으로 바꿔 읽는다.
-String heartTaskPendingTimeLabel(DateTime createdAt, DateTime now) {
+String heartTaskPendingTimeLabel(AppLocalizations l10n, DateTime createdAt, DateTime now) {
   final at = createdAt.toLocal();
   final today = now.toLocal();
   String two(int value) => value.toString().padLeft(2, '0');
   final clock = '${two(at.hour)}:${two(at.minute)}';
   final sameDay = at.year == today.year && at.month == today.month && at.day == today.day;
-  return sameDay ? '오늘 $clock 제출' : '${at.month}월 ${at.day}일 $clock 제출';
+  return sameDay
+      ? l10n.billingTaskPendingToday(time: clock)
+      : l10n.billingTaskPendingOnDate(month: at.month, day: at.day, time: clock);
 }
 
 /// 18a 항목 줄 아래 "검수 대기" 블록(pen Pending Block — 18a 대기 1건 `pVxvl` · 한도 찬 상태 `tYwTB`).
@@ -31,6 +35,7 @@ class HeartTaskPendingList extends StatelessWidget {
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final note = this.note;
+    final l10n = context.l10n;
     return Padding(
       padding: const EdgeInsets.fromLTRB(40, AppSpacing.xs, 0, AppSpacing.sm),
       child: Column(
@@ -38,7 +43,10 @@ class HeartTaskPendingList extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // pen 제목 12/600 muted, 줄높이 속성 없음 · 토큰(caption 1.4).
-          Text('검수 대기 ${pending.length}건', style: AppTypography.caption.copyWith(fontWeight: FontWeight.w600, color: AppColors.muted)),
+          Text(
+            l10n.billingTaskPendingCount(count: pending.length),
+            style: AppTypography.caption.copyWith(fontWeight: FontWeight.w600, color: AppColors.muted),
+          ),
           for (final item in pending) ...[
             const SizedBox(height: AppSpacing.xs),
             _PendingRow(item: item, now: now),
@@ -61,14 +69,14 @@ class _PendingRow extends StatelessWidget {
   final HeartTaskPending item;
   final DateTime now;
 
-  static const String _badge = '검수중';
-
   @override
   Widget build(BuildContext context) {
-    final time = heartTaskPendingTimeLabel(item.createdAt, now);
+    final l10n = context.l10n;
+    final time = heartTaskPendingTimeLabel(l10n, item.createdAt, now);
+    final badge = l10n.billingTaskReviewing;
     return Semantics(
       container: true,
-      label: '$time, 사진 ${item.photoUrls.length}장, $_badge',
+      label: l10n.billingTaskPendingRowLabel(time: time, count: item.photoUrls.length, status: badge),
       excludeSemantics: true,
       child: Row(
         children: [
@@ -89,9 +97,9 @@ class _PendingRow extends StatelessWidget {
           ),
           const SizedBox(width: AppSpacing.xs),
           // pen SaMDZ Badge · Status — 바탕 #F2F2F2 · 글자 10/700 #6A6A6A. 아이콘은 lucide timer(값표에 크기 없음 — 12 로 둔다, 보고).
-          const HeartTaskChip(
-            leading: Icon(AppIcons.timer, size: 12, color: AppColors.muted),
-            label: _badge,
+          HeartTaskChip(
+            leading: const Icon(AppIcons.timer, size: 12, color: AppColors.muted),
+            label: badge,
             background: AppColors.surfaceStrong,
             foreground: AppColors.muted,
           ),

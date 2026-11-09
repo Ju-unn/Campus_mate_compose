@@ -214,6 +214,10 @@ enum AppError {
 
   /// 나 탭 화면(15 · 15-4 · 15-5)의 읽기 실패. 글자가 같은 [ServerUnavailableFailure] 와 뜻(502·503)이 달라 따로 둔다(사용자 결정 2026-09-27).
   meLoad,
+
+  /// 무료로 하트 모으기 인증샷의 월 한도 429(18b). 공용 429 글자(잠시 후 다시 시도)는 달이 바뀌어야 풀리는 한도와 맞지 않아 따로 둔다 —
+  /// 서버 `errors.HEART_TASK_MONTHLY_LIMIT` 과 같은 글자.
+  heartTaskMonthlyLimit,
 }
 
 /// 출생연도가 나이 하한에 걸렸다(04-1). [fromYear] 년생부터 가입할 수 있다 — 서버 422(schemas.py)와 같은 글자.
