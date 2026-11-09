@@ -14,6 +14,7 @@ import 'package:campus_mate/consent/view/consent_item_text.dart';
 import 'package:campus_mate/consent/view/consent_row.dart';
 import 'package:campus_mate/consent/view/consent_screen.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -214,7 +215,7 @@ void main() {
 
     await tester.tap(viewIn(itemRow(ConsentItem.terms)));
     await tester.pump();
-    expect(find.widgetWithText(AppToast, const UnknownFailure().toDisplayMessage()), findsOneWidget);
+    expect(find.widgetWithText(AppToast, failureText(AppLocalizationsKo(), const UnknownFailure())), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 3));
     expect(find.byType(AppToast), findsNothing);
@@ -222,7 +223,7 @@ void main() {
     openUrl = (_) async => throw Exception('no browser');
     await tester.tap(viewIn(itemRow(ConsentItem.privacy)));
     await tester.pump();
-    expect(find.widgetWithText(AppToast, const UnknownFailure().toDisplayMessage()), findsOneWidget);
+    expect(find.widgetWithText(AppToast, failureText(AppLocalizationsKo(), const UnknownFailure())), findsOneWidget);
     expect(find.byType(ConsentScreen), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
   });
@@ -248,7 +249,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.widgetWithText(AppToast, const NetworkFailure().toDisplayMessage()), findsOneWidget);
+    expect(find.widgetWithText(AppToast, failureText(AppLocalizationsKo(), const NetworkFailure())), findsOneWidget);
     expect(agreeButton(tester).onPressed, isNotNull);
     await tester.pump(const Duration(seconds: 3));
   });

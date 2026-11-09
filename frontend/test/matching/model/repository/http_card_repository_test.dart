@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:campus_mate/core/http/api_client.dart';
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/matching/model/data/daily_card.dart';
 import 'package:campus_mate/matching/model/repository/http_card_repository.dart';
 import 'package:campus_mate/matching/model/data/paid_card.dart';
@@ -408,7 +410,7 @@ void main() {
 
       final result = await buildRepository(client).fetchAcceptanceDetail('card-1');
 
-      expect(result.when(onSuccess: (_) => null, onFailure: (f) => f.toDisplayMessage()), isNotNull);
+      expect(result.when(onSuccess: (_) => null, onFailure: (f) => failureText(AppLocalizationsKo(), f)), isNotNull);
     });
   });
 
@@ -422,7 +424,7 @@ void main() {
     final result = await buildRepository(client).respondToAcceptance('card-1', CardDecision.accept);
 
     expect(
-      result.when(onSuccess: (_) => null, onFailure: (f) => f.toDisplayMessage()),
+      result.when(onSuccess: (_) => null, onFailure: (f) => failureText(AppLocalizationsKo(), f)),
       '기한이 지났어요',
     );
   });

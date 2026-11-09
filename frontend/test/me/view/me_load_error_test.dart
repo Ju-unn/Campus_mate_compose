@@ -1,6 +1,8 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/me/view/me_load_error.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,7 +20,7 @@ void main() {
     expect(message, findsOneWidget);
     final style = tester.widget<Text>(message).style!;
     expect((style.fontSize, style.fontWeight, style.color), (16, FontWeight.w400, AppColors.body));
-    expect(find.text(const UnknownFailure().toDisplayMessage()), findsNothing);
+    expect(find.text(failureText(AppLocalizationsKo(), const UnknownFailure())), findsNothing);
     final retry = tester.widget<AppButton>(find.byType(AppButton));
     expect((retry.label, retry.variant), ('다시 시도', AppButtonVariant.text));
     expect(tester.getCenter(message).dx, 400);

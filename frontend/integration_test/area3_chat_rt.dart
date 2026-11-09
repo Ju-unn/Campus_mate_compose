@@ -26,7 +26,7 @@ Future<(ProviderContainer, String, bool)> _rtOpen(WidgetTester tester, String ni
     await tester.pump(const Duration(milliseconds: 100));
   }
   final state = container.read(chatRoomViewModelProvider(matchId));
-  return (container, matchId, !state.isLoading && state.error?.toDisplayMessage() == null);
+  return (container, matchId, !state.isLoading && state.error == null);
 }
 
 /// 방 뷰모델이 [bodies] 의 글을 처음 가진 앱 시계(UTC, 글마다 한 번)와, 끊김 상태가 한 번이라도 켜졌는지. [close] 로 구독을 끝낸다.
@@ -74,7 +74,7 @@ Future<Map<String, dynamic>> _rtStep(String name, Map<String, Object?> data, {Du
 
 /// 방을 못 읽었을 때의 말 — PC 가 이것을 보면 글을 보내지 않고 blocked 로 닫는다.
 Map<String, Object?> _rtNotLoaded(ProviderContainer container, String matchId) =>
-    {'loaded': false, 'error': container.read(chatRoomViewModelProvider(matchId)).error?.toDisplayMessage()};
+    {'loaded': false, 'error': _errorText(container.read(chatRoomViewModelProvider(matchId)).error)};
 
 /// E-CHAT-01 · 02 — 방을 열고 읽기를 끝낸 뒤(구독 전에 보내면 글이 안 온다) `stream` 에서 멈춘다. PC 가 3초 간격으로 20건을 보내는 동안(1분 남짓)
 /// 뷰모델이 글마다 처음 가진 앱 시계를 모은다. 끝나면 마지막 글이 말풍선으로 그려질 시간을 두고 화면 순서와 말풍선을 말한다.
@@ -100,7 +100,7 @@ Future<Map<String, Object?>?> _rtAlternate(WidgetTester tester, Map<String, dyna
   final mine = (job['mine'] as List).cast<String>();
   final all = [...mine, ...(job['theirs'] as List).cast<String>()];
   final (container, matchId, loaded) = await _rtOpen(tester, job['nickname'] as String);
-  if (!loaded) throw E2eBlocked('방이 안 읽힘(${container.read(chatRoomViewModelProvider(matchId)).error?.toDisplayMessage()})');
+  if (!loaded) throw E2eBlocked('방이 안 읽힘(${_errorText(container.read(chatRoomViewModelProvider(matchId)).error)})');
   final watch = _rtWatch(container, matchId, all);
   try {
     // 입력 경로 데우기 — 에뮬이 처음 입력(IME · 키보드 · 첫 프레임)을 하는 동안 이벤트 루프가 밀려 수신 처리가 늦으면, 받는 줄이 2초를 넘는다(실기기 E-CHAT-03 재실행:
@@ -361,7 +361,7 @@ Future<Map<String, Object?>> _rtLeftOpen(WidgetTester tester, Map<String, dynami
 Future<Map<String, Object?>?> _rtLeaveRoom(WidgetTester tester, Map<String, dynamic> job) async {
   final nickname = job['nickname'] as String;
   final (container, matchId, loaded) = await _rtOpen(tester, nickname);
-  if (!loaded) throw E2eBlocked('A 방이 안 읽힘(${container.read(chatRoomViewModelProvider(matchId)).error?.toDisplayMessage()})');
+  if (!loaded) throw E2eBlocked('A 방이 안 읽힘(${_errorText(container.read(chatRoomViewModelProvider(matchId)).error)})');
   await pumpUntil(tester, find.byType(ChatInputBar));
   await wait(tester, const Duration(seconds: 2)); // 구독이 붙기 전에 PC 가 첫 글을 보내면 1번 글을 놓친다
   await _rtStep('ready', {}, timeout: _rtLong);
@@ -381,7 +381,7 @@ Future<Map<String, Object?>?> _rtLeaveRoom(WidgetTester tester, Map<String, dyna
 Future<Map<String, Object?>?> _rtSeeLeft(WidgetTester tester, Map<String, dynamic> job) async {
   final line = job['line'] as String;
   final (container, matchId, loaded) = await _rtOpen(tester, job['nickname'] as String);
-  if (!loaded) throw E2eBlocked('B 방이 안 읽힘(${container.read(chatRoomViewModelProvider(matchId)).error?.toDisplayMessage()})');
+  if (!loaded) throw E2eBlocked('B 방이 안 읽힘(${_errorText(container.read(chatRoomViewModelProvider(matchId)).error)})');
   final watch = _rtWatch(container, matchId, [line]);
   try {
     await wait(tester, const Duration(seconds: 2)); // 구독이 붙기 전에 PC 가 첫 글을 보내면 1번 글을 놓친다

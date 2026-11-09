@@ -10,10 +10,12 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -106,7 +108,7 @@ void main() {
         schoolName: AsyncError<String>(Exception('조회 실패'), StackTrace.empty),
       );
 
-      expect(find.text(const UnknownFailure().toDisplayMessage()), findsOneWidget);
+      expect(find.text(failureText(AppLocalizationsKo(), const UnknownFailure())), findsOneWidget);
       expect(find.text('다시 시도'), findsOneWidget);
       expect(find.byType(TextField), findsNothing);
     });
@@ -321,7 +323,7 @@ void main() {
       await tester.tap(find.text('다음'));
       await tester.pumpAndSettle();
 
-      expect(find.text(const NetworkFailure().toDisplayMessage()), findsOneWidget);
+      expect(find.text(failureText(AppLocalizationsKo(), const NetworkFailure())), findsOneWidget);
       expect(find.text('컴퓨터공학과'), findsOneWidget);
       expect(findCallToAction(tester).enabled, isTrue); // 바로 다시 제출할 수 있다
     });

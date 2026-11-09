@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/referral/model/repository/http_referral_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -58,7 +60,7 @@ void main() {
     final result = await repository.redeem('K7QMX2');
 
     expect(
-      result.when(onSuccess: (_) => null, onFailure: (failure) => failure.toDisplayMessage()),
+      result.when(onSuccess: (_) => null, onFailure: (failure) => failureText(AppLocalizationsKo(), failure)),
       '추천 코드는 한 번만 입력할 수 있어요',
     );
   });

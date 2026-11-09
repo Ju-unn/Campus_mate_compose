@@ -10,6 +10,7 @@ import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/photo_slider.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
@@ -17,6 +18,7 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/friend_review/model/repository/friend_review_repository_provider.dart';
 import 'package:campus_mate/friend_review/view/my_friend_reviews_section.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
@@ -538,7 +540,7 @@ void main() {
 
       // 사용자 결정 2026-09-27 — 공통 "알 수 없는 오류" 문구가 아니다.
       expect(find.text('잠시 뒤 다시 시도해 주세요'), findsOneWidget);
-      expect(find.text(const UnknownFailure().toDisplayMessage()), findsNothing);
+      expect(find.text(failureText(AppLocalizationsKo(), const UnknownFailure())), findsNothing);
       expect(find.text('다시 시도'), findsOneWidget);
       expect(find.byTooltip('설정'), findsOneWidget);
       expect(find.byType(GlassBottomNav), findsOneWidget);

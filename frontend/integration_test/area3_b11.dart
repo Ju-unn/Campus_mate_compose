@@ -24,7 +24,7 @@ Future<bool> _trLoaded(WidgetTester tester) async {
     await tester.pump(const Duration(milliseconds: 100));
   }
   final state = container.read(provider);
-  return !state.isLoading && state.error?.toDisplayMessage() == null;
+  return !state.isLoading && state.error == null;
 }
 
 /// 두 기기 가설이 본 것을 PC 에 건네고 go 를 기다린다 — [data] 가 핸들러가 받는 말에 실린다(support.step 은 이름만 말한다).
@@ -40,7 +40,7 @@ Future<Map<String, Object?>> _trLiveLine(WidgetTester tester, Map<String, dynami
   final container = _trContainer(tester);
   final provider = chatRoomViewModelProvider(_trMatchId(tester));
   if (!await _trLoaded(tester)) {
-    return {'loaded': false, 'error': container.read(provider).error?.toDisplayMessage(), 'seen_at': null, 'lines': <String>[]};
+    return {'loaded': false, 'error': _errorText(container.read(provider).error), 'seen_at': null, 'lines': <String>[]};
   }
   String? seenAt;
   final sub = container.listen(provider, (_, next) {
@@ -116,7 +116,7 @@ Future<Map<String, Object?>> _trWatchPartner(WidgetTester tester, Map<String, dy
   });
   try {
     await wait(tester, const Duration(seconds: 2)); // 구독이 붙고 배너가 그려지는 시간
-    await _trStep('ready', {'loaded': loaded, 'error': container.read(provider).error?.toDisplayMessage(), 'banners': _banners(tester)});
+    await _trStep('ready', {'loaded': loaded, 'error': _errorText(container.read(provider).error), 'banners': _banners(tester)});
     if (!loaded) return {'loaded': false, 'card': false};
     await _trStep('watch', {}); // PC 가 B 를 눌러도 되게 푼 뒤에야 풀린다 — 카드 기다림(20초)을 B 가 누르기 직전부터 센다
     final cardAt = await _trCardAt(tester);
@@ -141,7 +141,7 @@ Future<Map<String, Object?>> _trPress(WidgetTester tester, Map<String, dynamic> 
   final provider = chatRoomViewModelProvider(_trMatchId(tester));
   final loaded = await _trLoaded(tester);
   final confirm = loaded ? await _trOpenConfirm(tester) : null;
-  await _trStep('armed', {'loaded': loaded, 'error': _trContainer(tester).read(provider).error?.toDisplayMessage(), 'banners': _banners(tester)});
+  await _trStep('armed', {'loaded': loaded, 'error': _errorText(_trContainer(tester).read(provider).error), 'banners': _banners(tester)});
   if (confirm == null) return {'loaded': false, 'card': false};
   final pressedAt = DateTime.now();
   await tester.tap(confirm);
@@ -150,7 +150,7 @@ Future<Map<String, Object?>> _trPress(WidgetTester tester, Map<String, dynamic> 
     'loaded': true,
     'card': cardAt != null,
     'card_ms': cardAt?.difference(pressedAt).inMilliseconds,
-    'error': _trContainer(tester).read(provider).error?.toDisplayMessage(),
+    'error': _errorText(_trContainer(tester).read(provider).error),
     ...await _trCardFacts(tester),
   };
 }

@@ -85,12 +85,6 @@ void main() {
 
       expect(covered, declared);
     });
-
-    test('임시 껍데기 toDisplayMessage() 는 같은 글자를 돌려준다', () {
-      for (final (failure, expected) in cases) {
-        expect(failure.toDisplayMessage(), expected, reason: '${failure.runtimeType}');
-      }
-    });
   });
 
   group('appErrorKindText', () {

@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/matching/model/data/card_detail.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/model/data/photo_slot.dart';
@@ -434,7 +436,7 @@ void main() {
       final result = await buildRepository(client).savePhotos(const [KeptPhoto('p-a'), KeptPhoto('p-b')], 0);
 
       expect(
-        result.when(onSuccess: (_) => null, onFailure: (failure) => failure.toDisplayMessage()),
+        result.when(onSuccess: (_) => null, onFailure: (failure) => failureText(AppLocalizationsKo(), failure)),
         '사진이 바뀌었어요, 다시 열어 주세요',
       );
     });

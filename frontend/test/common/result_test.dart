@@ -1,5 +1,7 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -19,7 +21,7 @@ void main() {
 
     final actual = result.when(
       onSuccess: (value) => 'ok',
-      onFailure: (failure) => failure.toDisplayMessage(),
+      onFailure: (failure) => failureText(AppLocalizationsKo(), failure),
     );
 
     expect(actual, '네트워크 연결을 확인해 주세요');

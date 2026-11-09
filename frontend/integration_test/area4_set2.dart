@@ -368,7 +368,7 @@ final Map<String, Area1Case> _set2Cases = {
     await step('cut');
     await _confirmLogout(tester);
     await arrive(tester, 'start', timeout: const Duration(seconds: 30));
-    must(find.text(const UnknownFailure().toDisplayMessage()).evaluate().isEmpty, '오류 문구가 보임');
+    must(find.text(failureText(AppLocalizationsKo(), const UnknownFailure())).evaluate().isEmpty, '오류 문구가 보임');
     return null;
   }),
   'E-SET-69': _session((tester, job) async {

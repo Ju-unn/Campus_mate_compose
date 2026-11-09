@@ -1,57 +1,59 @@
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('네트워크 실패는 연결 확인 안내를 보여준다', () {
     const failure = NetworkFailure();
 
-    expect(failure.toDisplayMessage(), '네트워크 연결을 확인해 주세요');
+    expect(failureText(AppLocalizationsKo(), failure), '네트워크 연결을 확인해 주세요');
   });
 
   test('세션 만료 실패는 다시 로그인하라는 안내를 보여준다', () {
     const failure = SessionExpiredFailure();
-    expect(failure.toDisplayMessage(), '세션이 만료됐어요, 다시 로그인해 주세요');
+    expect(failureText(AppLocalizationsKo(), failure), '세션이 만료됐어요, 다시 로그인해 주세요');
   });
 
   test('찾을 수 없음 실패는 대상이 없다는 안내를 보여준다', () {
     const failure = NotFoundFailure();
 
-    expect(failure.toDisplayMessage(), '요청한 정보를 찾을 수 없습니다');
+    expect(failureText(AppLocalizationsKo(), failure), '요청한 정보를 찾을 수 없습니다');
   });
 
   test('알 수 없는 실패는 일반 오류 안내를 보여준다', () {
     const failure = UnknownFailure();
 
-    expect(failure.toDisplayMessage(), '알 수 없는 오류가 발생했습니다');
+    expect(failureText(AppLocalizationsKo(), failure), '알 수 없는 오류가 발생했습니다');
   });
 
   test('시간당 재전송 한도 실패는 잠시 후 다시 시도하라는 안내를 보여준다', () {
     const failure = RateLimitedFailure();
-    expect(failure.toDisplayMessage(), '너무 많이 시도했어요. 잠시 후 다시 시도해 주세요');
+    expect(failureText(AppLocalizationsKo(), failure), '너무 많이 시도했어요. 잠시 후 다시 시도해 주세요');
   });
 
   test('가입 거부 실패는 서버가 준 이유를 그대로 보여준다', () {
     const failure = SignUpRejectedFailure('허용되지 않은 학교 이메일이에요');
-    expect(failure.toDisplayMessage(), '허용되지 않은 학교 이메일이에요');
+    expect(failureText(AppLocalizationsKo(), failure), '허용되지 않은 학교 이메일이에요');
   });
 
   test('서버가 잠깐 못 받으면 잠시 뒤 다시 시도하라고 안내한다', () {
     const failure = ServerUnavailableFailure();
-    expect(failure.toDisplayMessage(), '잠시 뒤 다시 시도해 주세요');
+    expect(failureText(AppLocalizationsKo(), failure), '잠시 뒤 다시 시도해 주세요');
   });
 
   test('서버 거부 사유를 그대로 보여준다', () {
     const failure = ServerRejectedFailure('이미 검토 중이에요');
-    expect(failure.toDisplayMessage(), '이미 검토 중이에요');
+    expect(failureText(AppLocalizationsKo(), failure), '이미 검토 중이에요');
   });
   group('학교 메일 인증(02 · 03)', () {
     test('인증번호를 못 보냈으면 잠시 뒤 다시 하라는 임시 문구', () {
-      expect(const CodeNotSentFailure().toDisplayMessage(), '인증번호를 보내지 못했어요. 잠시 뒤 다시 시도해 주세요');
+      expect(failureText(AppLocalizationsKo(), const CodeNotSentFailure()), '인증번호를 보내지 못했어요. 잠시 뒤 다시 시도해 주세요');
     });
 
     test('학교 메일 인증을 못 마쳤으면 잠시 뒤 다시 하라는 임시 문구', () {
       expect(
-        const SchoolEmailIncompleteFailure().toDisplayMessage(),
+        failureText(AppLocalizationsKo(), const SchoolEmailIncompleteFailure()),
         '학교 메일 인증을 마치지 못했어요. 잠시 뒤 다시 시도해 주세요',
       );
     });
@@ -63,10 +65,10 @@ void main() {
         final mine = provider == 'kakao' ? 'google' : 'kakao';
         final failure = SchoolEmailTakenFailure('서버 문구', provider, myProvider: mine);
 
-        expect(failure.toDisplayMessage(), '이미 $label로 가입된 학교 메일이에요', reason: provider);
-        expect(failure.toHintMessage(), '$label로 로그인해 주세요', reason: provider);
-        expect(failure.reloginLabel(), '$label로 다시 로그인', reason: provider);
-        expect(failure.reloginNotice(), '이 학교 메일은 $label로 가입돼 있어요. $label로 로그인해 주세요', reason: provider);
+        expect(failureText(AppLocalizationsKo(), failure), '이미 $label로 가입된 학교 메일이에요', reason: provider);
+        expect(takenHintText(AppLocalizationsKo(), failure), '$label로 로그인해 주세요', reason: provider);
+        expect(AppLocalizationsKo().authSchoolEmailRelogin(provider: failure.otherSocialProvider()!), '$label로 다시 로그인', reason: provider);
+        expect(takenReloginNoticeText(AppLocalizationsKo(), failure), '이 학교 메일은 $label로 가입돼 있어요. $label로 로그인해 주세요', reason: provider);
         expect(failure.isTakenBySocial(), isTrue, reason: provider);
       }
     });
@@ -76,10 +78,10 @@ void main() {
       for (final provider in ['kakao', 'google', 'apple']) {
         final failure = SchoolEmailTakenFailure('서버 문구', provider, myProvider: provider);
 
-        expect(failure.toDisplayMessage(), '이미 가입된 학교 메일이에요', reason: provider);
-        expect(failure.toHintMessage(), '한 학교 메일로는 계정 하나만 만들 수 있어요', reason: provider);
-        expect(failure.reloginLabel(), isNull, reason: provider);
-        expect(failure.reloginNotice(), isNull, reason: provider);
+        expect(failureText(AppLocalizationsKo(), failure), '이미 가입된 학교 메일이에요', reason: provider);
+        expect(takenHintText(AppLocalizationsKo(), failure), '한 학교 메일로는 계정 하나만 만들 수 있어요', reason: provider);
+        expect(failure.otherSocialProvider(), isNull, reason: provider);
+        expect(takenReloginNoticeText(AppLocalizationsKo(), failure), isNull, reason: provider);
         expect(failure.isTakenBySocial(), isTrue, reason: provider);
       }
     });
@@ -87,30 +89,30 @@ void main() {
     test('provider 가 email 이면 앱 상수 "이 학교 메일로 이미 가입된 계정이 있어요. 문의해 주세요", 보조 문구 없음', () {
       const failure = SchoolEmailTakenFailure('서버 문구', 'email', myProvider: 'kakao');
 
-      expect(failure.toDisplayMessage(), '이 학교 메일로 이미 가입된 계정이 있어요. 문의해 주세요');
-      expect(failure.toHintMessage(), isNull);
-      expect(failure.reloginLabel(), isNull);
+      expect(failureText(AppLocalizationsKo(), failure), '이 학교 메일로 이미 가입된 계정이 있어요. 문의해 주세요');
+      expect(takenHintText(AppLocalizationsKo(), failure), isNull);
+      expect(failure.otherSocialProvider(), isNull);
       expect(failure.isTakenBySocial(), isFalse);
     });
 
     test('모르는 수단이면 서버 문구를 그대로 쓰고 보조 문구는 없다', () {
       const failure = SchoolEmailTakenFailure('이 메일은 다른 수단으로 가입돼 있어요', 'line');
 
-      expect(failure.toDisplayMessage(), '이 메일은 다른 수단으로 가입돼 있어요');
-      expect(failure.toHintMessage(), isNull);
-      expect(failure.reloginLabel(), isNull);
+      expect(failureText(AppLocalizationsKo(), failure), '이 메일은 다른 수단으로 가입돼 있어요');
+      expect(takenHintText(AppLocalizationsKo(), failure), isNull);
+      expect(failure.otherSocialProvider(), isNull);
       expect(failure.isTakenBySocial(), isFalse);
     });
 
     test('서버가 임시 토큰을 못 읽었으면(미확인) 다시 하라는 임시 문구', () {
       expect(
-        const SchoolEmailNotConfirmedFailure().toDisplayMessage(),
+        failureText(AppLocalizationsKo(), const SchoolEmailNotConfirmedFailure()),
         '학교 메일 인증을 마치지 못했어요. 잠시 뒤 다시 시도해 주세요',
       );
     });
 
     test('등록되지 않은 학교 · 재가입 제한(422)은 서버 문구를 그대로', () {
-      expect(const SchoolEmailRejectedFailure('등록되지 않은 학교 메일이에요').toDisplayMessage(), '등록되지 않은 학교 메일이에요');
+      expect(failureText(AppLocalizationsKo(), const SchoolEmailRejectedFailure('등록되지 않은 학교 메일이에요')), '등록되지 않은 학교 메일이에요');
     });
   });
 
@@ -138,26 +140,22 @@ void main() {
       expect(const SchoolEmailTakenFailure('서버', 'kakao').isTakenByEmailAccount(), isFalse);
     });
 
-    test('이메일 계정 안내 문구는 공개 상수 자리에서도 같은 글자다(옛 호출처용 껍데기)', () {
-      expect(SchoolEmailTakenFailure.takenByEmailAccountMessage, '이 학교 메일로 이미 가입된 계정이 있어요. 문의해 주세요');
-    });
-
     test('앱이 정하는 에러는 종류를 들고 다니고 글자는 error_text 가 정한다', () {
       const failure = AppErrorFailure(AppError.notificationsLoad);
 
       expect(failure.error, AppError.notificationsLoad);
-      expect(failure.toDisplayMessage(), '알림을 불러오지 못했어요');
+      expect(failureText(AppLocalizationsKo(), failure), '알림을 불러오지 못했어요');
     });
   });
 
   // 시작 화면 소셜 로그인 토스트 문구(대장 지시문 07).
   test('소셜 로그인을 사용자가 취소하면 취소 안내를 보여준다', () {
     const failure = LoginCancelledFailure();
-    expect(failure.toDisplayMessage(), '로그인이 취소됐어요');
+    expect(failureText(AppLocalizationsKo(), failure), '로그인이 취소됐어요');
   });
 
   test('소셜 로그인이 실패하면 잠시 뒤 다시 시도하라고 안내한다', () {
     const failure = SocialLoginFailure();
-    expect(failure.toDisplayMessage(), '로그인하지 못했어요. 잠시 뒤 다시 시도해 주세요');
+    expect(failureText(AppLocalizationsKo(), failure), '로그인하지 못했어요. 잠시 뒤 다시 시도해 주세요');
   });
 }

@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
@@ -295,7 +297,7 @@ void main() {
     await tapSave(tester);
     await tester.pumpAndSettle();
 
-    final error = find.text(const NetworkFailure().toDisplayMessage());
+    final error = find.text(failureText(AppLocalizationsKo(), const NetworkFailure()));
     expect(error, findsOneWidget);
     final style = tester.widget<Text>(error).style!;
     expect((style.fontSize, style.color), (12, AppColors.error));

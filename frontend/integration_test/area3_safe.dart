@@ -196,8 +196,8 @@ Future<Map<String, Object?>> _chatWithHidden(WidgetTester tester, Map<String, dy
     await tester.pump(const Duration(milliseconds: 100));
   }
   final loaded = container.read(chatRoomViewModelProvider(matchId));
-  if (loaded.isLoading || loaded.error?.toDisplayMessage() != null) {
-    return {'loaded': false, 'error': loaded.error?.toDisplayMessage()};
+  if (loaded.isLoading || loaded.error != null) {
+    return {'loaded': false, 'error': _errorText(loaded.error)};
   }
   String? seenAt;
   final sub = container.listen(chatRoomViewModelProvider(matchId), (_, next) {

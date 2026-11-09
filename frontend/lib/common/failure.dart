@@ -1,16 +1,9 @@
-import 'package:campus_mate/core/l10n/error_text.dart';
-import 'package:campus_mate/l10n/app_localizations_ko.dart';
-
 /// 도메인 실패를 표현한다.
 /// 실패의 내부 사정을 노출하지 않고, 어떤 실패인지 **종류**만 가진다. 화면에 보이는 문구는 종류가 아니라
 /// 문구 파일(`lib/l10n/app_ko.arb`의 `error*` 키)이 정하고, 글자로 바꾸는 곳은 `core/l10n/error_text.dart` 한 파일이다
 /// (view 는 `context.errorText(failure)`).
 sealed class Failure {
   const Failure();
-
-  /// 임시 껍데기(1.0.2 B8) — 아직 문구를 옮기지 않은 기능이 글자를 바로 받는 길. 한국어 고정이고 원본은 ARB 한 곳이다.
-  /// 기능이 view 의 `context.errorText` 로 옮겨 가면 호출이 없어지고, 마지막 PR 에서 이 메서드를 지운다.
-  String toDisplayMessage() => failureText(AppLocalizationsKo(), this);
 }
 
 /// 네트워크 연결 자체가 실패한 경우.
@@ -144,10 +137,6 @@ final class SchoolEmailTakenFailure extends Failure {
   /// `provider == email` — 소셜이 아닌 이메일 방식 계정이 이 메일을 쥐고 있다(서버 `SCHOOL_EMAIL_TAKEN_BY_EMAIL_ACCOUNT` 와 같은 글자).
   static const _emailAccountProvider = 'email';
 
-  /// 이메일 방식 계정이 쥔 메일의 안내 문구 — 옛 호출처(시험)용 껍데기. 글자는 ARB 에서 온다.
-  static String get takenByEmailAccountMessage =>
-      const SchoolEmailTakenFailure('', _emailAccountProvider).toDisplayMessage();
-
   /// [myProvider] 를 붙인 사본 — 서버 응답(http_send)에는 내 소셜이 없어 저장소가 덧붙인다.
   SchoolEmailTakenFailure withMyProvider(String? myProvider) =>
       SchoolEmailTakenFailure(serverMessage, _provider, myProvider: myProvider);
@@ -161,19 +150,8 @@ final class SchoolEmailTakenFailure extends Failure {
   bool get _isMine => _provider == _myProvider;
 
   /// 다른 소셜이 쥐었을 때만 그 소셜의 서버 값(`kakao` · `google` · `apple`). 같은 소셜 · 이메일 방식 · 모르는 수단이면 null.
+  /// 03 화면은 이 값이 있을 때만 "그 소셜로 다시 로그인" 단추를 단다 — 둘째 줄 · 다시 로그인 알림의 글자는 `error_text.dart`.
   String? otherSocialProvider() => isTakenBySocial() && !_isMine ? _provider : null;
-
-  /// 오류 첫 줄 아래 둘째 줄(임시 껍데기 — 글자는 error_text.dart). 소셜이 쥔 메일이 아니면 없다.
-  String? toHintMessage() => takenHintText(AppLocalizationsKo(), this);
-
-  /// 03 주 단추 글자("카카오로 다시 로그인"). 다른 소셜이 쥐었을 때만 있다.
-  String? reloginLabel() {
-    final provider = otherSocialProvider();
-    return provider == null ? null : AppLocalizationsKo().authSchoolEmailRelogin(provider: provider);
-  }
-
-  /// 다시 로그인 단추를 눌러 로그아웃한 뒤 시작 화면 토스트(`LoginNotice`)에 남길 문구.
-  String? reloginNotice() => takenReloginNoticeText(AppLocalizationsKo(), this);
 }
 
 /// 사용자가 소셜 로그인 창을 닫거나 취소한 경우(시작 화면 토스트, 대장 지시문 07).
