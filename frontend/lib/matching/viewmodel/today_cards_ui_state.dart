@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/matching/model/data/daily_card.dart';
 import 'package:campus_mate/matching/model/data/paid_card.dart';
 
@@ -32,12 +33,12 @@ enum PurchaseNoticeKind {
 }
 
 class PurchaseNotice {
-  const PurchaseNotice(this.kind, [this.message]);
+  const PurchaseNotice(this.kind, [this.failure]);
 
   final PurchaseNoticeKind kind;
 
-  /// 토스트에 쓸 문구([PurchaseNoticeKind.heartsNotEnough] 는 시트라 없다).
-  final String? message;
+  /// [PurchaseNoticeKind.failed] 의 실패. 토스트 글자는 화면이 종류로 고른다(실패면 `context.errorText`).
+  final Failure? failure;
 }
 
 class TodayCardsUiState {
@@ -45,7 +46,7 @@ class TodayCardsUiState {
     this.phase = TodayCardsPhase.loading,
     this.cards = const [],
     this.nextIssueAt,
-    this.errorMessage,
+    this.error,
     this.paidCard,
     this.isPurchasing = false,
     this.notice,
@@ -54,7 +55,7 @@ class TodayCardsUiState {
   final TodayCardsPhase phase;
   final List<DailyCard> cards;
   final DateTime? nextIssueAt;
-  final String? errorMessage;
+  final Failure? error;
 
   /// 결제 카드 자리(카드 목록 · 대기 화면 아래에 **추가로** 그린다). 없으면 null.
   final PaidCard? paidCard;
@@ -69,7 +70,7 @@ class TodayCardsUiState {
       phase: phase,
       cards: cards,
       nextIssueAt: nextIssueAt,
-      errorMessage: errorMessage,
+      error: error,
       paidCard: paidCard,
       isPurchasing: isPurchasing ?? this.isPurchasing,
       notice: notice,

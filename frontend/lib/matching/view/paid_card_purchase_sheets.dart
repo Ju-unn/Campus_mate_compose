@@ -1,3 +1,4 @@
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
@@ -15,15 +16,17 @@ Future<bool> showPaidCardConfirmSheet(
   required int cost,
   required int? heartBalance,
 }) async {
+  final l10n = context.l10n;
   final confirmed = await showSafetySheet<bool>(
     context,
     (_) => _PaidCardSheet(
-      title: '이 사람을 지금 열어 볼까요?',
-      description: '하트 $cost개가 차감돼요. ${_balanceSentence(heartBalance)}'
-          '한 번에 한 명만 열 수 있고, 산 카드는 결정할 때까지 사라지지 않아요.',
-      primaryLabel: '$cost 쓰고 열기',
+      title: l10n.matchingPaidConfirmTitle,
+      description: heartBalance == null
+          ? l10n.matchingPaidConfirmBody(cost: cost)
+          : l10n.matchingPaidConfirmBodyWithBalance(cost: cost, balance: heartBalance),
+      primaryLabel: l10n.matchingPaidConfirmCta(cost: cost),
       primaryHasHeart: true,
-      secondaryLabel: '취소',
+      secondaryLabel: l10n.commonCancel,
     ),
   );
   return confirmed ?? false;
@@ -36,25 +39,20 @@ Future<bool> showPaidCardHeartsShortSheet(
   required int cost,
   required int? heartBalance,
 }) async {
+  final l10n = context.l10n;
   final goToStore = await showSafetySheet<bool>(
     context,
     (_) => _PaidCardSheet(
-      title: '하트가 모자라요',
-      description: '하트 $cost개가 필요해요.${_balanceSentence(heartBalance, leadingSpace: true)}',
-      primaryLabel: '하트 스토어로 가기',
+      title: l10n.matchingPaidHeartsShortTitle,
+      description: heartBalance == null
+          ? l10n.matchingPaidHeartsShortBody(cost: cost)
+          : l10n.matchingPaidHeartsShortBodyWithBalance(cost: cost, balance: heartBalance),
+      primaryLabel: l10n.matchingPaidHeartsShortCta,
       primaryHasHeart: false,
-      secondaryLabel: '닫기',
+      secondaryLabel: l10n.commonClose,
     ),
   );
   return goToStore ?? false;
-}
-
-/// "지금 보유한 하트는 N개예요." — 잔액을 모르면 빈 글자.
-String _balanceSentence(int? heartBalance, {bool leadingSpace = false}) {
-  if (heartBalance == null) {
-    return '';
-  }
-  return leadingSpace ? ' 지금 보유한 하트는 $heartBalance개예요.' : '지금 보유한 하트는 $heartBalance개예요. ';
 }
 
 class _PaidCardSheet extends StatelessWidget {

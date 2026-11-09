@@ -1,7 +1,8 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/matching/model/data/acceptance.dart';
 
 /// 받은 수락함(화면 13 상단 섹션)의 상태.
-/// [matchedNickname] 과 [errorMessage] 는 [copyWith] 에서 덮어쓰기다 — null 로도 지워져야 한다.
+/// [matchedNickname] 과 [error] 는 [copyWith] 에서 덮어쓰기다 — null 로도 지워져야 한다.
 class AcceptancesUiState {
   const AcceptancesUiState({
     this.isLoading = true,
@@ -9,7 +10,7 @@ class AcceptancesUiState {
     this.respondingCardId,
     this.matchedNickname,
     this.matchedMatchId,
-    this.errorMessage,
+    this.error,
   });
 
   final bool isLoading;
@@ -23,7 +24,7 @@ class AcceptancesUiState {
 
   /// 그 매칭의 방. 화면 12 의 "대화 시작하기" 가 이걸로 방을 연다(조각 5).
   final String? matchedMatchId;
-  final String? errorMessage;
+  final Failure? error;
 
   String? nicknameOf(String cardId) {
     for (final acceptance in acceptances) {
@@ -40,7 +41,7 @@ class AcceptancesUiState {
     String? respondingCardId,
     String? matchedNickname,
     String? matchedMatchId,
-    String? errorMessage,
+    Failure? error,
   }) {
     return AcceptancesUiState(
       isLoading: isLoading ?? this.isLoading,
@@ -48,7 +49,7 @@ class AcceptancesUiState {
       respondingCardId: respondingCardId,
       matchedNickname: matchedNickname,
       matchedMatchId: matchedMatchId,
-      errorMessage: errorMessage,
+      error: error,
     );
   }
 }

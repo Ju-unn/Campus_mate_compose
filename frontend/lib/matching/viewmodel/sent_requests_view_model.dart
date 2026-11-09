@@ -53,7 +53,7 @@ class SentRequestsViewModel extends Notifier<SentRequestsUiState> {
       onSuccess: (list) => state.copyWith(isLoading: false, requests: list),
       onFailure: (failure) => quiet && !state.isLoading
           ? state
-          : state.copyWith(isLoading: false, errorMessage: failure.toDisplayMessage()),
+          : state.copyWith(isLoading: false, error: failure),
     );
   }
 

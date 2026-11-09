@@ -15,7 +15,6 @@ void main() {
   // `common/` 바로 아래 파일(failure.dart 등)은 이미 옮겼으므로 여기 없다. auth · billing · profile 은 B7 2단계(#660)에서 세부 기능
   // 폴더로 나뉘어 세부 기능마다 적었다 — 한글이 이미 없는 auth/gate · auth/media 는 처음부터 엄격하게 검사된다.
   const pending = <String>{
-    'matching',
     'profile/appearance',
     'profile/avatar',
     'profile/basic',

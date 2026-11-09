@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -53,7 +54,7 @@ class AcceptanceRow extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xs),
           // 행 안쪽 폭 전체 × 44(§8.3 카드 안 인라인 버튼 "View Profile").
-          AppButton(label: '프로필 보기', onPressed: onViewProfile, height: 44),
+          AppButton(label: context.l10n.matchingAcceptanceRowViewProfile, onPressed: onViewProfile, height: 44),
         ],
       ),
     );

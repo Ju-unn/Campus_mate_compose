@@ -28,36 +28,36 @@ class NotificationSettingsViewModel extends Notifier<NotificationSettingsUiState
     state = result.when(
       onSuccess: (preferences) => state.copyWith(isLoading: false, preferences: preferences),
       onFailure: (failure) =>
-          state.copyWith(isLoading: false, errorMessage: failure.toDisplayMessage()),
+          state.copyWith(isLoading: false, error: failure),
     );
     state = paused.when(
-      onSuccess: (value) => state.copyWith(matchingPaused: value, errorMessage: state.errorMessage),
-      onFailure: (failure) => state.copyWith(errorMessage: failure.toDisplayMessage()),
+      onSuccess: (value) => state.copyWith(matchingPaused: value, error: state.error),
+      onFailure: (failure) => state.copyWith(error: failure),
     );
   }
 
   Future<void> toggle(String key, bool value) async {
     final previous = state.preferences;
-    state = state.copyWith(preferences: previous.withValue(key, value), errorMessage: null);
+    state = state.copyWith(preferences: previous.withValue(key, value), error: null);
     final result = await ref.read(cardRepositoryProvider).updateNotificationPreference(key, value);
     result.when(
       onSuccess: (_) {},
       onFailure: (failure) => state = state.copyWith(
         preferences: previous,
-        errorMessage: failure.toDisplayMessage(),
+        error: failure,
       ),
     );
   }
 
   Future<void> setPaused(bool paused) async {
     final previous = state.matchingPaused;
-    state = state.copyWith(matchingPaused: paused, errorMessage: null);
+    state = state.copyWith(matchingPaused: paused, error: null);
     final result = await ref.read(cardRepositoryProvider).setMatchingPaused(paused);
     result.when(
       onSuccess: (_) {},
       onFailure: (failure) => state = state.copyWith(
         matchingPaused: previous,
-        errorMessage: failure.toDisplayMessage(),
+        error: failure,
       ),
     );
   }

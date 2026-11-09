@@ -53,7 +53,7 @@ void main() {
     expect(repository.acceptanceDetailReads, ['card-1']);
     expect(state.isLoading, isFalse);
     expect(state.detail!.profile.nickname, '초코라떼');
-    expect(state.errorMessage, isNull);
+    expect(state.error, isNull);
   });
 
   test('만료(410) · 이미 답함(409) · 없음(404)은 서버 문구 그대로 오류 상태다', () async {
@@ -63,7 +63,7 @@ void main() {
 
     expect(state.isLoading, isFalse);
     expect(state.detail, isNull);
-    expect(state.errorMessage, '기한이 지났어요');
+    expect(state.error, isA<ServerRejectedFailure>().having((f) => f.serverMessage, 'serverMessage', '기한이 지났어요'));
   });
 
   test('화면을 떠나면 버리고, 다시 열면 새로 읽는다 — 그사이 상대가 사라졌거나 기한이 지났을 수 있다', () async {

@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'dart:ui' show ImageFilter;
 
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/entrance.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -15,6 +18,7 @@ import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/home/view/cohort_wait_view.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/matching/model/data/daily_card.dart';
 import 'package:campus_mate/matching/model/data/paid_card.dart';
 import 'package:campus_mate/matching/view/countdown_text.dart';
@@ -51,7 +55,10 @@ class TodayCardsScreen extends ConsumerWidget {
       appBar: AppBar(
         titleSpacing: 20,
         // 앱 투어 4단계 — 도착 시각 안내가 없는 상태(카드 목록 등)면 이 제목(상단 영역)을 가리킨다.
-        title: TourTarget(id: TourTargetId.todayHeader, child: Text('오늘의 카드', style: AppTypography.navTitle)),
+        title: TourTarget(
+          id: TourTargetId.todayHeader,
+          child: Text(context.l10n.matchingTodayTitle, style: AppTypography.navTitle),
+        ),
       ),
       bottomNavigationBar: const GlassBottomNav(current: AppTab.today),
       // 아래는 비우지 않는다 — 각 상태가 알약 자리를 직접 피한다(목록은 알약 뒤로 이어진다).
@@ -68,7 +75,7 @@ class TodayCardsScreen extends ConsumerWidget {
                 onCountdownDone: () => unawaited(ref.read(todayCardsViewModelProvider.notifier).refreshWhenDue()),
               ),
             TodayCardsPhase.noCandidates => const _NoCandidatesPanel(),
-            TodayCardsPhase.failed => _FailedPanel(message: state.errorMessage),
+            TodayCardsPhase.failed => _FailedPanel(error: state.error),
           },
         ),
       ),
@@ -189,12 +196,12 @@ class _WaitingPanel extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                '다음 카드를 준비하고 있어요',
+                context.l10n.matchingWaitingTitle,
                 style: AppTypography.title.copyWith(color: AppColors.ink, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 6),
               Text(
-                waitingSubtitle(nextIssueAt, now),
+                waitingSubtitle(context.l10n, nextIssueAt, now),
                 textAlign: TextAlign.center,
                 style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
               ),
@@ -255,7 +262,9 @@ class _NextBand extends StatelessWidget {
                 ),
               ),
               ColoredBox(color: AppColors.surfaceInk.withValues(alpha: 0.55)),
-              Center(child: Text('다음에 만날 사람들', style: AppTypography.subtitle.copyWith(color: AppColors.onInk))),
+              Center(
+                child: Text(context.l10n.matchingWaitingBand, style: AppTypography.subtitle.copyWith(color: AppColors.onInk)),
+              ),
             ],
           ),
         ),
@@ -263,10 +272,6 @@ class _NextBand extends StatelessWidget {
     );
   }
 }
-
-/// 오늘 · 내일 지급 부제의 꼬리(시안 `k1jPSY` 틀). 앞에 "오늘 오전 7시" · "내일 오전 7시" 가 붙는다 —
-/// "오늘 오전 7시" 는 학교 오픈 대기(home/view/cohort_wait_view.dart)와 같은 말이다.
-const String _arrivingSoonTail = '에 새로운 한 명이 도착해요';
 
 /// 서울 달력으로 [issue] 가 [now] 보다 며칠 뒤인지(같은 날이면 0). 둘 다 [seoulClock] 을 거친 값이다.
 int _calendarDaysUntil(DateTime issue, DateTime now) =>
@@ -288,25 +293,29 @@ bool isArrivingSoon(DateTime? nextIssueAt, DateTime now) {
 /// 화면 11 의 부제. 내일이면 시안 `k1jPSY`, 그 뒤면 `exnx7` 문구다. 다음 주(월요일 시작)면 요일 앞에
 /// "다음 주" 를 붙인다 — 주 1회는 월요일에 "월요일" 이 오늘처럼 읽혔다(사용자 결정 10-04 (나)).
 /// 지급일의 지급 시각 전이면 서버가 오늘 시각을 준다(ladder.py upcoming_issue_at) — 그때는 "오늘" 이다.
-/// 날짜 · 요일 · 시각은 서울 기준이다([seoulClock]).
+/// 날짜 · 요일 · 시각은 서울 기준이다([seoulClock]). 오늘 · 내일 꼴(시안 `k1jPSY` 틀)의 "오늘 오전 7시" 는
+/// 학교 오픈 대기(home/view/cohort_wait_view.dart)와 같은 말이다. 문장 틀은 ARB, 날짜 계산은 여기 그대로다.
 @visibleForTesting
-String waitingSubtitle(DateTime? nextIssueAt, DateTime now) {
+String waitingSubtitle(AppLocalizations l10n, DateTime? nextIssueAt, DateTime now) {
   if (nextIssueAt == null) {
-    return '새로운 사람이 준비되면 알려드릴게요';
+    return l10n.matchingWaitingSubtitleUnknown;
   }
   final issue = seoulClock(nextIssueAt);
   final seoulNow = seoulClock(now);
   final days = _calendarDaysUntil(issue, seoulNow);
-  final time = hourLabel(issue);
+  final time = hourLabel(l10n, issue);
   if (days == 0) {
-    return '오늘 $time$_arrivingSoonTail';
+    return l10n.matchingWaitingSubtitleToday(time: time);
   }
   if (days <= _arrivingSoonMaxDays) {
-    return '내일 $time$_arrivingSoonTail';
+    return l10n.matchingWaitingSubtitleTomorrow(time: time);
   }
+  final weekday = weekdayName(l10n, issue);
   // 오늘이 weekday 면 이번 주 일요일까지 7 - weekday 일 남았다.
-  final nextWeek = days > 7 - seoulNow.weekday ? '다음 주 ' : '';
-  return '$nextWeek${weekdayNames[issue.weekday - 1]}요일 $time에 새로운 사람을 찾아볼게요';
+  if (days > 7 - seoulNow.weekday) {
+    return l10n.matchingWaitingSubtitleNextWeek(weekday: weekday, time: time);
+  }
+  return l10n.matchingWaitingSubtitleWeekday(weekday: weekday, time: time);
 }
 
 /// 화면 11b(pen `iQZoa`) — 후보 풀 자체가 비었다.
@@ -322,12 +331,12 @@ class _NoCandidatesPanel extends StatelessWidget {
         const _EmptyStage(),
         const SizedBox(height: AppSpacing.lg),
         Text(
-          '지금은 소개할 사람이 없어요',
+          context.l10n.matchingNoCandidatesTitle,
           style: AppTypography.title.copyWith(color: AppColors.ink, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          '지금 만날 수 있는 분들은 모두 소개해드렸어요.\n새로운 사람이 들어오면 바로 알려드릴게요.',
+          context.l10n.matchingNoCandidatesBody,
           textAlign: TextAlign.center,
           style: AppTypography.bodySmall.copyWith(color: AppColors.muted, height: 1.5),
         ),
@@ -422,12 +431,12 @@ class _NotifyNotice extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '새로운 사람이 오면 알림을 보내드려요',
+                  context.l10n.matchingNotifyNoticeTitle,
                   style: AppTypography.labelSmall.copyWith(color: AppColors.ink),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '알림은 설정에서 끄고 켤 수 있어요',
+                  context.l10n.matchingNotifyNoticeBody,
                   style: AppTypography.caption.copyWith(color: AppColors.muted),
                 ),
               ],
@@ -440,22 +449,23 @@ class _NotifyNotice extends StatelessWidget {
 }
 
 class _FailedPanel extends ConsumerWidget {
-  const _FailedPanel({required this.message});
+  const _FailedPanel({required this.error});
 
-  final String? message;
+  final Failure? error;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final failure = error;
     return _CenteredPanel(
       children: [
         Text(
-          message ?? '카드를 불러오지 못했어요',
+          failure == null ? context.appErrorText(AppError.cardsLoad) : context.errorText(failure),
           textAlign: TextAlign.center,
           style: AppTypography.body.copyWith(color: AppColors.muted),
         ),
         const SizedBox(height: AppSpacing.lg),
         AppButton(
-          label: '다시 시도',
+          label: context.l10n.commonRetry,
           onPressed: ref.read(todayCardsViewModelProvider.notifier).refresh,
         ),
       ],

@@ -218,8 +218,11 @@ class DartContractTest(unittest.TestCase):
         self.assertIn("const _paidCardWords = ['으로 열기', '성향이 잘 맞는 사람이'];", text)
         # 그 글자는 앱의 결제 카드(paid_card_locked.dart)가 그리는 글자다.
         shown = (tools.ROOT / 'frontend' / 'lib' / 'matching' / 'view' / 'paid_card_locked.dart').read_text(encoding='utf-8')
-        self.assertIn("label: '${card.cost}으로 열기'", shown)
-        self.assertIn("'나와 성향이 잘 맞는 사람이\\n기다리고 있어요'", shown)
+        # 글자는 문구 파일(ARB)에 있고 결제 카드가 그 키를 읽는다(1.0.2 B8). 버튼의 하트 값은 자리표시자다.
+        messages = tools.arb_messages()
+        opens = [key for key, text in messages.items() if text == '{cost}으로 열기']
+        self.assertTrue(any(f'label: context.l10n.{key}(cost: card.cost)' in shown for key in opens), '"N으로 열기" 버튼이 결제 카드에 없다')
+        self.assertTrue(label_backed('나와 성향이 잘 맞는 사람이\\n기다리고 있어요', [shown], messages))
         self.assertNotIn('bandCount', shown)  # 인원수 없이 그린다(앱 1.0.1)
 
     def test_the_walk_runs_the_today_check_while_the_today_tab_is_open(self):
@@ -264,8 +267,9 @@ class DartContractTest(unittest.TestCase):
         text = (tools.ROOT / 'frontend' / 'integration_test' / 'area4_extra.dart').read_text(encoding='utf-8')
         self.assertEqual(text.count("const _heartChargeLabel = '하트 충전';"), 1)
         shown = (tools.ROOT / 'frontend' / 'lib' / 'matching' / 'view' / 'settings_screen.dart').read_text(encoding='utf-8')
-        self.assertIn("title: '하트 충전'", shown)
-        self.assertIn("Text('보유 하트'", shown)  # 블록 글자 — _settingsRows 의 첫 줄
+        messages = tools.arb_messages()  # 줄 · 블록 글자는 문구 파일(ARB)에 있고 설정 화면이 그 키를 읽는다(1.0.2 B8)
+        self.assertTrue(any(f'title: l10n.{key},' in shown for key, text in messages.items() if text == '하트 충전'))
+        self.assertTrue(any(f'Text(l10n.{key},' in shown for key, text in messages.items() if text == '보유 하트'))  # 블록 글자 — _settingsRows 의 첫 줄
 
     def test_set_26_reads_the_unblock_sheet_text_before_it_confirms(self):
         body = self.case_body("'E-SET-26'", "'E-SET-43'")

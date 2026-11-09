@@ -26,10 +26,10 @@ import 'support.dart';
 
 // 13 대화 — frontend/lib/matching/view/conversations_screen.dart · acceptance_row.dart · acceptance_detail_screen.dart · match_made_screen.dart
 // PR #568(10-16): 받은 신청 줄에는 "프로필 보기" 하나뿐이고, 거절 · 수락하기는 그 버튼이 여는 "받은 신청 · 프로필 보기" 하단 바에 있다(확인 창 없음).
-const _acceptWaiting = '받은 신청'; // conversations_screen.dart _acceptanceSlivers · acceptance_detail_screen.dart _title(앱바)
+const _acceptWaiting = '받은 신청'; // conversations_screen.dart _acceptanceSlivers · acceptance_detail_screen.dart matchingAcceptanceDetailTitle(앱바)
 const _viewProfile = '프로필 보기'; // acceptance_row.dart — 줄의 버튼 하나
-const _reject = '거절'; // acceptance_detail_screen.dart _rejectLabel — 하단 바
-const _accept = '수락하기'; // acceptance_detail_screen.dart _acceptLabel — 하단 바
+const _reject = '거절'; // acceptance_detail_screen.dart matchingAcceptanceDetailReject — 하단 바
+const _accept = '수락하기'; // acceptance_detail_screen.dart matchingAcceptanceDetailAccept — 하단 바
 const _noChats = '아직 시작된 대화가 없어요'; // conversations_screen.dart _EmptyState
 const _acceptanceNotFound = '수락을 찾을 수 없어요'; // backend core/errors.py ACCEPTANCE_NOT_FOUND — 오류 줄로 그대로 뜬다
 const _matchMade = '매칭됐어요!'; // match_made_screen.dart:32

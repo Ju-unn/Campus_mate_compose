@@ -19,7 +19,7 @@ from e2e.area2 import _ONCE, _card, _grant, _guard, _insert, _person
 from e2e.area4 import _cut, _offline, _restore, stepper
 from e2e.tools import Blocked
 
-WEEKDAY_NAMES = '월화수목금토일'  # frontend/lib/matching/view/daily_card_summary.dart weekdayNames
+WEEKDAY_NAMES = '월화수목금토일'  # frontend/lib/matching/view/daily_card_summary.dart weekdayName(문구 파일 ARB matchingWeekday)
 EVERY_DAY = [1, 2, 3, 4, 5, 6, 7]
 TWICE_A_WEEK = [1, 4]
 CARD_TITLE, CARD_BODY = '오늘의 카드가 도착했어요', '지금 확인해 보세요'  # issuing.py — 앱바 "오늘의 카드" 와는 별개

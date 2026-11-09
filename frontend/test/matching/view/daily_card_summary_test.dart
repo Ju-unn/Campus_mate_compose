@@ -7,6 +7,7 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/matching/model/data/card_profile.dart';
 import 'package:campus_mate/matching/model/data/daily_card.dart';
 import 'package:campus_mate/matching/view/daily_card_summary.dart';
@@ -284,11 +285,23 @@ void main() {
   }
 
   group('seoulClock — 서버 UTC 시각을 서울 시계로(요일 · 시각 글자의 바탕)', () {
+    final l10n = AppLocalizationsKo();
+
     test('일요일 22시(UTC)는 월요일 오전 7시 — 요일 이름과 시각 글자가 서울 값으로 나온다', () {
       final issue = seoulClock(DateTime.utc(2026, 11, 8, 22));
 
-      expect(weekdayNames[issue.weekday - 1], '월');
-      expect(hourLabel(issue), '오전 7시');
+      expect(weekdayName(l10n, issue), '월');
+      expect(hourLabel(l10n, issue), '오전 7시');
+    });
+
+    test('요일 글자는 월요일부터 일요일까지 한 글자, 시각은 오전 · 오후 12시간제다(문구 파일 ARB 의 틀)', () {
+      // 2026-11-09 은 월요일.
+      final week = [for (var day = 9; day <= 15; day++) weekdayName(l10n, DateTime.utc(2026, 11, day))];
+
+      expect(week, ['월', '화', '수', '목', '금', '토', '일']);
+      expect(hourLabel(l10n, DateTime.utc(2026, 11, 9)), '오전 12시');
+      expect(hourLabel(l10n, DateTime.utc(2026, 11, 9, 12)), '오후 12시');
+      expect(hourLabel(l10n, DateTime.utc(2026, 11, 9, 19)), '오후 7시');
     });
 
     test('기기 시간대로 만든 같은 순간도 같은 서울 값이다', () {

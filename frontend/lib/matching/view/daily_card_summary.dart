@@ -2,12 +2,14 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/pressable.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/matching/model/data/daily_card.dart';
 import 'package:flutter/material.dart';
 
@@ -45,7 +47,7 @@ class DailyCardSummary extends StatelessWidget {
               children: [
                 Flexible(
                   child: Text(
-                    '프로필 자세히 보기',
+                    context.l10n.matchingCardSummaryViewProfile,
                     style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText),
                   ),
                 ),
@@ -59,16 +61,21 @@ class DailyCardSummary extends StatelessWidget {
   }
 }
 
-const weekdayNames = <String>['월', '화', '수', '목', '금', '토', '일'];
+/// 요일 글자(문구 파일 ARB `matchingWeekday` 의 select)를 고르는 값 — 월요일(`DateTime.monday` = 1)부터 차례다.
+const List<String> _weekdayCodes = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+
+/// "월" · "화" … [value] 의 요일 한 글자. 카드 만료 배지 · 오늘 탭 대기 부제 · 앱 투어 4단계가 같이 쓴다.
+String weekdayName(AppLocalizations l10n, DateTime value) =>
+    l10n.matchingWeekday(weekday: _weekdayCodes[value.weekday - 1]);
 
 /// "오전 7시". 분은 지급 시각이 늘 정시라 뺀다.
-String hourLabel(DateTime value) {
+String hourLabel(AppLocalizations l10n, DateTime value) {
   final isMorning = value.hour < 12;
   final hour = value.hour % 12 == 0 ? 12 : value.hour % 12;
-  return '${isMorning ? '오전' : '오후'} $hour시';
+  return l10n.matchingHourLabel(meridiem: isMorning ? 'am' : 'pm', hour: hour);
 }
 
-/// 서울 시계로 옮긴 값(한국은 서머타임이 없어 +9 고정). [weekdayNames] · [hourLabel] 에 넣을 값은 이걸 거친 것이어야 서울 요일 · 시각이 나온다.
+/// 서울 시계로 옮긴 값(한국은 서머타임이 없어 +9 고정). [weekdayName] · [hourLabel] 에 넣을 값은 이걸 거친 것이어야 서울 요일 · 시각이 나온다.
 DateTime seoulClock(DateTime value) => value.toUtc().add(const Duration(hours: 9));
 
 /// pen `kaRGO`(화면 `Keynu` 의 `mj74J`). 왼쪽부터 "무료 카드 초기화" `ZMHUK`(만료 = 다음 지급 시각) ·
@@ -86,6 +93,7 @@ class _BadgeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final at = expiresAt;
+    final l10n = context.l10n;
     // 글자를 키워 한 줄에 안 들어가면 다음 줄로 내린다(DESIGN §11.2).
     // 폭을 꽉 채워야 `alignment: end` 가 먹는다 — 부모 Column 이 start 라 Wrap 이 내용 폭으로 줄어 왼쪽에 붙었다(pen `kaRGO` 는 288 꽉 참, 오른쪽 정렬).
     return SizedBox(
@@ -99,20 +107,21 @@ class _BadgeRow extends StatelessWidget {
             _Pill(
               color: AppColors.primaryDisabled,
               icon: const Icon3d(AppIcon3d.clock, size: 18),
-              label: '${weekdayNames[at.weekday - 1]}요일 ${hourLabel(at)}까지',
+              label: l10n.matchingCardExpiresAt(weekday: weekdayName(l10n, at), hour: hourLabel(l10n, at)),
               textColor: AppColors.ink,
             ),
           if (source == CardSource.purchased)
-            const _Pill(
+            _Pill(
               color: AppColors.primaryPressed,
-              icon: Icon(AppIcons.shoppingBag, size: 18, color: AppColors.onPrimary),
-              label: '구매 카드',
+              icon: const Icon(AppIcons.shoppingBag, size: 18, color: AppColors.onPrimary),
+              label: l10n.matchingCardPurchasedBadge,
               textColor: AppColors.onPrimary,
             ),
-          const _Pill(
+          // 글자는 ⑧ 뒤 문구 PR 에서 "학교 인증" 으로 바뀔 자리다 — 키 이름으로 찾는다(matchingVerifiedBadge).
+          _Pill(
             color: AppColors.surfaceInk,
-            icon: Icon3d(AppIcon3d.badgeCheck, size: 18),
-            label: '학생 인증',
+            icon: const Icon3d(AppIcon3d.badgeCheck, size: 18),
+            label: l10n.matchingVerifiedBadge,
             textColor: AppColors.onInk,
           ),
         ],

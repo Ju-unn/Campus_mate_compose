@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
@@ -16,7 +17,7 @@ class TourPrecisionPoints extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: AppSpacing.xs,
       children: [
-        for (final reason in paidCardReasons)
+        for (final reason in paidCardReasons(context.l10n))
           Row(
             children: [
               Icon3d(reason.icon, size: 24),

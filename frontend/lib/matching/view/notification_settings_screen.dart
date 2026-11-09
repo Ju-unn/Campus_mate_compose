@@ -1,11 +1,14 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/matching/viewmodel/notification_settings_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,72 +17,72 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// (커뮤니티가 조각 6 에서 컬럼과 함께 만든다).
 typedef _Row = ({String key, String title, String? note, AppIcon3d icon});
 
-const _sections = <({String title, List<_Row> rows})>[
-  (
-    title: '매칭',
-    rows: [
+List<({String title, List<_Row> rows})> _sections(AppLocalizations l10n) => [
       (
-        key: 'card_arrived',
-        title: '오늘의 카드 도착',
-        // 지급 주기는 학교 인원에 따라 주 1회 ~ 매일이라(출시 때 주 1회 월요일) 요일 · 빈도를 박지 않는다(사용자 결정 10-16).
-        note: '새 카드가 도착하면 알려 드려요',
-        icon: AppIcon3d.layers,
+        title: l10n.matchingNotificationSectionMatching,
+        rows: [
+          (
+            key: 'card_arrived',
+            title: l10n.matchingNotificationCardArrived,
+            // 지급 주기는 학교 인원에 따라 주 1회 ~ 매일이라(출시 때 주 1회 월요일) 요일 · 빈도를 박지 않는다(사용자 결정 10-16).
+            note: l10n.matchingNotificationCardArrivedNote,
+            icon: AppIcon3d.layers,
+          ),
+          (
+            key: 'acceptance_received',
+            title: l10n.matchingNotificationAcceptanceReceived,
+            note: l10n.matchingNotificationAcceptanceReceivedNote,
+            icon: AppIcon3d.heart,
+          ),
+          (
+            key: 'match_made',
+            title: l10n.matchingNotificationMatchMade,
+            note: l10n.matchingNotificationMatchMadeNote,
+            icon: AppIcon3d.users,
+          ),
+        ],
       ),
       (
-        key: 'acceptance_received',
-        title: '받은 신청',
-        note: '상대가 나에게 대화를 신청했을 때',
-        icon: AppIcon3d.heart,
+        title: l10n.matchingNotificationSectionChat,
+        rows: [
+          (key: 'new_message', title: l10n.matchingNotificationNewMessage, note: null, icon: AppIcon3d.chat),
+          (
+            key: 'trust_reminder',
+            title: l10n.matchingNotificationTrustReminder,
+            note: l10n.matchingNotificationTrustReminderNote,
+            icon: AppIcon3d.clock,
+          ),
+        ],
       ),
       (
-        key: 'match_made',
-        title: '매칭 성립',
-        note: '서로 수락해 대화가 열렸을 때',
-        icon: AppIcon3d.users,
-      ),
-    ],
-  ),
-  (
-    title: '대화',
-    rows: [
-      (key: 'new_message', title: '새 메시지', note: null, icon: AppIcon3d.chat),
-      (
-        key: 'trust_reminder',
-        title: '신뢰 확인 리마인드',
-        note: '매칭 24시간 뒤 확인 안내',
-        icon: AppIcon3d.clock,
-      ),
-    ],
-  ),
-  (
-    title: '지인 리뷰·커뮤니티',
-    rows: [
-      (
-        key: 'new_friend_review',
-        title: '새 지인 리뷰',
-        note: null,
-        icon: AppIcon3d.heartHandshake,
-      ),
-    ],
-  ),
-  (
-    title: '기타',
-    rows: [
-      (
-        key: 'marketing',
-        title: '혜택·이벤트 소식',
-        note: '마케팅 정보 수신 동의',
-        icon: AppIcon3d.megaphone,
+        title: l10n.matchingNotificationSectionSocial,
+        rows: [
+          (
+            key: 'new_friend_review',
+            title: l10n.matchingNotificationNewFriendReview,
+            note: null,
+            icon: AppIcon3d.heartHandshake,
+          ),
+        ],
       ),
       (
-        key: 'quiet_hours',
-        title: '방해 금지 시간 (22:00 ~ 08:00)',
-        note: null,
-        icon: AppIcon3d.moon,
+        title: l10n.matchingNotificationSectionOther,
+        rows: [
+          (
+            key: 'marketing',
+            title: l10n.matchingNotificationMarketing,
+            note: l10n.matchingNotificationMarketingNote,
+            icon: AppIcon3d.megaphone,
+          ),
+          (
+            key: 'quiet_hours',
+            title: l10n.matchingNotificationQuietHours,
+            note: null,
+            icon: AppIcon3d.moon,
+          ),
+        ],
       ),
-    ],
-  ),
-];
+    ];
 
 /// 알림 설정(DESIGN.md 화면 16d, pen `NMgCa`).
 class NotificationSettingsScreen extends ConsumerStatefulWidget {
@@ -118,7 +121,7 @@ class _NotificationSettingsScreenState
     final viewModel = ref.read(notificationSettingsViewModelProvider.notifier);
     return Scaffold(
       // pen `ceDU6`.
-      appBar: AppBar(title: Text('알림', style: AppTypography.navTitle)),
+      appBar: AppBar(title: Text(context.l10n.matchingNotificationSettingsTitle, style: AppTypography.navTitle)),
       body: SafeArea(
         child: ListView(
           // 목록 틀 `Znioc` — 위 12 · 좌우 16 · 아래 24, 덩어리 사이 20(계정 16e `n8lZI` 와 같다).
@@ -136,7 +139,7 @@ class _NotificationSettingsScreenState
               ),
               const SizedBox(height: _gap),
             ],
-            for (final section in _sections) ...[
+            for (final section in _sections(context.l10n)) ...[
               _SectionHeader(section.title),
               const SizedBox(height: AppSpacing.xs),
               // 카드 `kX4oK` · `LvHyT` · `URYwe` · `YAt0F` — #F7F7F7, 테두리 #DDDDDD, 모서리 12.
@@ -195,11 +198,11 @@ class _NotificationSettingsScreenState
               ),
               const SizedBox(height: _gap),
             ],
-            if (state.errorMessage != null)
+            if (state.error != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.xs),
                 child: Text(
-                  state.errorMessage!,
+                  context.errorText(state.error!),
                   style: AppTypography.bodySmall.copyWith(
                     color: AppColors.error,
                   ),
@@ -207,7 +210,7 @@ class _NotificationSettingsScreenState
               ),
             // 없으면 설정이 거짓말이 된다 — 카드 도착 알림만 조용한 시간 예외다(서버 `push.py`).
             Text(
-              '오늘의 카드 도착 알림은 방해 금지 시간에도 보내드려요. 카드가 도착하는 시각이 아침 7시예요.',
+              context.l10n.matchingNotificationQuietHoursNotice,
               style: AppTypography.caption.copyWith(color: AppColors.muted),
             ),
           ],
@@ -325,7 +328,7 @@ class _DeviceNotificationsOff extends StatelessWidget {
             // pen 문구 "기기 설정에서 켜 주세요" 에 "알림을 눌러" 를 더했다 — 버튼이 알림 화면이 아니라
             // 앱 설정 화면에 내려 준다(대장 10-03 가).
             child: Text(
-              '기기 알림이 꺼져 있어요. 알림을 받으려면 기기 설정에서 알림을 눌러 켜 주세요',
+              context.l10n.matchingNotificationDeviceOff,
               style: AppTypography.bodySmall.copyWith(
                 color: AppColors.body,
                 height: 1.5,
@@ -333,7 +336,7 @@ class _DeviceNotificationsOff extends StatelessWidget {
             ),
           ),
         ),
-        AppButton(label: '기기 알림 설정 열기', onPressed: onOpen),
+        AppButton(label: context.l10n.matchingNotificationOpenDeviceSettings, onPressed: onOpen),
       ],
     );
   }

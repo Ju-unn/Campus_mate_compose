@@ -41,7 +41,7 @@ void main() {
     final state = container.read(sentRequestsViewModelProvider);
     expect(state.isLoading, isFalse);
     expect(state.requests.single.cardId, 'card-1');
-    expect(state.errorMessage, isNull);
+    expect(state.error, isNull);
   });
 
   test('보낸 신청이 없으면 빈 목록이다', () async {
@@ -59,7 +59,7 @@ void main() {
 
     final state = container.read(sentRequestsViewModelProvider);
     expect(state.isLoading, isFalse);
-    expect(state.errorMessage, const NetworkFailure().toDisplayMessage());
+    expect(state.error, isA<NetworkFailure>());
   });
 
   test('조용한 다시 읽기가 실패하면 있던 줄을 두고 오류도 띄우지 않는다', () async {
@@ -71,7 +71,7 @@ void main() {
 
     final state = container.read(sentRequestsViewModelProvider);
     expect(state.requests, hasLength(1));
-    expect(state.errorMessage, isNull);
+    expect(state.error, isNull);
   });
 
   test('당겨서 새로고침이 실패하면 줄은 두고 오류를 보인다', () async {
@@ -83,7 +83,7 @@ void main() {
 
     final state = container.read(sentRequestsViewModelProvider);
     expect(state.requests, hasLength(1));
-    expect(state.errorMessage, isNotNull);
+    expect(state.error, isNotNull);
   });
 
   test('읽는 중에 또 부르면 그 읽기에 합쳐진다', () async {
@@ -125,7 +125,7 @@ void main() {
     await Future.wait([older, reading]);
 
     // 로딩이 끝난 채 빈 목록이 그려진 적이 없어야 한다(옛 읽기가 먼저 그려지면 새 줄이 끼어든다).
-    expect(states.any((s) => !s.isLoading && s.requests.isEmpty && s.errorMessage == null), isFalse);
+    expect(states.any((s) => !s.isLoading && s.requests.isEmpty && s.error == null), isFalse);
     expect(container.read(sentRequestsViewModelProvider).requests.single.cardId, 'card-1');
   });
 

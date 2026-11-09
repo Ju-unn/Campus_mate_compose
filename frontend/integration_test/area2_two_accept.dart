@@ -31,10 +31,10 @@ import 'support.dart';
 /// "받은 신청 · 프로필 보기"(matching/view/acceptance_detail_screen.dart) 하단 바의 거절 · 수락하기로 확인 창 없이 바로 답한다([_openProfile] · [_decide]).
 
 const _accept = '대화 신청하기'; // common/widgets/card_action_bar.dart:43
-const _reject = '거절'; // common/widgets/card_action_bar.dart(10b) · matching/view/acceptance_detail_screen.dart _rejectLabel(프로필 보기 하단 바)
-const _acceptStart = '수락하기'; // matching/view/acceptance_detail_screen.dart _acceptLabel(프로필 보기 하단 바)
+const _reject = '거절'; // common/widgets/card_action_bar.dart(10b) · matching/view/acceptance_detail_screen.dart matchingAcceptanceDetailReject(프로필 보기 하단 바)
+const _acceptStart = '수락하기'; // matching/view/acceptance_detail_screen.dart matchingAcceptanceDetailAccept(프로필 보기 하단 바)
 const _viewProfile = '프로필 보기'; // matching/view/acceptance_row.dart — 받은 신청 줄의 버튼 하나
-const _waitingHeader = '받은 신청'; // matching/view/acceptance_detail_screen.dart _title(앱바) · matching/view/conversations_screen.dart:284
+const _waitingHeader = '받은 신청'; // matching/view/acceptance_detail_screen.dart matchingAcceptanceDetailTitle(앱바) · matching/view/conversations_screen.dart:284
 const _chatHeader = '대화 중'; // :118
 const _emptyTitle = '아직 시작된 대화가 없어요'; // :187
 const _rejectedChip = '거절됨'; // matching/view/sent_request_row.dart _StatusChip

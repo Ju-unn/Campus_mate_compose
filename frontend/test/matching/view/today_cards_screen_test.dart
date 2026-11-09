@@ -10,6 +10,7 @@ import 'package:campus_mate/home/model/data/cohort_wait.dart';
 import 'package:campus_mate/home/model/data/home_summary.dart';
 import 'package:campus_mate/home/model/repository/home_repository_provider.dart';
 import 'package:campus_mate/home/view/cohort_wait_view.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/matching/model/data/card_profile.dart';
 import 'package:campus_mate/matching/model/data/daily_card.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
@@ -25,6 +26,9 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../chat/model/repository/fake_chat_repository.dart';
 import '../../home/model/repository/fake_home_repository.dart';
 import '../model/repository/fake_card_repository.dart';
+
+/// 대기 부제 글자(문구 파일 ARB)를 고르는 한국어 문구.
+final _l10n = AppLocalizationsKo();
 
 void main() {
   Future<void> pump(WidgetTester tester, FakeCardRepository repository,
@@ -326,35 +330,35 @@ void main() {
     DateTime seoul(int day, int hour) => DateTime.utc(2026, 10, day, hour).subtract(const Duration(hours: 9));
 
     test('주 1회(월) — 월요일에 받고 나면 다음 주 월요일', () {
-      expect(waitingSubtitle(seoul(12, 7), seoul(5, 12)), '다음 주 월요일 오전 7시에 새로운 사람을 찾아볼게요');
+      expect(waitingSubtitle(_l10n, seoul(12, 7), seoul(5, 12)), '다음 주 월요일 오전 7시에 새로운 사람을 찾아볼게요');
     });
 
     test('주 2회(월 · 목) — 월요일 → 같은 주 목요일, 목요일 → 다음 주 월요일', () {
-      expect(waitingSubtitle(seoul(8, 7), seoul(5, 12)), '목요일 오전 7시에 새로운 사람을 찾아볼게요');
-      expect(waitingSubtitle(seoul(12, 7), seoul(8, 12)), '다음 주 월요일 오전 7시에 새로운 사람을 찾아볼게요');
+      expect(waitingSubtitle(_l10n, seoul(8, 7), seoul(5, 12)), '목요일 오전 7시에 새로운 사람을 찾아볼게요');
+      expect(waitingSubtitle(_l10n, seoul(12, 7), seoul(8, 12)), '다음 주 월요일 오전 7시에 새로운 사람을 찾아볼게요');
     });
 
     test('주 3회(월 · 수 · 금) — 같은 주 금요일 → 다음 주 월요일', () {
-      expect(waitingSubtitle(seoul(7, 7), seoul(5, 12)), '수요일 오전 7시에 새로운 사람을 찾아볼게요');
-      expect(waitingSubtitle(seoul(12, 7), seoul(9, 12)), '다음 주 월요일 오전 7시에 새로운 사람을 찾아볼게요');
+      expect(waitingSubtitle(_l10n, seoul(7, 7), seoul(5, 12)), '수요일 오전 7시에 새로운 사람을 찾아볼게요');
+      expect(waitingSubtitle(_l10n, seoul(12, 7), seoul(9, 12)), '다음 주 월요일 오전 7시에 새로운 사람을 찾아볼게요');
     });
 
     test('주 4회(월 · 수 · 금 · 일) — 금요일 → 같은 주 일요일', () {
-      expect(waitingSubtitle(seoul(11, 7), seoul(9, 12)), '일요일 오전 7시에 새로운 사람을 찾아볼게요');
+      expect(waitingSubtitle(_l10n, seoul(11, 7), seoul(9, 12)), '일요일 오전 7시에 새로운 사람을 찾아볼게요');
     });
 
     test('일요일 → 월요일은 하루 남았으니 "내일"(대장 (가), 사용자 확인 대기)', () {
-      expect(waitingSubtitle(seoul(12, 7), seoul(11, 12)), '내일 오전 7시에 새로운 한 명이 도착해요');
+      expect(waitingSubtitle(_l10n, seoul(12, 7), seoul(11, 12)), '내일 오전 7시에 새로운 한 명이 도착해요');
     });
 
     test('주 경계는 서울 날짜 — UTC 로는 일요일이어도 서울이 월요일이면 같은 주 목요일', () {
       // 서울 월요일 08:00 = UTC 일요일 23:00. 07:00 이 지났으니 서버는 목요일을 준다.
-      expect(waitingSubtitle(seoul(15, 7), seoul(12, 8)), '목요일 오전 7시에 새로운 사람을 찾아볼게요');
+      expect(waitingSubtitle(_l10n, seoul(15, 7), seoul(12, 8)), '목요일 오전 7시에 새로운 사람을 찾아볼게요');
     });
 
     test('지급일 07:00 전이면 서버가 오늘 07:00 을 준다 — "오늘"(학교 오픈 대기의 "오늘 오전 7시" 와 같은 말)', () {
       // 주 2회(월 · 목) · 서울 월요일 05:00. 서버 upcoming_issue_at 은 목요일이 아니라 오늘 07:00 이다.
-      expect(waitingSubtitle(seoul(12, 7), seoul(12, 5)), '오늘 오전 7시에 새로운 한 명이 도착해요');
+      expect(waitingSubtitle(_l10n, seoul(12, 7), seoul(12, 5)), '오늘 오전 7시에 새로운 한 명이 도착해요');
     });
   });
 
@@ -389,12 +393,12 @@ void main() {
           final issue = seoul(day, hour);
           expect(
             isArrivingSoon(issue, now),
-            waitingSubtitle(issue, now).endsWith('도착해요'),
-            reason: '$day 일 $hour 시: ${waitingSubtitle(issue, now)}',
+            waitingSubtitle(_l10n, issue, now).endsWith('도착해요'),
+            reason: '$day 일 $hour 시: ${waitingSubtitle(_l10n, issue, now)}',
           );
         }
       }
-      expect(waitingSubtitle(null, now).endsWith('도착해요'), isFalse);
+      expect(waitingSubtitle(_l10n, null, now).endsWith('도착해요'), isFalse);
     });
   });
 

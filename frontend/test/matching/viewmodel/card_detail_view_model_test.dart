@@ -157,8 +157,8 @@ void main() {
     await viewModel.decide(CardDecision.reject);
 
     expect(
-      container.read(cardDetailViewModelProvider('card-1')).errorMessage,
-      '이미 결정한 카드예요',
+      container.read(cardDetailViewModelProvider('card-1')).error,
+      isA<ServerRejectedFailure>().having((f) => f.serverMessage, 'serverMessage', '이미 결정한 카드예요'),
     );
     expect(container.read(cardDetailViewModelProvider('card-1')).decided, isFalse);
   });

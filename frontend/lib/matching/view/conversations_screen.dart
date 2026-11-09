@@ -6,9 +6,12 @@ import 'package:campus_mate/chat/view/swipe_to_leave.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_ui_state.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/chat/viewmodel/user_channel.dart';
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -90,7 +93,7 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
     _revealSent = ref.read(sentRequestsViewModelProvider.notifier).takeJustSent();
     if (_revealSent) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _showSentToast(ScaffoldMessenger.of(context));
+        if (mounted) _showSentToast(ScaffoldMessenger.of(context), context.l10n.matchingConversationsSentToast);
       });
     }
     unawaited(ref.read(acceptancesViewModelProvider.notifier).refresh(quiet: true));
@@ -153,7 +156,7 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
       // 유리 내비(pen `xtj0K`) 뒤로 본문이 이어진다 — 아래 여백은 본문 MediaQuery padding.bottom(알약 + 띄움 + safe area).
       extendBody: true,
       // 탭 앱바 제목은 x20 에서 시작한다(pen).
-      appBar: AppBar(titleSpacing: 20, title: Text('대화', style: AppTypography.navTitle)),
+      appBar: AppBar(titleSpacing: 20, title: Text(context.l10n.matchingConversationsTitle, style: AppTypography.navTitle)),
       bottomNavigationBar: const GlassBottomNav(current: AppTab.chat),
       // 아래는 비우지 않는다 — 각 상태가 알약 자리를 직접 피한다(목록은 알약 뒤로 이어진다).
       body: SafeArea(bottom: false, child: _Body(sentHeaderKey: _sentHeaderKey, onLoaded: _revealSentOnce)),
@@ -162,22 +165,22 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
 }
 
 /// 10b 신청 직후 토스트(pen `Q1322I`, Toast `I8UOWm`). 하단 내비 위 16 · 가로 가운데 — 15d 투표 토스트와 같은 자리다.
-void _showSentToast(ScaffoldMessengerState messenger) {
+void _showSentToast(ScaffoldMessengerState messenger, String label) {
   messenger
     ..hideCurrentSnackBar()
-    ..showSnackBar(const SnackBar(
+    ..showSnackBar(SnackBar(
       behavior: SnackBarBehavior.floating,
       backgroundColor: Colors.transparent,
       elevation: 0,
       // SnackBar 기본(바깥 아래 10 + 안쪽 위아래 14)을 걷어 내야 내비 위 16 이 된다(poll_toast.dart 와 같다).
       padding: EdgeInsets.zero,
-      margin: EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
+      margin: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
       // 04-2 토스트와 같은 3초(pen 에 표시 시간이 없다).
-      duration: Duration(seconds: 3),
+      duration: const Duration(seconds: 3),
       content: Center(
         child: AppToast(
-          leading: Icon(AppIcons.check, size: 16, color: AppColors.onInk),
-          label: '신청을 보냈어요',
+          leading: const Icon(AppIcons.check, size: 16, color: AppColors.onInk),
+          label: label,
         ),
       ),
     ));
@@ -206,12 +209,13 @@ class _Body extends ConsumerWidget {
       return const _SkeletonRows();
     }
     WidgetsBinding.instance.addPostFrameCallback((_) => onLoaded());
-    final errorMessage = acceptances.errorMessage ?? sent.errorMessage ?? chats.error?.toDisplayMessage();
+    // 세 섹션 중 먼저 실패한 하나만 한 줄로 보인다(받은 신청 → 보낸 신청 → 대화 중).
+    final error = acceptances.error ?? sent.error ?? chats.error;
     // 본문이 유리 내비 뒤까지 이어진다 — 알약 자리(본문 MediaQuery padding.bottom).
     final navInset = MediaQuery.paddingOf(context).bottom;
     if (acceptances.acceptances.isEmpty && sent.requests.isEmpty && chats.conversations.isEmpty) {
       // 빈 상태는 알약 위 영역 가운데에 둔다.
-      return Padding(padding: EdgeInsets.only(bottom: navInset), child: _EmptyState(errorMessage: errorMessage));
+      return Padding(padding: EdgeInsets.only(bottom: navInset), child: _EmptyState(error: error));
     }
     return RefreshIndicator(
       onRefresh: () => Future.wait([
@@ -221,7 +225,7 @@ class _Body extends ConsumerWidget {
       ]),
       child: CustomScrollView(
         slivers: [
-          if (errorMessage != null) SliverToBoxAdapter(child: _ErrorLine(message: errorMessage)),
+          if (error != null) SliverToBoxAdapter(child: _ErrorLine(failure: error)),
           ..._acceptanceSlivers(context, acceptances),
           ..._sentSlivers(
             context,
@@ -251,7 +255,11 @@ class _Body extends ConsumerWidget {
     return [
       if (hasAbove) const SliverToBoxAdapter(child: SizedBox(height: _sectionGap)),
       SliverToBoxAdapter(
-        child: _SectionHeader(key: sentHeaderKey, title: '보낸 신청', count: state.requests.length),
+        child: _SectionHeader(
+          key: sentHeaderKey,
+          title: context.l10n.matchingConversationsSentSection,
+          count: state.requests.length,
+        ),
       ),
       // 헤더 → 첫 행 4(pen `ULllO`).
       const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxs)),
@@ -281,7 +289,7 @@ class _Body extends ConsumerWidget {
     }
     return [
       PinnedHeaderSliver(
-        child: _SectionHeader(title: '받은 신청', count: state.acceptances.length),
+        child: _SectionHeader(title: context.l10n.matchingConversationsReceivedSection, count: state.acceptances.length),
       ),
       SliverList.separated(
         itemCount: state.acceptances.length,
@@ -308,7 +316,7 @@ class _Body extends ConsumerWidget {
     }
     return [
       SliverToBoxAdapter(
-        child: _SectionHeader(title: '대화 중', count: state.conversations.length),
+        child: _SectionHeader(title: context.l10n.matchingConversationsChatsSection, count: state.conversations.length),
       ),
       SliverList.separated(
         itemCount: state.conversations.length,
@@ -353,7 +361,10 @@ class _SectionHeader extends StatelessWidget {
       child: Row(
         children: [
           Expanded(child: Text(title, style: AppTypography.title.copyWith(color: AppColors.ink))),
-          Text('$count명', style: AppTypography.bodySmall.copyWith(color: AppColors.muted)),
+          Text(
+            context.l10n.matchingConversationsSectionCount(count: count),
+            style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+          ),
         ],
       ),
     );
@@ -361,9 +372,9 @@ class _SectionHeader extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({this.errorMessage});
+  const _EmptyState({this.error});
 
-  final String? errorMessage;
+  final Failure? error;
 
   @override
   Widget build(BuildContext context) {
@@ -377,20 +388,20 @@ class _EmptyState extends StatelessWidget {
             Image.asset('assets/images/mascot-female.png', width: 120),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              '아직 시작된 대화가 없어요',
+              context.l10n.matchingConversationsEmptyTitle,
               textAlign: TextAlign.center,
               style: AppTypography.subtitle
                   .copyWith(color: AppColors.ink, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              '신청을 수락하면 여기에서 대화를 시작할 수 있어요.',
+              context.l10n.matchingConversationsEmptyBody,
               textAlign: TextAlign.center,
               style: AppTypography.bodySmall.copyWith(color: AppColors.muted, height: 1.5),
             ),
-            if (errorMessage != null) ...[
+            if (error != null) ...[
               const SizedBox(height: AppSpacing.md),
-              _ErrorLine(message: errorMessage!),
+              _ErrorLine(failure: error!),
             ],
           ],
         ),
@@ -400,16 +411,16 @@ class _EmptyState extends StatelessWidget {
 }
 
 class _ErrorLine extends StatelessWidget {
-  const _ErrorLine({required this.message});
+  const _ErrorLine({required this.failure});
 
-  final String message;
+  final Failure failure;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
       child: Text(
-        message,
+        context.errorText(failure),
         textAlign: TextAlign.center,
         style: AppTypography.bodySmall.copyWith(color: AppColors.error),
       ),
