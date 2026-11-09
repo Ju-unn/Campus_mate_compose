@@ -36,7 +36,7 @@ Future<Map<String, Object?>> _batchSendIntoClosed(WidgetTester tester, Map<Strin
   final container = ProviderScope.containerOf(tester.element(room));
   final matchId = tester.widget<ChatRoomScreen>(room).matchId;
   String? first;
-  final sub = container.listen(chatRoomViewModelProvider(matchId), (_, next) => first ??= next.error?.toDisplayMessage());
+  final sub = container.listen(chatRoomViewModelProvider(matchId), (_, next) => first ??= _errorText(next.error));
   try {
     await step('closed', timeout: const Duration(minutes: 5)); // PC 가 배치를 돌려 방이 닫힌 뒤에 이어 간다
     await type(tester, _chatField, job['text'] as String);
@@ -46,7 +46,7 @@ Future<Map<String, Object?>> _batchSendIntoClosed(WidgetTester tester, Map<Strin
       await tester.pump(const Duration(milliseconds: 200));
     }
     await wait(tester, const Duration(seconds: 1));
-    return {'error': first, 'error_now': container.read(chatRoomViewModelProvider(matchId)).error?.toDisplayMessage()};
+    return {'error': first, 'error_now': _errorText(container.read(chatRoomViewModelProvider(matchId)).error)};
   } finally {
     sub.close();
   }
@@ -83,8 +83,8 @@ Future<Map<String, Object?>> _batchLiveBubble(WidgetTester tester, Map<String, d
     channel.observe();
   }
   final loaded = container.read(chatRoomViewModelProvider(matchId));
-  if (loaded.isLoading || loaded.error?.toDisplayMessage() != null) {
-    return {'loaded': false, 'error': loaded.error?.toDisplayMessage(), 'seen_at': null, 'bubble': false};
+  if (loaded.isLoading || loaded.error != null) {
+    return {'loaded': false, 'error': _errorText(loaded.error), 'seen_at': null, 'bubble': false};
   }
   final settling = Stopwatch()..start();
   while (settling.elapsed < _batchSubscribeWait) {
@@ -112,7 +112,7 @@ Future<Map<String, Object?>> _batchLiveBubble(WidgetTester tester, Map<String, d
       'vm_count': now.messages.length,
       'vm_bodies': _batchTail(now.messages.map((message) => message.body).toList()),
       'screen_bodies': _batchTail(_bubbles(tester)),
-      'error': now.error?.toDisplayMessage(),
+      'error': _errorText(now.error),
       'seen_at': seenAt,
       'bubble': bubble,
       ...channel.report(joinedAtSend: joinedAtSend), // pass · fail 모두 — 재연결 진단 **전**의 값이다
@@ -222,7 +222,7 @@ Future<Map<String, Object?>> _batchReconnectProbe(
       'vm_count': after.messages.length,
       'vm_bodies': _batchTail(after.messages.map((message) => message.body).toList()),
       'finished': finished,
-      'error': thrown ?? after.error?.toDisplayMessage(),
+      'error': thrown ?? _errorText(after.error),
     },
   };
 }

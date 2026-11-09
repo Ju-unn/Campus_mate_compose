@@ -66,7 +66,9 @@ class _StartViewState extends ConsumerState<StartView> {
     final notice = LoginNotice.take();
     if (notice != null) {
       // build 중에는 provider 를 바꿀 수 없어 첫 프레임 뒤에 띄운다.
-      WidgetsBinding.instance.addPostFrameCallback((_) => _viewModel().showNotice(notice.message, isInfo: notice.isInfo));
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _viewModel().showNotice(message: notice.message, failure: notice.failure, isInfo: notice.isInfo),
+      );
     }
   }
 

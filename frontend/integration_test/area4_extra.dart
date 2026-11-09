@@ -223,7 +223,7 @@ final Map<String, Area1Case> _extraCases = {
   // 53: 메일 앱이 없는 기기(PC 가 끔) — 같은 줄을 누르면 앱 안에 오류 안내가 뜨고 3초쯤 뒤 사라진다.
   'E-SET-53': _session((tester, job) async {
     await _faqNoResult(tester);
-    final notice = find.text(const UnknownFailure().toDisplayMessage());
+    final notice = find.text(failureText(AppLocalizationsKo(), const UnknownFailure()));
     must(notice.evaluate().isEmpty, '누르기 전부터 안내가 떠 있음');
     await tap(tester, find.text(_faqMail));
     await pumpUntil(tester, notice, timeout: const Duration(seconds: 3));

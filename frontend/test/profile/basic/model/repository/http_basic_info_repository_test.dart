@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/profile/basic/model/data/basic_info_submission.dart';
 import 'package:campus_mate/profile/basic/model/repository/http_basic_info_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -63,6 +65,6 @@ void main() {
     final failure = result.when(onSuccess: (_) => null, onFailure: (failure) => failure);
     expect(failure, isA<ServerRejectedFailure>());
     expect((failure! as ServerRejectedFailure).hasCode('phone_number_invalid'), isTrue);
-    expect(failure.toDisplayMessage(), '올바른 휴대폰 번호를 입력해 주세요');
+    expect(failureText(AppLocalizationsKo(), failure), '올바른 휴대폰 번호를 입력해 주세요');
   });
 }

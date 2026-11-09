@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/core/analytics/handled_api_error.dart';
 import 'package:campus_mate/core/http/http_send.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -35,7 +37,7 @@ void main() {
     final result = await sendHttpRequest(client, buildRequest());
 
     expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<RateLimitedFailure>());
-    expect(result.when(onSuccess: (_) => null, onFailure: (f) => f.toDisplayMessage()), '너무 많이 시도했어요. 잠시 후 다시 시도해 주세요');
+    expect(result.when(onSuccess: (_) => null, onFailure: (f) => failureText(AppLocalizationsKo(), f)), '너무 많이 시도했어요. 잠시 후 다시 시도해 주세요');
   });
 
   // 사진 검사 하루 상한처럼 "내일 다시" 를 알려야 하는 429 는 서버 문구를 보인다 — 공용 문구("잠시 후")는 맞지 않다.
@@ -52,7 +54,7 @@ void main() {
     final failure = (await sendHttpRequest(client, buildRequest())).when(onSuccess: (_) => null, onFailure: (f) => f);
 
     expect(failure, isA<RateLimitedFailure>());
-    expect(failure!.toDisplayMessage(), '오늘은 사진을 더 올릴 수 없어요, 내일 다시 시도해 주세요');
+    expect(failureText(AppLocalizationsKo(), failure!), '오늘은 사진을 더 올릴 수 없어요, 내일 다시 시도해 주세요');
   });
 
   test('429 몸통이 JSON 이 아니면(게이트웨이 HTML 등) 공용 문구다', () async {
@@ -61,7 +63,7 @@ void main() {
     final failure = (await sendHttpRequest(client, buildRequest())).when(onSuccess: (_) => null, onFailure: (f) => f);
 
     expect(failure, isA<RateLimitedFailure>());
-    expect(failure!.toDisplayMessage(), '너무 많이 시도했어요. 잠시 후 다시 시도해 주세요');
+    expect(failureText(AppLocalizationsKo(), failure!), '너무 많이 시도했어요. 잠시 후 다시 시도해 주세요');
   });
 
   test('429 의 detail 이 문자열이 아니면(FastAPI 검증 오류 목록 모양) 공용 문구다', () async {
@@ -72,7 +74,7 @@ void main() {
     final failure = (await sendHttpRequest(client, buildRequest())).when(onSuccess: (_) => null, onFailure: (f) => f);
 
     expect(failure, isA<RateLimitedFailure>());
-    expect(failure!.toDisplayMessage(), '너무 많이 시도했어요. 잠시 후 다시 시도해 주세요');
+    expect(failureText(AppLocalizationsKo(), failure!), '너무 많이 시도했어요. 잠시 후 다시 시도해 주세요');
   });
 
   test('4xx 에 detail 이 있으면 ServerRejectedFailure 에 서버 메시지를 담는다', () async {
@@ -88,7 +90,7 @@ void main() {
 
     final failure = result.when(onSuccess: (_) => null, onFailure: (f) => f);
     expect(failure, isA<ServerRejectedFailure>());
-    expect(failure!.toDisplayMessage(), '이미 검토 중이에요');
+    expect(failureText(AppLocalizationsKo(), failure!), '이미 검토 중이에요');
   });
 
   // POST /school-email/verify 409 — 문구가 아니라 기계용 `provider` 로 가른다(backend school_email/router.py).
@@ -106,8 +108,8 @@ void main() {
     final failure = result.when(onSuccess: (_) => null, onFailure: (f) => f);
     expect(failure, isA<SchoolEmailTakenFailure>());
     // 서버 문구 대신 앱 문구(설계 5-4) — 내 소셜은 아직 모른다(저장소가 덧붙인다), 그래서 다른 소셜로 본다.
-    expect(failure!.toDisplayMessage(), '이미 구글로 가입된 학교 메일이에요');
-    expect((failure as SchoolEmailTakenFailure).toHintMessage(), '구글로 로그인해 주세요');
+    expect(failureText(AppLocalizationsKo(), failure!), '이미 구글로 가입된 학교 메일이에요');
+    expect(takenHintText(AppLocalizationsKo(), failure as SchoolEmailTakenFailure), '구글로 로그인해 주세요');
   });
 
   test('4xx 에 code 가 있으면 ServerRejectedFailure 가 그 code 를 들고 있다', () async {
@@ -125,7 +127,7 @@ void main() {
     expect(failure.hasCode('SCHOOL_EMAIL_NOT_CONFIRMED'), isTrue);
     expect(failure.hasCode('SCHOOL_EMAIL_ALREADY_VERIFIED'), isFalse);
     expect(failure.hasAnyCode(), isTrue);
-    expect(failure.toDisplayMessage(), '학교 메일 인증이 끝나지 않았어요');
+    expect(failureText(AppLocalizationsKo(), failure), '학교 메일 인증이 끝나지 않았어요');
   });
 
   test('code 가 없으면(옛 서버) hasAnyCode 는 false', () async {
@@ -214,7 +216,7 @@ void main() {
 
       final failure = result.when(onSuccess: (_) => null, onFailure: (f) => f);
       expect(failure, isA<SuspendedFailure>());
-      expect(failure!.toDisplayMessage(), '이용이 제한된 계정이에요');
+      expect(failureText(AppLocalizationsKo(), failure!), '이용이 제한된 계정이에요');
     });
 
     test('401 with X-Account-Status withdrawn → WithdrawnFailure', () async {
@@ -224,7 +226,7 @@ void main() {
 
       final failure = result.when(onSuccess: (_) => null, onFailure: (f) => f);
       expect(failure, isA<WithdrawnFailure>());
-      expect(failure!.toDisplayMessage(), '탈퇴한 계정이에요');
+      expect(failureText(AppLocalizationsKo(), failure!), '탈퇴한 계정이에요');
     });
 
     test('401 without the header → SessionRejectedFailure (A11)', () async {
@@ -235,7 +237,7 @@ void main() {
 
       final failure = result.when(onSuccess: (_) => null, onFailure: (f) => f);
       expect(failure, isA<SessionRejectedFailure>());
-      expect(failure!.toDisplayMessage(), '세션이 만료됐어요, 다시 로그인해 주세요');
+      expect(failureText(AppLocalizationsKo(), failure!), '세션이 만료됐어요, 다시 로그인해 주세요');
     });
 
     test('403 without the header keeps ServerRejectedFailure(detail)', () async {
@@ -246,7 +248,7 @@ void main() {
 
       final failure = result.when(onSuccess: (_) => null, onFailure: (f) => f);
       expect(failure, isA<ServerRejectedFailure>());
-      expect(failure!.toDisplayMessage(), '학생 인증을 먼저 마쳐 주세요');
+      expect(failureText(AppLocalizationsKo(), failure!), '학생 인증을 먼저 마쳐 주세요');
     });
 
     test('모르는 헤더 값은 계정 상태로 읽지 않는다', () async {

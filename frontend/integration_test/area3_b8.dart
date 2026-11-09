@@ -21,8 +21,8 @@ Future<Map<String, Object?>> _liveBody(WidgetTester tester, Map<String, dynamic>
     await tester.pump(const Duration(milliseconds: 100));
   }
   final loaded = container.read(chatRoomViewModelProvider(matchId));
-  if (loaded.isLoading || loaded.error?.toDisplayMessage() != null) {
-    return {'loaded': false, 'error': loaded.error?.toDisplayMessage(), 'seen_at': null, 'bubble': false};
+  if (loaded.isLoading || loaded.error != null) {
+    return {'loaded': false, 'error': _errorText(loaded.error), 'seen_at': null, 'bubble': false};
   }
   String? seenAt;
   final sub = container.listen(chatRoomViewModelProvider(matchId), (_, next) {

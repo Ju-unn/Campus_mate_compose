@@ -5,6 +5,7 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/common/widgets/select_chip.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
@@ -179,7 +180,7 @@ void main() {
     await tapSave(tester);
     await tester.pumpAndSettle();
 
-    final error = find.text(const NetworkFailure().toDisplayMessage());
+    final error = find.text(failureText(AppLocalizationsKo(), const NetworkFailure()));
     expect(error, findsOneWidget);
     expect(tester.getBottomLeft(error).dy, lessThan(tester.getTopLeft(find.byType(AppButton)).dy));
     expect(find.byType(TagPickerScreen), findsOneWidget);

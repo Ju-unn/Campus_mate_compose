@@ -8,6 +8,8 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/notice_card.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/profile/avatar/model/repository/photos_repository_provider.dart';
 import 'package:campus_mate/profile/avatar/view/avatar_source_screen.dart';
 import 'package:campus_mate/profile/avatar/view/photo_example.dart';
@@ -125,7 +127,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    final error = find.text(const NetworkFailure().toDisplayMessage());
+    final error = find.text(failureText(AppLocalizationsKo(), const NetworkFailure()));
     expect(error, findsOneWidget);
     expect(tester.getTopLeft(error).dy - tester.getRect(find.byType(NoticeCard)).bottom, 8);
     expect(tester.getRect(find.byType(PhotoExample)).top - tester.getBottomLeft(error).dy, 24);

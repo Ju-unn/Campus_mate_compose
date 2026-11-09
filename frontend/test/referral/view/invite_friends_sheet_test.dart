@@ -4,8 +4,10 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/referral/model/repository/invite_share.dart';
 import 'package:campus_mate/referral/model/repository/referral_repository_provider.dart';
 import 'package:campus_mate/referral/view/invite_friends_sheet.dart';
@@ -23,6 +25,9 @@ void main() {
   late Future<void> Function(String) share;
   late List<String> kakaoShared;
   late Future<void> Function(String) kakaoShare;
+
+  /// 카카오 먼저 공유에 화면이 함께 넘긴 공유 글(카카오가 안 되면 기기 공유 창에 이 글이 간다).
+  late List<String> kakaoFallbackTexts;
   late List<String> copied;
 
   /// 보내는 동안 글자가 스피너로 바뀌어도 찾히게 라벨 값으로 찾는다.
@@ -43,7 +48,10 @@ void main() {
         overrides: [
           referralRepositoryProvider.overrideWithValue(repository),
           shareTextProvider.overrideWithValue((text) => share(text)),
-          shareInviteProvider.overrideWithValue((code) => kakaoShare(code)),
+          shareInviteProvider.overrideWithValue((code, text) {
+            kakaoFallbackTexts.add(text);
+            return kakaoShare(code);
+          }),
         ],
         child: MaterialApp(
           home: Builder(
@@ -62,6 +70,7 @@ void main() {
     repository = FakeReferralRepository();
     shared = [];
     kakaoShared = [];
+    kakaoFallbackTexts = [];
     copied = [];
     share = (text) async => shared.add(text);
     kakaoShare = (code) async => kakaoShared.add(code);
@@ -88,6 +97,7 @@ void main() {
     await tester.tap(find.text('카카오톡으로 보내기'));
     await tester.pump();
     expect(kakaoShared, ['K7QMX2']);
+    expect(kakaoFallbackTexts, ['CampusMate 에서 같이 해요! 가입할 때 추천 코드 K7QMX2 를 넣어 줘.']);
     expect(shared, isEmpty);
   });
 
@@ -153,7 +163,7 @@ void main() {
       gate.complete();
       await tester.pump();
       expect(loading(tester), isFalse);
-      expect(find.text(const UnknownFailure().toDisplayMessage()), findsOneWidget);
+      expect(find.text(failureText(AppLocalizationsKo(), const UnknownFailure())), findsOneWidget);
       await tester.pump(const Duration(seconds: 3));
     });
 
@@ -181,7 +191,7 @@ void main() {
       await pump(tester);
       await tester.tap(find.text(label));
       await tester.pump();
-      expect(find.text(const UnknownFailure().toDisplayMessage()), findsOneWidget);
+      expect(find.text(failureText(AppLocalizationsKo(), const UnknownFailure())), findsOneWidget);
       expect(find.byType(InviteFriendsSheet), findsOneWidget);
       await tester.pump(const Duration(seconds: 3));
     });
@@ -190,7 +200,7 @@ void main() {
   testWidgets('못 읽으면 문구와 다시 시도, 누르면 코드가 뜬다', (tester) async {
     repository.nextMyCode = const FailureResult(NetworkFailure());
     await pump(tester);
-    expect(find.text(const NetworkFailure().toDisplayMessage()), findsOneWidget);
+    expect(find.text(failureText(AppLocalizationsKo(), const NetworkFailure())), findsOneWidget);
     expect(find.text('복사'), findsNothing);
     expect(find.text('카카오톡으로 보내기'), findsNothing);
     expect(find.text('다른 앱으로 보내기'), findsNothing);

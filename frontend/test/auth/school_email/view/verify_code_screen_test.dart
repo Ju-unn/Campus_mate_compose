@@ -11,6 +11,7 @@ import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
@@ -390,7 +391,7 @@ void main() {
     testWidgets('옛 이메일 가입자가 쥐면 지금 문구 · 배치 그대로(코드 칸 · 확인 · 다른 학교 메일 입력)', (tester) async {
       await pumpTaken(tester, 'email', mine: 'kakao');
 
-      expect(find.text(SchoolEmailTakenFailure.takenByEmailAccountMessage), findsOneWidget);
+      expect(find.text(AppLocalizationsKo().errorSchoolEmailTakenByEmailAccount), findsOneWidget);
       expect(find.byType(TextField), findsOneWidget);
       expect(find.text('확인'), findsOneWidget);
       expect(find.text('다른 학교 메일 입력'), findsOneWidget);

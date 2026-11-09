@@ -6,8 +6,10 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/analytics/analytics_values.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/home/model/repository/home_repository_provider.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/matching/model/data/card_profile.dart';
 import 'package:campus_mate/matching/model/data/daily_card.dart';
 import 'package:campus_mate/matching/model/data/paid_card.dart';
@@ -507,7 +509,7 @@ void main() {
       await tester.tap(find.text('50 쓰고 열기'));
       await tester.pumpAndSettle();
 
-      expect(find.text(const NetworkFailure().toDisplayMessage()), findsOneWidget);
+      expect(find.text(failureText(AppLocalizationsKo(), const NetworkFailure())), findsOneWidget);
       expect(find.byType(PaidCardLocked), findsOneWidget);
 
       await tapOpen(tester);

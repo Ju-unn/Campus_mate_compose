@@ -1,4 +1,4 @@
-import 'package:campus_mate/referral/model/data/invite_share_text.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/referral/model/repository/invite_share.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -34,8 +34,8 @@ class _FakeKakaoShareClient implements KakaoShareClient {
 void main() {
   const deviceText = 'CampusMate 에서 같이 해요! 가입할 때 추천 코드 K7QMX2 를 넣어 줘.';
 
-  test('공유 글은 19 결정 5 문구다', () {
-    expect(inviteShareText('K7QMX2'), deviceText);
+  test('공유 글은 19 결정 5 문구다(문구 파일 referralShareText — 화면이 만들어 넘긴다)', () {
+    expect(AppLocalizationsKo().referralShareText(code: 'K7QMX2'), deviceText);
   });
 
   group('카카오톡 공유 카드 먼저, 못 보내면 기기 공유 창(계획서 3-6)', () {
@@ -47,7 +47,7 @@ void main() {
       share = (text) async => shared.add(text);
     });
 
-    Future<void> shareWith(_FakeKakaoShareClient kakao, {int? templateId = 123}) async {
+    Future<void> shareWith(_FakeKakaoShareClient kakao, {int? templateId = 123, String text = deviceText}) async {
       final container = ProviderContainer(
         overrides: [
           kakaoShareClientProvider.overrideWithValue(kakao),
@@ -56,7 +56,7 @@ void main() {
         ],
       );
       addTearDown(container.dispose);
-      await container.read(shareInviteProvider)('K7QMX2');
+      await container.read(shareInviteProvider)('K7QMX2', text);
     }
 
     test('번호가 있고 카카오톡이 있으면 그 번호와 {code: 코드} 로 카드를 보내고 기기 공유 창은 띄우지 않는다', () async {
@@ -74,6 +74,11 @@ void main() {
       await shareWith(kakao);
       expect(kakao.templateIds, isEmpty);
       expect(shared, [deviceText]);
+    });
+
+    test('기기 공유 창에는 화면이 만들어 넘긴 글을 그대로 보낸다 — 저장소는 글을 만들지 않는다', () async {
+      await shareWith(_FakeKakaoShareClient(available: false), text: '화면이 만든 글 K7QMX2');
+      expect(shared, ['화면이 만든 글 K7QMX2']);
     });
 
     test('카카오 쪽 오류(템플릿 삭제 · 키 막힘 · 인터넷 · 하루 한도)면 기기 공유 창', () async {
@@ -118,7 +123,7 @@ void main() {
         ],
       );
       addTearDown(c2.dispose);
-      await c2.read(shareInviteProvider)('K7QMX2');
+      await c2.read(shareInviteProvider)('K7QMX2', deviceText);
       expect(kakao.templateIds, [138148]);
     });
 

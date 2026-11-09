@@ -5,6 +5,7 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/consent/model/repository/open_url.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -12,6 +13,7 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/faq/model/repository/faq_cache.dart';
 import 'package:campus_mate/faq/model/repository/faq_repository.dart';
 import 'package:campus_mate/faq/view/faq_screen.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -291,14 +293,14 @@ void main() {
 
     await tester.tap(find.text(mail));
     await tester.pump();
-    expect(find.widgetWithText(AppToast, const UnknownFailure().toDisplayMessage()), findsOneWidget);
+    expect(find.widgetWithText(AppToast, failureText(AppLocalizationsKo(), const UnknownFailure())), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
     expect(find.byType(AppToast), findsNothing);
 
     openUrl = (_) async => throw Exception('no mail app');
     await tester.tap(find.text(mail));
     await tester.pump();
-    expect(find.widgetWithText(AppToast, const UnknownFailure().toDisplayMessage()), findsOneWidget);
+    expect(find.widgetWithText(AppToast, failureText(AppLocalizationsKo(), const UnknownFailure())), findsOneWidget);
     expect(find.text('찾는 질문이 없어요'), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
   });

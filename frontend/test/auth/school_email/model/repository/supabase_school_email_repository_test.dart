@@ -7,6 +7,8 @@ import 'package:campus_mate/auth/school_email/model/repository/temporary_auth_co
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -103,7 +105,7 @@ void main() {
       final failure = failureOf(await buildRepository().requestCode(email));
 
       expect(failure, isA<SignUpRejectedFailure>());
-      expect(failure!.toDisplayMessage(), '등록되지 않은 학교 메일이에요');
+      expect(failureText(AppLocalizationsKo(), failure!), '등록되지 않은 학교 메일이에요');
     });
 
     test('그 밖의 실패는 가르지 않고 "인증번호를 보내지 못했어요"', () async {
@@ -136,7 +138,7 @@ void main() {
         final failure = failureOf(await buildRepository().requestCode(email));
 
         expect(failure, isA<SchoolEmailSameAsLoginFailure>());
-        expect(failure!.toDisplayMessage(), '로그인에 쓰는 구글·카카오 계정과 같은 메일은 쓸 수 없어요. 다른 학교 메일을 입력해 주세요');
+        expect(failureText(AppLocalizationsKo(), failure!), '로그인에 쓰는 구글·카카오 계정과 같은 메일은 쓸 수 없어요. 다른 학교 메일을 입력해 주세요');
         verifyNever(
           () => temporary.signInWithOtp(email: any(named: 'email'), shouldCreateUser: any(named: 'shouldCreateUser')),
         );
@@ -251,7 +253,7 @@ void main() {
         final failure = failureOf(await buildRepository().complete('temp-token'));
 
         expect(failure, isA<SchoolEmailNotConfirmedFailure>());
-        expect(failure!.toDisplayMessage(), '학교 메일 인증을 마치지 못했어요. 잠시 뒤 다시 시도해 주세요');
+        expect(failureText(AppLocalizationsKo(), failure!), '학교 메일 인증을 마치지 못했어요. 잠시 뒤 다시 시도해 주세요');
       });
 
       // ALIAS_NOT_ALLOWED: 학교 메일 `+` 별칭 거절(서버 fix/api-security-hardening, 422 SCHOOL_EMAIL_ALIAS).
@@ -266,7 +268,7 @@ void main() {
           final failure = failureOf(await buildRepository().complete('temp-token'));
 
           expect(failure, isA<SchoolEmailRejectedFailure>(), reason: code);
-          expect(failure!.toDisplayMessage(), message, reason: code);
+          expect(failureText(AppLocalizationsKo(), failure!), message, reason: code);
         }
       });
 
@@ -278,8 +280,8 @@ void main() {
         final failure = failureOf(await buildRepository().complete('temp-token'));
 
         expect(failure, isA<SchoolEmailTakenFailure>());
-        expect((failure! as SchoolEmailTakenFailure).toHintMessage(), '카카오로 로그인해 주세요');
-        expect((failure as SchoolEmailTakenFailure).reloginLabel(), '카카오로 다시 로그인');
+        expect(takenHintText(AppLocalizationsKo(), failure! as SchoolEmailTakenFailure), '카카오로 로그인해 주세요');
+        expect(AppLocalizationsKo().authSchoolEmailRelogin(provider: (failure as SchoolEmailTakenFailure).otherSocialProvider()!), '카카오로 다시 로그인');
       });
 
       test('쥔 소셜이 내 소셜과 같으면(카카오 = 카카오) 빌려 쓰기 문구, 다시 로그인 없음', () async {
@@ -288,8 +290,8 @@ void main() {
 
         final failure = failureOf(await buildRepository().complete('temp-token'))! as SchoolEmailTakenFailure;
 
-        expect(failure.toDisplayMessage(), '이미 가입된 학교 메일이에요');
-        expect(failure.reloginLabel(), isNull);
+        expect(failureText(AppLocalizationsKo(), failure), '이미 가입된 학교 메일이에요');
+        expect(failure.otherSocialProvider(), isNull); // 다시 로그인 단추는 다른 소셜이 쥔 메일에만
       });
 
       test('AUTH_UNAVAILABLE(503) 는 다시 하라는 문구', () async {
@@ -308,7 +310,7 @@ void main() {
           final failure = failureOf(await buildRepository().complete('temp-token'));
 
           expect(failure, isA<ServerRejectedFailure>(), reason: code);
-          expect(failure!.toDisplayMessage(), message, reason: code);
+          expect(failureText(AppLocalizationsKo(), failure!), message, reason: code);
         }
       });
     });
@@ -339,7 +341,7 @@ void main() {
           final failure = failureOf(await buildRepository().complete('temp-token'));
 
           expect(failure, isA<SchoolEmailRejectedFailure>(), reason: message);
-          expect(failure!.toDisplayMessage(), message, reason: message);
+          expect(failureText(AppLocalizationsKo(), failure!), message, reason: message);
         }
       });
 
@@ -350,7 +352,7 @@ void main() {
         final failure = failureOf(await buildRepository().complete('temp-token'));
 
         expect(failure, isA<SchoolEmailTakenFailure>());
-        expect(failure!.toDisplayMessage(), '이미 카카오로 가입된 학교 메일이에요');
+        expect(failureText(AppLocalizationsKo(), failure!), '이미 카카오로 가입된 학교 메일이에요');
       });
     });
 
@@ -364,7 +366,7 @@ void main() {
         final failure = failureOf(await buildRepository().complete('temp-token'));
 
         expect(failure, isA<SchoolEmailIncompleteFailure>());
-        expect(failure!.toDisplayMessage(), '학교 메일 인증을 마치지 못했어요. 잠시 뒤 다시 시도해 주세요');
+        expect(failureText(AppLocalizationsKo(), failure!), '학교 메일 인증을 마치지 못했어요. 잠시 뒤 다시 시도해 주세요');
       }
     });
 

@@ -1,7 +1,9 @@
 import 'dart:convert';
 
 import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/friend_review/model/repository/http_friend_review_repository.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -95,7 +97,7 @@ void main() {
 
     final result = await buildRepository(client).lookupFriendCode('ZZZZZZ');
 
-    expect(result.when(onSuccess: (_) => 'ok', onFailure: (failure) => failure.toDisplayMessage()), '코드를 찾을 수 없어요');
+    expect(result.when(onSuccess: (_) => 'ok', onFailure: (failure) => failureText(AppLocalizationsKo(), failure)), '코드를 찾을 수 없어요');
   });
 
   test('createReviewByCode 는 POST /friend-reviews 에 reviewee_id 없이 friend_code 를 싣고, 빈 한마디는 null', () async {
@@ -205,10 +207,10 @@ void main() {
 
     expect(seen.single.method, 'DELETE');
     expect(seen.single.url.toString(), 'https://api.test/friend-reviews/r9');
-    expect(result.when(onSuccess: (_) => 'ok', onFailure: (failure) => failure.toDisplayMessage()), 'ok');
+    expect(result.when(onSuccess: (_) => 'ok', onFailure: (failure) => failureText(AppLocalizationsKo(), failure)), 'ok');
 
     final (goneClient, _) = recording(jsonResponse({'detail': '리뷰를 찾을 수 없어요'}, 404));
     final gone = await buildRepository(goneClient).delete('r9');
-    expect(gone.when(onSuccess: (_) => 'ok', onFailure: (failure) => failure.toDisplayMessage()), '리뷰를 찾을 수 없어요');
+    expect(gone.when(onSuccess: (_) => 'ok', onFailure: (failure) => failureText(AppLocalizationsKo(), failure)), '리뷰를 찾을 수 없어요');
   });
 }

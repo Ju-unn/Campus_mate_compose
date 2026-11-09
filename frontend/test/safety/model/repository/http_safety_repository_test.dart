@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/safety/model/data/report_reason.dart';
 import 'package:campus_mate/safety/model/data/report_target.dart';
 import 'package:campus_mate/safety/model/repository/http_safety_repository.dart';
@@ -116,7 +118,7 @@ void main() {
       );
 
       final failure = result.when(onSuccess: (_) => null, onFailure: (failure) => failure);
-      expect(failure!.toDisplayMessage(), '이미 신고를 완료했어요');
+      expect(failureText(AppLocalizationsKo(), failure!), '이미 신고를 완료했어요');
     });
 
     test('하루 상한 429 는 RateLimitedFailure 로 온다', () async {
@@ -271,7 +273,7 @@ void main() {
       final result = await buildRepository(client).fetchPartnerProfile('p2');
 
       final failure = result.when(onSuccess: (_) => null, onFailure: (failure) => failure)!;
-      expect(failure.toDisplayMessage(), '프로필을 찾을 수 없어요');
+      expect(failureText(AppLocalizationsKo(), failure), '프로필을 찾을 수 없어요');
     });
   });
 }

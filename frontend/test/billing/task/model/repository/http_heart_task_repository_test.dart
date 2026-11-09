@@ -5,6 +5,8 @@ import 'package:campus_mate/billing/task/model/data/heart_task.dart';
 import 'package:campus_mate/billing/task/model/repository/http_heart_task_repository.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -119,7 +121,7 @@ void main() {
     final result = await build(client).submit(HeartTaskKind.everytimePost, [photo]);
 
     expect(
-      result.when(onSuccess: (_) => '', onFailure: (failure) => failure.toDisplayMessage()),
+      result.when(onSuccess: (_) => '', onFailure: (failure) => failureText(AppLocalizationsKo(), failure)),
       '이미 확인 중이에요, 결과를 기다려 주세요',
     );
   });

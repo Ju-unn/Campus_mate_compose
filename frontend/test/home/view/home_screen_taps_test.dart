@@ -5,12 +5,14 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/consent/model/repository/open_url.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/home/model/data/home_summary.dart';
 import 'package:campus_mate/home/model/repository/home_repository_provider.dart';
 import 'package:campus_mate/home/model/repository/store_review_url.dart';
 import 'package:campus_mate/home/view/home_grid.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/notifications/model/repository/notifications_repository_provider.dart';
@@ -143,7 +145,7 @@ void main() {
       await tester.pump();
 
       expect(opened, hasLength(1));
-      expect(find.text(const UnknownFailure().toDisplayMessage()), findsOneWidget);
+      expect(find.text(failureText(AppLocalizationsKo(), const UnknownFailure())), findsOneWidget);
       expect(comingSoonToast(), findsNothing);
     });
 
@@ -155,7 +157,7 @@ void main() {
       await tester.pump();
 
       expect(opened, hasLength(1));
-      expect(find.text(const UnknownFailure().toDisplayMessage()), findsOneWidget);
+      expect(find.text(failureText(AppLocalizationsKo(), const UnknownFailure())), findsOneWidget);
     });
   });
 
@@ -206,7 +208,7 @@ void main() {
       await tester.pump();
 
       expect(opened, [instagram]);
-      expect(find.text(const UnknownFailure().toDisplayMessage()), findsNothing);
+      expect(find.text(failureText(AppLocalizationsKo(), const UnknownFailure())), findsNothing);
     });
 
     testWidgets('인스타를 열지 못하면(false · 예외) 실패 안내를 띄운다', (tester) async {
@@ -217,7 +219,7 @@ void main() {
         await tester.pump();
 
         expect(opened, [instagram]);
-        expect(find.text(const UnknownFailure().toDisplayMessage()), findsOneWidget);
+        expect(find.text(failureText(AppLocalizationsKo(), const UnknownFailure())), findsOneWidget);
         await tester.pump(const Duration(seconds: 3));
       }
     });

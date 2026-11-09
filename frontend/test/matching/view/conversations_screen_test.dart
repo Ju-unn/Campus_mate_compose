@@ -14,10 +14,12 @@ import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/http/api_client.dart';
 import 'package:campus_mate/core/http/http_send.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/matching/model/data/acceptance.dart';
 import 'package:campus_mate/matching/model/data/card_profile.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
@@ -332,7 +334,7 @@ void main() {
 
       expect(chat.leaveCount, 1);
       expect(find.text('여우비'), findsOneWidget);
-      expect(find.text(const NetworkFailure().toDisplayMessage()), findsOneWidget);
+      expect(find.text(failureText(AppLocalizationsKo(), const NetworkFailure())), findsOneWidget);
     });
 
     testWidgets('이미 나간 대화(409)면 실패가 아니다 — 줄이 빠지고 오류 문구도 없다', (tester) async {
@@ -450,7 +452,7 @@ void main() {
 
       await pump(tester, repository, chat);
 
-      expect(find.text(const NetworkFailure().toDisplayMessage()), findsOneWidget);
+      expect(find.text(failureText(AppLocalizationsKo(), const NetworkFailure())), findsOneWidget);
       expect(find.text('보낸 신청'), findsNothing);
       expect(find.byType(AcceptanceRow), findsOneWidget);
       expect(find.byType(ChatListRow), findsOneWidget);
@@ -713,7 +715,7 @@ void main() {
       expect(chat.conversationsFetchCount, 2);
       expect(find.text('여우비'), findsOneWidget);
       expect(find.text('초코라떼, 25'), findsOneWidget);
-      expect(find.text(const NetworkFailure().toDisplayMessage()), findsNothing);
+      expect(find.text(failureText(AppLocalizationsKo(), const NetworkFailure())), findsNothing);
     });
 
     testWidgets('당겨서 새로고침이 실패하면 오류 문구를 보여준다', (tester) async {
@@ -723,7 +725,7 @@ void main() {
       await tester.fling(find.byType(CustomScrollView), const Offset(0, 300), 1000);
       await tester.pumpAndSettle();
 
-      expect(find.text(const NetworkFailure().toDisplayMessage()), findsOneWidget);
+      expect(find.text(failureText(AppLocalizationsKo(), const NetworkFailure())), findsOneWidget);
       expect(find.text('여우비'), findsOneWidget);
     });
   });
@@ -868,7 +870,7 @@ void main() {
 
       expect(chat.conversationsFetchCount, 2);
       expect(find.text('여우비'), findsOneWidget);
-      expect(find.text(const NetworkFailure().toDisplayMessage()), findsNothing);
+      expect(find.text(failureText(AppLocalizationsKo(), const NetworkFailure())), findsNothing);
 
       chat.conversations = Success([conversationFixture(lastMessage: '다시 연결됐어요')]);
       await tester.pump(conversationsPollFast);

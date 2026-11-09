@@ -4,10 +4,12 @@ import 'dart:io';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/graduate/model/data/graduate_request_state.dart';
 import 'package:campus_mate/graduate/model/data/previous_school_email.dart';
 import 'package:campus_mate/graduate/model/data/verification_method.dart';
 import 'package:campus_mate/graduate/model/repository/http_graduate_verification_repository.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -151,7 +153,7 @@ void main() {
           .submit(photo, null);
 
       expect(failureOf(exhausted), isA<RateLimitedFailure>());
-      expect(failureOf(exhausted)!.toDisplayMessage(), '신청 횟수를 모두 썼어요, 문의해 주세요');
+      expect(failureText(AppLocalizationsKo(), failureOf(exhausted)!), '신청 횟수를 모두 썼어요, 문의해 주세요');
       expect((failureOf(pending)! as ServerRejectedFailure).hasCode('already_pending'), isTrue);
       expect((failureOf(consent)! as ServerRejectedFailure).hasCode('consent_required'), isTrue);
     });

@@ -13,8 +13,10 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/muted_text_button.dart';
 import 'package:campus_mate/consent/model/repository/open_url.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/profile/avatar/view/photo_tiles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -516,7 +518,7 @@ void main() {
 
       expect(openedInApp, [everytimeFormLink]);
       expect(openedExternal, isEmpty);
-      expect(find.text(const UnknownFailure().toDisplayMessage()), findsNothing);
+      expect(find.text(failureText(AppLocalizationsKo(), const UnknownFailure())), findsNothing);
     });
 
     testWidgets('여는 호출이 끝나기 전에 다시 눌러도 한 번만 연다', (tester) async {
@@ -549,9 +551,9 @@ void main() {
         await tester.tap(formButton());
         await tester.pump();
 
-        expect(find.text(const UnknownFailure().toDisplayMessage()), findsOneWidget, reason: 'throws=$throws');
+        expect(find.text(failureText(AppLocalizationsKo(), const UnknownFailure())), findsOneWidget, reason: 'throws=$throws');
         await tester.pump(const Duration(seconds: 3));
-        expect(find.text(const UnknownFailure().toDisplayMessage()), findsNothing, reason: 'throws=$throws');
+        expect(find.text(failureText(AppLocalizationsKo(), const UnknownFailure())), findsNothing, reason: 'throws=$throws');
       }
     });
 

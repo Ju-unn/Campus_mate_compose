@@ -47,14 +47,15 @@ final kakaoShareClientProvider = Provider<KakaoShareClient>(
 );
 
 /// 16i "카카오톡으로 보내기" · 19 "친구에게 초대 링크 보내기"(계획서 3-6). 카카오톡 공유 카드를 먼저 보내고,
-/// 못 보내면 기기 공유 창에 [inviteShareText] 를 그대로 띄운다. 기기 공유 창 오류는 부른 화면이 안내한다.
-final shareInviteProvider = Provider<Future<void> Function(String code)>((ref) {
+/// 못 보내면 기기 공유 창에 화면이 만들어 넘긴 공유 글 `text`(문구 파일 `referralShareText`)를 그대로 띄운다.
+/// 기기 공유 창 오류는 부른 화면이 안내한다.
+final shareInviteProvider = Provider<Future<void> Function(String code, String text)>((ref) {
   final templateId = ref.watch(kakaoInviteTemplateIdProvider);
   final kakao = ref.watch(kakaoShareClientProvider);
   final shareText = ref.watch(shareTextProvider);
-  return (code) async {
+  return (code, text) async {
     if (await _sentByKakao(kakao, templateId, code)) return;
-    await shareText(inviteShareText(code));
+    await shareText(text);
   };
 });
 

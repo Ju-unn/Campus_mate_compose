@@ -10,6 +10,7 @@ import 'package:campus_mate/chat/view/system_message.dart';
 import 'package:campus_mate/chat/view/trust_banner.dart';
 import 'package:campus_mate/chat/view/trust_gate_sheet.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_view_model.dart';
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/community/view/feed_poll_card.dart';
@@ -72,6 +73,9 @@ const _writtenEmpty = '아직 쓴 리뷰가 없어요';
 const _waitingTitle = '리뷰를 기다리는 친구'; // written_reviews_screen.dart 20e-4
 const _flag = '신고하기'; // friend_review_card.dart 깃발 tooltip
 const _trash = '리뷰 지우기'; // friend_review_card.dart 휴지통 tooltip
+
+/// 상태의 실패 종류를 화면이 보일 한국어 글자로(없으면 null) — PC 판정이 글자로 본다.
+String? _errorText(Failure? failure) => failure == null ? null : failureText(AppLocalizationsKo(), failure);
 
 /// 앞 가설의 세션을 지우고 일감의 토큰으로 로그인한 뒤 [body] 를 돈다(area1.dart 와 같다 — 그쪽 것은 라이브러리 밖에서 못 쓴다).
 Area1Case _session(Area1Case body) => (tester, job) async {

@@ -417,6 +417,20 @@ void main() {
     expect(find.text('탈퇴한 계정이에요'), findsNothing);
   });
 
+  // 탈퇴 · 로그인 만료는 앱 모델이 글자 없이 실패 종류만 남긴다(signOutWhenWithdrawn) — 글자는 이 화면이 바꾼다.
+  testWidgets('실패 종류로 남긴 알림(로그인 만료)은 화면이 글자로 바꿔 경고 아이콘과 함께 한 번 보여 준다', (tester) async {
+    LoginNotice.postFailure(const SessionRejectedFailure());
+
+    await _pump(tester);
+    await tester.pump();
+
+    expect(find.text('세션이 만료됐어요, 다시 로그인해 주세요'), findsOneWidget);
+    expect(find.descendant(of: find.byKey(StartView.toastKey), matching: find.byIcon(AppIcons.alertTriangle)), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump();
+    expect(find.text('세션이 만료됐어요, 다시 로그인해 주세요'), findsNothing);
+  });
+
   // 03 학교 메일 충돌에서 "카카오로 다시 로그인" 을 누르면 로그아웃하며 남긴 안내(10-17 학생증 제거 B안).
   // pen 값(대장 전달, 노드 id 미전달): 312×58 두 줄 알약 · #222222 · info 16 흰색 · 14/600 흰색 · 화면 안 (24,482).
   testWidgets('다시 로그인 안내(info)는 버튼 폭 두 줄 알약에 info 아이콘으로 한 번 뜬다(360×780 에서 x24)', (tester) async {

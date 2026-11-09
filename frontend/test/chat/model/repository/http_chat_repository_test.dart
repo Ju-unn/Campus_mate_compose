@@ -6,6 +6,8 @@ import 'package:campus_mate/chat/model/repository/http_chat_repository.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/core/http/api_client.dart';
 import 'package:campus_mate/core/http/http_send.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -226,7 +228,7 @@ void main() {
 
     final failure = result.when(onSuccess: (_) => null, onFailure: (value) => value);
     expect(failure, isA<ServerRejectedFailure>());
-    expect(failure!.toDisplayMessage(), '이미 나간 대화예요');
+    expect(failureText(AppLocalizationsKo(), failure!), '이미 나간 대화예요');
   });
 
   test('통과 전에는 방 응답에 카카오톡 아이디가 없다', () async {

@@ -30,8 +30,8 @@ Future<void> _ntEnterRoom(WidgetTester tester, Map<String, dynamic> job) async {
     await tester.pump(const Duration(milliseconds: 100));
   }
   final state = container.read(provider);
-  if (state.isLoading || state.error?.toDisplayMessage() != null) {
-    throw E2eBlocked('방이 안 읽힘(오류 ${state.error?.toDisplayMessage()}) — 로그인 · 방 확인');
+  if (state.isLoading || state.error != null) {
+    throw E2eBlocked('방이 안 읽힘(오류 ${_errorText(state.error)}) — 로그인 · 방 확인');
   }
 }
 

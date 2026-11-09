@@ -127,12 +127,30 @@ void main() {
   });
 
   test('로그아웃 알림(탈퇴 등)도 같은 토스트 자리에 경고 아이콘과 함께 띄운다', () {
-    viewModel().showNotice('탈퇴한 계정이에요');
+    viewModel().showNotice(message: '탈퇴한 계정이에요');
 
     expect(state().toast?.message, '탈퇴한 계정이에요');
     expect(state().toast?.failure, isNull);
     expect(state().toast?.isCancellation, isFalse);
     expect(state().toast?.isInfo, isFalse);
+  });
+
+  test('실패 종류로 남긴 알림은 글자 없이 종류를 토스트에 싣는다 — 글자는 화면이 바꾼다', () {
+    viewModel().showNotice(failure: const WithdrawnFailure());
+
+    expect(state().toast?.failure, isA<WithdrawnFailure>());
+    expect(state().toast?.message, isNull);
+    expect(state().toast?.isCancellation, isFalse);
+    expect(state().toast?.isInfo, isFalse);
+  });
+
+  test('알림은 글자와 실패 종류 중 정확히 하나만 싣는다 — 둘 다 없거나 둘 다 주면 assert 로 막는다', () {
+    expect(() => viewModel().showNotice(), throwsA(isA<AssertionError>()));
+    expect(
+      () => viewModel().showNotice(message: '탈퇴한 계정이에요', failure: const WithdrawnFailure()),
+      throwsA(isA<AssertionError>()),
+    );
+    expect(state().toast, isNull);
   });
 
   test('뒤로가기로 앱이 닫히려 하면 "한 번 더" 안내를 취소 토스트 모양으로 띄운다 — 글자는 화면이 문구 파일에서 읽는다', () {
@@ -146,7 +164,7 @@ void main() {
 
   // 03 학교 메일 충돌 "카카오로 다시 로그인" 뒤의 안내는 오류가 아니다 — info 아이콘(10-17 학생증 제거 B안).
   test('안내(info) 알림은 버튼 폭 그대로 info 로 띄운다', () {
-    viewModel().showNotice('이 학교 메일은 카카오로 가입돼 있어요. 카카오로 로그인해 주세요', isInfo: true);
+    viewModel().showNotice(message: '이 학교 메일은 카카오로 가입돼 있어요. 카카오로 로그인해 주세요', isInfo: true);
 
     expect(state().toast?.isInfo, isTrue);
     expect(state().toast?.isCancellation, isFalse);

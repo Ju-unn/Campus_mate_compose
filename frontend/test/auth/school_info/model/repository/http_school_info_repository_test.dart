@@ -5,6 +5,8 @@ import 'package:campus_mate/auth/school_info/model/data/department.dart';
 import 'package:campus_mate/auth/school_info/model/repository/http_school_info_repository.dart';
 import 'package:campus_mate/auth/school_info/model/data/student_number.dart';
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -61,7 +63,7 @@ void main() {
 
     final failure = result.when(onSuccess: (_) => null, onFailure: (f) => f);
     expect(failure, isA<ServerRejectedFailure>());
-    expect(failure!.toDisplayMessage(), '이미 제출한 정보예요');
+    expect(failureText(AppLocalizationsKo(), failure!), '이미 제출한 정보예요');
   });
 
   test('요청 한도에 걸리면 RateLimitedFailure', () async {
