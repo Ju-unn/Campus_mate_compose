@@ -10,7 +10,7 @@ Dart 클래스·함수·import, SQL 마이그레이션, 설계 문서(.md)가 �
 | 그래프 루트 | 저장소 루트 (`campus_mate_compose/`) |
 | 산출물 | `graphify-out/` — **`.gitignore` 대상.** 각 PC 에서 빌드한다 |
 | 실행 | `python -m graphify <명령>` (PATH 에 `graphify` 스크립트가 없다) |
-| 스킬 | `~/.claude/skills/graphify` v0.9.58, 패키지 `graphifyy` |
+| 스킬 | `~/.claude/skills/graphify` v0.9.67(`python -m graphify --version` 으로 확인), 패키지 `graphifyy` |
 
 ---
 
