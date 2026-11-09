@@ -18,7 +18,7 @@ const _photoStoreTitle = '하트'; // billing/store/view/heart_store_screen.dart
 const _photoStoreSection = '구매하기'; // 18 하트 스토어의 섹션 제목
 const _photoGenerating = '아바타로 변환 중이에요'; // my_profile_screen.dart 변환 중 안내
 const _photoFailedToast = '아바타를 만들지 못했어요.\n하트는 차감되지 않았어요.'; // my_profile_screen.dart 15-3 안내
-const _photoMaxNotice = '사진은 최대 4장까지 올릴 수 있어요'; // photos_view_model.dart addPhoto
+const _photoMaxNotice = '사진은 최대 4장까지 올릴 수 있어요'; // photos_view_model.dart addPhoto(PhotoMaxFailure → error_text.dart errorPhotoMax)
 const _photoChangedNotice = '사진이 바뀌었어요, 다시 열어 주세요'; // 서버 PHOTOS_CHANGED(409)
 const _photoNetworkNotice = '네트워크 연결을 확인해 주세요'; // NetworkFailure
 const _photoNotSafe = '부적절한 사진은 올릴 수 없어요'; // 서버 PHOTO_NOT_SAFE(422)
@@ -53,6 +53,9 @@ List<String> _photoSheetTexts(WidgetTester tester) => [
       for (final text in tester.widgetList<Text>(find.descendant(of: find.byType(SafetySheet), matching: find.byType(Text))))
         if ((text.data ?? '').isNotEmpty) text.data!,
     ];
+
+/// 상태의 실패를 화면과 같은 글자로(없으면 null).
+String? _photoErrorText(Failure? error) => error == null ? null : failureText(AppLocalizationsKo(), error);
 
 String? _photoLine(List<String> texts, String needle) {
   for (final text in texts) {
@@ -158,7 +161,7 @@ Future<Map<String, Object?>> _photoPick(WidgetTester tester, ProviderContainer c
   _photoGallery(container, files, asked);
   final before = _photoTiles(tester);
   await _photoAdd(tester, container, asked);
-  final message = container.read(myPhotosViewModelProvider).errorMessage;
+  final message = _photoErrorText(container.read(myPhotosViewModelProvider).error);
   final toast = message != null && await appears(tester, find.text(message), const Duration(seconds: 3)) != null;
   return {'before': before, 'after': _photoTiles(tester), 'message': message, 'toast': toast};
 }
@@ -240,7 +243,7 @@ final Map<String, Area1Case> area5CasesPhoto = {
       'caption_seen': caption != null,
       'on_pick_screen': _has(find.byType(AvatarRegenPickScreen)),
       'regen_state': state.status.name,
-      'regen_error': state.errorMessage,
+      'regen_error': _photoErrorText(state.error),
     };
   }),
   'E-ME-14': _session((tester, job) async {
@@ -257,7 +260,7 @@ final Map<String, Area1Case> area5CasesPhoto = {
       'pill_enabled': tester.widget<ProfileHero>(find.byType(ProfileHero)).onRegenerate != null,
       'generating_gone': !_has(find.text(_photoGenerating)),
       'regen_state': state.status.name,
-      'regen_error': state.errorMessage,
+      'regen_error': _photoErrorText(state.error),
     };
   }),
   'E-ME-16': _session((tester, job) async {
@@ -291,7 +294,7 @@ final Map<String, Area1Case> area5CasesPhoto = {
       throw E2eBlocked('얼굴 사진이 기기 얼굴 검사에서 빠짐(칸 $tilesBefore → ${_photoTiles(tester)}) — 사진 세트 확인');
     }
     final idsAdded = _photoIds(container);
-    final message = container.read(myPhotosViewModelProvider).errorMessage;
+    final message = _photoErrorText(container.read(myPhotosViewModelProvider).error);
     final saveEnabled = enabled(tester, _photoSave);
     final saved = await _photoSaveAndWait(tester, namesBefore);
     return {
@@ -475,7 +478,7 @@ final Map<String, Area1Case> area5CasesPhoto = {
     await _photoTapSave(tester);
     await appears(tester, find.text(_photoNetworkNotice), const Duration(seconds: 30));
     final offline = {
-      'off_error': container.read(myPhotosViewModelProvider).errorMessage,
+      'off_error': _photoErrorText(container.read(myPhotosViewModelProvider).error),
       'off_title': _title(tester),
       'off_tiles': _photoTiles(tester),
     };

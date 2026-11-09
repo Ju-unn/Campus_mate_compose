@@ -22,7 +22,7 @@ class BasicInfoUiState {
     this.mbtiPoles = const {},
     this.isMbtiUnknown = false,
     this.isSubmitting = false,
-    this.errorMessage,
+    this.error,
     this.completed = false,
   });
 
@@ -57,7 +57,7 @@ class BasicInfoUiState {
   /// 네 축을 모두 고른 경우에만 채워진다.
   String? get mbti => MbtiPoles.code(mbtiPoles);
   final bool isSubmitting;
-  final String? errorMessage;
+  final Failure? error;
   final bool completed;
 
   /// 범위 밖이면 "다음"이 꺼진다. 문구는 나이 미달일 때만 [birthYearError] 가 단다.

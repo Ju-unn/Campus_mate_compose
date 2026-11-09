@@ -327,7 +327,7 @@ void main() {
 
       final state = container.read(basicInfoViewModelProvider);
       expect(state.phoneNumberError, _kind(AppError.phoneInvalid));
-      expect(state.errorMessage, isNull);
+      expect(state.error, isNull);
       expect(state.canSubmit, isFalse);
     });
 
@@ -354,7 +354,7 @@ void main() {
       await vm.submit();
 
       final state = container.read(basicInfoViewModelProvider);
-      expect(state.errorMessage, '이미 있는 닉네임이에요');
+      expect(state.error, _rejected('이미 있는 닉네임이에요'));
       expect(state.phoneNumberError, isNull);
     });
   });
@@ -408,7 +408,7 @@ void main() {
     await vm.submit();
 
     expect(container.read(onboardingStepListenableProvider).value, OnboardingStep.basicInfo);
-    expect(container.read(basicInfoViewModelProvider).errorMessage, isNotNull);
+    expect(container.read(basicInfoViewModelProvider).error, isA<NetworkFailure>());
     expect(onboardingRepository.fetchCount, 0);
   });
 
@@ -695,3 +695,6 @@ void main() {
   });
 
 }
+
+Matcher _rejected(String message) =>
+    isA<ServerRejectedFailure>().having((failure) => failure.serverMessage, 'serverMessage', message);

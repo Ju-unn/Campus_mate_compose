@@ -123,7 +123,7 @@ void main() {
 
     final state = container.read(appearanceTypeViewModelProvider);
     expect(state.completed, isFalse);
-    expect(state.errorMessage, isNotNull);
+    expect(state.error, isNotNull);
     expect(onboardingRepository.fetchCount, 0);
   });
 

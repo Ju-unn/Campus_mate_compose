@@ -81,14 +81,14 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
   Future<void> _addPhoto() async {
     final room = _maxPhotos - state.photos.length;
     if (room <= 0) {
-      state = state.copyWith(errorMessage: '사진은 최대 $_maxPhotos장까지 올릴 수 있어요');
+      state = state.copyWith(error: const PhotoMaxFailure(_maxPhotos));
       return;
     }
     final picked = await _pickOrEmpty(room);
     if (picked.isEmpty) {
       return;
     }
-    state = state.copyWith(isCheckingPhotos: true, errorMessage: null, documentRejected: false);
+    state = state.copyWith(isCheckingPhotos: true, error: null, documentRejected: false);
     final accepted = <SelectedPhoto>[];
     var rejected = 0;
     try {
@@ -105,7 +105,7 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
       state = state.copyWith(
         photos: [...state.photos, ...accepted],
         isCheckingPhotos: false,
-        errorMessage: _rejectedMessage(accepted.length, rejected),
+        error: _rejectedFailure(accepted.length, rejected),
       );
     }
     if (accepted.isEmpty && rejected > 0) {
@@ -146,16 +146,16 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
   }
 
   /// 한 장도 못 들어갔으면 "다시 고르라"고, 일부만 빠졌으면 몇 장이 빠졌는지 알린다(2026-09-25 사용자 결정).
-  String? _rejectedMessage(int accepted, int rejected) {
+  Failure? _rejectedFailure(int accepted, int rejected) {
     if (rejected == 0) {
       return null;
     }
-    return accepted == 0 ? '얼굴이 보이는 사진을 골라 주세요' : '$rejected장은 얼굴이 보이지 않아 빠졌어요';
+    return accepted == 0 ? const AppErrorFailure(AppError.noFace) : PhotoRejectedFailure(rejected);
   }
 
   void removePhoto(int index) {
     final photos = [...state.photos]..removeAt(index);
-    state = state.copyWith(photos: photos, errorMessage: null, documentRejected: false);
+    state = state.copyWith(photos: photos, error: null, documentRejected: false);
   }
 
   /// 길게 눌러 끌어다 놓으면 두 칸이 자리를 맞바꾼다(04-2, 2026-09-24 사용자 결정).
@@ -169,7 +169,7 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
     final photos = [...state.photos];
     photos[from] = state.photos[to];
     photos[to] = state.photos[from];
-    state = state.copyWith(photos: photos, errorMessage: null);
+    state = state.copyWith(photos: photos, error: null);
   }
 
   /// 아바타 원본은 한 장만 고를 수 있다 — 나머지는 자동으로 꺼진다.
@@ -177,7 +177,7 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
     final photos = [
       for (var i = 0; i < state.photos.length; i++) state.photos[i].copyWith(isAvatarSource: i == index),
     ];
-    state = state.copyWith(photos: photos, errorMessage: null);
+    state = state.copyWith(photos: photos, error: null);
   }
 
   /// 04-2 → 04-3 으로 넘어갈 때 부른다. 아직 원본이 없으면(처음이거나 원본 사진을 뺐으면) 첫 장을 골라 둔다.
@@ -194,7 +194,7 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
     if (!state.canSubmit) {
       return;
     }
-    state = state.copyWith(isSubmitting: true, errorMessage: null, documentRejected: false);
+    state = state.copyWith(isSubmitting: true, error: null, documentRejected: false);
     // 여기서 바로 state 에 넣지 않는다 — 넣는 순간 isSubmitting 이 내려가 토스트가 꺼지고,
     // 작업을 등록하는 동안 화면에 아무 표시도 없다. 한 번에 갱신해야 둘 다 덮인다.
     var next = await _submittedState();
@@ -226,7 +226,7 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
     if (blocking == null) {
       return uploaded;
     }
-    return uploaded.copyWith(completed: false, errorMessage: blocking);
+    return uploaded.copyWith(completed: false, error: blocking);
   }
 
   Future<PhotosUiState> _submittedState() async {
@@ -244,7 +244,7 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
       }
       return state.copyWith(isSubmitting: false, completed: true);
     } catch (_) {
-      return state.copyWith(isSubmitting: false, errorMessage: const UnknownFailure().toDisplayMessage());
+      return state.copyWith(isSubmitting: false, error: const UnknownFailure());
     }
   }
 
@@ -254,7 +254,7 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
   PhotosUiState _failedState(Failure failure, SelectedPhoto rejected) {
     ref.read(onboardingStepListenableProvider).blocked(_blockReason(failure));
     if (!isPhotoDocumentRejection(failure)) {
-      return state.copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage());
+      return state.copyWith(isSubmitting: false, error: failure);
     }
     final photos = [for (final photo in state.photos) if (photo.key != rejected.key) photo];
     return state.copyWith(isSubmitting: false, photos: photos, documentRejected: true);

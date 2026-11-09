@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
 
 /// `기타` 한 줄 글의 상한(pen s8u4Y 는 글자 수 표시 없음, 30 은 2026-09-28 대장 결정).
@@ -10,14 +11,14 @@ class AcquisitionUiState {
     this.channel,
     this.note = '',
     this.isSubmitting = false,
-    this.errorMessage,
+    this.error,
     this.completed = false,
   });
 
   final AcquisitionChannel? channel;
   final String note;
   final bool isSubmitting;
-  final String? errorMessage;
+  final Failure? error;
   final bool completed;
 
   bool get isOther => channel == AcquisitionChannel.other;
@@ -28,19 +29,19 @@ class AcquisitionUiState {
   /// 활성 조건(pen k4ym5O 에 비활성 변형이 없어 2026-09-28 대장 결정): 칩 하나를 골라야 하고, `기타` 면 한 글자 이상 적어야 한다.
   bool get canSubmit => channel != null && !isSubmitting && (!isOther || note.trim().isNotEmpty);
 
-  /// [errorMessage] 는 넘기지 않으면 지운다. [channel] 은 한 번 고르면 비울 일이 없다.
+  /// [error] 는 넘기지 않으면 지운다. [channel] 은 한 번 고르면 비울 일이 없다.
   AcquisitionUiState copyWith({
     AcquisitionChannel? channel,
     String? note,
     bool? isSubmitting,
-    String? errorMessage,
+    Failure? error,
     bool? completed,
   }) {
     return AcquisitionUiState(
       channel: channel ?? this.channel,
       note: note ?? this.note,
       isSubmitting: isSubmitting ?? this.isSubmitting,
-      errorMessage: errorMessage,
+      error: error,
       completed: completed ?? this.completed,
     );
   }

@@ -95,7 +95,7 @@ void main() {
     await vm.submit();
 
     expect(container.read(onboardingStepListenableProvider).value, OnboardingStep.idealConditions);
-    expect(container.read(idealConditionsViewModelProvider).errorMessage, isNotNull);
+    expect(container.read(idealConditionsViewModelProvider).error, isA<NetworkFailure>());
     expect(onboardingRepository.fetchCount, 0);
   });
 

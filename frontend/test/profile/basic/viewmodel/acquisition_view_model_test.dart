@@ -83,7 +83,7 @@ void main() {
     await vm.submit();
 
     final state = c.read(acquisitionViewModelProvider);
-    expect(state.errorMessage, '네트워크 연결을 확인해 주세요');
+    expect(state.error, isA<NetworkFailure>());
     expect(state.completed, isFalse);
     expect(state.isSubmitting, isFalse);
   });

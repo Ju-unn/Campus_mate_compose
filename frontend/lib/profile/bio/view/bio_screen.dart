@@ -4,6 +4,8 @@ import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -63,6 +65,8 @@ class _BioScreenState extends ConsumerState<BioScreen> {
   }
 
   Widget _scaffold(BioUiState state, BioViewModel viewModel, VoidCallback? back) {
+    final l10n = context.l10n;
+    final error = state.error;
     return Scaffold(
       appBar: OnboardingAppBar(current: 2, total: 3, onBack: back),
       body: SafeArea(
@@ -78,35 +82,33 @@ class _BioScreenState extends ConsumerState<BioScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '이렇게 소개해볼까요?',
+                        l10n.profileBioHeadline,
                         style: AppTypography.headline.copyWith(color: AppColors.ink),
                       ),
                       const SizedBox(height: AppSpacing.xs),
                       Text(
-                        '설문을 바탕으로 초안을 썼어요. 마음에 안 들면 자유롭게 고쳐주세요.',
+                        l10n.profileBioSubtitle,
                         style: AppTypography.body.copyWith(color: AppColors.body),
                       ),
                       const SizedBox(height: AppSpacing.xl),
                       LabeledField(
-                        label: '자기소개',
-                        placeholder: '나를 한두 문장으로 소개해주세요',
+                        label: l10n.profileBioLabel,
+                        placeholder: l10n.profileBioPlaceholder,
                         controller: _controller,
                         onChanged: viewModel.changeBio,
-                        errorText: state.errorMessage,
+                        errorText: error == null ? null : context.errorText(error),
                         inputFormatters: bioInputFormatters,
                         maxLines: bioMaxLines,
                       ),
                       // 작성 예시(사용자 요청 10-15, 문구는 사용자 승인 후보). 자리는 06-2a 와 같은 입력칸 아래 32(pen 확인 대상).
                       const SizedBox(height: AppSpacing.xl),
-                      const WritingExample(
-                        sentences: ['같은 학교 친구들과 카페에서 공부하는 걸 좋아해요. 주말엔 운동하거나 영화 봐요.'],
-                      ),
+                      WritingExample(sentences: [l10n.profileBioExample]),
                     ],
                   ),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
-              AppButton(label: '다음', onPressed: state.canSubmit ? viewModel.submit : null),
+              AppButton(label: l10n.commonNext, onPressed: state.canSubmit ? viewModel.submit : null),
             ],
           ),
         ),

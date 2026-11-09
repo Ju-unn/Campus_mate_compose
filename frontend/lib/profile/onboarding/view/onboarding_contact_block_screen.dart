@@ -56,12 +56,12 @@ class OnboardingContactBlockScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      '지인 차단',
+                      context.l10n.profileContactBlockTitle,
                       style: AppTypography.title.copyWith(fontWeight: FontWeight.w700, height: 1.35, color: AppColors.ink),
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      '아는 사람을 만나고 싶지 않다면 연락처로 미리 막을 수 있어요',
+                      context.l10n.profileContactBlockSubtitle,
                       style: AppTypography.body.copyWith(color: AppColors.body),
                     ),
                     // QvfFs 아래 16 + LHBul 위 8.
@@ -78,7 +78,7 @@ class OnboardingContactBlockScreen extends ConsumerWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    AppButton(label: '연락처에서 지인 차단하기', onPressed: () => _block(context, ref)),
+                    AppButton(label: context.l10n.profileContactBlockAction, onPressed: () => _block(context, ref)),
                     const SizedBox(height: AppSpacing.xs),
                     // Dazi1 은 #6A6A6A — AppButton text variant(주색 글자)와 달라 화면 안에서 그린다.
                     TextButton(
@@ -89,13 +89,13 @@ class OnboardingContactBlockScreen extends ConsumerWidget {
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                       child: Text(
-                        '건너뛰기',
+                        context.l10n.commonSkip,
                         style: AppTypography.button.copyWith(fontWeight: FontWeight.w600, color: AppColors.muted),
                       ),
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      '나중에 설정 > 지인 차단에서 할 수 있어요',
+                      context.l10n.profileContactBlockLaterNote,
                       textAlign: TextAlign.center,
                       style: AppTypography.caption.copyWith(height: 1.5, color: AppColors.muted),
                     ),
@@ -143,7 +143,7 @@ class _AppBar extends StatelessWidget implements PreferredSizeWidget {
           ),
         ),
       ),
-      title: Text('지인 차단', style: AppTypography.subNavTitle.copyWith(color: AppColors.ink)),
+      title: Text(context.l10n.profileContactBlockTitle, style: AppTypography.subNavTitle.copyWith(color: AppColors.ink)),
     );
   }
 }

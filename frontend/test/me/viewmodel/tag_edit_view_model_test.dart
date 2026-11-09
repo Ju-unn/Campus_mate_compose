@@ -111,7 +111,7 @@ void main() {
     await container.read(tagEditViewModelProvider(TagPickerKind.myTraits).notifier).submit();
 
     expect(subscription.read().completed, isFalse);
-    expect(subscription.read().errorMessage, const NetworkFailure().toDisplayMessage());
+    expect(subscription.read().error, isA<NetworkFailure>());
     expect(me.calls, 1);
   });
 

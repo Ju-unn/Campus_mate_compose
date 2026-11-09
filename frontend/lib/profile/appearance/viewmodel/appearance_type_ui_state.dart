@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
 
@@ -7,14 +8,14 @@ class AppearanceTypeUiState {
     this.animalType,
     this.impressionType,
     this.isSubmitting = false,
-    this.errorMessage,
+    this.error,
     this.completed = false,
   });
 
   final AnimalType? animalType;
   final ImpressionType? impressionType;
   final bool isSubmitting;
-  final String? errorMessage;
+  final Failure? error;
   final bool completed;
 
   bool get canSubmit => animalType != null && impressionType != null && !isSubmitting;

@@ -3,6 +3,8 @@ import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/common/widgets/notice_card.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -29,6 +31,8 @@ class KakaoIdScreen extends ConsumerWidget {
     final state = ref.watch(kakaoIdViewModelProvider);
     final viewModel = ref.read(kakaoIdViewModelProvider.notifier);
     final back = onboardingBack(ref, isBusy: state.isSubmitting);
+    final l10n = context.l10n;
+    final error = state.error;
     // 시스템 뒤로도 화살표처럼 04-1 로 간다. 라우터는 이 화면을 두르지 않는다 — 두 겹이면 안내까지 뜬다.
     return BackExitScope(onBack: back, child: Scaffold(
       // pen `sN9Il` 은 04-1 과 같은 첫째 점을 켠다 — 04-1b 는 04-1 에 딸린 화면이다.
@@ -47,38 +51,37 @@ class KakaoIdScreen extends ConsumerWidget {
                     children: [
                       const SizedBox(height: AppSpacing.xl),
                       Text(
-                        '카카오톡 아이디를 알려주세요',
+                        l10n.profileKakaoIdHeadline,
                         style: AppTypography.headline.copyWith(color: AppColors.ink),
                       ),
                       const SizedBox(height: AppSpacing.xs),
                       Text(
-                        '서로 수락하고 신뢰 확인을 마친 상대에게만 공개돼요.',
+                        l10n.profileKakaoIdSubtitle,
                         style: AppTypography.body.copyWith(color: AppColors.body),
                       ),
                       const SizedBox(height: AppSpacing.xl),
                       LabeledField(
-                        label: '카카오톡 아이디',
-                        placeholder: '예: campusmate_22',
+                        label: l10n.commonKakaoId,
+                        placeholder: l10n.profileKakaoIdPlaceholder,
                         initialValue: state.kakaoIdInput,
                         onChanged: viewModel.changeKakaoId,
-                        helper: '설정 > 계정에서 언제든 바꿀 수 있어요',
-                        errorText: state.errorMessage,
+                        helper: l10n.profileKakaoIdHelper,
+                        errorText: error == null ? null : context.errorText(error),
                       ),
                       const SizedBox(height: AppSpacing.md),
-                      const NoticeCard(
+                      NoticeCard(
                         isEmphasis: true,
-                        title: '꼭 확인해 주세요',
-                        body: '카카오톡에서 \'ID 검색 허용\'을 켜주셔야 상대가 내 아이디를 검색할 수 있어요. '
-                            '꺼져 있으면 신뢰 확인을 마쳐도 연락이 닿지 않아요.',
-                        footer: '카카오톡 > 설정 > 프로필 관리 > 카카오톡 ID 에서 켤 수 있어요',
-                        child: KakaoSettingExample(),
+                        title: l10n.profileKakaoIdNoticeTitle,
+                        body: l10n.profileKakaoIdNoticeBody,
+                        footer: l10n.profileKakaoIdNoticeFooter,
+                        child: const KakaoSettingExample(),
                       ),
                     ],
                   ),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
-              AppButton(label: '다음', onPressed: state.canSubmit ? viewModel.submit : null),
+              AppButton(label: l10n.commonNext, onPressed: state.canSubmit ? viewModel.submit : null),
             ],
           ),
         ),
@@ -96,14 +99,14 @@ class KakaoSettingExample extends StatelessWidget {
   Widget build(BuildContext context) {
     // 조각을 하나씩 읽어 봐야 소용이 없는 그림이라 통째로 한 문장으로 읽힌다.
     return Semantics(
-      label: '카카오톡 설정 예시, ID 검색 허용 켜짐',
+      label: context.l10n.profileKakaoSettingExampleSemantics,
       image: true,
       excludeSemantics: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '카카오톡 설정 화면 예시',
+            context.l10n.profileKakaoSettingExampleCaption,
             // 토큰 badge(10/600)에서 굵기만 pen 값으로 낮춘다.
             style: AppTypography.badge.copyWith(color: AppColors.disabled, fontWeight: FontWeight.w500),
           ),
@@ -118,7 +121,12 @@ class KakaoSettingExample extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Flexible(child: Text('ID 검색 허용', style: AppTypography.labelSmall.copyWith(color: AppColors.onInk))),
+                Flexible(
+                  child: Text(
+                    context.l10n.profileKakaoSettingExampleToggle,
+                    style: AppTypography.labelSmall.copyWith(color: AppColors.onInk),
+                  ),
+                ),
                 const KakaoToggleImage(),
               ],
             ),

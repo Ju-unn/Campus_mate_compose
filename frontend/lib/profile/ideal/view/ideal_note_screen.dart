@@ -4,6 +4,8 @@ import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
@@ -32,10 +34,12 @@ class IdealNoteScreen extends ConsumerWidget {
     final viewModel = ref.read(idealNoteViewModelProvider.notifier);
     // 06-2 로 돌아간다. 시스템 뒤로도 같다 — 라우터는 이 화면을 두르지 않는다(두 겹이면 안내까지 뜬다).
     final back = onboardingBack(ref, isBusy: state.isSubmitting);
-    return BackExitScope(onBack: back, child: _scaffold(state, viewModel, back));
+    return BackExitScope(onBack: back, child: _scaffold(context, state, viewModel, back));
   }
 
-  Widget _scaffold(IdealNoteUiState state, IdealNoteViewModel viewModel, VoidCallback? back) {
+  Widget _scaffold(BuildContext context, IdealNoteUiState state, IdealNoteViewModel viewModel, VoidCallback? back) {
+    final l10n = context.l10n;
+    final error = state.error;
     return Scaffold(
       appBar: OnboardingAppBar(current: 1, total: 3, onBack: back),
       body: SafeArea(
@@ -51,41 +55,36 @@ class IdealNoteScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '이런 사람이 좋아요를\n자유롭게 적어주세요',
+                        l10n.profileIdealNoteHeadline,
                         style: AppTypography.headline.copyWith(color: AppColors.ink),
                       ),
                       const SizedBox(height: AppSpacing.xs),
                       Text(
-                        '10자 이상 자유롭게 적어주세요',
+                        l10n.profileIdealNoteSubtitle,
                         style: AppTypography.body.copyWith(color: AppColors.body),
                       ),
                       const SizedBox(height: AppSpacing.xl),
                       LabeledField(
-                        label: '이런 사람이 좋아요',
-                        placeholder: '말이 잘 통하는 사람이 좋아요',
+                        label: l10n.profileIdealNoteLabel,
+                        placeholder: l10n.profileIdealNotePlaceholder,
                         initialValue: state.note,
                         onChanged: viewModel.changeNote,
                         // 오류(짧은 채로 "다음" 또는 서버 오류)가 있으면 같은 자리의 회색 안내 대신 오류가 나온다.
-                        errorText: state.errorMessage,
-                        guideText: state.lengthMessage,
+                        errorText: error == null ? null : context.errorText(error),
+                        guideText: state.showsLengthGuide ? l10n.profileIdealNoteLengthGuide(min: IdealNoteUiState.minLength) : null,
                         inputFormatters: _noteInputFormatters,
                         maxLines: idealNoteMaxLines,
                       ),
                       // 작성 예시(사용자 요청 10-15, 대장 전달 값 — 입력칸 아래 32). 키보드가 올라오면 Scaffold 가 본문을 줄이고
                       // 이 스크롤이 쓰는 칸을 키보드 위로 올린다 — 예시는 그 아래로 밀린다.
                       const SizedBox(height: AppSpacing.xl),
-                      const WritingExample(
-                        sentences: [
-                          '말이 잘 통하고 주말에 같이 산책하거나 맛집 가는 걸 좋아하는 사람이면 좋겠어요',
-                          '연락을 자주 하고 약속을 잘 지키는 사람이 좋아요',
-                        ],
-                      ),
+                      WritingExample(sentences: [l10n.profileIdealNoteExampleFirst, l10n.profileIdealNoteExampleSecond]),
                     ],
                   ),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
-              AppButton(label: '다음', onPressed: state.canSubmit ? viewModel.submit : null),
+              AppButton(label: l10n.commonNext, onPressed: state.canSubmit ? viewModel.submit : null),
             ],
           ),
         ),

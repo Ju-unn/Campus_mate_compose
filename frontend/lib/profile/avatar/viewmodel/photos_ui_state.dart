@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:campus_mate/common/failure.dart';
 import 'package:flutter/painting.dart';
 
 /// [PhotosUiState.copyWith] 에서 "안 넘긴 것"과 "null 로 지우는 것"을 가르는 표시(school_info_view_model 과 같은 방식).
@@ -37,7 +38,7 @@ class PhotosUiState {
     this.photos = const [],
     this.isCheckingPhotos = false,
     this.isSubmitting = false,
-    this.errorMessage,
+    this.error,
     this.completed = false,
     this.documentRejected = false,
   });
@@ -51,7 +52,7 @@ class PhotosUiState {
   final bool isCheckingPhotos;
 
   final bool isSubmitting;
-  final String? errorMessage;
+  final Failure? error;
   final bool completed;
 
   /// 서버가 방금 올리려던 사진을 글자 많은 사진(학생증 · 신분증 등, 422 `photo_looks_like_document`)으로 거절했다.
@@ -64,7 +65,7 @@ class PhotosUiState {
     List<SelectedPhoto>? photos,
     bool? isCheckingPhotos,
     bool? isSubmitting,
-    Object? errorMessage = _keep,
+    Object? error = _keep,
     bool? completed,
     bool? documentRejected,
   }) {
@@ -72,7 +73,7 @@ class PhotosUiState {
       photos: photos ?? this.photos,
       isCheckingPhotos: isCheckingPhotos ?? this.isCheckingPhotos,
       isSubmitting: isSubmitting ?? this.isSubmitting,
-      errorMessage: identical(errorMessage, _keep) ? this.errorMessage : errorMessage as String?,
+      error: identical(error, _keep) ? this.error : error as Failure?,
       completed: completed ?? this.completed,
       documentRejected: documentRejected ?? this.documentRejected,
     );

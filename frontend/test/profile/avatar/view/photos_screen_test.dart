@@ -47,6 +47,7 @@ const _onePixelPng =
 /// 사진 칸 안의 사진만 — 아래 안내 박스의 3D 아이콘 · 좋은 사진 예시도 `Image` 다.
 final _slotImages = find.descendant(of: find.byType(PhotoSlotGrid), matching: find.byType(Image));
 
+const _visibilityHint = '올린 실제 사진은 서로 수락하고 신뢰 확인을 마친 뒤에 상대방에게 보여요';
 const _galleryGuide = '갤러리에서 여러 장을 한 번에 고를 수 있어요. 최소 2장이 필요해요.';
 const _reorderGuide = '사진을 길게 눌러 끌면 순서를 바꿀 수 있어요. 첫 칸이 대표 사진이에요.';
 const _oldRulesTitle = '이런 사진은 올릴 수 없어요';
@@ -198,7 +199,7 @@ void main() {
       expect(grid.top, closeTo(notice.bottom + 16, 0.01));
       expect(first.top, closeTo(grid.bottom + 16, 0.01));
       expect(second.top, closeTo(first.bottom + 6, 0.01));
-      expect([for (final hint in hints) hint.text], [photoVisibilityHint, _galleryGuide, _reorderGuide]);
+      expect([for (final hint in hints) hint.text], [_visibilityHint, _galleryGuide, _reorderGuide]);
       expect(find.text('이런 사진이 좋아요'), findsOneWidget);
       expect(find.text(_oldRulesTitle), findsNothing);
     });
@@ -253,12 +254,11 @@ void main() {
       await pump(tester, photoCount: photoCount, textScale: textScale);
     }
 
-    Finder visibilityHint() => find.widgetWithText(HintLine, photoVisibilityHint);
+    Finder visibilityHint() => find.widgetWithText(HintLine, _visibilityHint);
 
     testWidgets('문구는 정확히 "올린 실제 사진은 서로 수락하고 신뢰 확인을 마친 뒤에 상대방에게 보여요"', (tester) async {
       await at360(tester);
 
-      expect(photoVisibilityHint, '올린 실제 사진은 서로 수락하고 신뢰 확인을 마친 뒤에 상대방에게 보여요');
       expect(visibilityHint(), findsOneWidget);
     });
 

@@ -74,7 +74,7 @@ void main() {
 
     expect(container.read(onboardingStepListenableProvider).value, OnboardingStep.idealNote);
     expect(container.read(idealNoteViewModelProvider).completed, isFalse);
-    expect(container.read(idealNoteViewModelProvider).errorMessage, isNotNull);
+    expect(container.read(idealNoteViewModelProvider).error, isNotNull);
     expect(onboardingRepository.fetchCount, 0);
   });
 
@@ -145,19 +145,19 @@ void main() {
     container.read(idealNoteViewModelProvider.notifier).changeNote('  말이잘통하는사람요  ');
 
     final state = container.read(idealNoteViewModelProvider);
-    expect(state.lengthMessage, '10자 이상 입력해 주세요');
-    expect(state.errorMessage, isNull);
+    expect(state.showsLengthGuide, isTrue);
+    expect(state.error, isNull);
   });
 
   test('10자를 채우면 "다음"이 켜지고 길이 안내가 사라진다', () {
     container.read(idealNoteViewModelProvider.notifier).changeNote('말 잘 통하는 사람');
 
     final state = container.read(idealNoteViewModelProvider);
-    expect(state.lengthMessage, isNull);
+    expect(state.showsLengthGuide, isFalse);
   });
 
   test('아직 아무것도 쓰지 않았으면 길이 안내를 보여주지 않는다', () {
-    expect(container.read(idealNoteViewModelProvider).lengthMessage, isNull);
+    expect(container.read(idealNoteViewModelProvider).showsLengthGuide, isFalse);
   });
 
   test('10자 미만이면 저장을 부르지 않는다', () async {
@@ -176,13 +176,13 @@ void main() {
     await vm.submit();
 
     expect(repository.submittedNote, isNull);
-    expect(container.read(idealNoteViewModelProvider).errorMessage, '10자 이상 입력해 주세요');
+    expect(container.read(idealNoteViewModelProvider).error, _tooShort);
   });
 
   test('아무것도 안 쓰고 "다음"을 눌러도 빨간 오류를 띄운다', () async {
     await container.read(idealNoteViewModelProvider.notifier).submit();
 
-    expect(container.read(idealNoteViewModelProvider).errorMessage, '10자 이상 입력해 주세요');
+    expect(container.read(idealNoteViewModelProvider).error, _tooShort);
   });
 
   test('오류 뒤에 다시 쓰면 오류가 지워지고, 10자 전이면 회색 안내로 돌아간다', () async {
@@ -193,8 +193,8 @@ void main() {
     vm.changeNote('말이잘통하는사');
 
     final state = container.read(idealNoteViewModelProvider);
-    expect(state.errorMessage, isNull);
-    expect(state.lengthMessage, '10자 이상 입력해 주세요');
+    expect(state.error, isNull);
+    expect(state.showsLengthGuide, isTrue);
   });
 
   group('임시 저장', () {
@@ -262,3 +262,5 @@ void main() {
   });
 
 }
+
+final _tooShort = isA<NoteTooShortFailure>().having((failure) => failure.min, 'min', 10);

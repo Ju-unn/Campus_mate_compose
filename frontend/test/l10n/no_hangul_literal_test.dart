@@ -14,15 +14,7 @@ void main() {
   // 아직 안 옮긴 폴더(`lib/` 기준). 기능 하나를 옮기는 PR 이 자기 이름을 지운다 — 마지막 PR 에서 비면 `lib/` 전체가 엄격해진다.
   // `common/` 바로 아래 파일(failure.dart 등)은 이미 옮겼으므로 여기 없다. auth · billing · profile 은 B7 2단계(#660)에서 세부 기능
   // 폴더로 나뉘어 세부 기능마다 적었다 — 한글이 이미 없는 auth/gate · auth/media 는 처음부터 엄격하게 검사된다.
-  const pending = <String>{
-    'profile/appearance',
-    'profile/avatar',
-    'profile/basic',
-    'profile/bio',
-    'profile/ideal',
-    'profile/onboarding',
-    'profile/traits',
-  };
+  const pending = <String>{};
 
   // 경로는 `frontend/` 에서 돌릴 때 기준이다(`flutter test` 기본 작업 폴더). 생성 폴더 `lib/l10n/` 은 검사하지 않는다.
   final libFiles = {

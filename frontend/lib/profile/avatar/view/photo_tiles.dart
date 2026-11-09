@@ -1,3 +1,6 @@
+import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -87,11 +90,9 @@ class PhotoSlotGrid extends StatelessWidget {
   }
 }
 
-/// 서버가 글자 많은 사진을 거절했을 때(422 `photo_looks_like_document`) 사진 칸 바로 아래에 두는 앱 고정 문구 — 서버 임시 문구 대신.
-const String photoDocumentRejectedMessage = '학생증·신분증처럼 글자가 많은 사진은 올릴 수 없어요. 얼굴이 잘 나온 일반 사진을 올려 주세요';
-
 /// 04-2 · 15-7 사진 칸 아래 오류 한 덩어리 — 입력칸 오류 줄(`LabeledField`)과 같은 모양(circle-alert 14 · 4 · 12/normal error), 두 줄까지 내려간다.
-/// 칸과의 간격 8 은 놓는 쪽이 둔다.
+/// 칸과의 간격 8 은 놓는 쪽이 둔다. 글자는 서버가 글자 많은 사진을 거절했을 때(422 `photo_looks_like_document`)의 앱 고정 문구
+/// [AppError.photoDocument] — 서버 임시 문구 대신.
 class PhotoDocumentNote extends StatelessWidget {
   const PhotoDocumentNote({super.key});
 
@@ -104,7 +105,10 @@ class PhotoDocumentNote extends StatelessWidget {
         const Icon(AppIcons.circleAlert, size: 14, color: AppColors.error),
         const SizedBox(width: AppSpacing.xxs),
         Expanded(
-          child: Text(photoDocumentRejectedMessage, style: AppTypography.caption.copyWith(color: AppColors.error)),
+          child: Text(
+            context.appErrorText(AppError.photoDocument),
+            style: AppTypography.caption.copyWith(color: AppColors.error),
+          ),
         ),
       ],
     );
@@ -122,26 +126,25 @@ class DraggablePhotoTile extends StatelessWidget {
 
   /// 칸 본체를 누르면 부른다(크게 보기, [PhotoSlotGrid.onOpenPhoto]). null 이면 칸 탭은 아무 일도 없다.
   /// x(사진 빼기)는 더 안쪽 누름이라 먼저 받고, 길게 눌러 끌기가 시작되면 이 탭은 취소된다.
+  /// 화면 읽기는 칸 탭 동작을 "두 번 탭하여 사진 크게 보기" 로 읽는다(`profilePhotoTileOpenHint`).
   final VoidCallback? onOpen;
-
-  /// 화면 읽기가 칸 탭 동작을 읽는 말 — "두 번 탭하여 사진 크게 보기".
-  static const String _openHint = '사진 크게 보기';
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final tile = _PhotoTile(index: index, state: state, viewModel: viewModel);
     // 끄는 것은 자리가 아니라 사진이다 — 끄는 중에 다른 칸이 지워져 번호가 밀려도
     // 처음 집은 사진이 그대로 옮겨지도록 사진 열쇠(새 사진은 파일 경로, 올려 둔 사진은 행 id)를 들고 다닌다.
     final photoPath = state.photos[index].key;
     return Semantics(
-      label: index == 0 ? '사진 1, 대표' : '사진 ${index + 1}',
+      label: index == 0 ? l10n.profilePhotoTileFirstLabel : l10n.profilePhotoTileLabel(number: index + 1),
       onTap: onOpen,
-      onTapHint: onOpen == null ? null : _openHint,
+      onTapHint: onOpen == null ? null : l10n.profilePhotoTileOpenHint,
       // 끌지 못하는 사람도 대표를 바꿀 수 있어야 한다 — 토크백 메뉴에 액션으로 둔다.
       // 첫 칸은 이미 대표라 액션이 없다(빈 맵을 주면 빈 메뉴가 생긴다).
       customSemanticsActions: index == 0
           ? null
-          : {const CustomSemanticsAction(label: '대표로 지정'): () => viewModel.swapPhotos(index, 0)},
+          : {CustomSemanticsAction(label: l10n.profilePhotoTileMakeMain): () => viewModel.swapPhotos(index, 0)},
       child: LayoutBuilder(
         builder: (context, constraints) => DragTarget<String>(
           onWillAcceptWithDetails: (details) => details.data != photoPath,
@@ -246,7 +249,7 @@ class _PhotoTile extends StatelessWidget {
                 ),
                 // 칸 라벨이 이미 "사진 1, 대표" 라고 읽어 준다 — 여기서 또 읽으면 두 번 들린다.
                 child: ExcludeSemantics(
-                  child: Text('대표', style: AppTypography.badge.copyWith(color: AppColors.onInk)),
+                  child: Text(context.l10n.profilePhotoTileMainBadge, style: AppTypography.badge.copyWith(color: AppColors.onInk)),
                 ),
               ),
             ),
@@ -257,7 +260,7 @@ class _PhotoTile extends StatelessWidget {
               // 칸과 다른 낭독 칸으로 떼어 둔다 — 합쳐지면 칸을 두 번 탭할 때 사진이 빠졌다(칸 탭 = 크게 보기와도 부딪힌다).
               container: true,
               button: true,
-              label: '사진 빼기',
+              label: context.l10n.profilePhotoTileRemove,
               child: GestureDetector(
                 onTap: () => viewModel.removePhoto(index),
                 // 그림은 28 원 그대로 두고 **누를 수 있는 넓이만** 44 로 키운다 —
@@ -293,7 +296,7 @@ class CheckingTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: '사진을 살펴보는 중',
+      label: context.l10n.profilePhotoTileChecking,
       child: DecoratedBox(
         // pen `EvcRf` Skeleton — 칸과 같은 모서리(14)를 회색으로 덮고 가운데만 돈다.
         decoration: BoxDecoration(
@@ -322,14 +325,13 @@ class AddPhotoTile extends StatelessWidget {
   /// 방금 거절된 사진 자리 — error 2 안쪽 테두리.
   final bool hasError;
 
-  static const String _label = '사진 추가';
   static const double _iconSize = 24;
   static final TextStyle _labelStyle = AppTypography.labelSmall.copyWith(color: AppColors.primaryText);
 
   /// 아이콘 + 간격 + 글자가 칸 높이 안에 드는지 실제 글꼴 · 배율로 잰다(배율 숫자를 박지 않는다 — 글꼴이 바뀌어도 맞게).
-  static bool _labelFits(BuildContext context, BoxConstraints constraints) {
+  static bool _labelFits(BuildContext context, BoxConstraints constraints, String label) {
     final painter = TextPainter(
-      text: TextSpan(text: _label, style: DefaultTextStyle.of(context).style.merge(_labelStyle)),
+      text: TextSpan(text: label, style: DefaultTextStyle.of(context).style.merge(_labelStyle)),
       textDirection: Directionality.of(context),
       textScaler: MediaQuery.textScalerOf(context),
     )..layout(maxWidth: constraints.maxWidth);
@@ -340,6 +342,7 @@ class AddPhotoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final label = context.l10n.profilePhotoTileAdd;
     // 칸이 자기 Material 을 들고 있어야 분홍 바탕이 Scaffold 에 칠해지지 않는다
     // (select_chip.dart 와 같은 자리 — 목록을 당겼다 놓으면 글자만 움직였다).
     return Material(
@@ -355,7 +358,7 @@ class AddPhotoTile extends StatelessWidget {
           ),
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final labelFits = _labelFits(context, constraints);
+              final labelFits = _labelFits(context, constraints, label);
               return Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -363,11 +366,11 @@ class AddPhotoTile extends StatelessWidget {
                     AppIcons.plus,
                     size: _iconSize,
                     color: AppColors.primaryText,
-                    semanticLabel: labelFits ? null : _label,
+                    semanticLabel: labelFits ? null : label,
                   ),
                   if (labelFits) ...[
                     const SizedBox(height: AppSpacing.xs),
-                    Text(_label, style: _labelStyle),
+                    Text(label, style: _labelStyle),
                   ],
                 ],
               );

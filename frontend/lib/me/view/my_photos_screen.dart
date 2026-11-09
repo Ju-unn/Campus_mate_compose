@@ -1,5 +1,7 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -26,9 +28,9 @@ class MyPhotosScreen extends ConsumerStatefulWidget {
 }
 
 class _MyPhotosScreenState extends ConsumerState<MyPhotosScreen> with MeToastHost<MyPhotosScreen> {
-  /// 마지막 저장이 실패한 까닭. 사진 고르기 안내(얼굴 없음 · 최대 4장)와 같은 칸(`errorMessage`)으로 오지만 모양이 다르다 —
+  /// 마지막 저장이 실패한 까닭. 사진 고르기 안내(얼굴 없음 · 최대 4장)와 같은 칸(`error`)으로 오지만 모양이 다르다 —
   /// 저장 실패는 버튼 위 오류 글(편집 화면 공통 규칙), 고르기 안내는 04-2 와 같은 토스트다. 다시 저장하면 지운다.
-  String? _saveError;
+  Failure? _saveError;
 
   /// 그리드 열 간격 16 — 값표에 숫자가 없어 칸 폭 156 · 삭제 버튼 x120(오른쪽 8)에서 거꾸로 셈(대장 확인 2026-10-03).
   static const double _columnGap = 16;
@@ -40,13 +42,16 @@ class _MyPhotosScreenState extends ConsumerState<MyPhotosScreen> with MeToastHos
     }
     final saveEnded = (previous?.isSubmitting ?? false) && !next.isSubmitting;
     if (saveEnded || next.isSubmitting) {
-      setState(() => _saveError = next.errorMessage);
+      setState(() => _saveError = next.error);
       return;
     }
-    final message = next.errorMessage;
-    if (message != null) {
+    final error = next.error;
+    if (error != null) {
       showTimedToast(
-        AppToast(leading: const Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk), label: message),
+        AppToast(
+          leading: const Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk),
+          label: context.errorText(error),
+        ),
       );
     }
   }
@@ -113,7 +118,7 @@ class _Footer extends StatelessWidget {
   const _Footer({required this.toast, required this.error, required this.isSaving, required this.onSave});
 
   final Widget? toast;
-  final String? error;
+  final Failure? error;
   final bool isSaving;
   final VoidCallback? onSave;
 
@@ -133,7 +138,7 @@ class _Footer extends StatelessWidget {
             const SizedBox(height: AppSpacing.sm),
           ],
           if (error != null) ...[
-            Text(error, style: AppTypography.caption.copyWith(color: AppColors.error)),
+            Text(context.errorText(error), style: AppTypography.caption.copyWith(color: AppColors.error)),
             const SizedBox(height: AppSpacing.xs),
           ],
           AppButton(label: context.l10n.commonSave, onPressed: onSave, isLoading: isSaving),

@@ -30,10 +30,10 @@ class AcquisitionViewModel extends Notifier<AcquisitionUiState> {
       final result = await ref.read(acquisitionRepositoryProvider).submit(state.channel!, state.noteToSend);
       state = result.when(
         onSuccess: (_) => state.copyWith(isSubmitting: false, completed: true),
-        onFailure: (failure) => state.copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage()),
+        onFailure: (failure) => state.copyWith(isSubmitting: false, error: failure),
       );
     } catch (_) {
-      state = state.copyWith(isSubmitting: false, errorMessage: const UnknownFailure().toDisplayMessage());
+      state = state.copyWith(isSubmitting: false, error: const UnknownFailure());
     }
   }
 }

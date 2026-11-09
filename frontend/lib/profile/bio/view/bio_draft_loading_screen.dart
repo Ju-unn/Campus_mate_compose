@@ -1,6 +1,7 @@
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/common/widgets/step_marker.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
@@ -39,6 +40,7 @@ class _BioDraftLoadingScreenState extends ConsumerState<BioDraftLoadingScreen> {
   }
 
   Widget _scaffold(BioViewModel viewModel, VoidCallback? back) {
+    final l10n = context.l10n;
     return Scaffold(
       appBar: OnboardingAppBar(current: 2, total: 3, onBack: back),
       body: SafeArea(
@@ -49,24 +51,24 @@ class _BioDraftLoadingScreenState extends ConsumerState<BioDraftLoadingScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: AppSpacing.xl),
-              Text('설문을 읽고 있어요', style: AppTypography.headline.copyWith(color: AppColors.ink)),
+              Text(l10n.profileBioDraftHeadline, style: AppTypography.headline.copyWith(color: AppColors.ink)),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                '답해주신 내용으로 자기소개 초안을 써드릴게요.',
+                l10n.profileBioDraftSubtitle,
                 style: AppTypography.body.copyWith(color: AppColors.body),
               ),
               const SizedBox(height: AppSpacing.xxl),
-              const StepMarker(label: '성향 답변 11개 확인', status: StepMarkerStatus.done),
+              StepMarker(label: l10n.profileBioDraftStepAnswers, status: StepMarkerStatus.done),
               const SizedBox(height: AppSpacing.sm),
-              const StepMarker(label: '관심사·특징 정리 중', status: StepMarkerStatus.active),
+              StepMarker(label: l10n.profileBioDraftStepTags, status: StepMarkerStatus.active),
               const SizedBox(height: AppSpacing.sm),
-              const StepMarker(label: '문장으로 다듬기', status: StepMarkerStatus.wait),
+              StepMarker(label: l10n.profileBioDraftStepPolish, status: StepMarkerStatus.wait),
               const Spacer(),
               Center(
                 child: TextButton(
                   onPressed: viewModel.skipDraft,
                   child: Text(
-                    '직접 쓸게요',
+                    l10n.profileBioDraftSkip,
                     style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText),
                   ),
                 ),

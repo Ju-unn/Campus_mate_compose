@@ -101,7 +101,7 @@ class SurveyViewModel extends Notifier<SurveyUiState> {
         answers: state.answers,
         religion: state.religion,
         isSmoker: state.isSmoker,
-        errorMessage: const UnknownFailure().toDisplayMessage(),
+        error: const UnknownFailure(),
       );
     }
   }
@@ -118,7 +118,7 @@ class SurveyViewModel extends Notifier<SurveyUiState> {
         answers: state.answers,
         religion: state.religion,
         isSmoker: state.isSmoker,
-        errorMessage: failure.toDisplayMessage(),
+        error: failure,
       ),
     );
   }

@@ -3,10 +3,12 @@ import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/common/widgets/select_chip.dart';
 import 'package:campus_mate/common/widgets/select_count_bar.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/viewmodel/tag_edit_view_model.dart';
 import 'package:campus_mate/profile/onboarding/view/onboarding_back.dart';
@@ -37,7 +39,7 @@ class TagPickerScreen extends ConsumerWidget {
       ref.listen(provider, (previous, next) {
         if (next.completed && !(previous?.completed ?? false)) context.pop();
       });
-      return _scaffold(context, EditAppBar(title: _editTitle()), state, viewModel);
+      return _scaffold(context, EditAppBar(title: _editTitle(context.l10n)), state, viewModel);
     }
     // 온보딩 모드만 앞 단계(04-5 → 04-4 · 04-6 → 04-5 · 06-2 → 06-1)로 돌아간다. 시스템 뒤로도 같다 —
     // 라우터는 이 화면을 두르지 않는다(두 겹이면 안내까지 뜬다). 편집 모드는 push 라 편집 앱바가 평소대로 닫는다.
@@ -77,11 +79,11 @@ class TagPickerScreen extends ConsumerWidget {
 
   /// 편집 앱바 제목(D5). `tagName` 은 "관심사 태그" 라 "… 수정" 에 그대로 붙이면 pen 흐름과 어긋난다 —
   /// [TagPickerKind] 에 칸을 늘리지 않고 여기서만 적는다.
-  String _editTitle() {
+  String _editTitle(AppLocalizations l10n) {
     return switch (kind) {
-      TagPickerKind.interests => '관심사 수정',
-      TagPickerKind.myTraits => '나의 특징 수정',
-      TagPickerKind.idealTraits => '이상형 특징 수정',
+      TagPickerKind.interests => l10n.profileTagEditTitleInterests,
+      TagPickerKind.myTraits => l10n.profileTagEditTitleMyTraits,
+      TagPickerKind.idealTraits => l10n.profileTagEditTitleIdealTraits,
     };
   }
 }
@@ -145,14 +147,14 @@ class _Footer extends StatelessWidget {
             max: TagPickerKind.maxCount,
             min: TagPickerKind.minCount,
           ),
-          if (state.errorMessage != null) ...[
+          if (state.error != null) ...[
             const SizedBox(height: AppSpacing.xs),
-            Text(state.errorMessage!, style: AppTypography.caption.copyWith(color: AppColors.error)),
+            Text(context.errorText(state.error!), style: AppTypography.caption.copyWith(color: AppColors.error)),
           ],
           const SizedBox(height: AppSpacing.sm),
           // 편집 모드만 "저장" 과 저장 중 스피너(D8)를 쓴다 — 온보딩 모양은 그대로 둔다.
           AppButton(
-            label: isEditing ? '저장' : '다음',
+            label: isEditing ? context.l10n.commonSave : context.l10n.commonNext,
             onPressed: state.canSubmit ? onSubmit : null,
             isLoading: isEditing && state.isSubmitting,
           ),

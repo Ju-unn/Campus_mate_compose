@@ -21,6 +21,10 @@ const _pollInterval = Duration(seconds: 5);
 /// 서버는 행의 `created_at` 부터다. 화면을 늦게 열면 앱이 그만큼 더 기다린다(기다리는 쪽이라 안전하다).
 const _pollLimit = Duration(minutes: 10);
 
+/// 서버 409 `errors.AVATAR_ALREADY_CREATED` 의 글자. 지금 계약에는 오류 **코드**가 없어 문구로 가른다.
+// l10n-ignore(server-text): backend errors.py AVATAR_ALREADY_CREATED 와 글자까지 같아야 "이미 만들었다" 분기가 산다
+const String _avatarAlreadyCreated = '아바타는 한 번만 만들 수 있어요';
+
 /// 폴링 상한을 세는 시계. 테스트가 갈아끼운다(`verifyCodeNowProvider` 와 같은 방식).
 final avatarGenerationNowProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 
@@ -39,10 +43,10 @@ class AvatarGenerationViewModel extends Notifier<AvatarGenerationUiState> {
 
   /// 작업을 등록한다(서버는 202 를 바로 준다 — 그림을 기다리지 않는다).
   ///
-  /// 돌려주는 값은 **04-3 에 붙잡아 두고 보여 줄 오류**다. `null` 이면 그냥 다음 질문으로 넘어가도 된다.
+  /// 돌려주는 값은 **04-3 에 붙잡아 두고 보여 줄 실패**다. `null` 이면 그냥 다음 질문으로 넘어가도 된다.
   /// 04-3(업로드 직후)과 05-12b("다시 만들기")가 같은 함수를 부르므로 **진행 중 가드도 여기** 둔다 —
   /// 화면마다 두면 한쪽을 빠뜨리고, 그 길로 유료 호출이 두 번 나간다(D14 운영 로그, 59초 사이 2회).
-  Future<String?> generate() async {
+  Future<Failure?> generate() async {
     if (state.isGenerating) {
       return null;
     }
@@ -53,7 +57,7 @@ class AvatarGenerationViewModel extends Notifier<AvatarGenerationUiState> {
         state = _fromOutcome(outcome);
         return null;
       },
-      onFailure: _blockingMessage,
+      onFailure: _blockingFailure,
     );
   }
 
@@ -68,32 +72,32 @@ class AvatarGenerationViewModel extends Notifier<AvatarGenerationUiState> {
   /// 15b "만들기". 등록 → 상태 묻기는 [retry] 와 같은 모양이다 — 결과는 워커가 만든 뒤에 온다.
   /// 하트는 서버가 **완성된 뒤에만** 뺀다(계획서 T2) — 여기서 잔액을 고치지 않는다. 화면 15 가 다시 읽는다.
   ///
-  /// 온보딩 [generate] 와 달리 실패를 그냥 넘기지 않는다 — 402(하트 모자람) 등 문구를 화면 15 토스트가 보여 준다.
-  Future<String?> regenerate() async {
+  /// 온보딩 [generate] 와 달리 실패를 그냥 넘기지 않는다 — 402(하트 모자람) 등 실패를 화면 15 토스트가 글자로 보여 준다.
+  Future<Failure?> regenerate() async {
     if (state.isGenerating) {
       return null;
     }
     state = const AvatarGenerationUiState(status: AvatarGenerationStatus.generating);
     final result = await ref.read(avatarRepositoryProvider).regenerateAvatar();
-    final message = result.when(
+    final blocking = result.when<Failure?>(
       onSuccess: (outcome) {
         state = _fromOutcome(outcome);
         return null;
       },
       onFailure: (failure) {
         // 응답만 놓쳤으면 서버는 이미 큐에 넣었을 수 있다 — 실패로 두면 15-3 "하트는 차감되지 않았어요" 가 뒤늦게
-        // 거짓이 된다. [_blockingMessage] 처럼 만드는 중으로 두고 상태 조회(가장 최근 시도)에 맡긴다.
+        // 거짓이 된다. [_blockingFailure] 처럼 만드는 중으로 두고 상태 조회(가장 최근 시도)에 맡긴다.
         if (failure is NetworkFailure) {
           return null;
         }
-        state = AvatarGenerationUiState(status: AvatarGenerationStatus.failed, errorMessage: failure.toDisplayMessage());
-        return failure.toDisplayMessage();
+        state = AvatarGenerationUiState(status: AvatarGenerationStatus.failed, error: failure);
+        return failure;
       },
     );
-    if (message == null) {
+    if (blocking == null) {
       await refreshStatus();
     }
-    return message;
+    return blocking;
   }
 
   /// 결과 화면에 들어올 때 한 번, 그 뒤 만드는 중이면 [_pollInterval] 마다.
@@ -158,26 +162,24 @@ class AvatarGenerationViewModel extends Notifier<AvatarGenerationUiState> {
     );
   }
 
-  /// 등록이 실패했을 때 04-3 에 머물지(오류 문구) 그냥 넘어갈지(null) 를 고른다.
+  /// 등록이 실패했을 때 04-3 에 머물지(그 실패) 그냥 넘어갈지(null) 를 고른다.
   ///
   /// **넘어가는 두 경우:** 응답을 못 받았거나(타임아웃·네트워크) 서버에 이미 아바타가 있을 때.
   /// 둘 다 서버에는 이미 아바타나 작업이 있어 여기 붙잡아 둘 이유가 없고, 결과는 05-12 가 보여 준다.
   /// 나머지(원본 사진 없음·큐 설정 안 됨 등)는 그 자리에서 알려 준다 — 앞은 사람이 고칠 수 있고,
   /// 뒤는 넘어가 봐야 결과 화면이 빈다.
-  String? _blockingMessage(Failure failure) {
+  Failure? _blockingFailure(Failure failure) {
     if (failure is NetworkFailure || _isAlreadyCreated(failure)) {
       state = const AvatarGenerationUiState(status: AvatarGenerationStatus.generating);
       return null;
     }
     reportOnboardingBlocked(ref, failure);
-    final message = failure.toDisplayMessage();
-    state = AvatarGenerationUiState(status: AvatarGenerationStatus.failed, errorMessage: message);
-    return message;
+    state = AvatarGenerationUiState(status: AvatarGenerationStatus.failed, error: failure);
+    return failure;
   }
 
   /// 서버가 "이미 만들었다"고 답한 것인지. 문구로 가른다 — 지금 계약에는 오류 **코드**가 없다
   /// (`backend/app/core/errors.py` `AVATAR_ALREADY_CREATED`). 코드가 생기면 여기부터 고친다.
   bool _isAlreadyCreated(Failure failure) =>
-      failure is ServerRejectedFailure &&
-      failure.toDisplayMessage() == '아바타는 한 번만 만들 수 있어요';
+      failure is ServerRejectedFailure && failure.serverMessage == _avatarAlreadyCreated;
 }
