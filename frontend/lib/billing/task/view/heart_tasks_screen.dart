@@ -3,6 +3,8 @@ import 'package:campus_mate/billing/task/view/heart_task_row.dart';
 import 'package:campus_mate/billing/task/viewmodel/heart_tasks_ui_state.dart';
 import 'package:campus_mate/billing/task/viewmodel/heart_tasks_view_model.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -42,7 +44,7 @@ class HeartTasksScreen extends ConsumerWidget {
               )
             : null,
         title: Text(
-          '무료로 하트 모으기',
+          context.l10n.billingTasksTitle,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: AppTypography.headline.copyWith(color: AppColors.ink),
@@ -56,9 +58,9 @@ class HeartTasksScreen extends ConsumerWidget {
     if (state.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-    final errorMessage = state.errorMessage;
-    if (errorMessage != null) {
-      return _LoadError(message: errorMessage, onRetry: () => ref.invalidate(heartTasksViewModelProvider));
+    final error = state.error;
+    if (error != null) {
+      return _LoadError(message: context.errorText(error), onRetry: () => ref.invalidate(heartTasksViewModelProvider));
     }
     return ListView(
       padding: _listPadding,
@@ -92,7 +94,7 @@ class _LoadError extends StatelessWidget {
           children: [
             Text(message, textAlign: TextAlign.center, style: AppTypography.body.copyWith(color: AppColors.muted)),
             const SizedBox(height: AppSpacing.sm),
-            AppButton(label: '다시 시도', variant: AppButtonVariant.text, onPressed: onRetry),
+            AppButton(label: context.l10n.commonRetry, variant: AppButtonVariant.text, onPressed: onRetry),
           ],
         ),
       ),

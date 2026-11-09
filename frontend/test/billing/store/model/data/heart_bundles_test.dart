@@ -39,12 +39,12 @@ void main() {
 
     test('스토어 가격이 없으면 앱 상수 가격 그대로 "5,700원"', () {
       final bundle = hundred.withStorePrice(null);
-      expect((bundle.price, bundle.priceLabel, bundle.discountPercent), (5700, '5,700원', 5));
+      expect((bundle.price, bundle.discountPercent), (5700, 5));
     });
 
     test('원화 가격이 오면 그 값으로 바꾸고 원가 · 할인율을 다시 계산한다', () {
       final bundle = hundred.withStorePrice(const StorePrice(label: '₩5,400', won: 5400));
-      expect((bundle.price, bundle.priceLabel, bundle.originalPrice, bundle.discountPercent), (5400, '5,400원', 6000, 10));
+      expect((bundle.price, bundle.originalPrice, bundle.discountPercent), (5400, 6000, 10));
     });
 
     test('원화 가격이 기준가(하트 × 60원)와 같으면 원가 · 할인을 보이지 않는다', () {
@@ -54,7 +54,7 @@ void main() {
 
     test('원화가 아니면 스토어 글자를 그대로 쓰고 할인은 숨긴다', () {
       final bundle = hundred.withStorePrice(const StorePrice(label: r'US$4.99'));
-      expect((bundle.price, bundle.priceLabel, bundle.originalPrice, bundle.discountPercent), (null, r'US$4.99', null, null));
+      expect((bundle.price, bundle.storePriceLabel, bundle.originalPrice, bundle.discountPercent), (null, r'US$4.99', null, null));
       expect(bundle.showsDiscount, isFalse);
     });
 

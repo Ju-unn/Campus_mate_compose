@@ -11,8 +11,10 @@ import 'package:campus_mate/community/view/poll_card.dart';
 import 'package:campus_mate/community/view/poll_composer_screen.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_ui_state.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
 import 'package:campus_mate/matching/view/daily_card_summary.dart';
 import 'package:flutter/material.dart';
@@ -381,8 +383,8 @@ Future<void> _sendProof(WidgetTester tester, String label) async {
   while (pending.evaluate().isEmpty) {
     final submit = find.byType(HeartTaskSubmitScreen);
     if (submit.evaluate().isNotEmpty) {
-      final error = ProviderScope.containerOf(tester.element(submit)).read(heartTaskSubmitViewModelProvider).errorMessage;
-      must(error == null, '제출이 막힘: $error');
+      final error = ProviderScope.containerOf(tester.element(submit)).read(heartTaskSubmitViewModelProvider).error;
+      must(error == null, '제출이 막힘: ${error == null ? '' : failureText(AppLocalizationsKo(), error)}');
     }
     must(watch.elapsed < const Duration(seconds: 60), '제출 뒤 60초 안에 18c "$_pendingTitle" 가 안 뜸');
     await tester.pump(const Duration(milliseconds: 200));

@@ -1,8 +1,11 @@
 import 'package:campus_mate/billing/store/model/data/heart_bundles.dart';
+import 'package:campus_mate/billing/store/view/heart_store_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 /// 번들 카드 한 장(pen `w0vIYG` HeartBundleCard 328×88). 고른 카드는 바탕 primaryWash · 테두리 2px primary(`J0o8uB`).
@@ -31,7 +34,7 @@ class HeartBundleCard extends StatelessWidget {
       button: true,
       selected: selected,
       excludeSemantics: true,
-      label: _semanticsLabel,
+      label: _semanticsLabel(context.l10n),
       onTap: onTap,
       child: Stack(
         clipBehavior: Clip.none,
@@ -64,7 +67,7 @@ class HeartBundleCard extends StatelessWidget {
                         child: FittedBox(
                           fit: BoxFit.scaleDown,
                           alignment: Alignment.centerLeft,
-                          child: Text(bundle.quantityLabel, style: AppTypography.title.copyWith(color: AppColors.ink)),
+                          child: Text(bundle.quantityLabel(context.l10n), style: AppTypography.title.copyWith(color: AppColors.ink)),
                         ),
                       ),
                       // 수량 · 할인 · 가격 사이는 모두 12(pen Info ↔ Discount ↔ PriceCol gap).
@@ -90,14 +93,14 @@ class HeartBundleCard extends StatelessWidget {
     );
   }
 
-  String get _semanticsLabel {
+  String _semanticsLabel(AppLocalizations l10n) {
     final parts = [
-      bundle.quantityLabel,
-      bundle.priceLabel,
-      if (bundle.showsDiscount) '${bundle.discountPercent}퍼센트 할인',
-      if (bundle.isMaxDiscount) '최대 할인',
-      if (bundle.isRecommended) '추천',
-      if (bonusHearts case final hearts?) '첫 구매 보너스 $hearts하트',
+      bundle.quantityLabel(l10n),
+      bundle.priceLabel(l10n),
+      if (bundle.discountPercent case final percent?) l10n.billingBundleDiscountPercentLabel(percent: percent),
+      if (bundle.isMaxDiscount) l10n.billingBundleMaxDiscount,
+      if (bundle.isRecommended) l10n.billingBundleRecommended,
+      if (bonusHearts case final hearts?) l10n.billingBundleFirstPurchaseBonusLabel(hearts: hearts),
     ];
     return parts.join(', ');
   }
@@ -115,7 +118,8 @@ class _Discount extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        if (bundle.isMaxDiscount) Text('최대 할인', style: AppTypography.badge.copyWith(color: AppColors.primaryText)),
+        if (bundle.isMaxDiscount)
+          Text(context.l10n.billingBundleMaxDiscount, style: AppTypography.badge.copyWith(color: AppColors.primaryText)),
         Text('${bundle.discountPercent}%', style: AppTypography.subtitle.copyWith(color: AppColors.primaryText)),
       ],
     );
@@ -130,22 +134,23 @@ class _PriceColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final original = bundle.originalPrice;
     final muted = AppTypography.caption.copyWith(color: AppColors.muted);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Text(bundle.priceLabel, style: AppTypography.subNavTitle.copyWith(color: AppColors.ink)),
+        Text(bundle.priceLabel(l10n), style: AppTypography.subNavTitle.copyWith(color: AppColors.ink)),
         if (original != null) ...[
           const SizedBox(height: AppSpacing.xxs),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('원가', style: muted),
+              Text(l10n.billingBundleOriginalPrice, style: muted),
               const SizedBox(width: AppSpacing.xxs),
               Text(
-                '${formatWon(original)}원',
+                wonText(l10n, original),
                 style: muted.copyWith(decoration: TextDecoration.lineThrough, decorationColor: AppColors.disabled),
               ),
             ],
@@ -167,7 +172,7 @@ class _RecommendTag extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
       alignment: Alignment.center,
       decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(AppRadius.pill)),
-      child: Text('추천', style: AppTypography.badge.copyWith(color: AppColors.onInk, height: 1.0)),
+      child: Text(context.l10n.billingBundleRecommended, style: AppTypography.badge.copyWith(color: AppColors.onInk, height: 1.0)),
     );
   }
 }
@@ -193,7 +198,7 @@ class _BonusBadge extends StatelessWidget {
         foregroundDecoration: BoxDecoration(borderRadius: radius, border: Border.all(color: AppColors.primary)),
         // pen 라벨 `oL6jS` 은 자간이 없다(badge 토큰의 +0.22 를 뺀다). 줄높이는 추천 태그와 같이 1.0.
         child: Text(
-          '첫 구매 +$hearts',
+          context.l10n.billingBundleFirstPurchaseBadge(hearts: hearts),
           style: AppTypography.badge.copyWith(
             color: AppColors.primaryText,
             fontWeight: FontWeight.w700,

@@ -1033,6 +1033,15 @@ void main() {
       expect(tasks.fetchCount, asked + 1);
       expect(find.byType(HeartTaskRow), findsNWidgets(3));
     });
+
+    testWidgets('읽기 실패 문구는 실패 종류의 글자다(네트워크 → "네트워크 연결을 확인해 주세요")', (tester) async {
+      tasks.tasks = const FailureResult(NetworkFailure());
+      await pump(tester);
+
+      await tester.ensureVisible(find.text('다시 시도'));
+      expect(find.text('네트워크 연결을 확인해 주세요'), findsOneWidget);
+      expect(find.text('다시 시도'), findsOneWidget);
+    });
   });
 
   for (final scale in [1.3, 2.0]) {

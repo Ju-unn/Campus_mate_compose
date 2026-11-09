@@ -1,9 +1,11 @@
 import 'package:campus_mate/billing/store/view/heart_payment_notice.dart';
 import 'package:campus_mate/billing/store/view/heart_purchase_button.dart';
 import 'package:campus_mate/billing/store/view/heart_store_notice.dart';
+import 'package:campus_mate/billing/store/view/heart_store_text.dart';
 import 'package:campus_mate/billing/store/viewmodel/heart_purchase_ui_state.dart';
 import 'package:campus_mate/billing/store/viewmodel/heart_purchase_view_model.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -70,7 +72,7 @@ class _HeartPurchaseSheet extends ConsumerWidget {
                 HeartPurchaseButton(
                   expand: true,
                   neutral: true,
-                  label: '취소',
+                  label: context.l10n.commonCancel,
                   onPressed: purchasing ? null : () => Navigator.of(context).pop(),
                 ),
                 const SizedBox(height: AppSpacing.lg),
@@ -92,13 +94,14 @@ class _BuyButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     if (state.phase == HeartPurchasePhase.purchasing) {
-      return const HeartPurchaseButton(expand: true, busy: true, label: '결제 진행 중이에요', onPressed: null);
+      return HeartPurchaseButton(expand: true, busy: true, label: l10n.billingPurchasing, onPressed: null);
     }
     final bundle = state.selectedBundle;
     return HeartPurchaseButton(
       expand: true,
-      label: '${bundle.priceLabel}에 구매',
+      label: l10n.billingPurchaseSheetBuy(price: bundle.priceLabel(l10n)),
       onPressed: state.canBuy(bundle.productId) ? () => ref.read(heartPurchaseViewModelProvider.notifier).buy() : null,
     );
   }
@@ -115,11 +118,11 @@ class _TitleRow extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text('하트를 구매할까요?', style: AppTypography.headline.copyWith(color: AppColors.ink)),
+            child: Text(context.l10n.billingPurchaseSheetTitle, style: AppTypography.headline.copyWith(color: AppColors.ink)),
           ),
           const SizedBox(width: AppSpacing.xs),
           IconButton(
-            tooltip: '도움말',
+            tooltip: context.l10n.billingHelpTooltip,
             constraints: const BoxConstraints.tightFor(width: 48, height: 48),
             onPressed: () => Navigator.of(context).pop(HeartPurchaseChoice.help),
             icon: const Icon3d(AppIcon3d.help, size: 20),
@@ -142,14 +145,17 @@ class _ProductRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final bundle = state.selectedBundle;
     final bonus = state.bonusFor(bundle);
-    final quantity = bonus == null ? bundle.quantityLabel : '${bundle.quantityLabel} + 보너스 $bonus하트';
+    final quantity = bonus == null
+        ? bundle.quantityLabel(l10n)
+        : l10n.billingPurchaseSheetQuantityWithBonus(quantity: bundle.quantityLabel(l10n), bonus: bonus);
     return Row(
       children: [
         Image.asset(bundle.asset, width: 32, height: 32, fit: BoxFit.cover, excludeFromSemantics: true),
         const SizedBox(width: AppSpacing.xs),
-        Flexible(child: Text('$quantity · ${bundle.priceLabel}', style: _style)),
+        Flexible(child: Text('$quantity · ${bundle.priceLabel(l10n)}', style: _style)),
       ],
     );
   }

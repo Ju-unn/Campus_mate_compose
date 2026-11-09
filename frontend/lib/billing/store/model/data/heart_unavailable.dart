@@ -17,13 +17,5 @@ final class HeartUnavailable {
   final HeartUnavailableReason reason;
   final int missingProducts;
 
-  /// App Store 배너 설명. 구글 플레이 설명은 바꾸지 않는다(HeartPurchaseNotice.unavailable).
-  String get appStoreCaption => switch (reason) {
-        HeartUnavailableReason.storeUnusable =>
-          '이 기기에서 App Store 결제를 쓸 수 없어요 · 설정 > 스크린 타임 > 콘텐츠 및 개인정보 보호 > iTunes 및 App Store 구입 > 앱 내 구입을 확인해 주세요',
-        HeartUnavailableReason.noProducts => '상품 정보를 불러오지 못했어요 · App Store 상품이 아직 준비 중일 수 있어요 (못 찾은 상품 $missingProducts개)',
-        HeartUnavailableReason.serverStatus => '서버에서 상태를 읽지 못했어요 · 잠시 뒤 다시 시도해 주세요',
-      };
-
-  String get logLine => '하트 상점 결제 불가: ${reason.name} (못 찾은 상품 $missingProducts개)';
+  // App Store 배너 설명 글자는 view 쪽 확장(heart_store_text.dart), 로그 한 줄은 뷰모델의 debugPrint 가 만든다.
 }

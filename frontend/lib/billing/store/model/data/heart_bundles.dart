@@ -36,14 +36,7 @@ class HeartBundle {
   /// 카드 그림 56×56(pen `d7TRT`).
   final String asset;
 
-  /// "100하트".
-  String get quantityLabel => '$hearts하트';
-
-  /// "5,700원" — 원화가 아니면 스토어 글자 그대로.
-  String get priceLabel {
-    final won = price;
-    return won == null ? storePriceLabel ?? '' : '${formatWon(won)}원';
-  }
+  // 수량 "100하트" · 가격 "5,700원" 글자는 view 쪽 확장(heart_store_text.dart)이 만든다 — 숫자 형식은 [formatWon].
 
   /// 할인 전 가격(하트 × 60원). 판매가가 그보다 작을 때만 있다.
   int? get originalPrice {

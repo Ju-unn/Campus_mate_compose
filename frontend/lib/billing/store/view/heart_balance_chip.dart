@@ -1,3 +1,4 @@
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
@@ -137,8 +138,8 @@ class HeartBalanceChipView extends StatelessWidget {
       ),
     );
     return Semantics(
-      label: '보유 하트 $balance개',
-      hint: tappable ? '하트 충전' : null,
+      label: context.l10n.billingBalanceChipLabel(count: balance),
+      hint: tappable ? context.l10n.billingBalanceChipHint : null,
       button: tappable,
       excludeSemantics: true,
       onTap: showPlus ? onPlus : null,

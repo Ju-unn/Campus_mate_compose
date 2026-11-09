@@ -1,5 +1,7 @@
 import 'package:campus_mate/billing/store/model/data/heart_bundles.dart';
 import 'package:campus_mate/billing/store/view/heart_purchase_button.dart';
+import 'package:campus_mate/billing/store/view/heart_store_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
@@ -73,12 +75,15 @@ class _Info extends StatelessWidget {
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
-            child: Text('추천', style: AppTypography.caption.copyWith(color: AppColors.primaryText)),
+            child: Text(context.l10n.billingBundleRecommended, style: AppTypography.caption.copyWith(color: AppColors.primaryText)),
           ),
         FittedBox(
           fit: BoxFit.scaleDown,
           alignment: Alignment.centerLeft,
-          child: Text(bundle.quantityLabel, style: AppTypography.bodyStrong.copyWith(color: AppColors.ink, height: 1.5)),
+          child: Text(
+            bundle.quantityLabel(context.l10n),
+            style: AppTypography.bodyStrong.copyWith(color: AppColors.ink, height: 1.5),
+          ),
         ),
       ],
     );

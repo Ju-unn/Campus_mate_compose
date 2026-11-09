@@ -23,6 +23,12 @@ import '../../../me/model/repository/fake_me_repository.dart';
 import '../model/repository/fake_billing_repository.dart';
 import '../model/repository/fake_heart_store_gateway.dart';
 
+/// 성공 토스트의 서버 숫자(받은 하트, 보너스). 글자는 view 쪽(heart_store_text_test)이 본다.
+(int, int) _granted(HeartPurchaseUiState state) {
+  final toast = state.toast! as GrantedToast;
+  return (toast.hearts, toast.bonusHearts);
+}
+
 void main() {
   late FakeHeartStoreGateway gateway;
   late FakeBillingRepository repo;
@@ -134,7 +140,7 @@ void main() {
 
       expect(state().banner, isNull);
       expect(state().phase, HeartPurchasePhase.idle);
-      expect((state().toast! as GrantedToast).message, '100하트가 들어왔어요', reason: '다시 열면 이어서 들어온다');
+      expect(_granted(state()), (100, 0), reason: '다시 열면 이어서 들어온다');
     });
 
     test('결제 창 결과가 끝내 안 온 채 상점을 다시 열면 결제 중 표시를 풀어 다시 살 수 있다(확인 중은 그대로)', () async {
@@ -276,7 +282,7 @@ void main() {
 
       await emit([const StorePurchased('heart_100', 'tok')]);
 
-      expect((state().toast! as GrantedToast).message, '150하트가 들어왔어요(보너스 50 포함)');
+      expect(_granted(state()), (100, 50));
       expect(me.calls, profileReads + 1, reason: '하트 잔액 provider 를 새로 읽는다');
       expect(repo.statusCount, statusReads + 1);
       expect(state().bonus, isNull, reason: '구매 뒤에는 배지가 사라진다(15e-2)');
@@ -287,7 +293,7 @@ void main() {
 
       await emit([const StorePurchased('heart_100', 'tok')]);
 
-      expect((state().toast! as GrantedToast).message, '100하트가 들어왔어요');
+      expect(_granted(state()), (100, 0));
     });
 
     test('확인 시트에서 보너스를 봤어도 서버가 0 을 주면 실제 지급만 말한다', () async {
@@ -296,7 +302,7 @@ void main() {
 
       await emit([const StorePurchased('heart_100', 'tok')]);
 
-      expect((state().toast! as GrantedToast).message, '100하트가 들어왔어요');
+      expect(_granted(state()), (100, 0));
       expect(repo.verified, [('heart_100', 'tok')]);
     });
 
@@ -351,7 +357,7 @@ void main() {
         gateway.unconsumed = const [StorePurchased('heart_100', 'tok')];
         await openStore();
         expect(repo.verified, [('heart_100', 'tok'), ('heart_100', 'tok')]);
-        expect((state().toast! as GrantedToast).message, '150하트가 들어왔어요(보너스 50 포함)');
+        expect(_granted(state()), (100, 50));
       });
     }
 
@@ -512,7 +518,7 @@ void main() {
       await pumpEventQueue();
 
       expect(gateway.finished, [transactionId]);
-      expect((state().toast! as GrantedToast).message, '150하트가 들어왔어요(보너스 50 포함)');
+      expect(_granted(state()), (100, 50));
     });
 
     test('이미 받은 거래(already_granted)도 끝낸다 — 하트는 이미 들어갔다', () async {

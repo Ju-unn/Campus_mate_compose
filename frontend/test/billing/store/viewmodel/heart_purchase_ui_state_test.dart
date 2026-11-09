@@ -40,8 +40,8 @@ void main() {
       selectedProductId: 'heart_200',
     );
 
-    expect(state.selectedBundle.priceLabel, r'US$8.99');
-    expect(state.priced(heartBundles.first).priceLabel, '3,000원');
+    expect((state.selectedBundle.price, state.selectedBundle.storePriceLabel), (null, r'US$8.99'));
+    expect(state.priced(heartBundles.first).price, 3000);
   });
 
   test('copyWith — 넘기지 않은 칸은 그대로, null 을 넘기면 지운다', () {
@@ -51,11 +51,5 @@ void main() {
     expect(noticed.copyWith(banner: null).banner, isNull);
     expect(noticed.copyWith(toast: null).toast, isNull);
     expect(noticed.copyWith(toast: null).accountToken, 'a' * 64);
-  });
-
-  test('토스트 글자 — 성공은 서버 숫자로(사용자 확정 10-13), 안내는 pen 글자', () {
-    expect(const GrantedToast(hearts: 100, bonusHearts: 50).message, '150하트가 들어왔어요(보너스 50 포함)');
-    expect(const GrantedToast(hearts: 800, bonusHearts: 0).message, '800하트가 들어왔어요');
-    expect(const NoticeToast(HeartPurchaseNotice.alreadyProcessed).message, '이미 처리된 결제예요');
   });
 }

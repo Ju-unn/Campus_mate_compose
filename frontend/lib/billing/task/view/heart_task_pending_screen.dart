@@ -1,11 +1,8 @@
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
-
-const String _title = '확인하고 있어요';
-const String _body = '확인이 끝나면 무료로 하트 모으기 목록에서 결과를 볼 수 있어요';
-const String _duration = '보통 영업일 1~2일 걸려요';
 
 /// pen 14/500 #6A6A6A, 줄높이 속성 없음 · 렌더 20.
 final TextStyle _bodyStyle =
@@ -18,6 +15,7 @@ class HeartTaskPendingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -34,14 +32,14 @@ class HeartTaskPendingScreen extends StatelessWidget {
                   const SizedBox(height: AppSpacing.md),
                   // pen `AI5GP` 18/700, 렌더 26(label 토큰 줄높이 1.2 면 22 라 묶음이 pen 보다 4 짧다).
                   Text(
-                    _title,
+                    l10n.billingTaskPendingScreenTitle,
                     textAlign: TextAlign.center,
                     style: AppTypography.label.copyWith(color: AppColors.ink, height: 26 / 18),
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  Text(_body, textAlign: TextAlign.center, style: _bodyStyle),
+                  Text(l10n.billingTaskPendingScreenBody, textAlign: TextAlign.center, style: _bodyStyle),
                   const SizedBox(height: AppSpacing.md),
-                  Text(_duration, textAlign: TextAlign.center, style: _bodyStyle),
+                  Text(l10n.billingTaskPendingScreenDuration, textAlign: TextAlign.center, style: _bodyStyle),
                 ],
               ),
             ),

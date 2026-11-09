@@ -20,7 +20,7 @@ class HeartTasksViewModel extends Notifier<HeartTasksUiState> {
     if (!ref.mounted) return;
     state = result.when(
       onSuccess: (tasks) => HeartTasksUiState(isLoading: false, tasks: tasks),
-      onFailure: (failure) => HeartTasksUiState(isLoading: false, errorMessage: failure.toDisplayMessage()),
+      onFailure: (failure) => HeartTasksUiState(isLoading: false, error: failure),
     );
   }
 }

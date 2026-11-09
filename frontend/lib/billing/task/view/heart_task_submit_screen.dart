@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:campus_mate/billing/task/model/data/everytime_form_link.dart';
 import 'package:campus_mate/billing/task/model/data/heart_task.dart';
 import 'package:campus_mate/billing/task/view/heart_task_photo_slots.dart';
+import 'package:campus_mate/billing/task/view/heart_task_text.dart';
 import 'package:campus_mate/billing/task/viewmodel/heart_task_submit_ui_state.dart';
 import 'package:campus_mate/billing/task/viewmodel/heart_tasks_view_model.dart';
 import 'package:campus_mate/billing/task/viewmodel/heart_task_submit_view_model.dart';
@@ -11,33 +12,30 @@ import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/muted_text_button.dart';
 import 'package:campus_mate/consent/model/repository/open_url.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-const String _guide = '스크린샷을 첨부하면 확인 후 하트를 드려요';
-
 /// 안내 아래 인증 기준 캡션(12/400 muted). 종전엔 에브리타임만 "날짜가 보이게 찍어 주세요"(대장 09-28 (가), 계획서 편차 6) —
 /// 사용자 결정 10-12 로 항목마다 기준을 적고, 날짜 안내는 에브리타임 기준에 합쳤다. pen 은 아직 옛 글자다(동기화 대기).
 /// 승인은 운영자가 눈으로 본다 — 서버는 이 기준을 검사하지 않는다. 단톡방 인원은 10-16 사용자 확정으로 5명 → 3명.
-String? _criteria(HeartTaskKind kind) => switch (kind) {
-      HeartTaskKind.everytimePost => '앱 이름(CampusMate)이 들어간 홍보 글을 올리고, 올린 날짜가 보이게 찍어 주세요',
-      HeartTaskKind.kakaoShare => '3명 이상이 있는 단톡방에 공유한 글과 단톡방 인원 수가 보이게 찍어 주세요',
+String? _criteria(AppLocalizations l10n, HeartTaskKind kind) => switch (kind) {
+      HeartTaskKind.everytimePost => l10n.billingTaskSubmitCriteriaEverytime,
+      HeartTaskKind.kakaoShare => l10n.billingTaskSubmitCriteriaKakaoShare,
       // 투표는 제출 화면이 없다(라우터가 18a 로 돌려보낸다).
       HeartTaskKind.pollVote => null,
     };
-const String _retryCaption = '다시 찍어 올려 주세요';
 
-/// 에브리타임 18b · 18b-2 보조 버튼(pen `F15q0W` · `DMrAI` TextButton, 대장 전달 값 10-17). 화살표는 아이콘이 아니라 글자다.
-const String _formLabel = '에브리타임 양식 보기 →';
-
-/// 낭독기는 화살표 대신 어디로 열리는지 읽는다.
-const String _formSemanticsLabel = '에브리타임 양식 보기, 브라우저로 열려요';
+// 에브리타임 18b · 18b-2 보조 버튼(pen `F15q0W` · `DMrAI` TextButton, 대장 전달 값 10-17)은 화살표가 아이콘이 아니라 글자다
+// (billingTaskSubmitFormLink). 낭독기는 화살표 대신 어디로 열리는지 읽는다(billingTaskSubmitFormLinkLabel).
 
 /// 18b 경로. 반려 뒤 다시 낼 때는 사유를 `reason` 으로 실어 18b-2 알림을 띄운다.
 String heartTaskSubmitLocation(HeartTaskKind kind, [HeartTaskRejectReason? reason]) => Uri(
@@ -89,7 +87,7 @@ class _HeartTaskSubmitScreenState extends ConsumerState<HeartTaskSubmitScreen> {
     } finally {
       _openingForm = false;
     }
-    if (!opened && mounted) _showToast(const UnknownFailure().toDisplayMessage());
+    if (!opened && mounted) _showToast(context.errorText(const UnknownFailure()));
   }
 
   void _showToast(String message) {
@@ -114,11 +112,12 @@ class _HeartTaskSubmitScreenState extends ConsumerState<HeartTaskSubmitScreen> {
         context.pushReplacement(AppRoutes.heartTaskPending);
         return;
       }
-      final message = next.errorMessage;
-      if (message != null) _showToast(message);
+      final error = next.error;
+      if (error != null) _showToast(context.errorText(error));
     });
     final state = ref.watch(heartTaskSubmitViewModelProvider);
     final viewModel = ref.read(heartTaskSubmitViewModelProvider.notifier);
+    final l10n = context.l10n;
     final reason = widget.rejectReason;
     final toast = _toast;
     return Scaffold(
@@ -140,7 +139,7 @@ class _HeartTaskSubmitScreenState extends ConsumerState<HeartTaskSubmitScreen> {
                 ),
               )
             : null,
-        title: Text('인증샷 제출', style: AppTypography.navTitle),
+        title: Text(l10n.billingTaskSubmitTitle, style: AppTypography.navTitle),
       ),
       body: SafeArea(
         // pen `re6T6`: 세로 간격 16, 안쪽 16.
@@ -149,8 +148,8 @@ class _HeartTaskSubmitScreenState extends ConsumerState<HeartTaskSubmitScreen> {
           children: [
             if (reason != null) ...[_RejectReasonAlert(reason: reason), const SizedBox(height: AppSpacing.md)],
             // pen `qLG9R` 16/600 #3F3F3F, 줄높이 속성 없음 · 렌더 23.
-            Text(_guide, style: AppTypography.bodyStrong.copyWith(color: AppColors.body, height: 23 / 16)),
-            if (_criteria(widget.kind) case final criteria?) ...[
+            Text(l10n.billingTaskSubmitGuide, style: AppTypography.bodyStrong.copyWith(color: AppColors.body, height: 23 / 16)),
+            if (_criteria(l10n, widget.kind) case final criteria?) ...[
               const SizedBox(height: AppSpacing.xxs),
               Text(criteria, style: AppTypography.caption.copyWith(color: AppColors.muted)),
             ],
@@ -167,10 +166,10 @@ class _HeartTaskSubmitScreenState extends ConsumerState<HeartTaskSubmitScreen> {
             if (widget.kind == HeartTaskKind.everytimePost) ...[
               Semantics(
                 button: true,
-                label: _formSemanticsLabel,
+                label: l10n.billingTaskSubmitFormLinkLabel,
                 excludeSemantics: true,
                 onTap: _openForm,
-                child: MutedTextButton(label: _formLabel, onPressed: _openForm),
+                child: MutedTextButton(label: l10n.billingTaskSubmitFormLink, onPressed: _openForm),
               ),
               const SizedBox(height: AppSpacing.md),
             ],
@@ -185,7 +184,7 @@ class _HeartTaskSubmitScreenState extends ConsumerState<HeartTaskSubmitScreen> {
               const SizedBox(height: AppSpacing.sm),
             ],
             AppButton(
-              label: reason == null ? '제출하기' : '다시 제출하기',
+              label: reason == null ? l10n.billingTaskSubmit : l10n.billingTaskSubmitResubmit,
               onPressed: state.canSubmit ? () => unawaited(viewModel.submit(widget.kind)) : null,
             ),
           ],
@@ -203,6 +202,7 @@ class _RejectReasonAlert extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Container(
       width: double.infinity,
       color: AppColors.errorWash,
@@ -217,12 +217,12 @@ class _RejectReasonAlert extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '반려 사유: ${reason.label}',
+                  l10n.billingTaskSubmitRejectReason(reason: reason.label(l10n)),
                   style: AppTypography.labelSmall.copyWith(color: AppColors.error, height: 1.5),
                 ),
                 // pen 알림 높이 67 = 위아래 24 + 21 + 18 + 4.
                 const SizedBox(height: AppSpacing.xxs),
-                Text(_retryCaption, style: AppTypography.caption.copyWith(color: AppColors.muted, height: 1.5)),
+                Text(l10n.billingTaskSubmitRetryCaption, style: AppTypography.caption.copyWith(color: AppColors.muted, height: 1.5)),
               ],
             ),
           ),

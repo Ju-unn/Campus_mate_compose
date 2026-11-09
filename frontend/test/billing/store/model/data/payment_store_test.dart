@@ -21,17 +21,5 @@ void main() {
     expect(storeOn(TargetPlatform.android), PaymentStore.googlePlay);
   });
 
-  test('결제 안내 두 줄 — 구글은 pen `bBjRD` 글자 그대로, App Store 는 같은 꼴에 스토어 이름만 바꾼다(pen 후속)', () {
-    expect([for (final store in PaymentStore.values) (store.name, store.paymentLine, store.refundLine)], [
-      ('googlePlay', '결제는 구글 플레이로 처리돼요', '결제 취소 · 환불은 구글 플레이 환불 절차를 따라요'),
-      ('appStore', '결제는 App Store로 처리돼요', '결제 취소 · 환불은 App Store 환불 절차를 따라요'),
-    ]);
-  });
-
-  test('App Store 문구에도 하네스 금지어(환급 · 선물 · 송금 · 현금 · 출금)가 없다(E-HEART-49)', () {
-    final lines = [for (final store in PaymentStore.values) ...[store.paymentLine, store.refundLine]];
-    for (final word in ['환급', '선물', '송금', '현금', '출금']) {
-      expect(lines.where((line) => line.contains(word)), isEmpty, reason: word);
-    }
-  });
+  // 결제 안내 두 줄의 글자는 view 쪽 확장이 정한다 — test/billing/store/view/heart_store_text_test.dart.
 }

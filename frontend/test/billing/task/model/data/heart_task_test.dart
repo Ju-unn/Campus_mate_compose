@@ -17,7 +17,6 @@ void main() {
     expect(task.state, HeartTaskState.rejected);
     expect(task.limit, 1);
     expect(task.rejectReason, HeartTaskRejectReason.dateMissing);
-    expect(task.rejectReason!.label, '날짜가 안 보여요');
   });
 
   test('새 칸 — 검수 대기 줄과 서명 주소(실패한 장은 null)를 읽는다', () {
