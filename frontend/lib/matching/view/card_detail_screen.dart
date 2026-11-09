@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/card_action_bar.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/common/widgets/trait_bar.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -12,6 +14,7 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/matching/model/data/card_decision.dart';
 import 'package:campus_mate/matching/model/data/card_detail.dart';
 import 'package:campus_mate/matching/view/profile_avatar_header.dart';
@@ -67,16 +70,16 @@ class CardDetailScreen extends ConsumerWidget {
                 child: BackButton(color: AppColors.ink),
               )
             : null,
-        title: Text('오늘의 카드', style: AppTypography.navTitle),
+        title: Text(context.l10n.matchingTodayTitle, style: AppTypography.navTitle),
       ),
       bottomNavigationBar: const AppBottomNav(current: AppTab.today),
       body: SafeArea(
         child: switch (detail) {
-          null when state.errorMessage != null => DetailMessage(text: state.errorMessage!),
+          null when state.error != null => DetailMessage(text: context.errorText(state.error!)),
           null => const Center(child: CircularProgressIndicator()),
           _ => _DetailBody(
             detail: detail,
-            errorMessage: state.errorMessage,
+            error: state.error,
             onReject: state.isSubmitting
                 ? null
                 : () => ref.read(provider.notifier).decide(CardDecision.reject),
@@ -125,28 +128,28 @@ const double _sectionGap = 13;
 
 /// DESIGN.md §8.5 문항 표의 양 끝 라벨. 순서는 05-01 활동성 … 05-09 새로움이다.
 /// 10b 는 바가 좁아 **짧은 말**을 쓴다 — 04-5 설문(입력)의 긴 문장과 일부러 다르다.
-const _axisLabels = <({String left, String right})>[
-  (left: '집콕', right: '밖으로'),
-  (left: '낯가림', right: '금방 친해짐'),
-  (left: '즉흥적', right: '계획적'),
-  (left: '가끔', right: '자주'),
-  (left: '담백', right: '표현 풍부'),
-  (left: '안 마심', right: '자주 마심'),
-  (left: '안 함', right: '꾸준히'),
-  (left: '천천히', right: '빠르게'),
-  (left: '익숙한 것', right: '새로운 것'),
-];
+List<({String left, String right})> _axisLabels(AppLocalizations l10n) => [
+      (left: l10n.matchingAxisActivityLeft, right: l10n.matchingAxisActivityRight),
+      (left: l10n.matchingAxisShynessLeft, right: l10n.matchingAxisShynessRight),
+      (left: l10n.matchingAxisPlanningLeft, right: l10n.matchingAxisPlanningRight),
+      (left: l10n.matchingAxisContactLeft, right: l10n.matchingAxisContactRight),
+      (left: l10n.matchingAxisExpressionLeft, right: l10n.matchingAxisExpressionRight),
+      (left: l10n.matchingAxisDrinkingLeft, right: l10n.matchingAxisDrinkingRight),
+      (left: l10n.matchingAxisExerciseLeft, right: l10n.matchingAxisExerciseRight),
+      (left: l10n.matchingAxisPaceLeft, right: l10n.matchingAxisPaceRight),
+      (left: l10n.matchingAxisNoveltyLeft, right: l10n.matchingAxisNoveltyRight),
+    ];
 
 class _DetailBody extends StatelessWidget {
   const _DetailBody({
     required this.detail,
     required this.onReject,
     required this.onAccept,
-    this.errorMessage,
+    this.error,
   });
 
   final CardDetail detail;
-  final String? errorMessage;
+  final Failure? error;
   final VoidCallback? onReject;
   final VoidCallback? onAccept;
 
@@ -162,10 +165,10 @@ class _DetailBody extends StatelessWidget {
           // 버튼은 카드 밖 14 아래에 붙어 함께 스크롤한다(pen `TORAs`).
           const SizedBox(height: 14),
           CardActionBar(onReject: onReject, onAccept: onAccept),
-          if (errorMessage != null) ...[
+          if (error != null) ...[
             const SizedBox(height: AppSpacing.md),
             Text(
-              errorMessage!,
+              context.errorText(error!),
               textAlign: TextAlign.center,
               style: AppTypography.bodySmall.copyWith(color: AppColors.error),
             ),
@@ -198,6 +201,8 @@ class ProfileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final profile = detail.profile;
+    final l10n = context.l10n;
+    final axisLabels = _axisLabels(l10n);
     return Container(
       padding: EdgeInsets.fromLTRB(20, 20, 20, footer == null ? 20 : 0),
       decoration: BoxDecoration(
@@ -221,28 +226,28 @@ class ProfileCard extends StatelessWidget {
           _Facts(detail: detail),
           // 카드 안 섹션 사이는 전부 13 이다(pen `TORAs`).
           const SizedBox(height: _sectionGap),
-          const _SectionLabel('성향'),
-          for (var axis = 0; axis < _axisLabels.length; axis += 1)
+          _SectionLabel(l10n.matchingCardSectionTraits),
+          for (var axis = 0; axis < axisLabels.length; axis += 1)
             Padding(
               // 줄 사이에만 8 — 마지막 줄 뒤는 섹션 간격 13 하나만 남긴다(pen `TORAs`).
               padding: EdgeInsets.only(
-                bottom: axis == _axisLabels.length - 1 ? 0 : AppSpacing.xs,
+                bottom: axis == axisLabels.length - 1 ? 0 : AppSpacing.xs,
               ),
               child: TraitBar(
-                leftLabel: _axisLabels[axis].left,
-                rightLabel: _axisLabels[axis].right,
+                leftLabel: axisLabels[axis].left,
+                rightLabel: axisLabels[axis].right,
                 value: axis < detail.survey.length ? detail.survey[axis] : 0,
               ),
             ),
           const SizedBox(height: _sectionGap),
-          const _SectionLabel('외모 타입'),
+          _SectionLabel(l10n.matchingCardSectionLook),
           _LookType(detail: detail),
           const SizedBox(height: _sectionGap),
-          _Tags(label: '관심사', values: detail.interests),
-          _Tags(label: '특징', values: detail.myTraits),
-          _Tags(label: '이상형 특징', values: detail.idealTraits),
+          _Tags(label: l10n.matchingCardSectionInterests, values: detail.interests),
+          _Tags(label: l10n.matchingCardSectionMyTraits, values: detail.myTraits),
+          _Tags(label: l10n.matchingCardSectionIdealTraits, values: detail.idealTraits),
           if (detail.idealNote != null) ...[
-            const _SectionLabel('이런 사람이 좋아요'),
+            _SectionLabel(l10n.matchingCardSectionIdealNote),
             Text(detail.idealNote!, style: AppTypography.body.copyWith(color: AppColors.body)),
           ],
           ?footer,
@@ -284,7 +289,7 @@ class _SchoolLine extends StatelessWidget {
     final parts = <String>[
       if (profile.university != null) profile.university!,
       if (profile.major != null) profile.major!,
-      if (detail.studentNumber != null) '${detail.studentNumber}학번',
+      if (detail.studentNumber != null) context.l10n.matchingStudentNumber(number: detail.studentNumber!),
     ];
     if (parts.isEmpty) {
       return const SizedBox.shrink();
@@ -329,12 +334,14 @@ class _Facts extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final studentNumber = detail.studentNumber;
     final facts = <({String label, String? value})>[
-      (label: '키', value: detail.heightCm == null ? null : '${detail.heightCm}cm'),
+      (label: l10n.matchingFactHeight, value: detail.heightCm == null ? null : '${detail.heightCm}cm'),
       (label: 'MBTI', value: detail.mbti),
-      (label: '학번', value: detail.studentNumber == null ? null : '${detail.studentNumber}학번'),
-      (label: '종교', value: detail.religion.label(context.l10n)),
-      (label: '흡연', value: detail.isSmoker ? '흡연' : '비흡연'),
+      (label: l10n.matchingFactStudentNumber, value: studentNumber == null ? null : l10n.matchingStudentNumber(number: studentNumber)),
+      (label: l10n.matchingFactReligion, value: detail.religion.label(l10n)),
+      (label: l10n.matchingFactSmoking, value: detail.isSmoker ? l10n.matchingFactSmoker : l10n.matchingFactNonSmoker),
     ];
     // 두 줄 사이 10, 열 사이 8, 라벨-값 사이 2 는 pen `TORAs` 실측값이다.
     // 칸 폭(3열 균등, pen 91)은 최소값이다 — 글자를 키워(§11.2) 값이 칸을 넘으면 그 칸만 넓어지고

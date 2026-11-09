@@ -335,7 +335,7 @@ final Map<String, Area1Case> area2Cases = {
       must(watch.elapsed < const Duration(seconds: 15), '15초 안에 알림 설정을 못 받음');
       await tester.pump(const Duration(milliseconds: 200));
     }
-    final error = container.read(notificationSettingsViewModelProvider).errorMessage;
+    final error = container.read(notificationSettingsViewModelProvider).error;
     must(error == null, '알림 설정을 못 읽음: $error');
     final list = find.descendant(of: page, matching: find.byType(Scrollable)).first;
     final wrong = <String>[];

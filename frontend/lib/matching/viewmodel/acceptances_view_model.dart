@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/matching/model/data/card_decision.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_ui_state.dart';
@@ -57,17 +58,17 @@ class AcceptancesViewModel extends Notifier<AcceptancesUiState> {
       ),
       // 첫 읽기(isLoading)는 quiet 여도 스켈레톤을 끝내야 한다 — build() 의 첫 읽기와 합쳐지는 경우도 같다.
       onFailure: (failure) =>
-          quiet && !state.isLoading ? state : _failed(failure.toDisplayMessage()),
+          quiet && !state.isLoading ? state : _failed(failure),
     );
   }
 
-  /// 오류 문구를 올린다. 로딩은 끝내고, 보내는 중 표시와 성사된 매칭은 그대로 둔다.
-  AcceptancesUiState _failed(String message) => state.copyWith(
+  /// 실패를 올린다(글자는 화면이 만든다). 로딩은 끝내고, 보내는 중 표시와 성사된 매칭은 그대로 둔다.
+  AcceptancesUiState _failed(Failure failure) => state.copyWith(
         isLoading: false,
         respondingCardId: state.respondingCardId,
         matchedNickname: state.matchedNickname,
         matchedMatchId: state.matchedMatchId,
-        errorMessage: message,
+        error: failure,
       );
 
   Future<void> respond(String cardId, CardDecision decision) async {
@@ -76,9 +77,9 @@ class AcceptancesViewModel extends Notifier<AcceptancesUiState> {
     }
     // 화면이 12 로 넘어간 뒤 뒤로 돌아와도 같은 매칭이 또 뜨지 않게 미리 비운다.
     final nickname = state.nicknameOf(cardId);
-    state = state.copyWith(respondingCardId: cardId, errorMessage: null);
+    state = state.copyWith(respondingCardId: cardId, error: null);
     final result = await ref.read(cardRepositoryProvider).respondToAcceptance(cardId, decision);
-    String? responseError;
+    Failure? responseError;
     state = result.when(
       onSuccess: (outcome) => state.copyWith(
         respondingCardId: null,
@@ -86,17 +87,17 @@ class AcceptancesViewModel extends Notifier<AcceptancesUiState> {
         matchedMatchId: outcome.matched ? outcome.matchId : null,
       ),
       onFailure: (failure) {
-        responseError = failure.toDisplayMessage();
-        return state.copyWith(respondingCardId: null, errorMessage: responseError);
+        responseError = failure;
+        return state.copyWith(respondingCardId: null, error: failure);
       },
     );
     // 성공이든 실패든(410 만료 포함) 목록은 서버 기준으로 다시 맞춘다.
     await refresh();
     // 목록 읽기가 성공하면 오류 문구를 지우니, 읽어야 할 응답 실패 문구는 갱신 뒤에 다시 올린다.
     // (갱신 자체가 실패해 그 문구가 올라와 있으면 그대로 둔다.)
-    final message = responseError;
-    if (message != null && state.errorMessage == null) {
-      state = _failed(message);
+    final failure = responseError;
+    if (failure != null && state.error == null) {
+      state = _failed(failure);
     }
   }
 

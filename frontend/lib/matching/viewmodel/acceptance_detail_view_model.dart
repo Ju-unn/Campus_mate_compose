@@ -27,7 +27,7 @@ class AcceptanceDetailViewModel extends Notifier<AcceptanceDetailUiState> {
     if (!ref.mounted) return;
     state = result.when(
       onSuccess: (detail) => AcceptanceDetailUiState(isLoading: false, detail: detail),
-      onFailure: (failure) => AcceptanceDetailUiState(isLoading: false, errorMessage: failure.toDisplayMessage()),
+      onFailure: (failure) => AcceptanceDetailUiState(isLoading: false, error: failure),
     );
   }
 }

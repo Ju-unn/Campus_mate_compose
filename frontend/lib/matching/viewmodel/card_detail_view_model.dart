@@ -33,7 +33,7 @@ class CardDetailViewModel extends Notifier<CardDetailUiState> {
     final result = await ref.read(cardRepositoryProvider).fetchCard(cardId);
     state = result.when(
       onSuccess: (detail) => CardDetailUiState(detail: detail),
-      onFailure: (failure) => CardDetailUiState(errorMessage: failure.toDisplayMessage()),
+      onFailure: (failure) => CardDetailUiState(error: failure),
     );
   }
 
@@ -42,12 +42,12 @@ class CardDetailViewModel extends Notifier<CardDetailUiState> {
     if (state.isSubmitting || state.decided) {
       return;
     }
-    state = state.copyWith(isSubmitting: true, errorMessage: null);
+    state = state.copyWith(isSubmitting: true, error: null);
     final result = await ref.read(cardRepositoryProvider).decide(cardId, decision);
     state = result.when(
       onSuccess: (_) => state.copyWith(isSubmitting: false, decided: true, decision: decision),
       onFailure: (failure) =>
-          state.copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage()),
+          state.copyWith(isSubmitting: false, error: failure),
     );
     // 사용 통계 `chat_request_sent` — 서버가 수락(= 대화 신청)을 받아 준 뒤에만. 거절은 신청이 아니다.
     if (state.decided && decision == CardDecision.accept) {

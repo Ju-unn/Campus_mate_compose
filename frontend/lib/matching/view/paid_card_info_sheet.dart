@@ -1,25 +1,31 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 
 /// "이렇게 정밀하게 골랐어요" 의 이유 넷(pen 값표 §6). 앱 투어 5단계(`tour/view/tour_precision_points.dart`)도 같은 이름 · 그림을 쓴다 —
-/// 한쪽만 바뀌지 않게 여기 한 곳에 둔다.
-const List<({AppIcon3d icon, String title, String description})> paidCardReasons = [
-  (
-    icon: AppIcon3d.chat,
-    title: '성향 9가지 비교',
-    description: '집콕·밖으로부터 익숙한 것·새로운 것까지 설문 답을 하나하나 비교해요',
-  ),
-  (icon: AppIcon3d.tags, title: '관심사와 특징 태그', description: '겹치는 관심사가 많을수록 점수가 올라가요'),
-  (icon: AppIcon3d.sparkles, title: 'AI 글 분석', description: "자기소개와 '이런 사람이 좋아요' 글의 의미를 AI가 서로 비교해요"),
-  (icon: AppIcon3d.badgeCheck, title: '원하는 조건 반영', description: '나이·키·MBTI·흡연·종교 조건이 맞을수록 높게 쳐요'),
-];
+/// 한쪽만 바뀌지 않게 여기 한 곳에 둔다(글자는 문구 파일 ARB `matchingPaidReason*`).
+List<({AppIcon3d icon, String title, String description})> paidCardReasons(AppLocalizations l10n) => [
+      (
+        icon: AppIcon3d.chat,
+        title: l10n.matchingPaidReasonTraitsTitle,
+        description: l10n.matchingPaidReasonTraitsDescription,
+      ),
+      (icon: AppIcon3d.tags, title: l10n.matchingPaidReasonTagsTitle, description: l10n.matchingPaidReasonTagsDescription),
+      (icon: AppIcon3d.sparkles, title: l10n.matchingPaidReasonTextTitle, description: l10n.matchingPaidReasonTextDescription),
+      (
+        icon: AppIcon3d.badgeCheck,
+        title: l10n.matchingPaidReasonConditionsTitle,
+        description: l10n.matchingPaidReasonConditionsDescription,
+      ),
+    ];
 
 /// 결제 카드 물음표를 누르면 뜨는 "이렇게 정밀하게 골랐어요" 안내 시트(pen `EP8pA` → 시트 `sp1xa`, 값표 §6).
 /// 문구는 pen 값표 그대로이고, 점수 숫자 · 순위 · 비중(30/20/50%) · 학교 이름은 이 시트에 없다.
@@ -38,6 +44,7 @@ class PaidCardInfoSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return DecoratedBox(
       key: const ValueKey('paid-card-info-sheet'),
       decoration: const BoxDecoration(
@@ -60,16 +67,16 @@ class PaidCardInfoSheet extends StatelessWidget {
                   children: [
                     // pen `aaNm1` 20/700, 줄높이 속성 없음 · 렌더 29.
                     Text(
-                      '이렇게 정밀하게 골랐어요',
+                      l10n.matchingPaidInfoTitle,
                       style: AppTypography.navTitle.copyWith(color: AppColors.ink, height: 29 / 20),
                     ),
                     const SizedBox(height: _gap),
                     // pen `du9NW` 14/400/1.55 #6A6A6A.
                     Text(
-                      '내 프로필과 상대 프로필을 네 가지로 나눠 비교해 점수를 매겼어요.',
+                      l10n.matchingPaidInfoBody,
                       style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
                     ),
-                    for (final reason in paidCardReasons) ...[
+                    for (final reason in paidCardReasons(l10n)) ...[
                       const SizedBox(height: _gap),
                       _ReasonRow(icon: reason.icon, title: reason.title, description: reason.description),
                     ],
@@ -79,7 +86,7 @@ class PaidCardInfoSheet extends StatelessWidget {
                     KeyedSubtree(
                       key: const ValueKey('paid-card-info-confirm'),
                       child: AppButton(
-                        label: '알겠어요',
+                        label: l10n.matchingPaidInfoConfirm,
                         trailingIcon: AppIcons.arrowRight,
                         onPressed: () => Navigator.of(context).pop(),
                       ),
@@ -162,7 +169,7 @@ class _Highlight extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Text(
-          '이 분석으로 나와 가장 잘 맞는 사람들 가운데 한 명을 골랐어요',
+          context.l10n.matchingPaidInfoHighlight,
           style: AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w700, height: 1.5, color: AppColors.ink),
         ),
       ),

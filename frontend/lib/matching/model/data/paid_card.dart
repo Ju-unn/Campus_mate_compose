@@ -9,10 +9,12 @@ const String heartsNotEnoughCode = 'hearts_not_enough';
 const String paidOfferGoneCode = 'paid_offer_gone';
 
 /// 서버 `errors.py` 의 HEARTS_NOT_ENOUGH(402)와 같은 글자. code 를 주지 않는 옛 서버·다른 경로를 위한 폴백이다
-/// (`ServerRejectedFailure` 에 상태코드가 없어 문구로 가른다).
+/// (`ServerRejectedFailure` 에 상태코드가 없어 문구로 가른다). 화면에 보이는 글자는 이 상수가 아니라 ARB 다.
+// l10n-ignore(server-text): 서버 errors.py HEARTS_NOT_ENOUGH 와 글자까지 같아야 하는 비교 상수 — ARB 로 옮기면 폴백 분기가 조용히 죽는다
 const String heartsNotEnoughMessage = '하트가 모자라요';
 
 /// 서버 `errors.py` 의 PAID_OFFER_GONE(409)와 같은 글자. 위와 같은 폴백이다.
+// l10n-ignore(server-text): 서버 errors.py PAID_OFFER_GONE 과 글자까지 같아야 하는 비교 상수 — ARB 로 옮기면 폴백 분기가 조용히 죽는다
 const String paidOfferGoneMessage = '지금은 열 수 없는 카드예요';
 
 /// 유료 카드 구매가 거절된 두 경우를 가른다(지시문 23 A3).
@@ -29,7 +31,7 @@ extension PaidPurchaseFailure on Failure {
     if (failure is! ServerRejectedFailure) {
       return false;
     }
-    return failure.hasAnyCode() ? failure.hasCode(code) : failure.toDisplayMessage() == message;
+    return failure.hasAnyCode() ? failure.hasCode(code) : failure.serverMessage == message;
   }
 }
 

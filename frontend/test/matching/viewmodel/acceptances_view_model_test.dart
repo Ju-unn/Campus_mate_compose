@@ -81,7 +81,7 @@ void main() {
 
     await viewModel.respond('card-1', CardDecision.accept);
 
-    expect(container.read(acceptancesViewModelProvider).errorMessage, '기한이 지났어요');
+    expect(container.read(acceptancesViewModelProvider).error, isA<ServerRejectedFailure>().having((f) => f.serverMessage, 'serverMessage', '기한이 지났어요'));
     expect(container.read(acceptancesViewModelProvider).acceptances, isEmpty);
   });
 
@@ -109,7 +109,7 @@ void main() {
       await viewModel().refresh(quiet: true);
 
       expect(stateNow().acceptances, hasLength(1));
-      expect(stateNow().errorMessage, isNull);
+      expect(stateNow().error, isNull);
     });
 
     test('아직 한 번도 못 읽은 상태의 조용한 읽기 실패는 로딩을 끝내고 오류를 보인다', () async {
@@ -118,7 +118,7 @@ void main() {
       await viewModel().refresh(quiet: true);
 
       expect(stateNow().isLoading, isFalse);
-      expect(stateNow().errorMessage, const NetworkFailure().toDisplayMessage());
+      expect(stateNow().error, isA<NetworkFailure>());
     });
 
     test('당겨서 새로고침(조용하지 않은 읽기)이 실패하면 오류를 보이고 줄은 남는다', () async {
@@ -129,7 +129,7 @@ void main() {
       await viewModel().refresh();
 
       expect(stateNow().acceptances, hasLength(1));
-      expect(stateNow().errorMessage, const NetworkFailure().toDisplayMessage());
+      expect(stateNow().error, isA<NetworkFailure>());
     });
 
     test('답을 보내는 중에 조용한 재읽기가 끝나도 보내는 중 표시는 그대로다 — 연타 방지', () async {
@@ -159,7 +159,7 @@ void main() {
       await viewModel().refresh();
 
       expect(stateNow().respondingCardId, 'card-1');
-      expect(stateNow().errorMessage, const NetworkFailure().toDisplayMessage());
+      expect(stateNow().error, isA<NetworkFailure>());
       repository.holdRespond!.complete();
       await responding;
     });
@@ -192,7 +192,7 @@ void main() {
       expect(stateNow().matchedNickname, '초코라떼');
       expect(stateNow().matchedMatchId, 'm-1');
       expect(stateNow().respondingCardId, isNull);
-      expect(stateNow().errorMessage, const NetworkFailure().toDisplayMessage());
+      expect(stateNow().error, isA<NetworkFailure>());
     });
 
     test('조용한 재읽기가 실패해도 방금 성사된 매칭 정보는 지우지 않는다', () async {
@@ -242,7 +242,7 @@ void main() {
 
       expect(repository.fetchAcceptancesCount, before + 1);
       expect(stateNow().acceptances, hasLength(1));
-      expect(stateNow().errorMessage, const NetworkFailure().toDisplayMessage());
+      expect(stateNow().error, isA<NetworkFailure>());
     });
 
     test('조용하지 않은 호출이 여러 번 합쳐져도 끝난 뒤 다시 읽는 건 한 번이다', () async {
@@ -290,13 +290,13 @@ void main() {
     test('읽기가 한 번 실패한 뒤 다음 읽기가 성공하면 오류 문구를 지운다', () async {
       repository.acceptances = const FailureResult(NetworkFailure());
       await viewModel().refresh();
-      expect(stateNow().errorMessage, isNotNull);
+      expect(stateNow().error, isNotNull);
       repository.acceptances = const Success([_acceptance]);
 
       await viewModel().refresh();
 
       expect(stateNow().acceptances, hasLength(1));
-      expect(stateNow().errorMessage, isNull);
+      expect(stateNow().error, isNull);
     });
 
     test('응답이 실패한 뒤 목록 갱신이 성공해도 응답 실패 문구는 남는다', () async {
@@ -307,7 +307,7 @@ void main() {
       await viewModel().respond('card-1', CardDecision.accept);
 
       expect(stateNow().acceptances, hasLength(1));
-      expect(stateNow().errorMessage, const NetworkFailure().toDisplayMessage());
+      expect(stateNow().error, isA<NetworkFailure>());
       expect(stateNow().respondingCardId, isNull);
     });
 
@@ -320,7 +320,7 @@ void main() {
 
       await viewModel().respond('card-1', CardDecision.accept);
 
-      expect(stateNow().errorMessage, const ServerUnavailableFailure().toDisplayMessage());
+      expect(stateNow().error, isA<ServerUnavailableFailure>());
       expect(stateNow().respondingCardId, isNull);
     });
 
@@ -333,7 +333,7 @@ void main() {
 
       await viewModel().respond('card-1', CardDecision.accept);
 
-      expect(stateNow().errorMessage, isNull);
+      expect(stateNow().error, isNull);
     });
   });
 }

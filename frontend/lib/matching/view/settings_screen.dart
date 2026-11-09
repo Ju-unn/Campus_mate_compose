@@ -7,6 +7,8 @@ import 'package:campus_mate/consent/model/data/consent_links.dart';
 import 'package:campus_mate/consent/model/repository/open_url.dart';
 import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/auth/confirm_sign_out.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -52,10 +54,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   /// 학교 오픈 전(코호트 대기)이면 투어가 가리킬 화면(09b · 오늘의 카드)이 없어 막는다. 요약을 못 받았으면 열린 것으로 친다.
   Future<void> _replayTour() async {
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
     final summary = await ref.read(homeSummaryProvider.future);
     if (!mounted) return;
     if (summary?.cohort != null) {
-      showSafetyToast(messenger, '학교 오픈 후에 볼 수 있어요', icon: AppIcons.info);
+      showSafetyToast(messenger, l10n.matchingSettingsTourLocked, icon: AppIcons.info);
       return;
     }
     ref.read(appTourViewModelProvider.notifier).replay();
@@ -67,8 +70,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     // DESIGN §8.13: 받지도 못하고 캐시도 없을 때만 숨긴다. 받는 중에는 보인다 — 늦게 튀어나와 아래 줄이 밀리지 않게.
     final faq = ref.watch(faqProvider);
     final showFaq = faq.isLoading || (faq.value?.isNotEmpty ?? false);
+    final l10n = context.l10n;
     return Scaffold(
-      appBar: AppBar(title: Text('설정', style: AppTypography.navTitle)),
+      appBar: AppBar(title: Text(l10n.matchingSettingsTitle, style: AppTypography.navTitle)),
       body: SafeArea(
         child: ListView(
           // pen `HM9xA` 위 12 · 좌우 16 · 섹션 사이 20.
@@ -77,7 +81,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             // pen `X4olk` — 맨 위, 다음 섹션과 사이 20(목록 gap).
             _HeartBalanceBlock(onTap: _openHeartStore),
             _sectionGap,
-            _Section('매칭', [
+            _Section(l10n.matchingSettingsSectionMatching, [
               SwitchListTile.adaptive(
                 // 꺼짐 = 일시중지다. 화면은 "활성화"를 묻고 서버에는 그 반대를 보낸다.
                 value: !state.matchingPaused,
@@ -89,71 +93,75 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 contentPadding: _rowPadding,
                 horizontalTitleGap: AppSpacing.sm,
                 secondary: const Icon3d(AppIcon3d.users, size: 22),
-                title: Text('매칭 활성화', style: _titleStyle),
-                subtitle: Text('잠시 쉬고 싶으면 꺼두세요', style: _noteStyle),
+                title: Text(l10n.matchingSettingsMatchingActive, style: _titleStyle),
+                subtitle: Text(l10n.matchingSettingsMatchingActiveNote, style: _noteStyle),
               ),
             ]),
-            if (state.errorMessage != null)
+            if (state.error != null)
               Padding(
                 padding: const EdgeInsets.only(top: AppSpacing.xs),
                 child: Text(
-                  state.errorMessage!,
+                  context.errorText(state.error!),
                   style: AppTypography.bodySmall.copyWith(color: AppColors.error),
                 ),
               ),
             _sectionGap,
-            _Section('하트', [
+            _Section(l10n.commonHeart, [
               // pen `zlpeY` — 하트 카드 첫 줄. 아이콘은 3D 가 아니라 lucide plus 20 #3F3F3F.
-              _Row.plain(icon: AppIcons.plus, title: '하트 충전', onTap: _openHeartStore),
+              _Row.plain(icon: AppIcons.plus, title: l10n.matchingSettingsHeartCharge, onTap: _openHeartStore),
               _Row(
                 icon: AppIcon3d.gift,
-                title: '무료로 하트 모으기',
+                title: l10n.matchingSettingsHeartTasks,
                 onTap: () => context.push(AppRoutes.heartTasks),
               ),
               _Row(
                 icon: AppIcon3d.users,
-                title: '친구 초대',
-                note: '내 추천 코드를 친구에게 보내요',
+                title: l10n.matchingSettingsInviteFriends,
+                note: l10n.matchingSettingsInviteFriendsNote,
                 onTap: () => showInviteFriendsSheet(context),
               ),
             ]),
             _sectionGap,
-            _Section('계정·정보', [
-              _Row(icon: AppIcon3d.userRound, title: '계정', onTap: () => context.push(AppRoutes.account)),
+            _Section(l10n.matchingSettingsSectionAccount, [
+              _Row(icon: AppIcon3d.userRound, title: l10n.matchingSettingsAccount, onTap: () => context.push(AppRoutes.account)),
               _Row(
                 icon: AppIcon3d.bell,
-                title: '알림',
+                title: l10n.matchingSettingsNotifications,
                 onTap: () => context.push(AppRoutes.notificationSettings),
               ),
-              _Row(icon: AppIcon3d.blockUser, title: '차단 목록', onTap: () => context.push(AppRoutes.blockList)),
+              _Row(icon: AppIcon3d.blockUser, title: l10n.matchingSettingsBlockList, onTap: () => context.push(AppRoutes.blockList)),
               // 16b 는 권한 없이 연다 — 권한을 거부한 사람도 등록한 차단을 보고 풀 수 있게. 권한은 16b "추가" 에서만 묻는다.
-              _Row(icon: AppIcon3d.contact, title: '연락처 차단', onTap: () => context.push(AppRoutes.contactBlocks)),
+              _Row(
+                icon: AppIcon3d.contact,
+                title: l10n.matchingSettingsContactBlocks,
+                onTap: () => context.push(AppRoutes.contactBlocks),
+              ),
             ]),
             _sectionGap,
-            _Section('지원', [
+            _Section(l10n.matchingSettingsSectionSupport, [
               if (showFaq)
                 _Row(
                   icon: AppIcon3d.help,
                   iconSize: 22,
-                  title: '자주 묻는 질문',
+                  title: l10n.matchingSettingsFaq,
                   onTap: () => context.push(AppRoutes.faq),
                 ),
               // pen 에 없는 줄(앱 투어 — 사용자 확정 지시). 줄 모양은 다른 줄과 같고 그림은 있는 3D 정보 아이콘을 쓴다.
-              _Row(icon: AppIcon3d.infoBlue, title: '가이드 다시 보기', onTap: _replayTour),
-              _Row(icon: AppIcon3d.terms, title: '이용약관', onTap: () => _open(context, ref, termsLink)),
+              _Row(icon: AppIcon3d.infoBlue, title: l10n.matchingSettingsReplayTour, onTap: _replayTour),
+              _Row(icon: AppIcon3d.terms, title: l10n.matchingSettingsTerms, onTap: () => _open(context, ref, termsLink)),
               _Row(
                 icon: AppIcon3d.privacy,
-                title: '개인정보처리방침',
+                title: l10n.matchingSettingsPrivacy,
                 onTap: () => _open(context, ref, privacyPolicyLink),
               ),
-              _Row(icon: AppIcon3d.logout, title: '로그아웃', onTap: () => confirmSignOut(context, ref)),
+              _Row(icon: AppIcon3d.logout, title: l10n.commonLogout, onTap: () => confirmSignOut(context, ref)),
             ]),
             // 위험 영역(pen `VmUvb` padding [24,16,28,16] · `rlWDn`). 목록 줄이 아니라 목록 아래 단독 버튼이다(대장 결정 2) —
             // 좌우 16 은 목록 여백이 이미 준다.
             Padding(
               padding: const EdgeInsets.only(top: AppSpacing.lg, bottom: 28),
               child: AppButton(
-                label: '탈퇴하기',
+                label: l10n.matchingSettingsWithdraw,
                 variant: AppButtonVariant.danger,
                 onPressed: () => showWithdrawSheets(context),
               ),
@@ -169,6 +177,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (_openingTerms) return; // 여는 호출이 끝나기 전에 다시 눌러도 두 번 열지 않는다
     _openingTerms = true;
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
     bool opened;
     try {
       opened = await ref.read(openUrlProvider)(link);
@@ -178,7 +187,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       _openingTerms = false;
     }
     if (!opened) {
-      showSafetyToast(messenger, const UnknownFailure().toDisplayMessage(), icon: AppIcons.alertTriangle);
+      showSafetyToast(messenger, failureText(l10n, const UnknownFailure()), icon: AppIcons.alertTriangle);
     }
   }
 }
@@ -295,9 +304,12 @@ class _HeartBalanceBlock extends ConsumerWidget {
       ),
     );
     final radius = BorderRadius.circular(AppRadius.input);
+    final l10n = context.l10n;
     return Semantics(
       // 한 덩어리로 읽는다 — "보유 하트 320개, 충전".
-      label: balance == null ? '보유 하트를 불러오는 중, 충전' : '보유 하트 $balance개, 충전',
+      label: balance == null
+          ? l10n.matchingSettingsHeartBalanceLoadingLabel
+          : l10n.matchingSettingsHeartBalanceLabel(count: balance),
       button: true,
       excludeSemantics: true,
       onTap: onTap,
@@ -322,16 +334,16 @@ class _HeartBalanceBlock extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       spacing: 2,
                       children: [
-                        Text('보유 하트', style: AppTypography.labelSmall.copyWith(color: AppColors.muted)),
+                        Text(l10n.matchingSettingsHeartBalanceTitle, style: AppTypography.labelSmall.copyWith(color: AppColors.muted)),
                         Text(
-                          balance == null ? '-' : '${formatWon(balance)}개',
+                          balance == null ? '-' : l10n.matchingSettingsHeartBalanceCount(count: formatWon(balance)),
                           style: AppTypography.title.copyWith(fontWeight: FontWeight.w700, color: AppColors.ink),
                         ),
                       ],
                     ),
                   ),
                   Text(
-                    '충전',
+                    l10n.matchingSettingsHeartChargeShort,
                     style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText, fontWeight: FontWeight.w700),
                   ),
                   const Icon(AppIcons.chevronRight, size: 20, color: AppColors.primaryText),

@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -15,10 +18,6 @@ import 'package:campus_mate/matching/viewmodel/acceptances_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
-const String _title = '받은 신청';
-const String _rejectLabel = '거절';
-const String _acceptLabel = '수락하기';
 
 /// 받은 신청 · 프로필 보기(pen `o4QqYR`, 사용자 결정 2026-10-16). 대화 탭 받은 신청 행의 "프로필 보기" 가 push 로 연다.
 /// 상대를 10b 카드 상세와 같은 수준(아바타 · 성향 · 태그 · 소개글)으로 보고 여기서 결정한다. 실사진 · 카카오톡 아이디는
@@ -63,19 +62,19 @@ class _AcceptanceDetailScreenState extends ConsumerState<AcceptanceDetailScreen>
           padding: const EdgeInsets.only(left: 8),
           child: BackButton(color: AppColors.ink, onPressed: _leave),
         ),
-        title: Text(_title, style: AppTypography.navTitle),
+        title: Text(context.l10n.matchingAcceptanceDetailTitle, style: AppTypography.navTitle),
       ),
       bottomNavigationBar: detail == null
           ? null
           : _DecisionBar(
-              errorMessage: _sent ? acceptances.errorMessage : null,
+              error: _sent ? acceptances.error : null,
               onReject: busy ? null : () => _respond(CardDecision.reject),
               onAccept: busy ? null : () => _respond(CardDecision.accept),
             ),
       body: SafeArea(
         child: switch (detail) {
           // 읽기 실패(404 · 409 · 410 · 연결)는 pen 에 없는 상태다 — 10b 와 같은 가운데 회색 문구.
-          null when state.errorMessage != null => DetailMessage(text: state.errorMessage!),
+          null when state.error != null => DetailMessage(text: context.errorText(state.error!)),
           null => const Center(child: CircularProgressIndicator()),
           _ => SingleChildScrollView(
             // 카드가 앱바에 바로 붙는다(10b `TORAs` 와 같은 본문 여백).
@@ -100,7 +99,7 @@ class _AcceptanceDetailScreenState extends ConsumerState<AcceptanceDetailScreen>
       context.pushReplacement(AppRoutes.matchMade, extra: (nickname: nickname, matchId: next.matchedMatchId));
       return;
     }
-    if (next.errorMessage == null) {
+    if (next.error == null) {
       _leave();
     }
   }
@@ -120,20 +119,20 @@ class _AcceptanceDetailScreenState extends ConsumerState<AcceptanceDetailScreen>
 /// 거절 폭 104 · 수락하기 남은 폭, 사이 12, 높이 56 — 10b [CardActionBar] 와 같은 짜임에 거절은 secondary 색이다.
 /// 글자를 키우면 두 버튼이 같은 높이로 함께 커진다.
 class _DecisionBar extends StatelessWidget {
-  const _DecisionBar({required this.onReject, required this.onAccept, this.errorMessage});
+  const _DecisionBar({required this.onReject, required this.onAccept, this.error});
 
   final VoidCallback? onReject;
   final VoidCallback? onAccept;
 
-  /// 보내기 실패 문구(pen 에 없는 상태 — 10b 처럼 버튼 곁에 빨간 작은 글씨).
-  final String? errorMessage;
+  /// 보내기 실패(pen 에 없는 상태 — 10b 처럼 버튼 곁에 빨간 작은 글씨).
+  final Failure? error;
 
   /// 거절 버튼 폭(pen `o4QqYR`, 10b 와 같은 값).
   static const double _rejectWidth = 104;
 
   @override
   Widget build(BuildContext context) {
-    final message = errorMessage;
+    final failure = error;
     return DecoratedBox(
       decoration: const BoxDecoration(
         color: AppColors.canvas,
@@ -147,9 +146,9 @@ class _DecisionBar extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (message != null) ...[
+              if (failure != null) ...[
                 Text(
-                  message,
+                  context.errorText(failure),
                   textAlign: TextAlign.center,
                   style: AppTypography.bodySmall.copyWith(color: AppColors.error),
                 ),
@@ -163,7 +162,7 @@ class _DecisionBar extends StatelessWidget {
                       width: _rejectWidth,
                       child: _DecisionButton(
                         icon: AppIcons.x,
-                        label: _rejectLabel,
+                        label: context.l10n.matchingAcceptanceDetailReject,
                         background: AppColors.primaryDisabled,
                         foreground: AppColors.ink,
                         iconGap: 6,
@@ -174,7 +173,7 @@ class _DecisionBar extends StatelessWidget {
                     Expanded(
                       child: _DecisionButton(
                         icon: AppIcons.check,
-                        label: _acceptLabel,
+                        label: context.l10n.matchingAcceptanceDetailAccept,
                         background: AppColors.primary,
                         foreground: AppColors.onPrimary,
                         iconGap: AppSpacing.xs,

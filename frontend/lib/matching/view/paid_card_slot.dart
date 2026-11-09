@@ -1,6 +1,8 @@
 import 'package:campus_mate/community/view/poll_toast.dart';
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/core/analytics/analytics_values.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/matching/model/data/paid_card.dart';
 import 'package:campus_mate/matching/view/paid_card_info_sheet.dart';
@@ -101,12 +103,15 @@ Future<void> handlePurchaseNotice(BuildContext context, WidgetRef ref, PurchaseN
   final viewModel = ref.read(todayCardsViewModelProvider.notifier);
   final paid = ref.read(todayCardsViewModelProvider).paidCard;
   viewModel.consumeNotice();
+  // 토스트 글자는 앱이 정한 ARB 글자다(서버 문구 비교 상수 heartsNotEnoughMessage · paidOfferGoneMessage 와 같은 글자).
+  // 그 밖의 실패는 그 실패의 글자 — 서버가 준 거절 문구면 그대로다.
+  final failure = notice.failure;
   if (notice.kind != PurchaseNoticeKind.heartsNotEnough) {
-    showPollToast(context, notice.message ?? paidOfferGoneMessage);
+    showPollToast(context, failure == null ? context.l10n.matchingPaidOfferGone : context.errorText(failure));
     return;
   }
   if (paid is! PaidCardOffered) {
-    showPollToast(context, heartsNotEnoughMessage);
+    showPollToast(context, context.l10n.matchingPaidHeartsShortTitle);
     return;
   }
   final balance = await _heartBalance(ref);

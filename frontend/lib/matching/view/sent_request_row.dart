@@ -1,9 +1,11 @@
 import 'package:campus_mate/common/widgets/school_label.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/matching/model/data/sent_request.dart';
 import 'package:campus_mate/matching/view/acceptance_row.dart';
 import 'package:flutter/material.dart';
@@ -110,7 +112,7 @@ class _Status extends StatelessWidget {
         if (request.status == SentRequestStatus.expired) ...[
           const SizedBox(height: AppSpacing.xxs),
           Text(
-            '응답이 없었어요',
+            context.l10n.matchingSentNoResponse,
             textAlign: TextAlign.end,
             style: AppTypography.caption.copyWith(color: AppColors.muted),
           ),
@@ -130,11 +132,12 @@ class _StatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final matched = request.status == SentRequestStatus.matched;
     final foreground = matched ? AppColors.primaryText : AppColors.muted;
+    final l10n = context.l10n;
     final (icon, label) = switch (request.status) {
-      SentRequestStatus.waiting => (AppIcons.timer, _waitingLabel(request.daysLeft)),
-      SentRequestStatus.matched => (AppIcons.messageCircle, '매칭됨'),
-      SentRequestStatus.rejected => (AppIcons.x, '거절됨'),
-      SentRequestStatus.expired => (AppIcons.timerOff, '만료됨'),
+      SentRequestStatus.waiting => (AppIcons.timer, _waitingLabel(l10n, request.daysLeft)),
+      SentRequestStatus.matched => (AppIcons.messageCircle, l10n.matchingSentStatusMatched),
+      SentRequestStatus.rejected => (AppIcons.x, l10n.matchingSentStatusRejected),
+      SentRequestStatus.expired => (AppIcons.timerOff, l10n.matchingSentStatusExpired),
     };
     return Container(
       // pen 높이 28 은 배율 1.0 의 값이다(글자 12 × 1.25 = 15 + 위아래 6 = 27 이라 28 로 채우고 가운데 둔다) — 글자를 키우면 칩이 따라 커진다.
@@ -166,8 +169,8 @@ class _StatusChip extends StatelessWidget {
 
   /// 서버 days_left 는 남은 시간의 올림(최소 1)이라 1 이면 24시간 이하다 — "1일 남음" 대신 "오늘 마감".
   /// 앱이 기기 시계로 다시 재지 않는다(대장 정정 10-13). 기다리는 중인데 값이 빠졌으면 최솟값 1 로 본다.
-  static String _waitingLabel(int? daysLeft) {
+  static String _waitingLabel(AppLocalizations l10n, int? daysLeft) {
     final days = daysLeft ?? 1;
-    return days <= 1 ? '오늘 마감' : '$days일 남음';
+    return days <= 1 ? l10n.matchingSentDueToday : l10n.matchingSentDaysLeft(days: days);
   }
 }

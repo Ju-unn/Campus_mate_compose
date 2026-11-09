@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_lottie_view.dart';
 import 'package:campus_mate/common/widgets/entrance.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_lottie.dart';
@@ -69,10 +70,10 @@ class MatchMadeScreen extends StatelessWidget {
           child: Column(
             children: [
               // pen 원본 12 `UFNSi` 의 `T5kQ4x` 도 32/700 — 토큰 display(매칭 성사 화면 용도).
-              Text('매칭됐어요!', style: AppTypography.display.copyWith(color: AppColors.ink)),
+              Text(context.l10n.matchingMatchMadeTitle, style: AppTypography.display.copyWith(color: AppColors.ink)),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                '$nickname 님과 매칭됐어요.\n대화를 시작해 보세요.',
+                context.l10n.matchingMatchMadeBody(nickname: nickname),
                 textAlign: TextAlign.center,
                 style: AppTypography.body.copyWith(color: AppColors.muted),
               ),
@@ -81,14 +82,14 @@ class MatchMadeScreen extends StatelessWidget {
         ),
         const SizedBox(height: 40),
         AppButton(
-          label: '대화 시작하기',
+          label: context.l10n.matchingMatchMadeStartChat,
           onPressed: () => context.go(
             matchId == null ? AppRoutes.conversations : '${AppRoutes.chatRoom}/$matchId',
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
         AppButton(
-          label: '나중에 확인하기',
+          label: context.l10n.matchingMatchMadeLater,
           variant: AppButtonVariant.text,
           onPressed: () => context.go(AppRoutes.today),
         ),

@@ -75,7 +75,7 @@ void main() {
     final state = await load();
 
     expect(state.phase, TodayCardsPhase.failed);
-    expect(state.errorMessage, const NetworkFailure().toDisplayMessage());
+    expect(state.error, isA<NetworkFailure>());
   });
 
   test('결정하면 목록을 다시 읽는다 — 카드가 사라진 화면을 남기지 않는다', () async {
@@ -285,7 +285,7 @@ void main() {
       await viewModel().purchase('offer-1');
       final failed = container.read(todayCardsViewModelProvider);
       expect(failed.notice!.kind, PurchaseNoticeKind.failed);
-      expect(failed.notice!.message, const NetworkFailure().toDisplayMessage());
+      expect(failed.notice!.failure, isA<NetworkFailure>());
       expect(failed.paidCard, _offer);
 
       // 실패 뒤 재시도 — 같은 제안 번호로 다시 간다.

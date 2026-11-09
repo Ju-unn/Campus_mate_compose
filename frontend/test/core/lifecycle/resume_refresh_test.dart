@@ -176,7 +176,7 @@ void main() {
     final chats = container.read(conversationsViewModelProvider);
     expect(chats.conversations, hasLength(1));
     expect(chats.error, isNull);
-    expect(container.read(acceptancesViewModelProvider).errorMessage, isNull);
+    expect(container.read(acceptancesViewModelProvider).error, isNull);
   });
 
   test('처음 읽기가 복귀와 겹쳐 실패하면 로딩을 끝내고 오류를 보인다', () async {

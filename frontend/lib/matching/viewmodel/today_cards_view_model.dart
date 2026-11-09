@@ -43,7 +43,7 @@ class TodayCardsViewModel extends Notifier<TodayCardsUiState> {
       onSuccess: _fromToday,
       onFailure: (failure) => TodayCardsUiState(
         phase: TodayCardsPhase.failed,
-        errorMessage: failure.toDisplayMessage(),
+        error: failure,
         isPurchasing: state.isPurchasing,
       ),
     );
@@ -116,7 +116,7 @@ class TodayCardsViewModel extends Notifier<TodayCardsUiState> {
       return;
     }
     if (offer.offerId != offerId) {
-      state = state.copyWith(notice: const PurchaseNotice(PurchaseNoticeKind.offerGone, paidOfferGoneMessage));
+      state = state.copyWith(notice: const PurchaseNotice(PurchaseNoticeKind.offerGone));
       return;
     }
     state = state.copyWith(isPurchasing: true);
@@ -138,10 +138,10 @@ class TodayCardsViewModel extends Notifier<TodayCardsUiState> {
     }
     if (failure.isPaidOfferGone) {
       await _readFresh();
-      state = state.copyWith(notice: const PurchaseNotice(PurchaseNoticeKind.offerGone, paidOfferGoneMessage));
+      state = state.copyWith(notice: const PurchaseNotice(PurchaseNoticeKind.offerGone));
       return;
     }
-    state = state.copyWith(notice: PurchaseNotice(PurchaseNoticeKind.failed, failure.toDisplayMessage()));
+    state = state.copyWith(notice: PurchaseNotice(PurchaseNoticeKind.failed, failure));
   }
 
   /// 진행 중인 읽기가 있으면 그것은 구매 **전** 에 시작했을 수 있다 — 끝나기를 기다린 뒤 새로 한 번 더 읽는다.

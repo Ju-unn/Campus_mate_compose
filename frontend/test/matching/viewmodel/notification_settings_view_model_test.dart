@@ -49,7 +49,7 @@ void main() {
 
     final state = container.read(notificationSettingsViewModelProvider);
     expect(state.preferences.matchMade, isTrue);
-    expect(state.errorMessage, const NetworkFailure().toDisplayMessage());
+    expect(state.error, isA<NetworkFailure>());
   });
 
   test('매칭 일시중지는 프로필 쪽으로 간다', () async {
@@ -73,7 +73,7 @@ void main() {
 
     final state = container.read(notificationSettingsViewModelProvider);
     expect(state.isLoading, isFalse);
-    expect(state.errorMessage, const NetworkFailure().toDisplayMessage());
+    expect(state.error, isA<NetworkFailure>());
   });
 
   test('알림 설정만 못 읽어도 안내는 남고 일시중지는 서버 값대로다', () async {
@@ -84,6 +84,6 @@ void main() {
 
     final state = container.read(notificationSettingsViewModelProvider);
     expect(state.matchingPaused, isTrue);
-    expect(state.errorMessage, const NetworkFailure().toDisplayMessage());
+    expect(state.error, isA<NetworkFailure>());
   });
 }

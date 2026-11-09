@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'dart:ui' show ImageFilter;
 
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -86,7 +87,7 @@ class PaidCardLocked extends StatelessWidget {
                 KeyedSubtree(
                   key: const ValueKey('paid-card-open'),
                   child: SafetySheetButton.primary(
-                    label: '${card.cost}으로 열기',
+                    label: context.l10n.matchingPaidCardOpen(cost: card.cost),
                     leading: const PaidCardHeart(),
                     onPressed: busy ? null : onOpen,
                   ),
@@ -201,7 +202,7 @@ class _Headline extends StatelessWidget {
       key: const ValueKey('paid-card-headline'),
       constraints: const BoxConstraints(minHeight: 52),
       child: Text(
-        '나와 성향이 잘 맞는 사람이\n기다리고 있어요',
+        context.l10n.matchingPaidCardHeadline,
         textAlign: TextAlign.center,
         style: AppTypography.subtitle.copyWith(color: AppColors.ink),
       ),
@@ -267,7 +268,7 @@ class _Caption extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 18),
       child: Center(
         child: Text(
-          '다음 카드가 오기 전까지 한 명만 열 수 있어요',
+          context.l10n.matchingPaidCardCaption,
           textAlign: TextAlign.center,
           style: AppTypography.caption.copyWith(color: AppColors.muted),
         ),
@@ -287,7 +288,7 @@ class _InfoButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: '맞는 이유 안내',
+      label: context.l10n.matchingPaidCardInfoLabel,
       onTap: onTap,
       excludeSemantics: true,
       child: Material(
@@ -325,7 +326,7 @@ class PaidCardEmptyNotice extends StatelessWidget {
             const SizedBox(width: 6),
             Expanded(
               child: Text(
-                '잘 맞는 새 사람이 들어오면 다시 열려요',
+                context.l10n.matchingPaidCardEmpty,
                 // pen `DQPCm` 14/600, 칸 높이 20.
                 style: AppTypography.labelSmall.copyWith(color: AppColors.ink, height: 20 / 14),
               ),

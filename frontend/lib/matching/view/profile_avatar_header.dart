@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -33,7 +34,7 @@ class ProfileAvatarHeader extends StatelessWidget {
       child: Semantics(
         container: true,
         image: true,
-        label: '아바타',
+        label: context.l10n.matchingAvatarLabel,
         child: Container(
           width: double.infinity,
           height: _height,

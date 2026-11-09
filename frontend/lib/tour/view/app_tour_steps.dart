@@ -121,10 +121,10 @@ class TourStep {
 Widget _precisionPoints(BuildContext context) => const TourPrecisionPoints();
 
 /// 4단계 제목 — 서버가 준 다음 지급 시각의 서울 요일 · 시각이다. 지급 주기는 학교 인원에 따라 주 1회 ~ 매일이라 요일을 못 박지 않는다.
-/// 오늘 탭 대기 화면 부제(`waitingSubtitle`)와 같은 [seoulClock] · [weekdayNames] · [hourLabel] 을 쓴다.
+/// 오늘 탭 대기 화면 부제(`waitingSubtitle`)와 같은 [seoulClock] · [weekdayName] · [hourLabel](요일 · 시각 글자도 같은 ARB 키)을 쓴다.
 String _arrivalTitle(AppLocalizations l10n, DateTime nextIssueAt) {
   final issue = seoulClock(nextIssueAt);
-  return l10n.tourArrivalTitleAt(weekday: weekdayNames[issue.weekday - 1], hour: hourLabel(issue));
+  return l10n.tourArrivalTitleAt(weekday: weekdayName(l10n, issue), hour: hourLabel(l10n, issue));
 }
 
 /// 앱 투어 6단계 — 문구는 사용자 확정본 그대로다. 단계를 고치거나 더할 때는 이 목록만 고친다.
