@@ -1,23 +1,37 @@
+import logging
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator
 
-from app.community.repository import POLL_PAGE_SIZE, CommunityRepository, PollTab
+from app.cards.push import FcmSender
+from app.cards.repository import CardRepository
+from app.cards.router import get_sender
+from app.community.comment_push import notify_post_author
+from app.community.repository import COMMENT_PAGE_SIZE, POLL_PAGE_SIZE, CommunityRepository, PollTab
 from app.core import errors
-from app.core.deps import Caller, get_verified_caller
+from app.core.deps import Caller, get_now, get_verified_caller
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 # 응답에 싣는 칸. DB 함수가 author_id 를 주지 않지만 칸이 늘어도 새지 않게 여기서 한 번 더 고른다(익명).
 _POLL_KEYS = ("id", "question", "option_a_label", "option_b_label", "created_at",
-              "a_count", "b_count", "my_choice", "is_mine")
+              "a_count", "b_count", "my_choice", "is_mine", "comment_count")
+# 댓글 한 줄. 작성자 id 는 어디에도 없고, 누구인지는 alias_no(익명N) · is_post_author(글쓴이) · is_mine 으로만 알린다.
+# add_poll_comment 가 푸시용으로 함께 주는 poll_author_id · poll_question 도 여기서 걸러져 앱 응답에 나가지 않는다.
+_COMMENT_KEYS = ("id", "body", "created_at", "alias_no", "is_post_author", "is_mine", "can_delete")
 
 
 def _card(row: dict) -> dict:
     return {key: row[key] for key in _POLL_KEYS}
+
+
+def _comment(row: dict) -> dict:
+    return {key: row[key] for key in _COMMENT_KEYS}
 
 
 def _repo(caller: Caller) -> CommunityRepository:
@@ -104,4 +118,52 @@ async def delete_poll(poll_id: UUID, caller: Caller = Depends(get_verified_calle
     if not await _repo(caller).delete_poll(poll_id, caller.profile_id):
         # 남의 글이어도 "없음" 과 똑같이 답한다 — 403 으로 가르면 그 id 가 남의 글이라는 게 샌다.
         raise HTTPException(status_code=404, detail=errors.POLL_NOT_FOUND)
+    return Response(status_code=204)
+
+
+# DB poll_comments_body_length check 와 같은 값이다. 앱 commentMaxLength 도 같다.
+COMMENT_MAX_LENGTH = 200
+
+
+class CommentRequest(BaseModel):
+    body: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=COMMENT_MAX_LENGTH)]
+
+
+@router.get("/community/polls/{poll_id}/comments")
+async def list_comments(poll_id: UUID, after: datetime | None = None, after_id: UUID | None = None,
+                        caller: Caller = Depends(get_verified_caller)) -> dict:
+    """17c 상세의 댓글. 오래된 순 10개. 더 보려면 마지막 댓글의 `created_at` · `id` 를 `after` · `after_id` 로 그대로 보낸다.
+    가려진 글 · 떠난 사람의 글은 404 다."""
+    if (after is None) != (after_id is None):
+        # 하나만 오면 DB 의 (created_at, id) 비교가 null 이 돼 빈 쪽이 "끝" 으로 읽힌다.
+        raise HTTPException(status_code=422, detail=errors.INVALID_INPUT)
+    # 한 줄 더 받아 다음 쪽이 있는지 정확히 안다 — 딱 10개로 끝나는 글에서 빈 쪽을 한 번 더 부르지 않는다.
+    rows = await _repo(caller).fetch_comments(caller.profile_id, poll_id, after=after, after_id=after_id,
+                                              limit=COMMENT_PAGE_SIZE + 1)
+    return {"items": [_comment(row) for row in rows[:COMMENT_PAGE_SIZE]], "has_more": len(rows) > COMMENT_PAGE_SIZE}
+
+
+@router.post("/community/polls/{poll_id}/comments", status_code=201)
+async def add_comment(poll_id: UUID, body: CommentRequest, caller: Caller = Depends(get_verified_caller),
+                      sender: FcmSender = Depends(get_sender), now: datetime = Depends(get_now)) -> dict:
+    """댓글 쓰기. 한국 시간 하루 50개 — 넘으면 429. 처음 쓰는 사람은 이 글 안의 익명 번호를 받는다.
+    글쓴이에게 푸시가 가지만(본인 댓글 · 10분 안 같은 글 · 스위치 꺼짐은 제외) 푸시가 실패해도 댓글은 201 이다."""
+    repo = _repo(caller)
+    row = await repo.add_comment(caller.profile_id, poll_id, body.body)
+    try:
+        cards = CardRepository(caller.settings.postgrest_url, caller.settings.supabase_service_role_key, caller.client)
+        await notify_post_author(repo, cards, sender, poll_id=poll_id, poll_author_id=row["poll_author_id"],
+                                 question=row["poll_question"], commenter_id=caller.profile_id, now=now)
+    except Exception:
+        # 댓글은 이미 저장됐다 — 알림 한 건 때문에 201 을 놓치면 앱이 다시 보내 같은 댓글이 두 줄이 된다.
+        logger.exception("댓글 푸시 실패 poll=%s comment=%s", poll_id, row["id"])
+    return _comment(row)
+
+
+@router.delete("/community/comments/{comment_id}", status_code=204)
+async def delete_comment(comment_id: UUID, caller: Caller = Depends(get_verified_caller)) -> Response:
+    """내 댓글, 또는 내 글에 달린 댓글을 지운다(행 삭제)."""
+    if not await _repo(caller).delete_comment(caller.profile_id, comment_id):
+        # 남의 댓글이어도 "없음" 과 똑같이 답한다 — 403 으로 가르면 그 id 가 남의 댓글이라는 게 샌다.
+        raise HTTPException(status_code=404, detail=errors.POLL_COMMENT_NOT_FOUND)
     return Response(status_code=204)
