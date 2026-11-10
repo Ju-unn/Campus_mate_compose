@@ -17,7 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../model/repository/fake_friend_review_repository.dart';
 
-const _placeholder = '이 사람을 잘 보여주는 따뜻한 이야기를 적어주세요.';
+const _placeholder = '이 사람을 잘 보여 주는 따뜻한 이야기를 적어 주세요.';
 
 /// 20b 리뷰 쓰기 시트(pen `NHcsP`, 판 `nIrPW`, 값표 B §1). 태그는 서버 12종 · 최대 3 · 한마디 100자(대장 결정).
 void main() {
@@ -142,7 +142,7 @@ void main() {
       expect(tester.getRect(chipFace(friendReviewTags[2])).top - first.bottom, 8);
       await tester.ensureVisible(find.text(_placeholder));
       await tester.pumpAndSettle();
-      final question2 = tester.getRect(find.text('한마디를 남겨주세요'));
+      final question2 = tester.getRect(find.text('한마디를 남겨 주세요'));
       final lastChip = tester.getRect(chipFace(friendReviewTags.last));
       expect(question2.top - lastChip.bottom, 16);
       final box = tester.getRect(find.byKey(friendReviewCommentBoxKey));

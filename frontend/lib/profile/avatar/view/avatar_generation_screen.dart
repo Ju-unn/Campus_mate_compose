@@ -526,7 +526,7 @@ class _CompensationSheet extends StatelessWidget {
 }
 
 /// 05-12b(pen `euW4T` · `c7QuSm`) — 분홍 목도리 마스코트 아래 힌트 한 줄 14/400 muted. 실패 종류가 있으면 같은 자리 · 같은 글꼴로
-/// 그 글자를 둔다. 부제 · 버튼 "다시 시도" 는 pen 원문 그대로다(대장 전달 10-15 — "시도해주세요" 붙여 쓰기도 원문).
+/// 그 글자를 둔다. 부제 · 버튼 "다시 시도" 는 pen 원문 그대로다(대장 전달 10-15). 부제 "시도해 주세요" 의 띄어쓰기는 맞춤법대로다 — pen 도 같게 맞춘다(사용자 결정 2026-11-09).
 class _RetryPrompt extends StatelessWidget {
   const _RetryPrompt({required this.state, required this.onRetry});
 

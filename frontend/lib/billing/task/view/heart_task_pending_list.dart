@@ -23,7 +23,7 @@ String heartTaskPendingTimeLabel(AppLocalizations l10n, DateTime createdAt, Date
 }
 
 /// 18a 항목 줄 아래 "검수 대기" 블록(pen Pending Block — 18a 대기 1건 `pVxvl` · 한도 찬 상태 `tYwTB`).
-/// 폭 fill · 세로 gap 8 · padding [8,0,12,40]. 제목 12/600 muted, 줄마다 썸네일(최대 3장) · 제출 시각 · "검수중" 배지.
+/// 폭 fill · 세로 gap 8 · padding [8,0,12,40]. 제목 12/600 muted, 줄마다 썸네일(최대 3장) · 제출 시각 · "검수 중" 배지.
 /// [note] 가 있으면 줄들 아래 12 muted 안내(한도 도달).
 class HeartTaskPendingList extends StatelessWidget {
   const HeartTaskPendingList({required this.pending, this.note, super.key});
@@ -62,7 +62,7 @@ class HeartTaskPendingList extends StatelessWidget {
 }
 
 /// 한 건: 썸네일 · 제출 시각 · 배지. 글자를 키우면 시각 글자가 썸네일 아래로 접히고 배지는 오른쪽 끝에 남는다.
-/// 낭독기에는 썸네일 그림 대신 "시각, 사진 n장, 검수중" 을 한 덩어리로 읽어 준다.
+/// 낭독기에는 썸네일 그림 대신 "시각, 사진 n장, 검수 중" 을 한 덩어리로 읽어 준다.
 class _PendingRow extends StatelessWidget {
   const _PendingRow({required this.item, required this.now});
 

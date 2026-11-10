@@ -45,7 +45,7 @@ class PureTest(unittest.TestCase):
         self.assertEqual(eh.date_label(tt.seoul(1, 5, 7)), '1월 5일')
 
     def test_invite_text_is_the_share_text_of_lib_referral_invite_share(self):
-        self.assertEqual(eh.invite_text(CODE), 'CampusMate 에서 같이 해요! 가입할 때 추천 코드 K7QMX2 를 넣어 줘.')
+        self.assertEqual(eh.invite_text(CODE), 'CampusMate에서 같이 해요! 가입할 때 추천 코드 K7QMX2를 넣어 줘.')
         # 앱이 보내는 글은 문구 파일(ARB)의 referralShareText 에서 온다 — 하네스가 기대하는 글과 글자까지 같아야 한다.
         self.assertEqual(tools.arb_messages()['referralShareText'].replace('{code}', CODE), eh.invite_text(CODE))
         # 공유 글은 화면이 문구 파일 키로 만들어 공유 함수에 넘긴다 — 16i 시트와 19 대기 화면 둘 다(1.0.2 B8 ⑧-b).
@@ -287,7 +287,7 @@ class Home30Test(EmuHomeBase):
         self.assertIsNone(self.opens_patches()[-1])
 
     def test_another_clipboard_text_is_a_fail(self):
-        for wrong in ('CampusMate 에서 같이 해요! 가입할 때 추천 코드 K7QMX2 를 넣어 줘. 하트 50개', None, ''):
+        for wrong in ('CampusMate에서 같이 해요! 가입할 때 추천 코드 K7QMX2를 넣어 줘. 하트 50개', None, ''):
             with self.subTest(clipboard=wrong):
                 result = self.go('E-HOME-30', self.emu_phone({'result': 'pass', 'clipboard': wrong}, top=SHEET))
                 self.assertEqual(result[0], 'fail')

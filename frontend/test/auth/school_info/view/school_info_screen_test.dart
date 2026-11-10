@@ -120,8 +120,8 @@ void main() {
       // 앱바 제목 — pen 3c 앱바 `qFCQu` / 제목 `Tn7yn`(10-17 학생증 제거로 "학생 인증" → "학교 정보", 대장 전달 값)
       expect(find.text('학교 정보'), findsOneWidget);
       expect(find.text('학생 인증'), findsNothing);
-      expect(find.text('학과와 학번을 알려주세요'), findsOneWidget);
-      expect(find.text('학교는 인증으로 확인했어요. 학과와 학번은 직접 알려주셔야 해요.'), findsOneWidget);
+      expect(find.text('학과와 학번을 알려 주세요'), findsOneWidget);
+      expect(find.text('학교는 인증으로 확인했어요. 학과와 학번은 직접 알려 주셔야 해요.'), findsOneWidget);
       expect(find.text('학교·학과·학번은 카드와 프로필에 공개돼요.'), findsOneWidget);
       expect(find.text('다음'), findsOneWidget);
     });

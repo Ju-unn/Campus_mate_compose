@@ -23,7 +23,7 @@ import 'package:go_router/go_router.dart';
 import '../../safety/model/repository/fake_safety_repository.dart';
 import '../model/repository/fake_friend_review_repository.dart';
 
-const _notice = '받은 리뷰는 직접 삭제할 수 없어요. 부적절한 내용은 신고해주세요.';
+const _notice = '받은 리뷰는 직접 삭제할 수 없어요. 부적절한 내용은 신고해 주세요.';
 
 /// 20c 받은 리뷰(pen `HWM2G`, 값표 B §2). 신고는 카드 깃발 → 기존 신고 시트, 차단은 하지 않는다(P1).
 void main() {

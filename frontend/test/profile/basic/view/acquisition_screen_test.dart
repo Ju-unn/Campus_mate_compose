@@ -54,7 +54,7 @@ void main() {
   testWidgets('pen uPNnZ: 부제 · 진행 점 없는 앱바 · 바탕 없는 건너뛰기 · 기타 라벨', (tester) async {
     await tester.pumpWidget(_app(FakeAcquisitionRepository()));
 
-    expect(find.text('하나만 골라주세요.\n더 많은 학교에 알리는 데 참고할게요.'), findsOneWidget);
+    expect(find.text('하나만 골라 주세요.\n더 많은 학교에 알리는 데 참고할게요.'), findsOneWidget);
     // 앱바 가운데는 빈 자리(O7JBZ)다 — 진행 점을 그리지 않는다.
     expect(tester.widget<ProgressDots>(find.byType(ProgressDots)).total, 0);
     final skip = find.widgetWithText(TextButton, '건너뛰기');

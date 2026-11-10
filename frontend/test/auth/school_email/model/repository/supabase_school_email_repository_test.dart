@@ -253,7 +253,7 @@ void main() {
         final failure = failureOf(await buildRepository().complete('temp-token'));
 
         expect(failure, isA<SchoolEmailNotConfirmedFailure>());
-        expect(failureText(AppLocalizationsKo(), failure!), '학교 메일 인증을 마치지 못했어요. 잠시 뒤 다시 시도해 주세요');
+        expect(failureText(AppLocalizationsKo(), failure!), '학교 메일 인증을 마치지 못했어요. 잠시 후 다시 시도해 주세요');
       });
 
       // ALIAS_NOT_ALLOWED: 학교 메일 `+` 별칭 거절(서버 fix/api-security-hardening, 422 SCHOOL_EMAIL_ALIAS).
@@ -366,7 +366,7 @@ void main() {
         final failure = failureOf(await buildRepository().complete('temp-token'));
 
         expect(failure, isA<SchoolEmailIncompleteFailure>());
-        expect(failureText(AppLocalizationsKo(), failure!), '학교 메일 인증을 마치지 못했어요. 잠시 뒤 다시 시도해 주세요');
+        expect(failureText(AppLocalizationsKo(), failure!), '학교 메일 인증을 마치지 못했어요. 잠시 후 다시 시도해 주세요');
       }
     });
 

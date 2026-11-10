@@ -15,7 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../model/repository/fake_friend_review_repository.dart';
 
-const _sheetNotice = '리뷰는 친구 코드를 받은 지인만 남길 수 있어요. 부적절한 내용은 신고해주세요.'; // pen prY8p
+const _sheetNotice = '리뷰는 친구 코드를 받은 지인만 남길 수 있어요. 부적절한 내용은 신고해 주세요.'; // pen prY8p — 띄어쓰기는 맞춤법대로(사용자 결정 2026-11-09), pen 도 같게 맞춘다
 
 List<FriendReview> _reviews(int count) => [
       for (var i = 0; i < count; i++)

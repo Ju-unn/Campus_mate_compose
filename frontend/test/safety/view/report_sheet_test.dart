@@ -93,7 +93,7 @@ void main() {
     await tester.tap(find.text('기타'));
     await tester.pumpAndSettle();
     expect(find.byType(TextField), findsOneWidget);
-    expect(find.text('어떤 점이 불편했는지 알려주세요.'), findsOneWidget);
+    expect(find.text('어떤 점이 불편했는지 알려 주세요.'), findsOneWidget);
     expect(find.text('0 / 200'), findsOneWidget);
     // pen `UbMxg` 320×104.
     expect(tester.getSize(find.byKey(reportNoteBoxKey)), const Size(320, 104));

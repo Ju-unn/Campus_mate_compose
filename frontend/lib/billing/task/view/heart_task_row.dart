@@ -18,17 +18,17 @@ const String _heartAsset = 'assets/images/heart-flat-vector-v3.png';
 /// 반려 줄 사유 한 줄(pen ReasonRow `ydq0k`) — 테스트가 크기 · 위치를 재는 표식.
 const Key heartTaskRejectLineKey = ValueKey('heart-task-reject-line');
 
-/// pen HeartTaskRow `R99dx` — 18a 한 줄. 상태 넷: 미완료 `JQNcz` · 검수중(마스터) · 완료 `gGX34` · 반려 `w3aZL`.
+/// pen HeartTaskRow `R99dx` — 18a 한 줄. 상태 넷: 미완료 `JQNcz` · 검수 중(마스터) · 완료 `gGX34` · 반려 `w3aZL`.
 /// 쓴 횟수(1/3) · "이번 주" 는 pen 에 없어 보이지 않는다(대장 09-28).
 /// 검수 중인 제출이 있으면 줄 아래에 "검수 대기" 블록이 붙는다(pen 18a `pVxvl` · `tYwTB`, 인증샷 여러 장 2026-10-19).
 /// 월 한도가 여럿인 항목(단톡방)은 검수 중이어도 한도까지 이어 낸다 — 줄 문구가 "이번 달 n회 남음 / 한도 도달" 이 되고
-/// 칩은 "검수중" 대신 "제출하기"(남았으면 활성, 한도면 비활성)다. 에브리타임(월 1회)은 지금처럼 검수중 칩.
+/// 칩은 "검수 중" 대신 "제출하기"(남았으면 활성, 한도면 비활성)다. 에브리타임(월 1회)은 지금처럼 검수 중 칩.
 class HeartTaskRow extends StatelessWidget {
   const HeartTaskRow({required this.task, required this.onTap, this.pendingGap = AppSpacing.xs, super.key});
 
   final HeartTask task;
 
-  /// 누를 수 있는 줄(미완료 · 반려)만 준다. 검수중 · 완료 줄은 null.
+  /// 누를 수 있는 줄(미완료 · 반려)만 준다. 검수 중 · 완료 줄은 null.
   final VoidCallback? onTap;
 
   /// 줄과 그 아래 대기 블록 사이 간격 — 줄 목록의 줄 사이 간격과 같다(pen 18a FreeSection gap 8, 값표 `pVxvl` · `tYwTB` 실측 ≈ 8).

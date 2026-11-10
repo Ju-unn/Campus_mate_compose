@@ -370,7 +370,7 @@ void main() {
       final resentAt = now;
       await send(tester, 'kim@snu.ac.kr');
 
-      expect(find.text('kim@snu.ac.kr 로 6자리 숫자를 보냈어요'), findsOneWidget);
+      expect(find.text('kim@snu.ac.kr로 6자리 숫자를 보냈어요'), findsOneWidget);
       final state = container.read(verifyCodeViewModelProvider(UniversityEmail.tryParse('kim@snu.ac.kr')!));
       expect(state.resendAvailableAt, resentAt.add(const Duration(seconds: 60)));
       expect(state.codeExpiresAt, resentAt.add(codeLifetime));

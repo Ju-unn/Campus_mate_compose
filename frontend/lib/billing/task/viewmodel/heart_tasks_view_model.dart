@@ -3,7 +3,7 @@ import 'package:campus_mate/billing/task/viewmodel/heart_tasks_ui_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 18a 에 들어올 때마다 새로 읽는다(autoDispose). 제출이 성공하면 [HeartTaskSubmitViewModel] 이 이 provider 를
-/// 버려 다시 읽게 한다 — 18c 에서 뒤로 오면 "검수중" 이 보인다.
+/// 버려 다시 읽게 한다 — 18c 에서 뒤로 오면 "검수 중" 이 보인다.
 final heartTasksViewModelProvider =
     NotifierProvider.autoDispose<HeartTasksViewModel, HeartTasksUiState>(HeartTasksViewModel.new);
 

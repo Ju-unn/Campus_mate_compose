@@ -364,7 +364,7 @@ void main() {
 
       expect(find.text('최근 7일 동안 인기 있는 질문이 아직 없어요'), findsOneWidget);
       expect(find.text('아직 질문이 없어요'), findsNothing);
-      expect(find.text('궁금한 걸 익명으로 물어보고\n캠퍼스 사람들의 생각을 들어보세요.'), findsNothing);
+      expect(find.text('궁금한 걸 익명으로 물어보고\n캠퍼스 사람들의 생각을 들어 보세요.'), findsNothing);
       expect(find.text('질문 올리기'), findsNothing);
       expect(find.byKey(CommunityFeedScreen.askButtonKey), findsOneWidget);
     });
@@ -375,7 +375,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('아직 투표한 질문이 없어요'), findsOneWidget);
-      expect(find.text('궁금한 걸 익명으로 물어보고\n캠퍼스 사람들의 생각을 들어보세요.'), findsNothing);
+      expect(find.text('궁금한 걸 익명으로 물어보고\n캠퍼스 사람들의 생각을 들어 보세요.'), findsNothing);
       expect(find.text('질문 올리기'), findsNothing);
       expect(find.byKey(CommunityFeedScreen.askButtonKey), findsOneWidget);
     });
@@ -427,7 +427,7 @@ void main() {
   testWidgets('글이 없으면 빈 상태(n2tqZ)', (tester) async {
     await pump(tester);
     expect(find.text('아직 질문이 없어요'), findsOneWidget);
-    expect(find.text('궁금한 걸 익명으로 물어보고\n캠퍼스 사람들의 생각을 들어보세요.'), findsOneWidget);
+    expect(find.text('궁금한 걸 익명으로 물어보고\n캠퍼스 사람들의 생각을 들어 보세요.'), findsOneWidget);
     await tester.tap(find.text('질문 올리기'));
     await tester.pumpAndSettle();
     expect(find.text('쓰기'), findsOneWidget);

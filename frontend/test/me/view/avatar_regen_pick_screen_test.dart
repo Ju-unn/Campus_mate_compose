@@ -39,7 +39,7 @@ import '../model/repository/fake_me_repository.dart';
 const _onePixelPng =
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
-const _title = '아바타로 만들 사진을 골라주세요';
+const _title = '아바타로 만들 사진을 골라 주세요';
 const _subtitle = '고른 사진 한 장이 새 아바타로 변환돼요.';
 
 /// 이름 · 학교는 지어낸 값이다. 실제 사진 세 장 중 둘째가 지금 아바타 원본.

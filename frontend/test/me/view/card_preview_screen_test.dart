@@ -126,7 +126,7 @@ const _noticeAfter = '수락하면 상대에게 이렇게 보여요';
 
 const _idealNote = '대화가 잘 통하는 사람이 좋아요.';
 
-const _sheetNotice = '리뷰는 친구 코드를 받은 지인만 남길 수 있어요. 부적절한 내용은 신고해주세요.'; // 14d pen prY8p 그대로
+const _sheetNotice = '리뷰는 친구 코드를 받은 지인만 남길 수 있어요. 부적절한 내용은 신고해 주세요.'; // 14d pen prY8p — 띄어쓰기는 맞춤법대로(사용자 결정 2026-11-09), pen 도 같게 맞춘다
 
 /// 내가 받은 리뷰(`GET /friend-reviews/received`). 이름은 지어낸 값이다.
 List<FriendReview> _reviews(int count) => [

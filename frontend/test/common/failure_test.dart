@@ -48,13 +48,13 @@ void main() {
   });
   group('학교 메일 인증(02 · 03)', () {
     test('인증번호를 못 보냈으면 잠시 뒤 다시 하라는 임시 문구', () {
-      expect(failureText(AppLocalizationsKo(), const CodeNotSentFailure()), '인증번호를 보내지 못했어요. 잠시 뒤 다시 시도해 주세요');
+      expect(failureText(AppLocalizationsKo(), const CodeNotSentFailure()), '인증번호를 보내지 못했어요. 잠시 후 다시 시도해 주세요');
     });
 
     test('학교 메일 인증을 못 마쳤으면 잠시 뒤 다시 하라는 임시 문구', () {
       expect(
         failureText(AppLocalizationsKo(), const SchoolEmailIncompleteFailure()),
-        '학교 메일 인증을 마치지 못했어요. 잠시 뒤 다시 시도해 주세요',
+        '학교 메일 인증을 마치지 못했어요. 잠시 후 다시 시도해 주세요',
       );
     });
 
@@ -107,7 +107,7 @@ void main() {
     test('서버가 임시 토큰을 못 읽었으면(미확인) 다시 하라는 임시 문구', () {
       expect(
         failureText(AppLocalizationsKo(), const SchoolEmailNotConfirmedFailure()),
-        '학교 메일 인증을 마치지 못했어요. 잠시 뒤 다시 시도해 주세요',
+        '학교 메일 인증을 마치지 못했어요. 잠시 후 다시 시도해 주세요',
       );
     });
 
@@ -156,6 +156,6 @@ void main() {
 
   test('소셜 로그인이 실패하면 잠시 뒤 다시 시도하라고 안내한다', () {
     const failure = SocialLoginFailure();
-    expect(failureText(AppLocalizationsKo(), failure), '로그인하지 못했어요. 잠시 뒤 다시 시도해 주세요');
+    expect(failureText(AppLocalizationsKo(), failure), '로그인하지 못했어요. 잠시 후 다시 시도해 주세요');
   });
 }

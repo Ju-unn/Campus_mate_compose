@@ -68,7 +68,7 @@ void main() {
     expect(find.text('무료로 모으기'), findsNothing);
     expect(find.text('에브리타임 홍보'), findsOneWidget);
     expect(find.text('40 · 월 1회'), findsOneWidget);
-    expect(find.text('검수중'), findsOneWidget);
+    expect(find.text('검수 중'), findsOneWidget);
     expect(find.text('단톡방 공유'), findsOneWidget);
     expect(find.text('25 · 월 3회'), findsOneWidget);
     expect(find.text('완료'), findsOneWidget);
@@ -122,7 +122,7 @@ void main() {
       expect(rect.left, row.left);
       expect(rect.top - row.top, closeTo(18, 0.5));
     }
-    final chip = find.ancestor(of: find.text('검수중'), matching: find.byType(ConstrainedBox)).first;
+    final chip = find.ancestor(of: find.text('검수 중'), matching: find.byType(ConstrainedBox)).first;
     expect(tester.getSize(find.descendant(of: chip, matching: icon3d(AppIcon3d.clock))), const Size(16, 16));
     expect(tester.getSize(chip).height, 28);
     // 완료 칩은 그대로 lucide check 12 primaryText.
@@ -460,7 +460,7 @@ void main() {
       expect(find.text('완료'), findsNothing);
       expect(find.text('인증하기'), findsNothing);
       // 검수중: 에브리타임 줄 칩 1 + 대기 블록 배지 2.
-      expect(find.text('검수중'), findsNWidgets(3));
+      expect(find.text('검수 중'), findsNWidgets(3));
       expect(find.text('오늘 14:20 제출'), findsOneWidget);
       expect(find.text('오늘 14:35 제출'), findsOneWidget);
     });
@@ -489,7 +489,7 @@ void main() {
       repository.tasks = Success([everytimeWaiting]);
       await pump(tester);
 
-      expect(find.text('검수중'), findsNWidgets(2));
+      expect(find.text('검수 중'), findsNWidgets(2));
       expect(find.text('제출하기'), findsNothing);
       expect(find.textContaining('이번 달'), findsNothing);
       expect(find.ancestor(of: find.text('에브리타임 홍보'), matching: find.byType(InkWell)), findsNothing);
@@ -578,7 +578,7 @@ void main() {
       await pump(tester);
 
       expect(find.bySemanticsLabel(RegExp('이번 달 1회 남음')), findsOneWidget);
-      expect(find.bySemanticsLabel('오늘 14:35 제출, 사진 2장, 검수중'), findsOneWidget);
+      expect(find.bySemanticsLabel('오늘 14:35 제출, 사진 2장, 검수 중'), findsOneWidget);
       handle.dispose();
     });
   });

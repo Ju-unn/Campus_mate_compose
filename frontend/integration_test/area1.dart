@@ -56,10 +56,10 @@ const screens = {
   'schoolEmail': '대학 이메일로 시작해요', // 02 sign_up_screen — 로그인한 계정의 학교 메일 인증
   'code': '인증 코드를 입력해요', // 3 verify_code_screen
   'consent': '서비스 이용을 위해 동의해 주세요', // 02-c consent_screen
-  '3c': '학과와 학번을 알려주세요', // school_info_screen
-  '04-1': '닉네임과 기본 정보를\n알려주세요', // basic_info_screen
-  '04-1b': '카카오톡 아이디를 알려주세요', // kakao_id_screen
-  '04-2': '실제 사진을 올려주세요', // photos_screen
+  '3c': '학과와 학번을 알려 주세요', // school_info_screen
+  '04-1': '닉네임과 기본 정보를\n알려 주세요', // basic_info_screen
+  '04-1b': '카카오톡 아이디를 알려 주세요', // kakao_id_screen
+  '04-2': '실제 사진을 올려 주세요', // photos_screen
   'suspended': '이용이 제한된 계정이에요', // account_suspended_screen
   // 묶음 2(area1_b2.dart)
   'consent-renew': '약관이 바뀌었어요', // 02-c-4 consent_screen
@@ -71,16 +71,16 @@ const screens = {
   '05-12': _revealTitle, // avatar_generation_screen 리빌(pen F84Alv) — 앱바 · 진행 막대 없음
   '06-1': '어떤 사람이 좋아요?', // ideal_conditions_screen
   '06-2': '어떤 분을 만나고 싶나요?', // tag_picker_kind idealTraits
-  '06-2a': '이런 사람이 좋아요를\n자유롭게 적어주세요', // ideal_note_screen
+  '06-2a': '이런 사람이 좋아요를\n자유롭게 적어 주세요', // ideal_note_screen
   '06-2b': '설문을 읽고 있어요', // bio_draft_loading_screen
-  '06-3': '이렇게 소개해볼까요?', // bio_screen
+  '06-3': '이렇게 소개해 볼까요?', // bio_screen
   '20': '친구에게 받은 코드가 있나요?', // referral_code_screen
   '20d': 'CampusMate를 어떻게 알게 되셨나요?', // acquisition_screen
   '06-4': '아는 사람을 만나고 싶지 않다면 연락처로 미리 막을 수 있어요', // onboarding_contact_block_screen("지인 차단" 은 두 번 나온다)
   'home': 'CampusMate', // screen() 이 글자 대신 HomeScreen 으로 찾는다 — 스플래시(하단 내비 없음)에도 같은 글자가 있다
   'settings': '설정', // settings_screen 앱바
   // 묶음 3(area1_b3.dart)
-  '04-3': '아바타로 만들 사진을 골라주세요', // avatar_source_screen
+  '04-3': '아바타로 만들 사진을 골라 주세요', // avatar_source_screen
   // B에뮬(area1_emu.dart)
   '01-1': '인터넷 연결을 확인해 주세요', // offline_screen
 };

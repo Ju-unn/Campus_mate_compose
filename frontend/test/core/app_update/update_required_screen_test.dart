@@ -13,7 +13,7 @@ import '../../billing/store/view/pretendard.dart';
 const _storeUrl = 'https://play.google.com/store/apps/details?id=io.github.juunn.campusmate';
 const _title = '새 버전으로 업데이트해 주세요';
 const _description = '더 안전하고 편하게 쓸 수 있도록 앱이 바뀌었어요.\n업데이트한 뒤 다시 열어 주세요.';
-const _failMessage = '스토어를 열지 못했어요. 스토어에서 CampusMate 를 검색해 주세요.';
+const _failMessage = '스토어를 열지 못했어요. 스토어에서 CampusMate를 검색해 주세요.';
 
 /// 스토어를 여는 창구의 가짜 — 부른 주소를 남기고, 결과를 시험이 정한다.
 class _Launcher {

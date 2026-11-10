@@ -122,7 +122,7 @@ class NotifyHelpersTest(unittest.TestCase):
         self.assertEqual(calls, [('shell', 'pm', 'grant', tools.PACKAGE, 'android.permission.POST_NOTIFICATIONS')])
 
     def test_screen_has_reads_the_ui_dump_as_utf8_bytes_and_never_returns_it(self):
-        dump = '<hierarchy><node text="CampusMate 에서 같이 해요! 가입할 때 추천 코드 K7M2QX 를 넣어 줘." /></hierarchy>'
+        dump = '<hierarchy><node text="CampusMate에서 같이 해요! 가입할 때 추천 코드 K7M2QX를 넣어 줘." /></hierarchy>'
         done = subprocess.CompletedProcess([], 0, stdout=dump.encode('utf-8'), stderr=b'')
         with mock.patch.object(notify.subprocess, 'run', return_value=done) as run:
             self.assertIs(notify.screen_has('S', '추천 코드 K7M2QX'), True)
@@ -300,7 +300,7 @@ class InviteCaseTest(Base):
                 mock.patch.object(area4_set2.time, 'sleep'), \
                 mock.patch.object(tools, 'adb', lambda s, *a, check=True: adb_calls.append(a) or ''):
             self.assertEqual(area1.attempt_phone(self.run, 'E-SET-60', app)[0], 'pass')
-        seen.assert_called_once_with('S', 'CampusMate 에서 같이 해요! 가입할 때 추천 코드 K7M2QX 를 넣어 줘.')
+        seen.assert_called_once_with('S', 'CampusMate에서 같이 해요! 가입할 때 추천 코드 K7M2QX를 넣어 줘.')
         self.assertIn(('shell', 'input', 'keyevent', 'KEYCODE_BACK'), adb_calls)
 
     def test_60_fails_when_our_app_is_still_in_front(self):

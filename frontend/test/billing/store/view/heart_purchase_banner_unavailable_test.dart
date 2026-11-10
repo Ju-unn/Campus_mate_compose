@@ -40,7 +40,7 @@ void main() {
         5,
         '상품 정보를 불러오지 못했어요 · App Store 상품이 아직 준비 중일 수 있어요 (못 찾은 상품 5개)',
       ),
-      (HeartUnavailableReason.serverStatus, 0, '서버에서 상태를 읽지 못했어요 · 잠시 뒤 다시 시도해 주세요'),
+      (HeartUnavailableReason.serverStatus, 0, '서버에서 상태를 읽지 못했어요 · 잠시 후 다시 시도해 주세요'),
     ]) {
       await pump(tester, PaymentStore.appStore, HeartUnavailable(reason, missingProducts: missing));
 

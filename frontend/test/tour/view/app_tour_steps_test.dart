@@ -18,7 +18,7 @@ void main() {
   test('6단계 — 화면 · 문구는 사용자 확정본 그대로(pen 섹션 24 vfrto)', () {
     expect([for (final step in appTourSteps) (step.location, step.copy.title(l10n), step.copy.body(l10n))], [
       // 1단계 설명은 사용자 지시(10-16 "우리 학교 소식 없잖아")로 바꿨다 — pen `O6FER/YoOxK`.
-      (AppRoutes.home, '여기가 캠퍼스메이트의 시작이에요', '오늘의 카드와 소중한 인연을 만나봐요.'),
+      (AppRoutes.home, '여기가 캠퍼스메이트의 시작이에요', '오늘의 카드와 소중한 인연을 만나 봐요.'),
       (AppRoutes.home, '프로필부터 채워 보세요', '사진, 소개, 이상형을 채우면 더 잘 맞아요.'),
       (AppRoutes.community, '사람들과 이야기해요', '전체, 인기, 내 질문, 내 투표로 골라 볼 수 있어요.'),
       // 4단계 제목 · 설명은 요일을 못 박지 않는다(1.0.2 A1) — 서버가 다음 지급 시각을 주면 제목에 그 요일이 들어간다(아래 그룹).

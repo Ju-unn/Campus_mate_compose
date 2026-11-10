@@ -5,7 +5,7 @@ part of 'area4.dart';
 // 이 묶음은 PC 가 멈춘 사이 알림을 최대 60초 기다리므로 PC 일이 있는 멈춤은 [_pcWork] 만큼 기다린다(기본 2분이면 모자란다).
 
 const _pcWork = Duration(minutes: 6);
-const _deviceOffNotice = '기기 알림이 꺼져 있어요. 알림을 받으려면 기기 설정에서 알림을 눌러 켜 주세요'; // notification_settings_screen.dart
+const _deviceOffNotice = '기기 알림이 꺼져 있어요. 알림을 받으려면 기기 설정에서 알림을 눌러 켜 주세요.'; // notification_settings_screen.dart
 const _deviceOffButton = '기기 알림 설정 열기';
 
 /// 알림 권한을 거부해도 앱은 그대로 쓴다 — 홈에 닿고 하단 탭이 보이고 "오늘" 탭을 누르면 오늘 화면이 열린다.

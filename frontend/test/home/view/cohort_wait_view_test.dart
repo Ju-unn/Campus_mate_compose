@@ -158,7 +158,7 @@ void main() {
       await tapInvite(tester);
 
       expect(shared, ['K7QMX2']);
-      expect(sharedTexts, ['CampusMate 에서 같이 해요! 가입할 때 추천 코드 K7QMX2 를 넣어 줘.']);
+      expect(sharedTexts, ['CampusMate에서 같이 해요! 가입할 때 추천 코드 K7QMX2를 넣어 줘.']);
     });
 
     testWidgets('코드를 못 받으면 공유하지 않고 실패 문구를 토스트로 보인다. 화면은 그대로', (tester) async {

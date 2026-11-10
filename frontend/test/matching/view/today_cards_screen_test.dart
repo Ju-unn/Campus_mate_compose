@@ -207,7 +207,7 @@ void main() {
     await pump(tester, repository);
 
     expect(find.text('지금은 소개할 사람이 없어요'), findsOneWidget);
-    expect(find.text('새로운 사람이 오면 알림을 보내드려요'), findsOneWidget);
+    expect(find.text('새로운 사람이 오면 알림을 보내 드려요'), findsOneWidget);
   });
 
   group('카드 등장(DESIGN §7 emphasis — 하루 두 번 중 하나)', () {
@@ -299,13 +299,13 @@ void main() {
       expect(find.byType(CountdownText), findsOneWidget);
     });
 
-    testWidgets('다음 지급 시각을 모르면(null) 띠를 숨긴다. 부제는 "새로운 사람이 준비되면 알려드릴게요"', (tester) async {
+    testWidgets('다음 지급 시각을 모르면(null) 띠를 숨긴다. 부제는 "새로운 사람이 준비되면 알려 드릴게요"', (tester) async {
       final repository = FakeCardRepository()..today = const Success(TodayCards(cards: []));
 
       await pump(tester, repository);
 
       expect(find.text('다음 카드를 준비하고 있어요'), findsOneWidget);
-      expect(find.text('새로운 사람이 준비되면 알려드릴게요'), findsOneWidget);
+      expect(find.text('새로운 사람이 준비되면 알려 드릴게요'), findsOneWidget);
       expect(find.textContaining('만날 사람들'), findsNothing);
       expect(find.byType(CountdownText), findsNothing);
     });

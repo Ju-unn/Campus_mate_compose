@@ -268,7 +268,7 @@ void main() {
     testWidgets('부제 아래 12 · 좋은 사진 예시 위 32 에 서고, 화면 폭에서 두 줄로 접힌다', (tester) async {
       await at360(tester);
 
-      final subtitle = tester.getRect(find.text('얼굴이 잘 보이는 사진을 2~4장 골라주세요.'));
+      final subtitle = tester.getRect(find.text('얼굴이 잘 보이는 사진을 2~4장 골라 주세요.'));
       final hint = tester.getRect(visibilityHint());
       final example = tester.getRect(find.byType(PhotoExample));
       expect(hint.top, closeTo(subtitle.bottom + 12, 0.01));
