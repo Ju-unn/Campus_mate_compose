@@ -3,12 +3,14 @@
 
 import json
 import re
+import threading
 import unittest
 from unittest import mock
 
 from e2e import area1, tools
-from e2e.test_area1 import Base
+from e2e.test_area1 import CFG, Base
 from e2e.test_area2_two_accept import label_backed
+from e2e.test_phone_sms import FAKE_PHONE, LOCAL_DB, PROD, PROD_API, Texting, environment, forbid_requests
 from e2e.tools import Reply
 
 APP_PASS = {'result': 'pass'}
@@ -25,12 +27,13 @@ class FakePhone:
         self._tops = list(top) if isinstance(top, list) else [top]
         self.midway_step = midway_step or {'step': 'x'}
         self.acted = []  # midway 를 부른 앱의 중간 말
+        self.gave = []  # midway 가 앱에 돌려준 값(go 에 실려 가는 것 — 인증번호)
         self.serial = None
 
     def __call__(self, midway=None, **job):
         self.jobs.append(job)
         if midway:  # 앱이 중간에 멈춰 PC 가 무언가 한 뒤 이어 가는 가설
-            midway(self.midway_step)
+            self.gave.append(midway(self.midway_step))
             self.acted.append(self.midway_step['step'])
         return self.answers.pop(0) if len(self.answers) > 1 else self.answers[0]
 
@@ -255,7 +258,103 @@ class GateTest(Base):
         self.assertEqual(area1.attempt_phone(self.run, 'E-GATE-56', FakePhone())[0], 'fail')
 
 
-class OnboardingTest(Base):
+class OnboardingTest(Base, Texting):
+    def setUp(self):
+        super().setUp()
+        self.start_texting(self, '111111', '222222')  # 앞서 나간 옛 문자 — 건너뛰어야 한다
+
+    TEXTING = ('E-ONB-06', 'E-ONB-07', 'E-ONB-10', 'E-ONB-11', 'E-ONB-16', 'E-ONB-17')
+    NOT_TEXTING = ('E-ONB-01', 'E-ONB-02', 'E-ONB-12', 'E-ONB-13', 'E-ONB-15')
+
+    def run_texting(self, case, phone=None, routes=None):
+        """문자를 받는 가설 하나. 앱이 받기를 누르면 서버가 로그에 남기는 것을 0.05초 뒤 로그에 더해 흉내 낸다."""
+        fake = self.serve({('GET', '/rest/v1/profile_private'): Reply(200, [{'phone_number': '\\x9f3a', 'phone_hmac': '\\x01'}]),
+                           ('GET', '/rest/v1/profiles'): Reply(200, [{'mbti': None}]), **(routes or {})})
+        phone = phone or FakePhone(midway_step={'step': 'code'})
+        threading.Timer(0.05, self.sent, args=('333333',)).start()
+        return area1.attempt_phone(self.run, case, phone), phone, fake
+
+    def test_the_hypotheses_that_need_a_verified_number_get_the_test_number_and_the_code(self):
+        for case in self.TEXTING:
+            with self.subTest(case):
+                self.start_texting(self, '111111', '222222')  # 가설마다 새 로그 — 앞서 나간 옛 문자(111111 · 222222)는 건너뛴다
+                (result, note), phone, _ = self.run_texting(case)
+                self.assertEqual(result, 'pass', note)
+                self.assertEqual(phone.jobs[0]['phone'], FAKE_PHONE)
+                self.assertEqual(phone.gave, [{'code': '333333'}])
+
+    def test_the_other_04_1_hypotheses_never_text_and_get_no_number(self):
+        for case in self.NOT_TEXTING:
+            with self.subTest(case):
+                fake = self.serve()
+                phone = FakePhone()
+                area1.attempt_phone(self.run, case, phone)
+                self.assertNotIn('phone', phone.jobs[0])
+                self.assertEqual([p for m, p, _ in fake.calls if p == '/rest/v1/phone_verifications'], [])
+
+    def test_a_texting_hypothesis_starts_from_a_clean_limit_and_binding_table(self):
+        _, _, fake = self.run_texting('E-ONB-16')
+        calls = [(m, p) for m, p, _ in fake.calls]
+        self.assertIn(('DELETE', '/rest/v1/phone_verifications'), calls)
+        self.assertIn(('PATCH', '/rest/v1/profile_private'), calls)
+
+    def test_a_production_target_is_blocked_before_any_account_or_app(self):
+        for case in self.TEXTING:
+            with self.subTest(case):
+                attempts = forbid_requests(self)
+                self.run.cfg = PROD
+                phone = FakePhone()
+                result, note = area1.attempt_phone(self.run, case, phone)
+                self.run.cfg = CFG
+                self.assertEqual(result, 'blocked')
+                self.assertIn('운영', note)
+                self.assertEqual(phone.jobs, [])
+                self.assertEqual(attempts, [])
+
+    def test_a_local_database_but_a_production_api_address_is_blocked_before_any_account_or_app(self):
+        for case in self.TEXTING:
+            with self.subTest(case):
+                attempts = forbid_requests(self)
+                self.run.cfg = {**CFG, 'SUPABASE_URL': LOCAL_DB, 'API_BASE_URL': PROD_API}
+                phone = FakePhone()
+                result, note = area1.attempt_phone(self.run, case, phone)
+                self.run.cfg = CFG
+                self.assertEqual(result, 'blocked')
+                self.assertIn('API', note)
+                self.assertEqual(phone.jobs, [])
+                self.assertEqual(attempts, [])
+
+    def test_without_the_test_number_the_hypothesis_is_blocked_not_run_with_a_random_one(self):
+        for case in self.TEXTING:
+            with self.subTest(case):
+                self.serve()
+                phone = FakePhone()
+                with environment(E2E_SERVER_LOG=str(self.log)):
+                    result, note = area1.attempt_phone(self.run, case, phone)
+                self.assertEqual(result, 'blocked')
+                self.assertIn('시험 번호', note)
+                self.assertEqual(phone.jobs, [])
+
+    def test_without_the_server_log_the_hypothesis_is_blocked_before_the_app_starts(self):
+        for case in self.TEXTING:
+            with self.subTest(case):
+                self.serve()
+                phone = FakePhone()
+                with environment(E2E_TEST_PHONE=FAKE_PHONE):
+                    result, note = area1.attempt_phone(self.run, case, phone)
+                self.assertEqual(result, 'blocked')
+                self.assertIn('E2E_SERVER_LOG', note)
+                self.assertEqual(phone.jobs, [])
+
+    def test_the_test_number_is_not_in_any_note_or_file_the_run_wrote(self):
+        routes = {('GET', '/rest/v1/profile_private'): Reply(200, [{'phone_number': '+821098765432', 'phone_hmac': None}])}  # 암호화가 안 된 채 저장됨
+        (result, note), _, _ = self.run_texting('E-ONB-11', routes=routes)
+        self.assertEqual(result, 'fail')
+        self.assertIn('phone_number', note)  # 평문이 저장됐다는 판정은 하되 값은 적지 않는다
+        self.assertNotIn('9876', note)
+        written = ''.join(path.read_text(encoding='utf-8', errors='ignore') for path in self.run.out.rglob('*') if path.is_file())
+        self.assertNotIn('9876', written)
+
     def test_onb_03_someone_else_holds_the_nickname_the_app_types(self):
         fake = self.serve()
         phone = FakePhone()
@@ -272,23 +371,19 @@ class OnboardingTest(Base):
         self.assertIn(phone.jobs[0]['nickname'], [b['nickname'] for m, p, b in fake.calls if p == '/profile-onboarding/basic-info'])
 
     def test_onb_06_gives_the_app_the_youngest_birth_year(self):
-        self.serve()
-        phone = FakePhone()
-        area1.attempt_phone(self.run, 'E-ONB-06', phone)
+        _, phone, _ = self.run_texting('E-ONB-06')
         self.assertEqual(phone.jobs[0]['year'], area1.datetime.now(area1.SEOUL).year - 19)
 
     def test_onb_11_phone_is_stored_encrypted_with_its_hmac(self):
-        stored = Reply(200, [{'phone_number': '\\x9f3a', 'phone_hmac': '\\x01'}])
-        self.serve({('GET', '/rest/v1/profile_private'): stored})
-        self.assertEqual(area1.attempt_phone(self.run, 'E-ONB-11', FakePhone())[0], 'pass')
+        (result, note), _, _ = self.run_texting('E-ONB-11')
+        self.assertEqual(result, 'pass', note)
 
     def test_onb_11_plain_number_or_missing_hmac_fails(self):
-        with mock.patch.object(area1, '_phone_number', lambda: '010-0135-2468'):
-            for row in ({'phone_number': '+821001352468', 'phone_hmac': '\\x01'}, {'phone_number': '\\x9f3a', 'phone_hmac': None}):
-                self.serve({('GET', '/rest/v1/profile_private'): Reply(200, [row])})
-                phone = FakePhone()
-                self.assertEqual(area1.attempt_phone(self.run, 'E-ONB-11', phone)[0], 'fail', row)
-                self.assertEqual(phone.jobs[0]['phone'], '010-0135-2468')
+        for row in ({'phone_number': '+821098765432', 'phone_hmac': '\x01'}, {'phone_number': '\x9f3a', 'phone_hmac': None}):
+            self.start_texting(self, '111111')
+            (result, _), phone, _ = self.run_texting('E-ONB-11', routes={('GET', '/rest/v1/profile_private'): Reply(200, [row])})
+            self.assertEqual(result, 'fail', row)
+            self.assertEqual(phone.jobs[0]['phone'], FAKE_PHONE)
 
     def test_onb_13_api_refuses_the_old_ten_digit_number_and_stores_nothing(self):
         """가입 번호는 010 + 8자리만(2026-10-15 대장 지시 — 전화번호_인증 §8 결정 1 추천안). 옛 011 10자리는 422 다."""
@@ -305,10 +400,10 @@ class OnboardingTest(Base):
 
     def test_onb_16_and_17_need_an_empty_mbti(self):
         for case in ('E-ONB-16', 'E-ONB-17'):
-            self.serve({('GET', '/rest/v1/profiles'): Reply(200, [{'mbti': None}])})
-            self.assertEqual(area1.attempt_phone(self.run, case, FakePhone())[0], 'pass', case)
-            self.serve({('GET', '/rest/v1/profiles'): Reply(200, [{'mbti': 'ENTP'}])})
-            self.assertEqual(area1.attempt_phone(self.run, case, FakePhone())[0], 'fail', case)
+            for mbti, expected in ((None, 'pass'), ('ENTP', 'fail')):
+                self.start_texting(self, '111111')
+                result, _, _ = self.run_texting(case, routes={('GET', '/rest/v1/profiles'): Reply(200, [{'mbti': mbti}])})
+                self.assertEqual(result[0], expected, (case, mbti))
 
     def test_onb_18_kakao_id_is_trimmed(self):
         decrypt = ('POST', '/rest/v1/rpc/decrypt_profile_private')  # 평문 열은 M2 로 없어진다 — 복호화 RPC 로만 읽는다
@@ -366,7 +461,3 @@ class StartScreenContractTest(unittest.TestCase):
         body = source[source.index('Future<void> tap('):source.index('Future<void> type(')]
         waits = [int(ms) for ms in re.findall(r'milliseconds: (\d+)', body)]
         self.assertTrue(waits and waits[-1] > 500, waits)
-
-
-if __name__ == '__main__':
-    unittest.main()
