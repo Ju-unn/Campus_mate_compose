@@ -117,6 +117,13 @@ class AccountRepository(PostgrestRepository):
             "answered_at": f"lt.{cutoff.isoformat()}", "select": "id",
         })
 
+    async def delete_phone_verifications_before(self, cutoff: datetime) -> int:
+        # 보낸 시각(sent_at)에서 30일. 한도는 오늘(한국 시간)만 세고 인증은 30분이면 끝나서, 남겨 둘 까닭이 없다.
+        # ponytail: 인증번호 없는 줄(in_use 시도)까지 지우려 부분 인덱스(sent_at, 보낸 줄만)를 못 탄다 — 줄이 수십만이면 인덱스 마이그레이션.
+        return await self._delete_counted("phone_verifications", {
+            "sent_at": f"lt.{cutoff.isoformat()}", "select": "id",
+        })
+
     async def delete_signup_blocks_before(self, now: datetime) -> int:
         # infinity(정지 중 탈퇴)는 어떤 시각보다도 크다 — 이 조건으로는 지워지지 않는다.
         return await self._delete_counted("signup_blocks", {

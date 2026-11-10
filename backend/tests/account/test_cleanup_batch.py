@@ -103,6 +103,35 @@ def test_a_failing_inquiry_cleanup_does_not_stop_the_other_steps(client, world, 
     assert "문의 정리 실패" in logged and "HTTPStatusError" in logged and "boom" not in logged
 
 
+def test_phone_verification_rows_go_30_days_after_they_were_sent(client, world):
+    """문자 인증 기록은 짧게 둔다(계획서 §5 "예: 30일"). 한도는 오늘(한국 시간)만 세니 30일이면 넉넉하다."""
+    world.phone_verifications = [
+        {"id": "p-old", "sent_at": NOW - timedelta(days=31)},
+        {"id": "p-edge", "sent_at": NOW - timedelta(days=29)},
+        {"id": "p-today", "sent_at": NOW},
+    ]
+
+    result = _run(client)
+
+    assert result["deleted_phone_verifications"] == 1
+    assert [v["id"] for v in world.phone_verifications] == ["p-edge", "p-today"]
+
+
+def test_a_failing_phone_verification_cleanup_does_not_stop_the_other_steps(client, world, caplog):
+    """서버가 DB(phone_verifications 표)보다 먼저 배포돼 이 단계가 실패해도 나머지 정리는 돈다."""
+    world.signup_blocks = [{"email_hmac": "a", "blocked_until": NOW - timedelta(days=1)}]
+    world.fail = {"DELETE /rest/v1/phone_verifications"}
+
+    with caplog.at_level(logging.WARNING):
+        result = _run(client)
+
+    assert result["deleted_phone_verifications"] == 0
+    assert result["deleted_signup_blocks"] == 1
+    assert "deleted_heart_proofs" in result and "refilled_taste" in result
+    logged = " ".join(r.getMessage() for r in caplog.records)
+    assert "문자 인증 정리 실패" in logged and "boom" not in logged
+
+
 def test_expired_signup_blocks_go_but_infinity_stays(client, world):
     world.signup_blocks = [
         {"email_hmac": "a", "blocked_until": NOW - timedelta(days=1)},
@@ -122,11 +151,12 @@ def test_running_again_finds_nothing_left(client, world):
         {"id": "r-old", "created_at": NOW - timedelta(days=400), "resolved_at": NOW - timedelta(days=366)},
     ]
     world.signup_blocks = [{"email_hmac": "a", "blocked_until": NOW - timedelta(days=1)}]
+    world.phone_verifications = [{"id": "p-old", "sent_at": NOW - timedelta(days=31)}]
     _run(client)
 
     assert _run(client) == {
         "deleted_accounts": 0, "skipped_accounts": 0, "deleted_reports": 0,
-        "deleted_inquiries": 0, "deleted_signup_blocks": 0, "stale_key_rows": 0,
+        "deleted_inquiries": 0, "deleted_phone_verifications": 0, "deleted_signup_blocks": 0, "stale_key_rows": 0,
         "deleted_heart_proofs": 0, "deleted_unverified": 0, "deleted_temp_email_accounts": 0,
         "refilled_taste": 0,
     }

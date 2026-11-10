@@ -237,7 +237,7 @@ class WdFake(ReadFake):
             return self.drops_expired_blocks and datetime.fromisoformat(b['blocked_until']) < stamp
         kept = [b for b in blocks if not expired(b)]
         result = {'deleted_accounts': deleted, 'skipped_accounts': 0, 'deleted_unverified': 0, 'deleted_temp_email_accounts': 0,
-                  'deleted_reports': 0, 'deleted_inquiries': 0, 'deleted_signup_blocks': len(blocks) - len(kept), 'stale_key_rows': 0,
+                  'deleted_reports': 0, 'deleted_inquiries': 0, 'deleted_phone_verifications': 0, 'deleted_signup_blocks': len(blocks) - len(kept), 'stale_key_rows': 0,
                   'deleted_heart_proofs': 0}
         self.tables['signup_blocks'] = kept
         self.cleanups.append(result)
@@ -533,11 +533,11 @@ class ServerFactsTest(unittest.TestCase):
         # 소셜 로그인 전환으로 학교 메일 인증 전 계정 · 임시 email 계정 정리 칸이 더해졌다
         self.assertEqual(server_keys('account/batch_router.py', 'run_cleanup'),
                          ['deleted_accounts', 'skipped_accounts', 'deleted_unverified', 'deleted_temp_email_accounts',
-                          'deleted_reports', 'deleted_inquiries', 'deleted_signup_blocks', 'stale_key_rows'])
+                          'deleted_reports', 'deleted_inquiries', 'deleted_phone_verifications', 'deleted_signup_blocks', 'stale_key_rows'])
         self.assertIn('result["deleted_heart_proofs"] =', backend('account', 'batch_router.py'))
         fake = WdFake()
         self.assertEqual(sorted(fake.cleanup()), sorted(['deleted_accounts', 'skipped_accounts', 'deleted_unverified',
-                                                          'deleted_temp_email_accounts', 'deleted_reports', 'deleted_inquiries', 'deleted_signup_blocks',
+                                                          'deleted_temp_email_accounts', 'deleted_reports', 'deleted_inquiries', 'deleted_phone_verifications', 'deleted_signup_blocks',
                                                           'stale_key_rows', 'deleted_heart_proofs']))
 
     def test_the_retention_is_thirty_days_and_the_module_stands_one_day_on_each_side(self):
