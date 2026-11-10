@@ -169,6 +169,7 @@ void main() {
           },
         ),
         GoRoute(path: AppRoutes.faq, builder: (context, state) => const FaqScreen()),
+        GoRoute(path: AppRoutes.inquiry, builder: (context, state) => const Text('21 문의하기')),
       ],
     );
     addTearDown(router.dispose);
@@ -340,7 +341,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('자주 묻는 질문'), findsNothing);
-    expect(tester.getRect(tile('가이드 다시 보기')).top, tester.getRect(find.text('지원')).bottom + 8);
+    // FAQ 줄이 숨어도 문의하기 줄이 카드 첫 줄이 되고, 가이드 다시 보기가 그 바로 아래다.
+    expect(tester.getRect(tile('문의하기')).top, tester.getRect(find.text('지원')).bottom + 8);
+    expect(tester.getRect(tile('가이드 다시 보기')).top, tester.getRect(tile('문의하기')).bottom);
   });
 
   testWidgets('모든 줄의 눌림 효과는 그 줄 안에서 그려진다', (tester) async {
@@ -518,6 +521,28 @@ void main() {
     final note = tester.renderObject<RenderParagraph>(find.text('잠시 쉬고 싶으면 꺼 두세요')).text.style!;
     expect(note.fontSize, 12);
     expect(note.color, AppColors.muted);
+  });
+
+  testWidgets('"문의하기" 줄은 지원 카드의 FAQ 바로 아래 · 가이드 다시 보기 바로 위, 3D 이메일 24 와 셰브런이다(pen dxyiY)', (tester) async {
+    await pump(tester);
+
+    expect(tile('문의하기'), findsOneWidget);
+    expect(tester.getRect(tile('문의하기')).top, tester.getRect(tile('자주 묻는 질문')).bottom);
+    expect(tester.getRect(tile('가이드 다시 보기')).top, tester.getRect(tile('문의하기')).bottom);
+    expect(tester.getSize(tile('문의하기')).height, 52);
+    expect(icon3d(tester, '문의하기').icon, AppIcon3d.mail);
+    expect(icon3d(tester, '문의하기').size, 24);
+    expect(divider(tester, '문의하기'), const BorderSide(color: AppColors.hairlineSoft));
+    expect(find.descendant(of: tile('문의하기'), matching: find.byIcon(AppIcons.chevronRight)), findsOneWidget);
+  });
+
+  testWidgets('"문의하기" 를 누르면 문의하기 화면으로 간다', (tester) async {
+    await pump(tester);
+
+    await tester.tap(find.text('문의하기'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('21 문의하기'), findsOneWidget);
   });
 
   testWidgets('"이용약관" · "개인정보처리방침" 은 FAQ 와 로그아웃 사이, 3D 약관 · 개인정보 아이콘이다(A6, pen F4pb9 · yEBjk)', (tester) async {
@@ -819,10 +844,10 @@ void main() {
   });
 
   group('가이드 다시 보기(앱 투어)', () {
-    testWidgets('지원 카드의 자주 묻는 질문 바로 아래 52 줄, 3D 정보 아이콘 24 와 셰브런이다', (tester) async {
+    testWidgets('지원 카드의 문의하기 바로 아래 52 줄, 3D 정보 아이콘 24 와 셰브런이다', (tester) async {
       await pump(tester);
 
-      expect(tester.getRect(tile('가이드 다시 보기')).top, tester.getRect(tile('자주 묻는 질문')).bottom);
+      expect(tester.getRect(tile('가이드 다시 보기')).top, tester.getRect(tile('문의하기')).bottom);
       expect(tester.getSize(tile('가이드 다시 보기')).height, 52);
       expect(icon3d(tester, '가이드 다시 보기').icon, AppIcon3d.infoBlue);
       expect(icon3d(tester, '가이드 다시 보기').size, 24);

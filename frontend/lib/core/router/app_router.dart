@@ -34,6 +34,7 @@ import 'package:campus_mate/graduate/view/graduate_waiting_screen.dart';
 import 'package:campus_mate/graduate/view/verification_method_screen.dart';
 import 'package:campus_mate/home/view/event_coming_screen.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
+import 'package:campus_mate/inquiry/view/inquiry_screen.dart';
 import 'package:campus_mate/matching/model/data/acceptance.dart';
 import 'package:campus_mate/matching/view/acceptance_detail_screen.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
@@ -278,6 +279,7 @@ abstract final class AppRouter {
       ),
       _PlatformRoute(path: AppRoutes.account, builder: (context, state) => const AccountScreen()),
       _PlatformRoute(path: AppRoutes.faq, builder: (context, state) => const FaqScreen()),
+      _PlatformRoute(path: AppRoutes.inquiry, builder: (context, state) => const InquiryScreen()),
       _TabRoute(
         path: AppRoutes.community,
         builder: (context, state) => const BackExitScope(child: CommunityFeedScreen()),
