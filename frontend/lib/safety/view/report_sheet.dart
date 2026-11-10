@@ -9,6 +9,7 @@ import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/safety/model/data/report_reason.dart';
 import 'package:campus_mate/safety/model/data/report_target.dart';
+import 'package:campus_mate/safety/view/reason_radio_row.dart';
 import 'package:campus_mate/safety/view/report_reason_text.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:campus_mate/safety/viewmodel/report_ui_state.dart';
@@ -71,7 +72,7 @@ class _ReportSheetState extends ConsumerState<ReportSheet> {
         // pen 사유 영역 `QMdpZ` 세로 간격 4(제목 · 목록 · 입력칸 사이). 목록 `MY7UX` 은 행 48 × 5, 간격 0.
         const SizedBox(height: AppSpacing.xxs),
         for (final reason in ReportReason.values)
-          _ReasonRow(
+          ReasonRadioRow(
             label: reason.label(context.l10n),
             isSelected: state.selectedReason == reason,
             onTap: () => viewModel.selectReason(reason),
@@ -98,85 +99,6 @@ class _ReportSheetState extends ConsumerState<ReportSheet> {
         const SizedBox(height: AppSpacing.md),
         SafetySheetButton.neutral(label: context.l10n.commonCancel, onPressed: () => Navigator.of(context).pop()),
       ],
-    );
-  }
-}
-
-/// 사유 한 줄(pen RadioRow `M7E1k` Off / `SlAif` On, 행 높이 48). 라디오 24 와 글자는 행 세로 가운데.
-class _ReasonRow extends StatelessWidget {
-  const _ReasonRow({required this.label, required this.isSelected, required this.onTap});
-
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      inMutuallyExclusiveGroup: true,
-      checked: isSelected,
-      // 눌림 효과가 시트와 같이 움직이게 행 안에 Material 을 둔다(COMMON §4-2).
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: onTap,
-          child: ConstrainedBox(
-            // pen RadioRow 높이 48(target.comfortable). 최소값이라 글자를 키우면 행이 따라 커진다.
-            constraints: const BoxConstraints(minHeight: 48),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Row(
-                children: [
-                  _RadioMark(isSelected: isSelected),
-                  const SizedBox(width: AppSpacing.sm),
-                  Flexible(
-                    child: Text(
-                      label,
-                      // pen 16 / 500(선택 600), 줄높이 속성 없음 · 렌더 22.
-                      style: AppTypography.body.copyWith(
-                        color: AppColors.ink,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                        height: 22 / 16,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 라디오 24 원. 끔: 흰 채움 + outline 1.5 / 켬: primary 2 + 가운데 점 12.
-class _RadioMark extends StatelessWidget {
-  const _RadioMark({required this.isSelected});
-
-  final bool isSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 24,
-      height: 24,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: AppColors.canvas,
-        border: Border.all(
-          color: isSelected ? AppColors.primary : AppColors.outline,
-          width: isSelected ? 2 : 1.5,
-        ),
-      ),
-      alignment: Alignment.center,
-      child: isSelected
-          ? Container(
-              width: 12,
-              height: 12,
-              decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.primary),
-            )
-          : null,
     );
   }
 }
