@@ -17,10 +17,10 @@ void main() {
     );
   });
 
-  test('이용약관 보기는 약관동의 페이지, 개인정보 수집·이용 보기는 처리방침 페이지를 연다 — 마케팅은 보기가 없다', () {
+  test('이용약관 보기는 약관동의 페이지, 개인정보 수집·이용 보기는 처리방침 페이지, 마케팅 보기는 마케팅 활용 동의서를 연다', () {
     // 주소 글자는 consent_links.dart 한 곳에만 있다(규칙은 consent_links_test.dart). 종교 동의도 privacy 줄이 받는다(09-29).
     expect(ConsentItem.terms.link, termsLink);
     expect(ConsentItem.privacy.link, privacyItemsLink);
-    expect(ConsentItem.marketing.link, isNull);
+    expect(ConsentItem.marketing.link, marketingConsentLink);
   });
 }
