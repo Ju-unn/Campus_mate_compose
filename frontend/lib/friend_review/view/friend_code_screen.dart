@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
@@ -126,7 +128,7 @@ class FriendCodeScreen extends ConsumerWidget {
     }
     ref.read(friendCodeViewModelProvider.notifier).markReviewed();
     ref.invalidate(writableFriendsProvider);
-    ref.read(friendReviewListViewModelProvider(_written).notifier).refresh();
+    unawaited(ref.read(friendReviewListViewModelProvider(_written).notifier).refresh());
   }
 }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/consent/model/repository/open_url.dart';
@@ -54,7 +56,7 @@ void main() {
         child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router),
       ),
     );
-    router.push(AppRoutes.events);
+    unawaited(router.push(AppRoutes.events));
     await tester.pumpAndSettle();
   }
 

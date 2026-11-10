@@ -121,7 +121,7 @@ void main() {
     await signIn;
     repository.completer = Completer();
 
-    viewModel().signIn(SocialProvider.google);
+    unawaited(viewModel().signIn(SocialProvider.google));
 
     expect(state().toast, isNull);
   });
