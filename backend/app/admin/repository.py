@@ -24,12 +24,12 @@ SEEN_REPORTS_REQUIRED = "seen_reports_required"
 _SUBMISSION_SELECT = ("id,task,status,reject_reason,reward_hearts,created_at,reviewed_at,storage_paths,"
                       "profiles(id,nickname,universities(name))")
 # 신고 목록 한 줄. reports 는 profiles 를 두 번 가리켜서(reporter_id · target_profile_id) 신고당한 쪽을 FK 칸 이름으로 짚는다.
-# 신고자는 싣지 않는다. 사본(target_snapshot)은 한 건을 고를 때만 읽는다 — 목록 줄의 투표 질문 앞부분만 별칭 한 칸(preview_question)으로 고른다.
+# 신고자는 싣지 않는다. 사본(target_snapshot)은 한 건을 고를 때만 읽는다 — 목록 줄의 투표 질문 · 댓글 본문 앞부분만 별칭(preview_question · preview_body)으로 고른다.
 _REPORT_SELECT = ("id,target_type,target_id,reason,reason_note,status,created_at,resolved_at,"
-                  "preview_question:target_snapshot->>question,"
+                  "preview_question:target_snapshot->>question,preview_body:target_snapshot->>body,"
                   "target_profile:profiles!target_profile_id(id,nickname,status,auto_hidden_at,universities(name))")
-# 신고 대상 종류(report_target) → 글 표. 둘 다 status 가 content_status(visible · blinded)다.
-CONTENT_TABLES = {"poll": "polls", "friend_review": "friend_reviews"}
+# 신고 대상 종류(report_target) → 글 표. 모두 status 가 content_status(visible · blinded)다.
+CONTENT_TABLES = {"poll": "polls", "friend_review": "friend_reviews", "poll_comment": "poll_comments"}
 _MESSAGE_SELECT = "id,sender_id,kind,body,created_at"
 
 
@@ -131,7 +131,7 @@ class AdminRepository(PostgrestRepository):
         })
 
     async def fetch_content_status(self, target_type: str, content_id: str) -> str | None:
-        """투표 글 · 지인 리뷰의 지금 상태. 글이 아닌 신고이거나 글이 지워졌으면 None."""
+        """투표 글 · 지인 리뷰 · 댓글의 지금 상태. 글이 아닌 신고이거나 글이 지워졌으면 None."""
         table = CONTENT_TABLES.get(target_type)
         if table is None:
             return None
@@ -183,7 +183,7 @@ class AdminRepository(PostgrestRepository):
     async def set_content_status(
         self, admin_user_id: UUID, target_type: str, content_id: UUID, status: str, reason: str, ip: str | None,
     ) -> dict:
-        """투표 글 · 지인 리뷰 가림 / 해제와 작업 기록. target_type 은 report_target 값(poll · friend_review)이다."""
+        """투표 글 · 지인 리뷰 · 댓글 가림 / 해제와 작업 기록. target_type 은 report_target 값(poll · friend_review · poll_comment)이다."""
         return await self._rpc("admin_set_content_status", {
             "p_admin": str(admin_user_id), "p_target": target_type, "p_content": str(content_id), "p_status": status,
             "p_reason": reason, "p_ip": ip,

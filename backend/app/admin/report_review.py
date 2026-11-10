@@ -32,7 +32,7 @@ PREVIEW_CHARS = 40
 SEEN_REPORTS_MAX = 100
 SeenReportIds = Annotated[list[UUID], Field(max_length=SEEN_REPORTS_MAX)]
 ReportStatus = Literal["open", "actioned", "dismissed"]
-TargetType = Literal["profile", "message", "friend_review", "poll"]
+TargetType = Literal["profile", "message", "friend_review", "poll", "poll_comment"]
 
 
 class ResolveBody(BaseModel):
@@ -55,11 +55,12 @@ def _target_id(row: dict) -> str | None:
 
 
 def _preview(row: dict) -> str | None:
-    """투표 글 신고만 질문 앞 PREVIEW_CHARS 자(넘으면 …). 메시지 본문 · 리뷰 한마디는 목록에 오지 않는다."""
-    question = (row["preview_question"] or "").strip() if row["target_type"] == "poll" else ""
-    if not question:
+    """투표 글 신고는 질문, 댓글 신고는 댓글 본문의 앞 PREVIEW_CHARS 자(넘으면 …). 메시지 본문 · 리뷰 한마디는 목록에 오지 않는다."""
+    source = {"poll": "preview_question", "poll_comment": "preview_body"}.get(row["target_type"])
+    text = (row[source] or "").strip() if source else ""
+    if not text:
         return None
-    return question if len(question) <= PREVIEW_CHARS else question[:PREVIEW_CHARS] + "…"
+    return text if len(text) <= PREVIEW_CHARS else text[:PREVIEW_CHARS] + "…"
 
 
 def _summary(row: dict) -> dict:

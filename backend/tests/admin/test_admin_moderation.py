@@ -5,6 +5,7 @@ from admin_world import ADMIN, STRANGER, TARGET, bearer
 
 POLL = "33333333-0000-0000-0000-000000000001"
 REVIEW = "33333333-0000-0000-0000-000000000002"
+COMMENT = "33333333-0000-0000-0000-000000000003"
 ADMIN_HEADERS = bearer(sub=ADMIN, aal="aal2")
 REASON = {"reason": "반복 욕설"}
 SEEN_1 = "22222222-0000-0000-0000-000000000001"
@@ -21,6 +22,8 @@ CONTENT_ROUTES = [
     (f"/admin/content/polls/{POLL}/unblind", POLL, "poll", "visible"),
     (f"/admin/content/friend-reviews/{REVIEW}/blind", REVIEW, "friend_review", "blinded"),
     (f"/admin/content/friend-reviews/{REVIEW}/unblind", REVIEW, "friend_review", "visible"),
+    (f"/admin/content/poll-comments/{COMMENT}/blind", COMMENT, "poll_comment", "blinded"),
+    (f"/admin/content/poll-comments/{COMMENT}/unblind", COMMENT, "poll_comment", "visible"),
 ]
 ALL_URLS = [url for url, _ in PROFILE_ROUTES] + [route[0] for route in CONTENT_ROUTES]
 
@@ -136,7 +139,7 @@ def test_content_routes_name_the_kind_and_status_for_the_db_function(client, wor
     })]
 
 
-@pytest.mark.parametrize("url", [f"/admin/content/comments/{POLL}/blind", f"/admin/content/polls/{POLL}/delete",
+@pytest.mark.parametrize("url", [f"/admin/content/comments/{POLL}/blind", f"/admin/content/poll-comments/{COMMENT}/delete", f"/admin/content/polls/{POLL}/delete",
                                  f"/admin/profiles/{TARGET}/delete"])
 def test_an_unknown_kind_or_action_reaches_no_db_function(client, world, url):
     _ready(world)
