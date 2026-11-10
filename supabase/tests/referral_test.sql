@@ -5,7 +5,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(24);
+select plan(25);
 
 -- 준비 --------------------------------------------------------------------
 -- A = ...c1(추천인), B = ...c2(입력하는 사람), C = ...c3(A 와 같은 번호), D = ...c4(B 와 같은 번호, 다른 계정),
@@ -84,10 +84,16 @@ select is(
 select is(
   (select count(*)::int from public.heart_transactions
     where reason = 'referral' and amount = 50 and ref_id = '00000000-0000-0000-0000-0000000000c2'),
-  2, '양쪽 한 줄씩(50, ref_id = 입력한 사람)'
+  1, '새로 가입한 사람 한 줄(50, ref_id = 입력한 사람)'
+);
+select is(
+  (select count(*)::int from public.heart_transactions
+    where reason = 'referral' and amount = 25 and ref_id = '00000000-0000-0000-0000-0000000000c2'
+      and profile_id = '00000000-0000-0000-0000-0000000000c1'),
+  1, '코드 주인 한 줄(25, ref_id = 입력한 사람)'
 );
 select is((select heart_balance from public.entitlements where profile_id = '00000000-0000-0000-0000-0000000000c1'),
-  50, '추천인 50');
+  25, '추천인(코드 주인) 25');
 select is((select heart_balance from public.entitlements where profile_id = '00000000-0000-0000-0000-0000000000c2'),
   50, '입력한 사람 50');
 select isnt((select rewarded_at from public.referrals where referee_id = '00000000-0000-0000-0000-0000000000c2'),
