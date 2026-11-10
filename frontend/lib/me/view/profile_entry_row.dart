@@ -59,7 +59,6 @@ class ProfileEntryRow extends StatelessWidget {
     );
   }
 
-  static const _surface = Color(0xFFF7F3FF);
 
   Widget _row() {
     return Row(
@@ -69,7 +68,7 @@ class ProfileEntryRow extends StatelessWidget {
           width: 44,
           height: 44,
           alignment: Alignment.center,
-          decoration: BoxDecoration(color: emphasis ? AppColors.canvas : _surface, shape: BoxShape.circle),
+          decoration: BoxDecoration(color: emphasis ? AppColors.canvas : AppColors.profileEntryIconSurface, shape: BoxShape.circle),
           child: Icon3d(icon, size: iconSize),
         ),
         const SizedBox(width: AppSpacing.sm),
