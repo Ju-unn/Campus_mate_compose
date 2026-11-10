@@ -26,6 +26,7 @@ from app.core.logs import show_info
 from app.friend_reviews.router import router as friend_reviews_router
 from app.heart_tasks.router import router as heart_tasks_router
 from app.home.router import router as home_router
+from app.inquiries.router import router as inquiries_router
 from app.matching.router import router as matching_router
 from app.me.router import router as me_router
 from app.notifications.router import router as notifications_router
@@ -85,6 +86,7 @@ app.include_router(home_router)
 app.include_router(notifications_router)
 app.include_router(me_router)
 app.include_router(safety_router)
+app.include_router(inquiries_router)
 app.include_router(community_router)
 app.include_router(account_batch_router)
 app.include_router(account_router)
