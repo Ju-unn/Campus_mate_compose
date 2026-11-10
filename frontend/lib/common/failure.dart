@@ -42,10 +42,13 @@ final class ServerUnavailableFailure extends Failure {
 /// 시간당 재전송·요청 한도에 걸린 경우.
 /// 서버가 문구를 주면(사진 검사 하루 상한의 "내일 다시" 등) 그것을, 없으면 공용 문구를 보인다.
 final class RateLimitedFailure extends Failure {
-  const RateLimitedFailure([this.serverMessage]);
+  const RateLimitedFailure([this.serverMessage, this.retryAfterSeconds]);
 
   /// 서버가 준 안내 문구. 없으면 null.
   final String? serverMessage;
+
+  /// 다시 해도 되기까지 남은 초(몸통 `retry_after_seconds` — 휴대폰 인증번호 받기 429). 없으면 null.
+  final int? retryAfterSeconds;
 }
 
 /// Auth Hook이 도메인 화이트리스트·재가입 제한으로 가입을 거부한 경우.
@@ -65,10 +68,13 @@ final class WrongCodeFailure extends Failure {
 /// 서버가 기계용 `code` 를 함께 주면(POST /school-email/verify 등) 그것도 들고 있다 — 문구 대신 code 로 가를 수 있게.
 final class ServerRejectedFailure extends Failure {
   // Dart 3.13 private named parameter: 호출부는 code: 로 넘긴다
-  const ServerRejectedFailure(this.serverMessage, {this._code});
+  const ServerRejectedFailure(this.serverMessage, {this._code, this.remainingAttempts});
 
   final String serverMessage;
   final String? _code;
+
+  /// 남은 기회(몸통 `remaining_attempts` — 휴대폰 인증번호가 틀렸을 때). 없으면 null.
+  final int? remainingAttempts;
 
   /// 서버가 이 code 를 실어 보냈는지.
   bool hasCode(String code) => _code == code;
@@ -187,6 +193,13 @@ enum AppError {
   nicknameTaken,
   heightRange,
   phoneInvalid,
+
+  /// 04-1 휴대폰 문자 인증(pen 오류 줄 모음 xzT59 · 상태 화면 ⑤ ⑦ ⑫ ⑬). 서버는 code 로 가르고 글자는 앱이 정한다.
+  phoneInUse,
+  phoneDailyLimit,
+  phoneNotMobile,
+  phoneCodeExpired,
+  phoneCodeLocked,
   saveFailed,
   noFace,
 
@@ -220,6 +233,13 @@ final class BirthYearFailure extends Failure {
   const BirthYearFailure(this.fromYear);
 
   final int fromYear;
+}
+
+/// 휴대폰 인증번호가 틀렸다(04-1 ④). [remaining] 번 더 넣어 볼 수 있다 — 서버 400 `phone_code_mismatch` 의 `remaining_attempts`.
+final class PhoneCodeMismatchFailure extends Failure {
+  const PhoneCodeMismatchFailure(this.remaining);
+
+  final int remaining;
 }
 
 /// 사진 칸이 이미 다 찼다(04-2 · 15-7). [max] 장까지 올릴 수 있다.

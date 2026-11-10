@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:campus_mate/account/model/repository/account_repository.dart';
 import 'package:campus_mate/common/widgets/app_lottie_view.dart';
-import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/common/widgets/select_chip.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
@@ -1132,13 +1131,15 @@ void main() {
         expect(find.text('2002'), findsOneWidget);
         expect(find.text('172'), findsOneWidget);
 
-        final phone = find.descendant(
-          of: find.widgetWithText(LabeledField, '전화번호 · 필수'),
-          matching: find.byType(TextField),
-        );
+        // 번호 칸은 휴대폰 인증 줄 안에 있다. "다음" 은 인증된 번호에서만 켜진다 — 받기 → 6자리(자동 확인).
+        final phone = find.byWidgetPredicate((w) => w is TextField && w.decoration?.hintText == '010-0000-0000');
         await tester.ensureVisible(phone);
         await tester.enterText(phone, '01001352468');
         await tester.pump(const Duration(milliseconds: 350));
+        await tester.tap(find.text('인증번호 받기'));
+        await tester.pump();
+        await tester.enterText(find.byWidgetPredicate((w) => w is TextField && w.decoration?.hintText == '6자리 숫자'), '123456');
+        await tester.pump();
         await tester.tap(find.text('다음'));
         await tester.pumpAndSettle();
 
