@@ -64,8 +64,9 @@ _QUIET_HOURS_EXEMPT = {"card_arrived", "new_message"}
 # 조용한 시간에 걸리면 버리지 않고 pending_pushes 에 넣어 아침에 묶어 보낸다(결정 4, 2026-10-01 사용자).
 # 학생증 검토 결과(A7)도 예외가 아니라 보관함으로 간다 — 예외는 채팅 · 카드 도착뿐이다(사용자 규칙).
 # 인증샷 결과(사용자 결정 10-18 "가")도 학생증 결과처럼 보관함이다 — 알림함 줄은 즉시, 푸시는 아침에 한 건씩(_BUNDLES 에 없다).
+# 내 글의 새 댓글(2026-11-10)도 보관함이다 — 알림함 줄은 즉시, 푸시는 아침에 한 건씩(글마다 갈 곳이 달라 _BUNDLES 에 없다).
 _DEFERRED = {"acceptance_received", "match_made", "new_friend_review", "verification_result",
-             "heart_task_approved", "heart_task_rejected"}
+             "heart_task_approved", "heart_task_rejected", "poll_comment"}
 # 알림함(설계 §7·§8-4)에 남기는 푸시 kind -> notifications.kind. 여기 없는 kind(채팅 new_message ·
 # 게이트 trust_reminder)는 알림함에 쌓지 않는다.
 _INBOX_KINDS = {
@@ -76,6 +77,7 @@ _INBOX_KINDS = {
     "verification_result": "verification_result",
     "heart_task_approved": "heart_task_approved",
     "heart_task_rejected": "heart_task_rejected",
+    "poll_comment": "poll_comment",
 }
 # 아침 묶음 문구. 사람 × (kind, 가는 화면 data.route)로 묶는다 — 같은 kind 라도 가는 화면이 달라서다.
 # 여기 없는 짝(친구 가입 → 리뷰 쓰기, 학생증 검토 결과)은 알림마다 내용 · 갈 곳이 달라 묶지 않고 한 건씩 보낸다.
@@ -87,6 +89,9 @@ _BUNDLES = {
     ("match_made", "chat"): ("카카오톡 아이디를 주고받았어요", "밤사이 {n}명과 프로필이 공개됐어요"),
     ("new_friend_review", "friend_reviews"): ("새 지인 리뷰가 도착했어요", "밤사이 리뷰 {n}개가 도착했어요"),
 }
+# 밤새 쌓인 보관함 줄을 아침에 대상별로 한 건만 보내는 kind -> 대상을 가르는 data 칸. 문구는 줄 그대로다(묶음 문구가 아니다) —
+# 내 글의 새 댓글은 10분마다 한 줄씩 쌓이는데 갈 곳(글)이 같으면 아침에 여러 번 울릴 이유가 없다. 알림함 줄은 밤에 이미 줄마다 남았다.
+_ONE_PER_TARGET = {"poll_comment": "poll_id"}
 # 알림 줄에 한 장만 남기는 kind. kind 이름을 안드로이드 notification.tag · iOS apns-collapse-id 로 써서 새 알림이 앞 알림을 덮는다.
 # 앱은 학생 인증 관문을 지나면 이 tag 로 알림을 지운다(frontend core/push/foreground_push.dart) — 이름을 바꾸면 앱도 같이 바꾼다.
 # 다른 kind 는 건마다 따로 쌓여야 해서(사람 · 방마다 다른 알림) 넣지 않는다.
@@ -255,6 +260,12 @@ async def send_pending(repo, sender: FcmSender, now: datetime) -> int:
             pushes = [(kind, title, body.format(n=len(rows)), {"route": route})]
         else:
             pushes = [(row["kind"], row["title"], row["body"], row["data"]) for row in rows]
+            if (target_key := _ONE_PER_TARGET.get(kind)) is not None:
+                # 같은 글은 처음 줄 하나만 — 줄은 위에서 이미 보관함에서 지워졌다.
+                first_per_target: dict = {}
+                for push in pushes:
+                    first_per_target.setdefault(push[3].get(target_key), push)
+                pushes = list(first_per_target.values())
         for kind, title, body, data in pushes:
             try:
                 # notify 를 다시 지난다 — 밤사이 끈 알림 · 정지 · 탈퇴는 여기서 걸린다.
