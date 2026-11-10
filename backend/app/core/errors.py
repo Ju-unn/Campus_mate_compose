@@ -9,7 +9,7 @@
 LOGIN_REQUIRED = "로그인이 필요해요"
 SESSION_EXPIRED = "세션이 만료됐어요, 다시 로그인해 주세요"
 # Supabase 인증이 잠깐 못 받을 때(5xx · 429 · 연결 실패). 401 이 아니다 — 앱이 로그아웃시키지 않게.
-AUTH_UNAVAILABLE = "잠시 뒤 다시 시도해 주세요"
+AUTH_UNAVAILABLE = "잠시 후 다시 시도해 주세요"
 # 소셜 로그인 전환: 학교 메일 확인(POST /school-email/verify) 전. 임시 문구 — 최종은 디자인에서 정한다.
 SCHOOL_EMAIL_REQUIRED = "학교 메일 인증을 먼저 끝내 주세요"
 STUDENT_VERIFICATION_REQUIRED = "학생증 인증을 먼저 끝내 주세요"
@@ -92,8 +92,8 @@ AVATAR_SOURCE_REQUIRED = "아바타 원본 사진을 먼저 골라 주세요"
 AVATAR_NOT_CREATED = "아바타를 먼저 만들어 주세요"
 # 앱(frontend/lib/matching/model/data/paid_card.dart)이 구매 402 를 이 문구 글자 그대로도 비교한다 — 바꾸면 앱이 일반 실패로 떨어진다. 기계용 code 는 CODE_HEARTS_NOT_ENOUGH.
 HEARTS_NOT_ENOUGH = "하트가 모자라요"
-# 큐 설정이 비었거나(503) 작업 등록이 실패했을 때(502). 둘 다 사용자가 할 일은 같다 — 잠시 뒤 다시.
-AVATAR_QUEUE_UNAVAILABLE = "지금은 아바타를 만들 수 없어요, 잠시 뒤 다시 시도해 주세요"
+# 큐 설정이 비었거나(503) 작업 등록이 실패했을 때(502). 둘 다 사용자가 할 일은 같다 — 잠시 후 다시.
+AVATAR_QUEUE_UNAVAILABLE = "지금은 아바타를 만들 수 없어요, 잠시 후 다시 시도해 주세요"
 # 추천 코드(화면 20) — pen 값이 오면 문구를 맞춘다
 REFERRAL_CODE_NOT_FOUND = "없는 코드예요, 다시 확인해 주세요"
 REFERRAL_CODE_NOT_ALLOWED = "이 코드는 쓸 수 없어요"

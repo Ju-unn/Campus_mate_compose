@@ -353,7 +353,7 @@ class _EmptyFeed extends StatelessWidget {
       );
 }
 
-/// 첫 쪽을 못 불러왔을 때. 문구는 `Failure` 종류별 문구 그대로(502/503 → "잠시 뒤 다시 시도해 주세요" 등),
+/// 첫 쪽을 못 불러왔을 때. 문구는 `Failure` 종류별 문구 그대로(502/503 → "잠시 후 다시 시도해 주세요" 등),
 /// 모양은 `school_info_screen` 의 `_SchoolNameError` 와 같다. 실패인데 "질문이 없어요" 를 보이면 거짓말이다.
 class _LoadError extends StatelessWidget {
   const _LoadError({required this.failure, required this.onRetry});

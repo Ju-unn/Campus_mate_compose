@@ -37,9 +37,9 @@ void main() {
     expect(failureText(AppLocalizationsKo(), failure), '허용되지 않은 학교 이메일이에요');
   });
 
-  test('서버가 잠깐 못 받으면 잠시 뒤 다시 시도하라고 안내한다', () {
+  test('서버가 잠깐 못 받으면 잠시 후 다시 시도하라고 안내한다', () {
     const failure = ServerUnavailableFailure();
-    expect(failureText(AppLocalizationsKo(), failure), '잠시 뒤 다시 시도해 주세요');
+    expect(failureText(AppLocalizationsKo(), failure), '잠시 후 다시 시도해 주세요');
   });
 
   test('서버 거부 사유를 그대로 보여준다', () {
@@ -47,11 +47,11 @@ void main() {
     expect(failureText(AppLocalizationsKo(), failure), '이미 검토 중이에요');
   });
   group('학교 메일 인증(02 · 03)', () {
-    test('인증번호를 못 보냈으면 잠시 뒤 다시 하라는 임시 문구', () {
+    test('인증번호를 못 보냈으면 잠시 후 다시 하라는 임시 문구', () {
       expect(failureText(AppLocalizationsKo(), const CodeNotSentFailure()), '인증번호를 보내지 못했어요. 잠시 후 다시 시도해 주세요');
     });
 
-    test('학교 메일 인증을 못 마쳤으면 잠시 뒤 다시 하라는 임시 문구', () {
+    test('학교 메일 인증을 못 마쳤으면 잠시 후 다시 하라는 임시 문구', () {
       expect(
         failureText(AppLocalizationsKo(), const SchoolEmailIncompleteFailure()),
         '학교 메일 인증을 마치지 못했어요. 잠시 후 다시 시도해 주세요',
@@ -154,7 +154,7 @@ void main() {
     expect(failureText(AppLocalizationsKo(), failure), '로그인이 취소됐어요');
   });
 
-  test('소셜 로그인이 실패하면 잠시 뒤 다시 시도하라고 안내한다', () {
+  test('소셜 로그인이 실패하면 잠시 후 다시 시도하라고 안내한다', () {
     const failure = SocialLoginFailure();
     expect(failureText(AppLocalizationsKo(), failure), '로그인하지 못했어요. 잠시 후 다시 시도해 주세요');
   });

@@ -31,7 +31,7 @@ async def purge_student_id_photos(repo: StudentVerificationRepository, storage: 
     for attempt in due:
         try:
             # 시도 행만 닫는다. 학생증 제거(10-17) 뒤로는 프로필(student_verification)을 바꾸지 않는다 — 바꾸는 순간
-            # DB 트리거가 "학생 인증을 다시 해 주세요" 푸시를 보낸다. 학생증은 더 이상 관문이 아니다.
+            # DB 트리거가 "학교 인증을 다시 해 주세요" 푸시를 보낸다. 학생증은 더 이상 관문이 아니다.
             await repo.close_attempt(attempt["id"], EXPIRED_REASON, now)
         except Exception as exc:
             logger.warning("학생증 기한 만료 건너뜀 attempt=%s %s", attempt["id"], type(exc).__name__)

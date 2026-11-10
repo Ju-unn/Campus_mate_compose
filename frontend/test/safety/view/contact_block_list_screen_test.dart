@@ -163,9 +163,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('김지은'), findsOneWidget);
-    expect(tester.widget<Text>(find.text('잠시 뒤 다시 시도해 주세요')).style?.color, AppColors.error);
+    expect(tester.widget<Text>(find.text('잠시 후 다시 시도해 주세요')).style?.color, AppColors.error);
     // 빨간 줄은 마지막 줄 아래 12, 목록 안쪽 [0,24] 안에 선다.
-    final error = tester.getRect(find.text('잠시 뒤 다시 시도해 주세요'));
+    final error = tester.getRect(find.text('잠시 후 다시 시도해 주세요'));
     expect(error.top - tester.getRect(find.byType(ContactRow).last).bottom, 12);
     expect(error.left, greaterThanOrEqualTo(24));
     expect(error.right, lessThanOrEqualTo(336));

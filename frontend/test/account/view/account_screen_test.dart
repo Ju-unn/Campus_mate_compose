@@ -364,7 +364,7 @@ void main() {
 
   testWidgets('못 불러오면 다시 시도할 수 있다', (tester) async {
     final fake = await pump(tester, repository: (FakeAccountRepository()..accountResult = const FailureResult(NetworkFailure())));
-    expect(find.text('잠시 뒤 다시 시도해 주세요'), findsOneWidget);
+    expect(find.text('잠시 후 다시 시도해 주세요'), findsOneWidget);
 
     fake.accountResult = Success(sampleAccount);
     await tester.tap(find.text('다시 시도'));

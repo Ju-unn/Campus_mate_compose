@@ -243,8 +243,8 @@ def p_me_04(run, phone):
     # 로그인은 망이 있어야 한다 — 앱이 홈에서 `cut` 으로 멈추면 PC 가 망을 끊고, 나 탭 오류를 읽고 `restore` 에서 멈추면 되살린다.
     # 그 뒤 앱이 "다시 시도" 를 눌러 히어로를 본다. 망과 우편함(adb reverse)은 어떻게 끝나든 되돌린다(area2_phone3.offline).
     said = offline(phone, check, _cut(phone), _restore(phone), token_hash=token)
-    check.that(said.get('error_text', MISSING) == '잠시 뒤 다시 시도해 주세요',
-               f"망 오류 글 {said.get('error_text', MISSING)!r}(기대 '잠시 뒤 다시 시도해 주세요')")
+    check.that(said.get('error_text', MISSING) == '잠시 후 다시 시도해 주세요',
+               f"망 오류 글 {said.get('error_text', MISSING)!r}(기대 '잠시 후 다시 시도해 주세요')")
     check.that(said.get('retry_text', MISSING) == '다시 시도',
                f"다시 시도 버튼 {said.get('retry_text', MISSING)!r}(기대 '다시 시도')")
     check.that(said.get('hero') is True, f"다시 시도 뒤 히어로 {said.get('hero', MISSING)}(기대 보임)")

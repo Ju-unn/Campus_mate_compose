@@ -189,7 +189,7 @@ final Map<String, Area1Case> area5CasesRead = {
     await step('cut'); // PC 가 비행기 모드를 켠다
     await tap(tester, navTab('나'));
     await pumpUntil(tester, find.byType(MeLoadError), timeout: const Duration(seconds: 60));
-    final errorText = _textOf(tester, find.text('잠시 뒤 다시 시도해 주세요'));
+    final errorText = _textOf(tester, find.text('잠시 후 다시 시도해 주세요'));
     final retryText = _textOf(tester, find.text('다시 시도'));
     await step('restore'); // PC 가 망을 되살리고 돌아올 때까지 기다린다
     final watch = Stopwatch()..start();

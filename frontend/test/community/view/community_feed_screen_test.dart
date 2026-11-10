@@ -353,7 +353,7 @@ void main() {
 
       await tester.tap(tab(PollFeedTab.mine));
       await tester.pumpAndSettle();
-      expect(find.text('잠시 뒤 다시 시도해 주세요'), findsOneWidget);
+      expect(find.text('잠시 후 다시 시도해 주세요'), findsOneWidget);
       expect(selectedTab(tester), PollFeedTab.mine);
     });
 
@@ -444,7 +444,7 @@ void main() {
   testWidgets('불러오기 실패는 빈 상태가 아니라 실패 문구와 다시 시도', (tester) async {
     repository.page = const FailureResult(ServerUnavailableFailure());
     await pump(tester);
-    expect(find.text('잠시 뒤 다시 시도해 주세요'), findsOneWidget);
+    expect(find.text('잠시 후 다시 시도해 주세요'), findsOneWidget);
     expect(find.text('아직 질문이 없어요'), findsNothing);
 
     repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));

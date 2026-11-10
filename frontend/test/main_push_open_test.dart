@@ -173,7 +173,7 @@ void main() {
   testWidgets('옛 학생증 결과 알림이 와도 화면을 옮기거나 알림 줄을 지우지 않는다', (tester) async {
     await pumpGatedApp(tester);
 
-    messaging.emitMessage({'route': 'verification'}, title: '학생 인증이 끝났어요', body: '학과 정보를 입력하고 시작해 보세요');
+    messaging.emitMessage({'route': 'verification'}, title: '학교 인증이 끝났어요', body: '학과 정보를 입력하고 시작해 보세요');
     await tester.pumpAndSettle();
 
     expect(find.byType(SchoolInfoScreen), findsOneWidget);

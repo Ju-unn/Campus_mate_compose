@@ -295,7 +295,7 @@ void main() {
       });
 
       test('AUTH_UNAVAILABLE(503) 는 다시 하라는 문구', () async {
-        respond = (_) => json(503, {'detail': '잠시 뒤 다시 시도해 주세요', 'code': 'AUTH_UNAVAILABLE'});
+        respond = (_) => json(503, {'detail': '잠시 후 다시 시도해 주세요', 'code': 'AUTH_UNAVAILABLE'});
 
         expect(failureOf(await buildRepository().complete('temp-token')), isA<SchoolEmailIncompleteFailure>());
       });
@@ -358,7 +358,7 @@ void main() {
 
     test('503 · 네트워크는 "학교 메일 인증을 마치지 못했어요"', () async {
       for (final response in [
-        () => json(503, {'detail': '잠시 뒤 다시 시도해 주세요'}),
+        () => json(503, {'detail': '잠시 후 다시 시도해 주세요'}),
         () => throw http.ClientException('network'),
       ]) {
         respond = (_) => response();
@@ -392,7 +392,7 @@ void main() {
 
       final keeps = <String, http.Response Function()>{
         '네트워크': () => throw http.ClientException('network'),
-        '503': () => json(503, {'detail': '잠시 뒤 다시 시도해 주세요', 'code': 'AUTH_UNAVAILABLE'}),
+        '503': () => json(503, {'detail': '잠시 후 다시 시도해 주세요', 'code': 'AUTH_UNAVAILABLE'}),
         'SCHOOL_EMAIL_NOT_CONFIRMED': () =>
             json(403, {'detail': '학교 메일 인증이 끝나지 않았어요', 'code': 'SCHOOL_EMAIL_NOT_CONFIRMED'}),
       };

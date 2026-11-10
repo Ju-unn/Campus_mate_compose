@@ -540,7 +540,7 @@ void main() {
       await pump(tester, result: const FailureResult(NetworkFailure()));
 
       // 사용자 결정 2026-09-27 — 공통 "알 수 없는 오류" 문구가 아니다.
-      expect(find.text('잠시 뒤 다시 시도해 주세요'), findsOneWidget);
+      expect(find.text('잠시 후 다시 시도해 주세요'), findsOneWidget);
       expect(find.text(failureText(AppLocalizationsKo(), const UnknownFailure())), findsNothing);
       expect(find.text('다시 시도'), findsOneWidget);
       expect(find.byTooltip('설정'), findsOneWidget);
@@ -552,7 +552,7 @@ void main() {
       tester.view.padding = const FakeViewPadding(bottom: 20);
       await pump(tester, result: const FailureResult(NetworkFailure()));
 
-      final center = find.ancestor(of: find.text('잠시 뒤 다시 시도해 주세요'), matching: find.byType(Center)).first;
+      final center = find.ancestor(of: find.text('잠시 후 다시 시도해 주세요'), matching: find.byType(Center)).first;
       final pillTop = tester.getRect(find.byType(GlassBottomNav)).top;
       expect(pillTop, 682);
       expect(tester.getCenter(center).dy, closeTo((56 + pillTop) / 2, 0.5));

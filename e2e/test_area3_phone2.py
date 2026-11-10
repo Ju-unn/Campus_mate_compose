@@ -256,7 +256,7 @@ class OfflineSendTest(Phone2):
         self.assertEqual(result, 'fail')
 
     def test_fails_when_the_text_is_gone_the_message_differs_or_a_row_was_saved(self):
-        for answer in (said(error=NETWORK, input=''), said(error=NETWORK), said(error='잠시 뒤 다시', input='테스트'),
+        for answer in (said(error=NETWORK, input=''), said(error=NETWORK), said(error='잠시 후 다시', input='테스트'),
                        said(input='테스트'), self.sending(['테스트'], error=NETWORK, input='테스트')):
             (result, _), _ = self.offline(answer)
             self.assertEqual(result, 'fail')
