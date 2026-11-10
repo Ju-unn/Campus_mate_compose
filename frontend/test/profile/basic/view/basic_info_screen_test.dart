@@ -164,6 +164,8 @@ void main() {
     await pumpScreen(tester, repository: repository);
     Finder field(String label) =>
         find.descendant(of: find.widgetWithText(LabeledField, label), matching: find.byType(TextField));
+    // 번호 칸은 휴대폰 인증 줄(PhoneVerifyField) 안에 있어 LabeledField 가 아니다.
+    final phone = find.byWidgetPredicate((w) => w is TextField && w.decoration?.hintText == '010-0000-0000');
     String? gender() => ProviderScope.containerOf(tester.element(find.byType(BasicInfoScreen)))
         .read(basicInfoViewModelProvider)
         .gender;
@@ -174,8 +176,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300)); // 닉네임 중복 확인(입력 뒤 300ms)
     await tester.enterText(field('출생연도 · 필수'), '2003');
     await tester.enterText(field('키 (cm) · 필수'), '170');
-    await tester.enterText(field('전화번호 · 필수'), '01001352468');
+    await tester.enterText(phone, '01001352468');
     await tester.tap(find.text('남성'));
+    await tester.pump();
+    // "다음" 은 인증된 번호에서만 켜진다(대장 결정 11-10) — 받기 → 6자리(자동 확인).
+    await tester.tap(find.text('인증번호 받기'));
+    await tester.pump();
+    await tester.enterText(find.byWidgetPredicate((w) => w is TextField && w.decoration?.hintText == '6자리 숫자'), '123456');
     await tester.pump();
     await tester.showKeyboard(field('닉네임 · 필수'));
     expect(spinner, findsNothing);
@@ -192,9 +199,10 @@ void main() {
     expect(tester.getSize(button).height, 52);
     double opacityOf(Finder finder) =>
         tester.widgetList<Opacity>(find.ancestor(of: finder, matching: find.byType(Opacity))).fold(1.0, (a, o) => a * o.opacity);
-    for (final label in ['닉네임 · 필수', '출생연도 · 필수', '키 (cm) · 필수', '전화번호 · 필수']) {
+    for (final label in ['닉네임 · 필수', '출생연도 · 필수', '키 (cm) · 필수']) {
       expect(opacityOf(field(label)), 0.5, reason: label);
     }
+    expect(opacityOf(phone), 0.5);
     expect(opacityOf(find.text('남성')), 0.5);
     expect(opacityOf(find.text('정확한 정보일수록 더 잘 맞는 상대를 만나요.')), 1, reason: '제목 · 부제는 흐리지 않는다');
     // 보내는 중에는 입력칸에 초점이 없고(키보드가 내려간다) 다시 눌러도 잡히지 않는다.

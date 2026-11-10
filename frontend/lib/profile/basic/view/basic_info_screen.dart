@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:campus_mate/common/failure.dart';
-import 'package:campus_mate/common/phone_number_formatter.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/common/widgets/mbti_pole_toggle.dart';
@@ -13,6 +12,8 @@ import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/profile/basic/viewmodel/basic_info_ui_state.dart';
 import 'package:campus_mate/profile/basic/viewmodel/basic_info_view_model.dart';
+import 'package:campus_mate/profile/basic/viewmodel/phone_verify_ui_state.dart';
+import 'package:campus_mate/profile/basic/view/phone_verify_field.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:flutter/material.dart';
@@ -107,14 +108,6 @@ class _Form extends StatelessWidget {
   final BasicInfoUiState state;
   final BasicInfoViewModel viewModel;
 
-  /// 11자리를 다 채우면 키보드를 내린다 — 마지막 입력칸이라 더 칠 것이 없다.
-  void _changePhoneNumber(BuildContext context, String value) {
-    viewModel.changePhoneNumber(value);
-    if (value.replaceAll(RegExp(r'\D'), '').length == PhoneNumberFormatter.maxDigits) {
-      FocusScope.of(context).unfocus();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -188,17 +181,15 @@ class _Form extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppSpacing.xs),
-        LabeledField(
-          label: l10n.profileBasicInfoPhoneLabel,
-          placeholder: '010-0000-0000',
-          initialValue: state.phoneNumberInput,
-          onChanged: (value) => _changePhoneNumber(context, value),
-          keyboardType: TextInputType.phone,
-          inputFormatters: const [PhoneNumberFormatter()],
-          helper: l10n.profileBasicInfoPhoneHelper,
-          errorText: _errorText(context, state.phoneNumberError),
-        ),
-        const SizedBox(height: AppSpacing.sm),
+        // 휴대폰 문자 인증(pen 2c): 번호 줄(+ 상태 줄) → 보낸 뒤에만 8 → 인증번호 줄. 번호 도움말은 뺐다(사용자 결정 11-11).
+        PhoneVerifyField(state: state, viewModel: viewModel),
+        if (state.phoneVerify.step == PhoneVerifyStep.codeSent) ...[
+          const SizedBox(height: AppSpacing.xs),
+          OtpEntryRow(state: state, viewModel: viewModel),
+        ],
+        // 도움말 없는 덩어리 → 다음 라벨 24: 이 화면에서 도움말 없는 키 칸 상자 바닥 → 「전화번호 · 필수」 가 출생연도 도움말 줄 16.8 +
+        // 줄 사이 8 = 24.8 이다. 그 간격을 토큰으로 맞춘다(대장 지시 11-11, pen 은 나중에 맞춘다).
+        const SizedBox(height: AppSpacing.lg),
         Text(l10n.profileBasicInfoGenderLabel, style: AppTypography.labelSmall.copyWith(color: AppColors.body)),
         const SizedBox(height: AppSpacing.xs),
         _GenderRow(state: state, viewModel: viewModel),
