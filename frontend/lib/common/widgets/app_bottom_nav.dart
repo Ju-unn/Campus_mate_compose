@@ -4,6 +4,7 @@ import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -94,7 +95,7 @@ class _NavItem extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon, size: 24, color: color),
-              const SizedBox(height: 4),
+              const SizedBox(height: AppSpacing.xxs),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -107,7 +108,7 @@ class _NavItem extends StatelessWidget {
                       style: AppTypography.badge.copyWith(color: color),
                     ),
                   ),
-                  if (badge > 0) ...[const SizedBox(width: 4), _CountBadge(count: badge)],
+                  if (badge > 0) ...[const SizedBox(width: AppSpacing.xxs), _CountBadge(count: badge)],
                 ],
               ),
             ],
@@ -132,7 +133,7 @@ class _CountBadge extends StatelessWidget {
       child: ExcludeSemantics(
         child: Container(
           constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-          padding: const EdgeInsets.symmetric(horizontal: 4),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxs),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: AppColors.primary,

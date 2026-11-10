@@ -47,7 +47,7 @@ class NotificationsScreen extends ConsumerWidget {
         titleSpacing: AppSpacing.xxs,
         centerTitle: false,
         leading: Padding(
-          padding: const EdgeInsets.only(left: 12),
+          padding: const EdgeInsets.only(left: AppSpacing.sm),
           // leading 칸은 높이가 56 으로 고정이라 Align 으로 느슨하게 풀어야 화살표 칸이 48×48 로 나온다.
           child: Align(
             alignment: Alignment.centerLeft,

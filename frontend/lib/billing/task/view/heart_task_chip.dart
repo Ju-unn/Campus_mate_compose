@@ -1,4 +1,5 @@
 import 'package:campus_mate/core/theme/app_radius.dart';
+import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 
@@ -39,7 +40,7 @@ class HeartTaskChip extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (leading != null) ...[leading, const SizedBox(width: 4)],
+              if (leading != null) ...[leading, const SizedBox(width: AppSpacing.xxs)],
               Text(label, style: labelStyle ?? AppTypography.badge.copyWith(fontWeight: FontWeight.w700, color: foreground)),
             ],
           ),

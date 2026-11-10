@@ -89,7 +89,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
             SliverFillRemaining(
               hasScrollBody: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 16), // 아래 16 은 디자인 값(03 은 28 그대로)
+                padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md), // 아래 16 은 디자인 값(03 은 28 그대로)
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

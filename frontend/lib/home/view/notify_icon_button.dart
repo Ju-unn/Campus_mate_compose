@@ -2,6 +2,7 @@ import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
+import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 
@@ -43,7 +44,7 @@ class NotifyIconButton extends StatelessWidget {
                           // pen 16 은 최소 크기다 — 글자를 키우면 배지도 같이 커진다(DESIGN §11.2).
                           child: Container(
                             constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxs),
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
                               color: AppColors.primary,

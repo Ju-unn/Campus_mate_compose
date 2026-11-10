@@ -3,6 +3,7 @@ import 'package:campus_mate/community/view/poll_time.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/notifications/model/data/app_notification.dart';
 import 'package:flutter/material.dart';
@@ -86,22 +87,22 @@ class NotificationRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _IconCircle(kind: item.kind),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(item.title, style: _titleStyle),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: AppSpacing.xxs),
                         Text(item.body, style: _bodyStyle, maxLines: 2, overflow: TextOverflow.ellipsis),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: AppSpacing.xxs),
                         Text(time, style: _timeStyle),
                       ],
                     ),
                   ),
                   // pen `z548M` Unread Slot(폭 8). 읽음 변형 `iVIkt` 도 슬롯 `FOB6f` 와 앞 간격 12 를 그대로 두고
                   // 점 `OYASd` 만 숨긴다 — 읽음 · 안 읽음 글 칸이 같은 224.
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppSpacing.sm),
                   SizedBox(width: 8, child: item.read ? null : const _UnreadDot()),
                 ],
               ),

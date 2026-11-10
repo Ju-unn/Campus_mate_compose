@@ -24,7 +24,7 @@ import 'package:go_router/go_router.dart';
 const _bodyTop = 52.0; // pen IzMEA padding top
 const _sectionGap = 20.0; // pen IzMEA vertical gap
 const _badgeGap = 6.0; // pen h1CMd gap
-const _badgePadding = EdgeInsets.symmetric(horizontal: 12, vertical: 7); // pen h1CMd padding [7,12]
+const _badgePadding = EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 7); // pen h1CMd padding [7,12]
 const _mascotSize = 128.0; // pen usyj0
 const _confirmHeight = 52.0; // pen eI62H — AppButton(56 · r16)과 모서리가 달라 화면 안에서 그린다(common 은 고치지 않는다)
 const _skipHeight = 48.0; // pen bTBCQ

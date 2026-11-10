@@ -73,7 +73,7 @@ class _OfflineNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       key: const ValueKey('offline-notice'),
-      padding: const EdgeInsets.symmetric(vertical: 48, horizontal: AppSpacing.lg),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxl, horizontal: AppSpacing.lg),
       child: Column(
         children: [
           // 3D 안내 파란 느낌표 `s3b4k`.

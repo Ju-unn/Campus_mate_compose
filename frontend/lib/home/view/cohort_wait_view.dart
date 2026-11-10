@@ -7,6 +7,7 @@ import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
+import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/home/model/data/cohort_wait.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
@@ -150,7 +151,7 @@ class _CohortWaitViewState extends ConsumerState<CohortWaitView> {
           // 버튼이 내비에 붙는다 — 그래서 안쪽 Padding 이다. 본문이 유리 내비(pen `xtj0K`) 뒤까지 이어지므로
           // 알약 자리(본문 MediaQuery padding.bottom)를 더해 버튼이 알약 위 24 에 선다.
           child: Padding(
-            padding: EdgeInsets.fromLTRB(16, 8, 16, 24 + MediaQuery.paddingOf(context).bottom),
+            padding: EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, 24 + MediaQuery.paddingOf(context).bottom),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -176,7 +177,7 @@ class _CohortWaitViewState extends ConsumerState<CohortWaitView> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.sm),
                 ],
                 _InviteButton(onPressed: _invite),
               ],
@@ -209,14 +210,14 @@ class _Hero extends StatelessWidget {
         children: [
           // `of3fj` = 마스코트 male.
           Image.asset('assets/images/mascot-male.png', width: 132, height: 132),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.xs),
           // `BBGsm` 14/600 #C4224B lh1.5. " · D-14" 는 Q1 (가) — 48 한 줄에 넣으면 폭이 모자란다.
           Text(
             context.l10n.homeCohortHeroCaption(dayLabel: dayLabel),
             textAlign: TextAlign.center,
             style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText, height: 1.5),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.xs),
           // `IDJ3M` 48/700 #222222 lh1.5 자간 0 — countdown `sZZ14`(lh1.1 · 자간 −1.44 · tabular) 인스턴스가 아니라
           // 크기 · 글꼴만 countdown 토큰에서 받고 줄높이 · 자간 · tabular 는 끈다.
           // "오늘 오전 7시" · 긴 날짜 · 글자 확대에도 폭을 넘지 않게 줄여 보인다.
@@ -232,7 +233,7 @@ class _Hero extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.xs),
           // `ocR77` 14/400 #6A6A6A.
           Text(
             context.l10n.homeCohortHeroNote,
@@ -257,7 +258,7 @@ class _RecruitPanel extends StatelessWidget {
     // pen 은 padding 16 이지만 92 고정에 두 줄(63)을 가운데 둬 위아래가 15 · 14 다. 16 을 지키면 93 이 되어 위아래 14 로 둔다.
     return Container(
       constraints: const BoxConstraints(minHeight: 92),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 14),
       alignment: Alignment.centerLeft,
       decoration: BoxDecoration(
         color: AppColors.surfaceSoft,
@@ -269,7 +270,7 @@ class _RecruitPanel extends StatelessWidget {
         children: [
           // 왼쪽 열 `o6UY45` gap 4. `WEPFQ` 14/400 #6A6A6A lh1.5 · `ebHk4` 24/700 #222222 lh1.5.
           Text(context.l10n.homeCohortRecruitLabel, style: AppTypography.bodySmall.copyWith(color: AppColors.muted, height: 1.5)),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSpacing.xxs),
           Text(context.l10n.homeCohortRecruitCount(count: count), style: AppTypography.headline.copyWith(color: AppColors.ink, height: 1.5)),
         ],
       ),
@@ -289,7 +290,7 @@ class _InviteButton extends StatelessWidget {
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
         minimumSize: const Size(double.infinity, 52),
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
       ).copyWith(

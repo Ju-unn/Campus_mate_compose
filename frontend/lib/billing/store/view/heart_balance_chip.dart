@@ -3,6 +3,7 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
+import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:flutter/material.dart';
@@ -73,7 +74,7 @@ class HeartBalanceChipView extends StatelessWidget {
     final instant = MediaQuery.disableAnimationsOf(context);
     // 패딩 [6,12,6,8] · gap 6 · 하트 24 · 숫자 18/700(렌더 높이 25) · plus 16 — 마스터 `sysyz`(토큰 밖 pen 리터럴).
     final padded = Padding(
-      padding: const EdgeInsets.fromLTRB(8, 6, 12, 6),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.xs, 6, AppSpacing.sm, 6),
       // 높이 44 가 고정이라 글자 배율은 숫자가 칸(44 − 위아래 12)에 들어가는 [_maxTextScale] 까지만 따른다 — 앱바 제목에 자리도 남긴다.
       child: MediaQuery.withClampedTextScaling(
         maxScaleFactor: _maxTextScale,

@@ -70,7 +70,7 @@ class _VerifyCodeScreenState extends ConsumerState<VerifyCodeScreen> {
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, 28),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

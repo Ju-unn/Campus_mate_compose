@@ -35,7 +35,7 @@ class BlockListScreen extends ConsumerWidget {
         leadingWidth: 56,
         titleSpacing: 4,
         leading: Navigator.of(context).canPop()
-            ? const Padding(padding: EdgeInsets.only(left: 8), child: BackButton(color: AppColors.ink))
+            ? const Padding(padding: EdgeInsets.only(left: AppSpacing.xs), child: BackButton(color: AppColors.ink))
             : null,
         title: Text(context.l10n.safetyBlockListTitle, style: AppTypography.navTitle),
       ),
@@ -296,7 +296,7 @@ class _Empty extends StatelessWidget {
           constraints: BoxConstraints(minHeight: constraints.maxHeight - _listPadding.vertical),
           child: Center(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 48, horizontal: AppSpacing.lg),
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxl, horizontal: AppSpacing.lg),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [

@@ -22,11 +22,11 @@ import 'package:go_router/go_router.dart';
 // 기타 입력 s8u4Y(힌트 · 글자 수 표시 없음).
 
 // 토큰에 없는 pen 값.
-const _skipPadding = EdgeInsets.symmetric(horizontal: 12); // pen k8Mb37 76×48 padding [0,12]
+const _skipPadding = EdgeInsets.symmetric(horizontal: AppSpacing.sm); // pen k8Mb37 76×48 padding [0,12]
 // pen k8Mb37 76×48. 글자 폭(pen 렌더 52)이 앱 Pretendard 렌더로는 47.7 이라 최소 폭으로 상자를 지킨다 — 글자는 가운데.
 const _skipSize = Size(76, 48);
 const _chipHeight = 36.0; // pen lVe24 · 마스터 WzXvK
-const _chipPadding = EdgeInsets.symmetric(horizontal: 12); // pen WzXvK padding [8,12]
+const _chipPadding = EdgeInsets.symmetric(horizontal: AppSpacing.sm); // pen WzXvK padding [8,12]
 
 /// 유입경로 화면(DESIGN.md 화면 20d). 저장하거나 건너뛰면 가입 마지막 화면 06-4 지인 차단으로 간다(결정 8 ①).
 /// 서버 온보딩 단계가 아니라 앱에서만 잇는다(2026-09-28 대장 D2).

@@ -91,7 +91,7 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
         leadingWidth: 56,
         titleSpacing: 4,
         leading: Padding(
-          padding: const EdgeInsets.only(left: 8),
+          padding: const EdgeInsets.only(left: AppSpacing.xs),
           child: IconButton(
             tooltip: MaterialLocalizations.of(context).backButtonTooltip,
             onPressed: () => Navigator.of(context).maybePop(),
