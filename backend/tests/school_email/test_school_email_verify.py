@@ -676,7 +676,7 @@ def test_code_profile_not_found(client, world):
 def test_code_auth_unavailable_on_the_temp_token(client, world, trouble):
     world.auth_trouble[TEMP_TOKEN] = trouble
 
-    _expect(_verify(client), 503, "잠시 뒤 다시 시도해 주세요", "AUTH_UNAVAILABLE")
+    _expect(_verify(client), 503, "잠시 후 다시 시도해 주세요", "AUTH_UNAVAILABLE")
 
 
 def test_code_auth_unavailable_while_reading_the_callers_provider(client, world):
@@ -693,4 +693,4 @@ def test_code_auth_unavailable_while_reading_the_callers_provider(client, world)
 
     world._auth_user = flaky
 
-    _expect(_verify(client), 503, "잠시 뒤 다시 시도해 주세요", "AUTH_UNAVAILABLE")
+    _expect(_verify(client), 503, "잠시 후 다시 시도해 주세요", "AUTH_UNAVAILABLE")
