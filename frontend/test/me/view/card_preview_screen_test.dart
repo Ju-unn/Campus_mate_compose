@@ -917,7 +917,7 @@ void main() {
       await pump(tester, result: const FailureResult(NetworkFailure()));
 
       expect(find.byType(MeLoadError), findsOneWidget);
-      expect(find.text('잠시 뒤 다시 시도해 주세요'), findsOneWidget);
+      expect(find.text('잠시 후 다시 시도해 주세요'), findsOneWidget);
       expect(find.byType(EditAppBar), findsOneWidget);
       expect(find.text(_notice), findsNothing);
     });

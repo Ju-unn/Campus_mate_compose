@@ -14,10 +14,10 @@ void main() {
     return tester.pumpWidget(MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: MeLoadError(onRetry: onRetry))));
   }
 
-  testWidgets('가운데 "잠시 뒤 다시 시도해 주세요"(16/400 body) 와 "다시 시도" 글자 버튼 — 공통 오류 문구가 아니다', (tester) async {
+  testWidgets('가운데 "잠시 후 다시 시도해 주세요"(16/400 body) 와 "다시 시도" 글자 버튼 — 공통 오류 문구가 아니다', (tester) async {
     await pump(tester, () {});
 
-    final message = find.text('잠시 뒤 다시 시도해 주세요');
+    final message = find.text('잠시 후 다시 시도해 주세요');
     expect(message, findsOneWidget);
     final style = tester.widget<Text>(message).style!;
     expect((style.fontSize, style.fontWeight, style.color), (16, FontWeight.w400, AppColors.body));

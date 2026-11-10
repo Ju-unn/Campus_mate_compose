@@ -469,14 +469,14 @@ void main() {
 
     testWidgets('교체는 됐는데 등록이 막히면 문구를 보이고, 다시 누르면 사진은 다시 올리지 않고 등록만 한다', (tester) async {
       await pump(tester);
-      avatars.nextResult = const FailureResult(ServerRejectedFailure('잠시 뒤 다시 시도해 주세요'));
+      avatars.nextResult = const FailureResult(ServerRejectedFailure('잠시 후 다시 시도해 주세요'));
       await choosePhoto(tester);
       await tester.tap(cta);
       await tester.pumpAndSettle();
       await press(tester, '10 쓰고 만들기');
 
       expect(me.photoSaves, hasLength(1));
-      expect(find.text('잠시 뒤 다시 시도해 주세요'), findsOneWidget);
+      expect(find.text('잠시 후 다시 시도해 주세요'), findsOneWidget);
       expect(find.text('화면 15'), findsNothing);
 
       avatars.nextResult = const Success(AvatarPending());
@@ -493,7 +493,7 @@ void main() {
       final second = File('${tempDir.path}/second.png')..writeAsBytesSync(base64Decode(_onePixelPng));
       var calls = 0;
       await pump(tester, pick: () async => calls++ == 0 ? picked : second);
-      avatars.nextResult = const FailureResult(ServerRejectedFailure('잠시 뒤 다시 시도해 주세요'));
+      avatars.nextResult = const FailureResult(ServerRejectedFailure('잠시 후 다시 시도해 주세요'));
       await choosePhoto(tester);
       await tester.tap(cta);
       await tester.pumpAndSettle();

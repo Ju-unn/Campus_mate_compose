@@ -22,7 +22,7 @@ void main() {
       expect(isReviewGone(const UnknownFailure()), isFalse);
     });
 
-    test('잠시 뒤 다시(429)는 요청 한도 실패일 때만 참이다', () {
+    test('잠시 후 다시(429)는 요청 한도 실패일 때만 참이다', () {
       expect(isFriendCodeTryLater(const RateLimitedFailure()), isTrue);
       expect(isFriendCodeTryLater(const ServerRejectedFailure('잠시 후 다시 시도해 주세요.')), isFalse);
     });

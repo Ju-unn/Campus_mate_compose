@@ -7,9 +7,9 @@
 PC 는 그것을 두 가지로 확인한다: ① 앱이 말한 `faked`(대신 답한 요청)에 그 길이 상태코드와 함께 있는가 ② `passed`(가짜 없이 서버로 그냥 간 요청)에 그 길이 없는가.
 탈퇴(POST /account/withdraw)는 앱 쪽 가짜가 규칙이 없어도 서버에 안 보낸다. 그래도 PC 는 끝에 status · withdrawn_at 이 그대로인지 본다.
 
-E-EDGE-05  502(503 은 `_classify` 가 같은 길이라 502 만): 15-6 저장 · 15-7 저장 · 다시 만들기 토스트 · 영구 삭제 시트에 "잠시 뒤 다시 시도해 주세요", 화면 그대로, DB 변화 0.
+E-EDGE-05  502(503 은 `_classify` 가 같은 길이라 502 만): 15-6 저장 · 15-7 저장 · 다시 만들기 토스트 · 영구 삭제 시트에 "잠시 후 다시 시도해 주세요", 화면 그대로, DB 변화 0.
 E-EDGE-06  500: 같은 네 곳에 "알 수 없는 오류가 발생했습니다"(502 와 다르다).
-E-EDGE-07  15 · 15-5 · 15-4 의 읽기(GET /me/profile · /me/card-preview)를 500 으로, 이어 502 로 — 둘 다 "잠시 뒤 다시 시도해 주세요" + "다시 시도", 가짜를 거두고 누르면 3초 안에 정상.
+E-EDGE-07  15 · 15-5 · 15-4 의 읽기(GET /me/profile · /me/card-preview)를 500 으로, 이어 502 로 — 둘 다 "잠시 후 다시 시도해 주세요" + "다시 시도", 가짜를 거두고 누르면 3초 안에 정상.
            비행기 모드(끊김) 쪽은 안 다룬다 — 이 가설 몫의 가짜 응답 부분만.
 E-EDGE-08  429: 15-6 저장에 "너무 많이 시도했어요. 잠시 후 다시 시도해 주세요", DB 변화 0.
 """
@@ -24,8 +24,8 @@ from e2e.area5_read import TITLES, _home, _ready_avatars, _saved
 from e2e.area5_wd import _state
 from e2e.tools import Blocked
 
-MESSAGE = {502: '잠시 뒤 다시 시도해 주세요', 500: '알 수 없는 오류가 발생했습니다', 429: '너무 많이 시도했어요. 잠시 후 다시 시도해 주세요'}
-LOAD_FAIL = '잠시 뒤 다시 시도해 주세요'  # me_load_error.dart — 상태코드와 상관없이 한 문구
+MESSAGE = {502: '잠시 후 다시 시도해 주세요', 500: '알 수 없는 오류가 발생했습니다', 429: '너무 많이 시도했어요. 잠시 후 다시 시도해 주세요'}
+LOAD_FAIL = '잠시 후 다시 시도해 주세요'  # me_load_error.dart — 상태코드와 상관없이 한 문구
 RECOVER_MS = 3000  # 시나리오 07 "누르면 3초 안에 정상"
 ROUTES = {'15-6': 'PATCH /me/profile', '15-7': 'PUT /me/photos', 'avatar': 'POST /me/avatar/regenerate', 'withdraw': 'POST /account/withdraw'}
 READS = {'15': 'GET /me/profile', '15-5': 'GET /me/profile', '15-4': 'GET /me/card-preview'}

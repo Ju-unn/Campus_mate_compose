@@ -540,7 +540,7 @@ void main() {
       expect(find.text('다른 학교 메일 입력'), findsOneWidget);
     });
 
-    testWidgets('잠시 뒤 다시(네트워크 · 503)에는 보이지 않는다', (tester) async {
+    testWidgets('잠시 후 다시(네트워크 · 503)에는 보이지 않는다', (tester) async {
       await pumpWithRouter(tester, const SchoolEmailIncompleteFailure());
 
       expect(find.text('다른 학교 메일 입력'), findsNothing);

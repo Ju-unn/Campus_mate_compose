@@ -326,7 +326,7 @@ final Map<String, Area1Case> area4Cases = {
     await _reveal(tester, find.text('계정'));
     await step('cut');
     await tap(tester, find.text('계정'));
-    await pumpUntil(tester, find.text('잠시 뒤 다시 시도해 주세요'), timeout: const Duration(seconds: 20));
+    await pumpUntil(tester, find.text('잠시 후 다시 시도해 주세요'), timeout: const Duration(seconds: 20));
     must(button('다시 시도').evaluate().isNotEmpty, '"다시 시도" 버튼이 없음');
     await step('restore');
     await tap(tester, button('다시 시도'));

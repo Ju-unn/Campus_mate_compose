@@ -437,7 +437,7 @@ class OfflineMeTest(ReadBase):
             events.append('offline' if on else 'online')
         def online(serial):
             events.append('restore')
-        app = StepApp(lambda job: said(error_text='잠시 뒤 다시 시도해 주세요', retry_text='다시 시도', hero=True, retry_ms=2500),
+        app = StepApp(lambda job: said(error_text='잠시 후 다시 시도해 주세요', retry_text='다시 시도', hero=True, retry_ms=2500),
                       ['cut', 'restore'], events)
         with mock.patch.object(notify, 'airplane', airplane), mock.patch.object(notify, 'ensure_online', online):
             self.passes('E-ME-04', {}, app)
@@ -447,7 +447,7 @@ class OfflineMeTest(ReadBase):
         events = []
         with mock.patch.object(notify, 'airplane', lambda s, on, settle=None: events.append('offline' if on else 'online')), \
                 mock.patch.object(notify, 'ensure_online', lambda s: events.append('restore')):
-            app = StepApp(lambda job: said(error_text='잠시 뒤 다시 시도해 주세요', retry_text='다시 시도', hero=False, retry_ms=3500),
+            app = StepApp(lambda job: said(error_text='잠시 후 다시 시도해 주세요', retry_text='다시 시도', hero=False, retry_ms=3500),
                           ['cut', 'restore'], events)
             self.fails('E-ME-04', {}, '히어로', '3500ms', app=app)
         self.assertEqual(events[-1], 'restore')
@@ -464,8 +464,8 @@ class OfflineMeTest(ReadBase):
     def test_04_re_maps_the_mailbox_after_airplane_mode_like_every_other_offline_case(self):
         # 비행기 모드 뒤 adb reverse 가 풀린 기기 대비(area2_phone3.offline) — 통과 · 실패 · blocked 어느 끝에서도 망 다음에 다시 건다.
         reverse = ('S', 'reverse', f'tcp:{tools.DEVICE_PORT}', 'tcp:8765')
-        endings = ((self.passes, (said(error_text='잠시 뒤 다시 시도해 주세요', retry_text='다시 시도', hero=True, retry_ms=2500),)),
-                   (self.fails, (said(error_text='잠시 뒤 다시 시도해 주세요', retry_text='다시 시도', hero=False, retry_ms=3500), '히어로')),
+        endings = ((self.passes, (said(error_text='잠시 후 다시 시도해 주세요', retry_text='다시 시도', hero=True, retry_ms=2500),)),
+                   (self.fails, (said(error_text='잠시 후 다시 시도해 주세요', retry_text='다시 시도', hero=False, retry_ms=3500), '히어로')),
                    (self.blocked, ({'result': 'blocked', 'note': '못 찾음'}, '못 찾음')))
         for ending, (answer, *words) in endings:
             with self.subTest(ending=ending.__name__):
