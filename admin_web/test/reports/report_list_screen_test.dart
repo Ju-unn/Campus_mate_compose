@@ -79,19 +79,19 @@ void main() {
       expect(styleOf(tester, note).color, AdminColors.muted);
     });
 
-    testWidgets('칩: 종류 5(전체 · 프로필 · 메시지 · 친구 리뷰 · 투표) → 구분선 1×24 web-outline → 상태 3(열림 · 조치 · 기각), 사이 8', (tester) async {
+    testWidgets('칩: 종류 6(전체 · 프로필 · 메시지 · 친구 리뷰 · 투표 · 댓글) → 구분선 1×24 web-outline → 상태 3(열림 · 조치 · 기각), 사이 8', (tester) async {
       await openList(tester);
 
-      final labels = ['전체', '프로필', '메시지', '친구 리뷰', '투표', '열림', '조치', '기각'];
+      final labels = ['전체', '프로필', '메시지', '친구 리뷰', '투표', '댓글', '열림', '조치', '기각'];
       final rects = [for (final l in labels) tester.getRect(find.widgetWithText(AdminChip, l))];
-      for (var i = 1; i < 5; i++) {
+      for (var i = 1; i < 6; i++) {
         expect(rects[i].left - rects[i - 1].right, 8, reason: labels[i]);
       }
       final divider = tester.getRect(find.byKey(const ValueKey('chip-divider')));
       expect(divider.size, const Size(1, 24));
-      expect(divider.left - rects[4].right, 8);
-      expect(rects[5].left - divider.right, 8);
-      expect(divider.center.dy, rects[4].center.dy);
+      expect(divider.left - rects[5].right, 8);
+      expect(rects[6].left - divider.right, 8);
+      expect(divider.center.dy, rects[5].center.dy);
       expect(tester.widget<ColoredBox>(find.descendant(of: find.byKey(const ValueKey('chip-divider')), matching: find.byType(ColoredBox))).color, AdminColors.outline);
       // 처음은 전체 · 열림
       expect(tester.widget<AdminChip>(find.widgetWithText(AdminChip, '전체')).selected, isTrue);
@@ -184,12 +184,15 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(AdminChip, '조치'));
       await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(AdminChip, '댓글'));
+      await tester.pumpAndSettle();
 
       expect(server.requests.where((r) => r.url.path == '/admin/reports').map((r) => r.url.query), [
         'status=open',
         'status=open&type=message',
         'status=actioned&type=message',
         'status=actioned&type=message',
+        'status=actioned&type=poll_comment',
       ]);
       expect(tester.widget<AdminChip>(find.widgetWithText(AdminChip, '조치')).selected, isTrue);
       expect(tester.widget<AdminChip>(find.widgetWithText(AdminChip, '열림')).selected, isFalse);

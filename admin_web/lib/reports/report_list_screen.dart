@@ -92,7 +92,7 @@ class ReportListScreen extends ConsumerWidget {
   }
 }
 
-/// 필터 줄(MhNyJ): 종류 칩 5 → 세로 구분선 1×24 web-outline(WhVIp) → 상태 칩 3, 모두 사이 8. 칩은 A3 와 같은 Web/Chip.
+/// 필터 줄(MhNyJ): 종류 칩 6(댓글 포함) → 세로 구분선 1×24 web-outline(WhVIp) → 상태 칩 3, 모두 사이 8. 칩은 A3 와 같은 Web/Chip.
 class _Filters extends StatelessWidget {
   const _Filters({required this.filter, required this.onType, required this.onStatus});
 
