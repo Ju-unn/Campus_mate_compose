@@ -96,7 +96,7 @@ class NotificationsScreen extends ConsumerWidget {
     final path = PushRoute.resolve(item.data);
     viewModel.markRead(item.id);
     if (path == null) return;
-    refreshForPush(ref.read, item.data, invalidate: ref.invalidate);
+    refreshForPush(ref.read, item.data, invalidate: ref.invalidate, exists: ref.exists);
     if (_replacesInbox(path)) {
       context.go(path);
     } else {

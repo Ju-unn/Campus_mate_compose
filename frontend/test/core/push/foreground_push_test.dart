@@ -142,6 +142,22 @@ void main() {
     expect(ids[1], ids[2]);
   });
 
+  // 11-10 내 글의 새 댓글: route 가 같아도 글(poll_id)이 다르면 서로 덮지 않는다.
+  test('같은 route 라도 글(poll_id)이 다른 새 댓글 알림은 따로 쌓고, 같은 글은 한 줄로 덮는다', () async {
+    final foreground = foregroundOn(TargetPlatform.android);
+    for (final data in [
+      {'route': 'poll', 'poll_id': 'p1'},
+      {'route': 'poll', 'poll_id': 'p2'},
+      {'route': 'poll', 'poll_id': 'p2'},
+    ]) {
+      await foreground.present(_message(data), currentLocation: '/home');
+    }
+
+    final ids = notifications.shown.map((shown) => shown.id).toList();
+    expect(ids[0], isNot(ids[1]));
+    expect(ids[1], ids[2]);
+  });
+
   group('onTap', () {
     test('안드로이드는 시스템 알림 창구의 누름을 그대로 넘긴다', () async {
       final foreground = foregroundOn(TargetPlatform.android);

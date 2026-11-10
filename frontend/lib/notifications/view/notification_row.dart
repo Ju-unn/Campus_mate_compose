@@ -15,6 +15,7 @@ const Key notificationUnreadDotKey = ValueKey('notification-unread-dot');
 /// 종류별 3D 그림(pen 마스터 `70. Item · Notification` 의 3D Icon `OaDey` 를 종류마다 Replace).
 /// 카드 도착 `wAQtn` · 대화 신청 `Lua1H` · 매칭 `zxXQG` · 지인 리뷰 `dAIki` · 학생증 결과 `Trtii` · 밤사이 묶음 `WyOg1`.
 /// 인증샷 결과(2026-10-18): 승인은 하트 `zxXQG`, 반려는 금지 `eUCJv`(값 확정 — pen `알림함_인증_결과_행.png`).
+/// 새 댓글(2026-11-10)은 알림 설정의 "내 글의 새 댓글" 줄(`KjGQd`)과 같은 3D 대화 그림이다 — 알림함 줄 pen 이 없어 정한 값.
 /// 모르는 종류는 밤사이 묶음과 같은 알림 종이다.
 AppIcon3d notificationIcon(NotificationKind kind) => switch (kind) {
       NotificationKind.cardArrived => AppIcon3d.layers,
@@ -24,6 +25,7 @@ AppIcon3d notificationIcon(NotificationKind kind) => switch (kind) {
       NotificationKind.verificationResult => AppIcon3d.badgeCheck,
       NotificationKind.heartTaskApproved => AppIcon3d.heart,
       NotificationKind.heartTaskRejected => AppIcon3d.ban,
+      NotificationKind.pollComment => AppIcon3d.chat,
       NotificationKind.nightDigest || NotificationKind.other => AppIcon3d.bell,
     };
 

@@ -3,13 +3,14 @@ import 'dart:async';
 import 'package:campus_mate/auth/gate/model/data/verification_gate.dart';
 import 'package:campus_mate/billing/task/viewmodel/heart_tasks_view_model.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
+import 'package:campus_mate/community/viewmodel/poll_detail_view_model.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/sent_requests_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/notifications/viewmodel/unread_count_provider.dart';
-import 'package:flutter_riverpod/misc.dart' show ProviderListenable, ProviderOrFamily;
+import 'package:flutter_riverpod/misc.dart' show ProviderBase, ProviderListenable, ProviderOrFamily;
 
 /// 푸시 `data.route` 가 가리키는 화면의 목록을 다시 읽는다. 앱이 켜져 있을 때 받은 알림과,
 /// 알림을 눌러 화면을 옮기기 직전에 같이 쓴다 — 옮기기만 하면 백그라운드 동안 낡은 목록이 그대로 남는다.
@@ -19,6 +20,7 @@ void refreshForPush(
   T Function<T>(ProviderListenable<T>) read,
   Map<String, dynamic> data, {
   required void Function(ProviderOrFamily provider) invalidate,
+  required bool Function(ProviderBase<Object?> provider) exists,
 }) {
   switch (data['route']) {
     case 'daily_card':
@@ -38,6 +40,15 @@ void refreshForPush(
     case 'heart_tasks' || 'heart_task_retry':
       invalidate(heartTasksViewModelProvider);
       invalidate(myProfileProvider);
+    // 내 O/X 글의 새 댓글(2026-11-10) — 그 글의 상세를 이미 보고 있으면 새 댓글이 붙는다. 상세는 autoDispose 라 안 열려 있으면
+    // 이 한 줄은 아무 일도 하지 않고(exists 로 확인 — 일부러 만들어 읽지 않는다), 들어올 때 새로 읽는다.
+    // 비우지(invalidate) 않고 그 글 하나의 새 댓글만 읽는다 — 비우면 쓰던 댓글 · 입력줄 · 스크롤 자리가 사라진다.
+    // poll_id 를 모르면(없거나 문자열이 아님) 아무것도 하지 않는다.
+    case 'poll':
+      if (data['poll_id'] case final String id when id.isNotEmpty) {
+        final detail = pollDetailViewModelProvider(id);
+        if (exists(detail)) unawaited(read(detail.notifier).refreshForNewComment());
+      }
     // 졸업생 인증 결과(승인 · 반려) — 화면은 옮기지 않는다([PushRoute] 는 null). 관문만 다시 물으면 AuthRedirect 가
     // 승인이면 3c 로, 반려면 신청 폼으로 옮긴다.
     case 'graduate_verification':

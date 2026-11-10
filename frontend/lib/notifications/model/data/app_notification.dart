@@ -1,4 +1,4 @@
-/// 알림 종류. 서버 `notifications.kind`(text + CHECK 8종, 설계 §9 + 인증샷 결과 둘)를 그대로 받고,
+/// 알림 종류. 서버 `notifications.kind`(text + CHECK 9종, 설계 §9 + 인증샷 결과 둘 + 내 글의 새 댓글)를 그대로 받고,
 /// 모르는 값은 [other] 로 읽어 화면이 죽지 않게 한다(서버가 종류를 늘려도 옛 앱은 종 그림으로 보인다).
 enum NotificationKind {
   cardArrived('card_arrived'),
@@ -11,6 +11,9 @@ enum NotificationKind {
   /// 무료 하트 과제 인증샷 결과(2026-10-18 "가"). 눌러서 가는 곳은 data.route 가 정한다.
   heartTaskApproved('heart_task_approved'),
   heartTaskRejected('heart_task_rejected'),
+
+  /// 내 O/X 글에 새 댓글(2026-11-10). 눌러서 가는 곳은 data.route `poll` + poll_id 가 정한다.
+  pollComment('poll_comment'),
   other('');
 
   const NotificationKind(this.wire);
