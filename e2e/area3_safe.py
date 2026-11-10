@@ -54,6 +54,8 @@ VERIFIED_ROUTES = [
     'POST /contact-blocks', 'GET /contact-blocks', 'DELETE /contact-blocks/{block_id}',
     'GET /community/polls', 'GET /community/polls/{poll_id}', 'POST /community/polls', 'POST /community/polls/{poll_id}/votes',
     'DELETE /community/polls/{poll_id}',
+    'GET /community/polls/{poll_id}/comments', 'POST /community/polls/{poll_id}/comments',
+    'DELETE /community/comments/{comment_id}',
     'GET /account', 'GET /account/kakao-id',
     'GET /referral/my-code', 'POST /referral/redeem',
     'GET /friend-reviews/received', 'GET /friend-reviews/about/{profile_id}', 'GET /friend-reviews/targets/{profile_id}',
