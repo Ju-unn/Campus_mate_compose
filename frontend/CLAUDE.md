@@ -333,6 +333,7 @@ if (status == statusPending) { ... }   // 대기 상태일 때만 처리
 | `test/l10n/error_slot_type_test.dart` | 에러 자리는 `Failure?` · `AppError?` (`String` 금지) |
 | `test/l10n/no_direct_korean_l10n_test.dart` | lib 에서 `AppLocalizationsKo` 직접 생성 금지 |
 | `test/l10n/test_app_delegates_test.dart` | 시험의 `MaterialApp` 은 앱과 같은 문구 위임자를 단다 |
+| `test/l10n/ko_spacing_test.dart` | ARB 문구에 붙여 쓴 보조 용언 "-아/어 주다 · 드리다"(골라주세요 · 알려드릴게요 · 그려준 · 골라줘 …)가 없다 — 띄운다(골라 주세요 · 알려 드릴게요). 사전 한 낱말(도와주다 · 내주다 · 돌려주다 · 넘겨주다 · 들어주다 · 알아주다 · 봐주다 · 보아주다 · 들려주다 · 빌려주다 · 물려주다 · "-다 주다" 꼴)과 명사+접미사 "-드리다"(감사 · 축하 · 인사 · 사과 · 안내 · 전화 · 부탁 · 연락)는 붙여 써도 통과한다. 새 예외는 시험 파일의 예외 목록에 더한다 |
 | `test/core/theme/font_size_tokens_test.dart` | 화면에 `fontSize: 숫자` 금지 |
 | `test/core/theme/app_lottie_test.dart` | Lottie 장면 표 · 에셋 · pubspec 그림 폴더 · 크기 예산 |
 | `test/common/widgets/app_lottie_view_test.dart` | `package:lottie` 는 `AppLottieView` 한 곳에서만 |
