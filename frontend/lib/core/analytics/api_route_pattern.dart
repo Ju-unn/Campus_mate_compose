@@ -49,6 +49,7 @@ abstract final class ApiRoutePattern {
     'ideal-conditions',
     'ideal-note',
     'ideal-traits',
+    'inquiries',
     'interests',
     'kakao-id',
     'kakao_share',
