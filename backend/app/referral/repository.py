@@ -1,4 +1,4 @@
-"""추천 코드 저장소. 검사 · 행 넣기 · 양쪽 50하트는 DB 함수 redeem_referral 한 트랜잭션이 한다."""
+"""추천 코드 저장소. 검사 · 행 넣기 · 새 사람 50 · 코드 주인 25하트는 DB 함수 redeem_referral 한 트랜잭션이 한다."""
 from uuid import UUID
 
 from fastapi import HTTPException
