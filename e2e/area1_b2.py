@@ -397,9 +397,9 @@ def _referred(run, phone, code_for_app=lambda code: code):
     _app(check, phone(token_hash=token, code=code_for_app(code)))
     rows = _rows(run, f"referrals?referee_id=eq.{a['id']}&select=referrer_id")
     check.that(rows == [{'referrer_id': b['id']}], f'referrals {rows}')
-    for who, account in (('나', a), ('추천인', b)):
+    for who, account, want in (('나', a, 50), ('추천인', b, 25)):  # 새 사람 50 · 코드 주인 25(2026-11-10)
         got = [h['amount'] for h in _hearts(run, account['id'])]
-        check.that(got == [50], f'{who} 하트 {got}')
+        check.that(got == [want], f'{who} 하트 {got}(기대 [{want}])')
     return check.result()
 
 

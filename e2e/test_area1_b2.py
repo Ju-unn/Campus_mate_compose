@@ -473,14 +473,20 @@ class ReferralTest(Base):
     def hearts(self, rows):
         return {('GET', '/rest/v1/heart_transactions'): Reply(200, rows)}
 
-    def test_onb_60_one_referral_row_and_fifty_hearts_each(self):
+    def test_onb_60_one_referral_row_newcomer_fifty_and_code_owner_twenty_five(self):
         fake = self.serve({('GET', '/rest/v1/referrals'): Reply(200, [{'referrer_id': 'id-1'}]),
-                           **self.hearts([{'amount': 50}]),  # 가짜는 사람을 안 가른다 — 나 · 추천인 각각 50 한 줄
+                           # 가짜는 사람을 안 가른다 — 읽는 차례대로 나(새 사람) 50, 추천인(코드 주인) 25 한 줄
+                           ('GET', '/rest/v1/heart_transactions'): [Reply(200, [{'amount': 50}]), Reply(200, [{'amount': 25}])],
                            ('GET', '/rest/v1/profiles'): Reply(200, [{'referral_code': 'K7M2QX'}])})
         phone = FakePhone()
         self.assertEqual(area1.attempt_phone(self.run, 'E-ONB-60', phone)[0], 'pass')
         self.assertEqual(phone.jobs[0]['code'], 'K7M2QX')
         self.assertTrue(any('reason=eq.referral' in u for m, u in fake.urls))
+
+    def test_onb_60_the_old_fifty_for_the_code_owner_fails(self):
+        self.serve({('GET', '/rest/v1/referrals'): Reply(200, [{'referrer_id': 'id-1'}]), **self.hearts([{'amount': 50}]),
+                    ('GET', '/rest/v1/profiles'): Reply(200, [{'referral_code': 'K7M2QX'}])})
+        self.assertEqual(area1.attempt_phone(self.run, 'E-ONB-60', FakePhone())[0], 'fail')
 
     def test_onb_60_missing_hearts_fail(self):
         self.serve({('GET', '/rest/v1/referrals'): Reply(200, [{'referrer_id': 'id-1'}]), **self.hearts([]),

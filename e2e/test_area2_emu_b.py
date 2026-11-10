@@ -583,8 +583,9 @@ class ReferralTest(FakeBase):
     def hearts(self, rows):
         return {('GET', '/rest/v1/heart_transactions'): Reply(200, rows)}
 
-    def test_ref_07_the_app_pastes_the_code_in_lowercase_with_spaces_and_both_get_fifty(self):
-        self.serve({('GET', '/rest/v1/referrals'): Reply(200, [{'referrer_id': 'id-1'}]), **self.hearts([{'amount': 50}]),
+    def test_ref_07_the_app_pastes_the_code_in_lowercase_with_spaces_and_newcomer_gets_fifty_owner_twenty_five(self):
+        self.serve({('GET', '/rest/v1/referrals'): Reply(200, [{'referrer_id': 'id-1'}]),
+                    ('GET', '/rest/v1/heart_transactions'): [Reply(200, [{'amount': 50}]), Reply(200, [{'amount': 25}])],
                     ('GET', '/rest/v1/profiles'): Reply(200, [{'referral_code': 'K7M2QX'}])})
         phone = self.phone()
         self.assertEqual(self.attempt('E-REF-07', phone)[0], 'pass')
