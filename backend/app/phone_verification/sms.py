@@ -13,9 +13,12 @@ import httpx
 from fastapi import Depends
 
 from app.core.deps import get_client, get_settings
+from app.core.logs import show_info
 from app.settings import Settings
 
 logger = logging.getLogger(__name__)
+# 가짜 발송기의 "인증번호 한 줄"(INFO)이 로컬 서버 로그에 나오게 한다 — 운영 uvicorn 은 INFO 를 버리고, 운영에는 가짜 발송기가 없다.
+show_info(logger)
 
 # 단문(45자 안), 인증번호만 — 홍보 문구를 섞으면 광고 문자가 된다(계획서 §5).
 VERIFICATION_TEXT = "[CampusMate] 인증번호 [{code}]을 입력해 주세요."

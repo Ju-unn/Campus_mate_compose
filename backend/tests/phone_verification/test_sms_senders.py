@@ -3,7 +3,11 @@ import hashlib
 import hmac
 import json
 import logging
+import os
+import pathlib
 import re
+import subprocess
+import sys
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -100,6 +104,20 @@ async def test_fake_sender_keeps_messages_in_memory():
 
     assert await fake.send("+821001352468", TEXT) is True
     assert fake.sent == [("+821001352468", TEXT)]
+
+
+def test_the_fake_sender_log_line_reaches_stderr_in_a_fresh_process():
+    """로컬에서 앱으로 시험할 때 인증번호를 볼 곳은 이 한 줄이다(E2E 하네스가 서버 로그 파일에서 읽는다). uvicorn 은 루트 로거에
+    핸들러가 없고 수준이 WARNING 이라, 이 로거가 직접 INFO 핸들러를 달지 않으면 줄이 버려진다(core/logs.py)."""
+    code = ("import asyncio; from app.phone_verification.sms import FakeSmsSender; "
+            "asyncio.run(FakeSmsSender().send('+821098765432', '[CampusMate] 인증번호 [123456]을 입력해 주세요.'))")
+    backend = pathlib.Path(__file__).resolve().parents[2]
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+    done = subprocess.run([sys.executable, "-c", code], cwd=backend, env=env, capture_output=True, text=True,
+                          encoding="utf-8", timeout=60)
+
+    assert "to=…5432 text=[CampusMate] 인증번호 [123456]" in done.stderr, done.stderr
+    assert "9876" not in done.stderr  # 끝 4자리만 남는다
 
 
 def _pick(**overrides):
