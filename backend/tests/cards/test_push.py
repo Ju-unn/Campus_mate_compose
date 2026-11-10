@@ -100,7 +100,7 @@ async def test_a_verification_result_carries_one_tag_so_the_next_one_replaces_it
     """안드로이드는 notification.tag, iOS 는 apns-collapse-id 가 같으면 알림 줄의 앞 알림을 덮어쓴다."""
     sender, pushes = _recording_sender()
 
-    await sender.send("tok", "학생 인증이 끝났어요", "본문", {"route": "verification"}, kind="verification_result")
+    await sender.send("tok", "학교 인증이 끝났어요", "본문", {"route": "verification"}, kind="verification_result")
 
     assert pushes[0]["android"] == _VERIFICATION_ANDROID
     assert pushes[0]["apns"] == _VERIFICATION_APNS

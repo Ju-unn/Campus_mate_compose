@@ -29,11 +29,11 @@ _logger = logging.getLogger(__name__)
 # 반려 사유는 알림에 넣지 않는다 — 대시보드에서 profiles 와 attempts.reject_reason 중 어느 쪽을 먼저 고쳐도
 # 순서에 걸리지 않게. 사유는 앱 3b 배너가 보여 준다(대장 10-03 문구 승인).
 _MESSAGES = {
-    "verified": ("학생 인증이 끝났어요", "학과 정보를 입력하고 시작해 보세요"),
-    "rejected": ("학생 인증을 다시 해 주세요", "서류를 확인하지 못했어요. 앱에서 이유를 확인해 주세요"),
+    "verified": ("학교 인증이 끝났어요", "학과 정보를 입력하고 시작해 보세요"),
+    "rejected": ("학교 인증을 다시 해 주세요", "서류를 확인하지 못했어요. 앱에서 이유를 확인해 주세요"),
 }
 # 30일 기한이 지나 배치가 닫은 반려(retention.py). 사유 문구가 앱 배너에도 같이 나간다.
-_EXPIRED_MESSAGE = ("학생 인증을 다시 해 주세요", EXPIRED_REASON)
+_EXPIRED_MESSAGE = ("학교 인증을 다시 해 주세요", EXPIRED_REASON)
 
 
 class ReviewedHook(BaseModel):

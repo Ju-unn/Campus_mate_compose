@@ -97,7 +97,7 @@ def test_verified_sends_pass_notification():
 
     assert response.status_code == 200
     assert response.json() == {"sent": 1}
-    assert _notification(pushes[0]) == ("학생 인증이 끝났어요", "학과 정보를 입력하고 시작해 보세요",
+    assert _notification(pushes[0]) == ("학교 인증이 끝났어요", "학과 정보를 입력하고 시작해 보세요",
                                         {"route": "verification"})
 
 
@@ -116,7 +116,7 @@ def test_rejected_sends_retry_notification_without_reason():
     response = _wire("rejected", pushes).post(URL, json={"profile_id": ME}, headers={"x-webhook-secret": SECRET})
 
     assert response.json() == {"sent": 1}
-    assert _notification(pushes[0]) == ("학생 인증을 다시 해 주세요", "서류를 확인하지 못했어요. 앱에서 이유를 확인해 주세요",
+    assert _notification(pushes[0]) == ("학교 인증을 다시 해 주세요", "서류를 확인하지 못했어요. 앱에서 이유를 확인해 주세요",
                                         {"route": "verification"})
 
 
@@ -220,7 +220,7 @@ def test_an_expired_review_gets_its_own_message():
         URL, json={"profile_id": ME}, headers={"x-webhook-secret": SECRET})
 
     assert response.json() == {"sent": 1}
-    assert _notification(pushes[0]) == ("학생 인증을 다시 해 주세요",
+    assert _notification(pushes[0]) == ("학교 인증을 다시 해 주세요",
                                         "검토 기한이 지나 사진을 삭제했어요. 학생증을 다시 올려 주세요",
                                         {"route": "verification"})
 

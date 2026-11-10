@@ -153,7 +153,7 @@ async def test_pending_for_29_days_is_kept():
 
 
 async def test_pending_for_30_days_closes_the_attempt_and_deletes_its_photo_but_leaves_the_profile():
-    # 학생증 제거(10-17): 프로필을 rejected 로 바꾸면 DB 트리거가 "학생 인증을 다시 해 주세요" 푸시를 보낸다 — 시도만 닫는다.
+    # 학생증 제거(10-17): 프로필을 rejected 로 바꾸면 DB 트리거가 "학교 인증을 다시 해 주세요" 푸시를 보낸다 — 시도만 닫는다.
     world = World([attempt(1, P1, age={"days": 30})])
 
     assert await run(world) == {"photos_deleted": 1, "pending_expired": 1}
