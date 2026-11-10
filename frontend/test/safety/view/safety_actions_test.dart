@@ -62,6 +62,64 @@ void main() {
     expect(find.byIcon(AppIcons.circleCheck), findsNothing);
   });
 
+  testWidgets('아이콘을 null 로 주면 글자만 뜬다(문의 보냄 토스트 pen WxKM6)', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showSafetyToast(ScaffoldMessenger.of(context), '문의를 보냈어요', icon: null),
+            child: const Text('띄우기'),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('띄우기'));
+    await tester.pumpAndSettle();
+
+    expect(find.descendant(of: find.byType(AppToast), matching: find.text('문의를 보냈어요')), findsOneWidget);
+    expect(find.descendant(of: find.byType(AppToast), matching: find.byType(Icon)), findsNothing);
+  });
+
+  testWidgets('shrinkToText 를 켜면 글자에 맞춘 알약이 가운데에 뜨고 288 보다 좁다(문의 보냄 pen WxKM6), 기본 토스트는 288 그대로다', (tester) async {
+    tester.view.physicalSize = const Size(360, 780);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => Column(
+            children: [
+              TextButton(
+                onPressed: () => showSafetyToast(ScaffoldMessenger.of(context), '문의를 보냈어요', icon: null, shrinkToText: true),
+                child: const Text('줄임'),
+              ),
+              TextButton(
+                onPressed: () => showSafetyToast(ScaffoldMessenger.of(context), '문의를 보냈어요'),
+                child: const Text('기본'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ));
+
+    await tester.tap(find.text('줄임'));
+    await tester.pumpAndSettle();
+    final shrunk = find.byType(AppToast);
+    expect(tester.getSize(shrunk).width, lessThan(288));
+    expect(tester.getCenter(shrunk).dx, 180);
+    ScaffoldMessenger.of(tester.element(find.text('줄임'))).clearSnackBars();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('기본'));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(AppToast)).width, 288);
+  });
+
   // blockThenLeave 는 글자가 아니라 Failure 를 돌려준다 — 보여 주는 자리는 화면마다 다르고 글자는 그 화면이 context.errorText 로 만든다.
   group('blockThenLeave', () {
     Object? returned;
