@@ -104,6 +104,7 @@ enum PushOpenType {
   friendReviewWrite('friend_review_write'),
   heartTasks('heart_tasks'),
   heartTaskRetry('heart_task_retry'),
+  poll('poll'),
   other('other');
 
   const PushOpenType(this.wire);
