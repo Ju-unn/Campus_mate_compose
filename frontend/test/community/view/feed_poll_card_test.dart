@@ -212,6 +212,26 @@ void main() {
       expect(box.height, closeTo(16 + 48 + 12 + question + 12 + 56 + 12 + 1 + 12 + 48 + 12, 0.01));
     });
 
+    testWidgets('"N명 참여" 옆에 말풍선 16 + "댓글 N" 12/500 muted — 앞 간격 8, 말풍선과 글자 사이 4 (Qzv5q · lsvu8 · uNX9X)', (tester) async {
+      await pumpCard(tester, pollFixture(aCount: 1, bCount: 0, commentCount: 12));
+      final participants = tester.getRect(find.text('1명 참여'));
+      final bubble = tester.getRect(find.byIcon(AppIcons.messageCircle));
+      final count = tester.getRect(find.text('댓글 12'));
+      expect(bubble.size, const Size(16, 16));
+      expect(tester.widget<Icon>(find.byIcon(AppIcons.messageCircle)).color, AppColors.muted);
+      expect(bubble.left - participants.right, 8);
+      expect(count.left - bubble.right, 4);
+      expect(count.height, 16);
+      expect(count.center.dy, closeTo(participants.center.dy, 0.5));
+      final style = tester.widget<Text>(find.text('댓글 12')).style!;
+      expect((style.fontSize, style.fontWeight, style.color), (12, FontWeight.w500, AppColors.muted));
+    });
+
+    testWidgets('댓글이 없어도 "댓글 0" 으로 보인다(사용자 11-10 「보여 줌」)', (tester) async {
+      await pumpCard(tester, pollFixture());
+      expect(find.text('댓글 0'), findsOneWidget);
+    });
+
     testWidgets('"자세히 보기" 는 오른쪽 끝(안쪽 8) · 누름 48 → 17c(onOpen)', (tester) async {
       var opened = 0;
       await pumpCard(tester, pollFixture(), onOpen: () => opened++);
