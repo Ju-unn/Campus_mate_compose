@@ -30,6 +30,7 @@ from app.inquiries.router import router as inquiries_router
 from app.matching.router import router as matching_router
 from app.me.router import router as me_router
 from app.notifications.router import router as notifications_router
+from app.phone_verification.router import router as phone_verification_router
 from app.profile_onboarding.router import router as profile_onboarding_router
 from app.profile_onboarding.startup_check import warn_if_fallback_avatar_missing
 from app.profile_onboarding.tasks_router import router as profile_onboarding_tasks_router
@@ -75,6 +76,7 @@ app.include_router(consents_router)
 app.include_router(school_email_router)
 app.include_router(student_verification_router)
 app.include_router(verification_review_hook_router)
+app.include_router(phone_verification_router)
 app.include_router(profile_onboarding_router)
 app.include_router(profile_onboarding_tasks_router)
 app.include_router(matching_router)
