@@ -15,12 +15,6 @@ import 'package:campus_mate/profile/onboarding/viewmodel/kakao_id_view_model.dar
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// 아래 세 색은 **카카오톡 화면을 흉내 낸 그림에만** 쓴다 — 남의 브랜드 색이라
-/// core/theme 팔레트(우리 색)로 올리지 않고 이 파일 안에서만 둔다.
-const Color _kakaoPanel = Color(0xFF0A0A0A);
-const Color _kakaoYellow = Color(0xFFFEE500);
-const Color _kakaoCheckMark = Color(0xFF2B2200);
-
 /// 카카오톡 아이디 화면(DESIGN.md 화면 04-1b, datingApp.pen `04-1b 카카오톡 아이디`).
 /// 건너뛰기 없음(§13-100).
 class KakaoIdScreen extends ConsumerWidget {
@@ -115,7 +109,7 @@ class KakaoSettingExample extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: AppSpacing.sm),
             decoration: BoxDecoration(
-              color: _kakaoPanel,
+              color: AppColors.kakaoPanel,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
@@ -149,7 +143,7 @@ class KakaoToggleImage extends StatelessWidget {
       padding: const EdgeInsets.all(2),
       alignment: Alignment.centerRight,
       decoration: BoxDecoration(
-        color: _kakaoYellow,
+        color: AppColors.kakaoContainer,
         borderRadius: BorderRadius.circular(AppRadius.pill),
       ),
       child: Container(
@@ -157,7 +151,7 @@ class KakaoToggleImage extends StatelessWidget {
         height: 20,
         alignment: Alignment.center,
         decoration: const BoxDecoration(color: AppColors.canvas, shape: BoxShape.circle),
-        child: const Icon(AppIcons.check, size: 12, color: _kakaoCheckMark),
+        child: const Icon(AppIcons.check, size: 12, color: AppColors.kakaoCheckMark),
       ),
     );
   }
