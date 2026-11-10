@@ -109,3 +109,9 @@ async def test_two_empty_answers_give_an_empty_draft():
 async def test_an_empty_retry_keeps_the_first_draft_even_with_english():
     """다시 만든 답이 비면 앞의 초안(영어가 남았어도)을 쓴다 — 빈 칸보다 고쳐 쓸 글이 낫다."""
     assert await _draft(_client("vibe 가 좋아요.", None)) == "vibe 가 좋아요."
+
+
+async def test_the_system_prompt_names_both_students_and_graduates():
+    openai_client = _client("초안")
+    await _draft(openai_client)
+    assert "대학생 · 졸업생 소개팅 앱" in _messages(openai_client)[0]["content"]
