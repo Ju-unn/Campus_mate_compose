@@ -1,8 +1,8 @@
+import 'package:campus_mate/common/widgets/reason_radio_row.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/inquiry/model/data/inquiry_reason.dart';
 import 'package:campus_mate/inquiry/view/inquiry_reason_sheet.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
-import 'package:campus_mate/safety/view/reason_radio_row.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
