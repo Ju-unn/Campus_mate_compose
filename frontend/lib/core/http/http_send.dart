@@ -66,7 +66,7 @@ Result<http.Response> _classify(http.Response response) {
     return const FailureResult(SessionRejectedFailure());
   }
   if (response.statusCode == 429) {
-    return FailureResult(RateLimitedFailure(_detailOrNull(response)));
+    return FailureResult(RateLimitedFailure(_detailOrNull(response), _retryAfterOrNull(response)));
   }
   if (response.statusCode == 502 || response.statusCode == 503) {
     return const FailureResult(ServerUnavailableFailure());
@@ -82,6 +82,16 @@ String? _detailOrNull(http.Response response) {
   try {
     final body = jsonDecode(response.body);
     return body is Map<String, dynamic> && body['detail'] is String ? body['detail'] as String : null;
+  } on FormatException {
+    return null;
+  }
+}
+
+/// 429 몸통의 `retry_after_seconds`(휴대폰 인증번호 받기). 없거나 정수가 아니면 null.
+int? _retryAfterOrNull(http.Response response) {
+  try {
+    final body = jsonDecode(response.body);
+    return body is Map<String, dynamic> && body['retry_after_seconds'] is int ? body['retry_after_seconds'] as int : null;
   } on FormatException {
     return null;
   }
@@ -114,7 +124,11 @@ Failure _toRejection(http.Response response) {
   }
   final code = body['code'];
   return _schoolEmailTaken(response.statusCode, detail, body['provider']) ??
-      ServerRejectedFailure(detail, code: code is String ? code : null);
+      ServerRejectedFailure(
+        detail,
+        code: code is String ? code : null,
+        remainingAttempts: body['remaining_attempts'] is int ? body['remaining_attempts'] as int : null,
+      );
 }
 
 /// POST /school-email/verify 409 만 기계용 `provider` 를 함께 준다(backend school_email/router.py
