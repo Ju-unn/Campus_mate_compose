@@ -1,64 +1,72 @@
-# CampusMate
+<div align="center">
 
-대학생 · 졸업생 대상 큐레이션 매칭 앱. 소셜 로그인 뒤 학교 메일로 인증하고(학교 메일이 없는 졸업생은 졸업증명서 사진 + 관리자 검수로 인증), 주기적으로 소수의 큐레이션 카드를 받아 상호 수락으로 매칭된다.
+# 💘 CampusMate
 
-> **지금 상태는 이 문서에 적지 않는다.** 운영 서버 리비전 · 환경변수 · 배치 · 롤백 하한은 [`backend/DEPLOY.md`](backend/DEPLOY.md) §5, 운영 DB 적용 상태는 [`docs/ERD.md`](docs/ERD.md) 상태줄, 결정의 이유는 [`docs/decisions/`](docs/decisions/), 앱 규칙은 [`frontend/CLAUDE.md`](frontend/CLAUDE.md), 화면 규칙은 [`frontend/docs/DESIGN.md`](frontend/docs/DESIGN.md) 에 있다.
-> 조각 0 ~ 7(가입 · 온보딩 · 매칭 · 카드 · 채팅 · 안전 · 하트 · 인앱결제)과 관리자 웹이 main 에 들어와 있다. 졸업생 인증은 서버 스위치 `GRADUATE_VERIFICATION_ENABLED` 가 켜져야 앱에 나온다(`docs/decisions/2026-10-19-graduate-verification-decision.md`). Firebase 사용 통계 · 오류 수집 · 성능 측정은 약관 동의 뒤에만 켠다. 앱은 그대로 운영하면서 웹 버전을 추가하는 계획(방식 A, 구현 전)이 있다: `docs/decisions/2026-10-27-web-version-decision.md`.
+**나이 대신 잘 맞는 사람을 찾아 주는, 인증된 대학생 · 졸업생 매칭 앱**
 
-## 저장소 구조
+<sub>2026.09 ~ · 개인 프로젝트 (앱 · 서버 · 관리자 웹) · 출시 준비 중</sub>
 
-| 경로 | 내용 |
-| --- | --- |
-| `frontend/` | Flutter 앱 (Android + iOS). MVVM + Riverpod |
-| `backend/` | FastAPI 비즈니스 로직 서버(Cloud Run, 서울). 배포 절차 · 운영 상태는 `backend/DEPLOY.md` |
-| `admin_web/` | 운영자 전용 관리자 웹(Flutter 웹, Vercel). 앱과 따로 빌드하고 서로 import 하지 않는다 |
-| `supabase/` | 마이그레이션 · 시드 · pgTAP 시험 |
-| `e2e/` | 통합 시험 하네스(파이썬). 로컬 시험에 쓴다. `E2E_ENV` 의 `SUPABASE_URL` 이 운영이 아니면 gcloud(운영 프로젝트)를 부르는 길을 모두 막는다(`e2e/tools.py` `require_cloud`). 점수 기준 모델의 흡연 규칙은 옛 규칙 그대로다(e2e 계정은 `accepts_smoker` 가 null 이라 결과는 같다, `frontend/run.md`). |
-| `site/` | 소개 페이지(홈페이지 `campus-mates.com`). `site/privacy/` 는 노션 개인정보 처리방침의 **사본**이라, **노션 방침을 고치면 이 사본도 같이 고친다**(`docs/decisions/2026-10-20-launch-day-decisions.md` §3). 바닥글 사업자 정보(`site/index.html`, 2026-10-27 에 채움)는 방침 맨 아래 회사 정보와 같은 값이어야 한다 |
-| `docs/` | 앱·서버가 공통으로 참조하는 설계 문서 |
+<img src="https://img.shields.io/badge/App_Store-출시_준비_중-0D96F6?style=for-the-badge&logo=apple&logoColor=white"/>
+<img src="https://img.shields.io/badge/Google_Play-심사_중-34A853?style=for-the-badge&logo=googleplay&logoColor=white"/>
+
+<br/><br/>
+
+<img src="docs/images/screen-card.png" width="22%"/>&nbsp;
+<img src="docs/images/screen-profile.png" width="22%"/>&nbsp;
+<img src="docs/images/screen-chat.png" width="22%"/>&nbsp;
+<img src="docs/images/screen-community.png" width="22%"/>
+
+</div>
+
+<br/>
+
+## 왜 만들었나
+
+친구가 대학생 소개팅을 구글폼, 엑셀, 카톡으로 운영하고 있었어요. 신청자가 늘면 감당하기 어려워질 것 같아 웹으로 옮기자고 제안했고, 개발부터 운영까지 55일 동안 신청자 80명을 받았어요. 그런데 나이와 학교를 맞춰 줘도 이어지지 않는 쌍이 많았습니다. 매칭 성공률은 27.4%였어요.
+
+그래서 질문을 바꿨어요.
+
+> 나이가 맞으면 대화도 통할까? 무엇이 사람을 **잘 맞게** 할까?
+
+CampusMate는 인증된 대학생과 졸업생에게 성향, 관심사, 자기소개 글의 뜻을 비교하고, 흡연이나 종교처럼 양보하기 어려운 조건은 감점으로 곱해 하루 한 명을 추천해요. 출시 전이라 정답 기록이 없어서, 정답표를 먼저 정하고 가상 계정으로 점수를 검증하며 고쳤습니다.
+
+## 어떻게 쓰나
+
+```
+소셜 로그인 → 학교 인증 → 프로필 · 성향 입력 → 오늘의 카드 → 서로 수락 → 대화
+```
+
+- 학교 메일로 인증해요. 학교 메일이 없는 졸업생은 졸업증명서 사진을 올리면 관리자가 확인해요.
+- 오늘 탭에 도착한 카드를 보고 수락해요. 두 사람이 서로 수락하면 대화가 시작돼요.
+- 하트로 추가 카드를 열 수 있어요. 유료 카드는 점수 상위 20% 후보예요.
+- 익명 커뮤니티에서 O/X 투표로 가볍게 이야기해요. 신고와 차단도 쓸 수 있어요.
+
+## 내가 한 것
+
+- 기획, 디자인, 앱, 서버, DB를 혼자 맡아 기획부터 두 스토어 제출까지 7주가 걸렸어요. 인증 검수용 관리자 웹도 직접 만들었어요.
+- 매칭 점수를 설계하고 가상 계정 1,000개로 10차례 고치며 매번 같은 시험으로 쟀어요. 결과를 보고 정답을 고치지 않도록 점수 계산 전에 정답표를 먼저 확정했어요.
+  - 취향이 반대인 상대가 유료 카드에 드는 비율: 21.6% → 5.8%
+  - 종교가 다른 상대의 유료 카드 진입: 11.3% → 2.8%
+  - 글로 잘 맞는 상대를 가려내는 힘(AUC, 1이 만점): 0.76 → 0.97
+- 예상과 달랐던 점도 기록했어요. 순위를 크게 바꾼 건 글 점수가 아니라 감점 단계였고, 그 결과대로 비중을 다시 정했어요.
+- 두 사람이 동시에 수락하면 연락처 공개가 늦던 문제는 재현 테스트를 먼저 만들어 실패를 확인한 뒤 고쳤어요.
+- 기준과 판단은 제가 정하고, 코드와 테스트는 AI(Claude Code)와 함께 만들었어요. 결과가 기준에 맞는지는 직접 확인했어요.
+- 위 숫자는 모두 가상 계정 시험 결과예요. 실제 사용자 효과는 출시 후 수락 기록으로 확인할 계획이에요.
 
 ## 기술 스택
 
-| 항목 | 선택 |
-| --- | --- |
-| 앱 | Flutter (Dart), Riverpod, go_router |
-| 백엔드 | FastAPI (비즈니스 로직) + Supabase (Auth·DB·RLS·Storage) |
-| DB | PostgreSQL + pgvector |
-| 패키지명 | `io.github.juunn.campusmate` |
+![Flutter](https://img.shields.io/badge/Flutter-02569B?style=flat-square&logo=flutter&logoColor=white) ![Riverpod](https://img.shields.io/badge/Riverpod-00B0FF?style=flat-square) ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white) ![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?style=flat-square&logo=supabase&logoColor=white) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL_+_pgvector-4169E1?style=flat-square&logo=postgresql&logoColor=white) ![OpenAI](https://img.shields.io/badge/OpenAI_임베딩-412991?style=flat-square&logo=openai&logoColor=white) ![Cloud Run](https://img.shields.io/badge/Cloud_Run-4285F4?style=flat-square&logo=googlecloud&logoColor=white) ![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=flat-square&logo=firebase&logoColor=black) ![Vercel](https://img.shields.io/badge/Vercel-000000?style=flat-square&logo=vercel&logoColor=white) ![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=flat-square&logo=githubactions&logoColor=white)
 
-## 문서
+## 더 알아보기
 
-| 문서 | 역할 |
-| --- | --- |
-| [`docs/GIT.md`](docs/GIT.md) | **Git 규칙** — gitmoji 커밋 형식, 브랜치 전략, PR 규칙. git 작업 전 필독 |
-| [`docs/GRAPHIFY.md`](docs/GRAPHIFY.md) | **코드베이스 탐색 규칙** — `/graphify` 지식 그래프 조회·갱신. Grep 전에 그래프 먼저 |
-| [`docs/SUPABASE.md`](docs/SUPABASE.md) | **Supabase 작업 규칙** — 키 · 식별자 취급, 마이그레이션 파일, 클라우드 적용 절차, RLS · grant 체크리스트. Supabase 작업 전 필독 |
-| [`docs/SETUP.md`](docs/SETUP.md) | 새 PC 준비 — 스킬 · Pencil · 폰트 · SDK · graphify · IDE |
-| [`docs/superpowers/specs/`](docs/superpowers/specs/) | 제품·아키텍처·매칭·보안 전체 설계. 모든 결정의 기준 |
-| [`docs/superpowers/plans/`](docs/superpowers/plans/) | 조각별 실행 계획 — 목록과 상태는 [`README.md`](docs/superpowers/plans/README.md) |
-| [`docs/decisions/`](docs/decisions/) | **기술 결정 기록** — 한 결정에 한 파일(`날짜-주제-decision.md`). 계기 → 대안 → 선택과 이유 → 흐름 → 남은 위험. 졸업생 인증(10-19) · 출시 당일 결정(10-20) · 웹 버전 추가 계획(10-27) · 앱 1.0.2 결정 묶음(11-04) |
-| [`backend/DEPLOY.md`](backend/DEPLOY.md) | **서버 배포 · 운영 상태** — 현재 리비전, 환경변수, 배치, 롤백 하한 |
-| [`docs/ERD.md`](docs/ERD.md) | DB ERD — 테이블 · 컬럼 · RLS · 권한 기준 |
-| [`docs/ERD_DECISIONS.md`](docs/ERD_DECISIONS.md) | ERD 결정 기록 · 끝난 검토 · 조각 0 적용 범위 |
-| [`frontend/CLAUDE.md`](frontend/CLAUDE.md) | 코딩 규칙 (아키텍처·네이밍·테스트) |
-| [`frontend/docs/DESIGN.md`](frontend/docs/DESIGN.md) | 디자인 시스템 — 색·타이포·컴포넌트 |
-| [`frontend/docs/ANALYTICS_EVENTS.md`](frontend/docs/ANALYTICS_EVENTS.md) | 사용 통계 이벤트 · 앱이 버틴 오류(Crashlytics 비치명) 단일 기준표 — 앱 1.0.1 부터 |
+- [저장소 구조와 개발 환경](docs/STRUCTURE.md): 폴더 설명, 실행 방법, 문서 목록
+- [매칭 · 제품 설계](docs/superpowers/specs/2026-09-05-campusmate-foundation-design.md): 점수 공식과 시험 결과
+- [기술 결정 기록](docs/decisions/): 한 결정에 한 파일, 대안과 선택 이유
+- [DB 설계 (ERD)](docs/ERD.md)
+- [화면 디자인 시스템](frontend/docs/DESIGN.md)
+- [서버 배포와 운영](backend/DEPLOY.md)
+- [앱 실행과 빌드](frontend/run.md)
 
-## 개발
+---
 
-Flutter 프로젝트 루트는 저장소 루트가 아니라 **`frontend/`** 다. IDE 에서는 `frontend/` 를 연다.
-
-```bash
-cd frontend
-flutter pub get
-flutter analyze
-flutter test
-```
-
-실행할 때 Supabase 접속 정보를 주입한다. **키는 저장소에 넣지 않는다.**
-
-```bash
-flutter run \
-  --dart-define=SUPABASE_URL=https://<프로젝트>.supabase.co \
-  --dart-define=SUPABASE_ANON_KEY=<anon key>
-```
+<sub>만든 사람 [@Ju-unn](https://github.com/Ju-unn)</sub>
