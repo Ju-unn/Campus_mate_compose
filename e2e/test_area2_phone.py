@@ -159,6 +159,16 @@ class HomeStatsTest(PhoneBase):
         self.assertEqual(result, 'fail')
         self.assertIn('/home/summary', note)
 
+    def test_home_02_below_the_signup_threshold_the_server_hides_the_numbers_and_the_screen_shows_the_empty_panel(self):
+        fake = self.stats(1234, 56, 7, summary=_summary(0, 0, 0))
+        self.assertEqual(self.attempt('E-HOME-02', FakePhone({'result': 'pass', 'empty': True}), fake)[0], 'pass')
+
+    def test_home_02_zeros_from_the_server_fail_once_signups_reach_the_threshold(self):
+        fake = self.stats(1234, area2_phone.HOME_STATS_MIN_SIGNUPS, 7, summary=_summary(0, 0, 0))
+        result, note = self.attempt('E-HOME-02', FakePhone({'result': 'pass', 'empty': True}), fake)
+        self.assertEqual(result, 'fail')
+        self.assertIn('/home/summary', note)
+
     def test_home_02_counts_the_three_tables_the_way_the_hypothesis_says(self):
         urls = []
         fake = self.stats(0, 0, 0)

@@ -20,6 +20,7 @@ FILLS = {
     'height': {'preferred_height_min': 160, 'preferred_height_max': 185},
     'interests': {'interest_tags': ['카페가기', '자전거', '패션', '산책', '영화']},
 }
+HOME_STATS_MIN_SIGNUPS = 300  # 서버 settings.home_stats_min_signups 기본값과 같다 — 가입 수가 이보다 적으면 서버가 세 숫자를 0 으로 숨긴다
 STAT_LABELS = ('전달된 카드', '가입 수', '시작된 대화')  # home_screen.dart StatTile label — 앱이 이 이름으로 말한다
 
 
@@ -70,6 +71,9 @@ def p_home_02(run, phone):
     said = _app(check, phone(token_hash=token))
     # ponytail: 시험 중엔 실사용자가 없어 값이 안 움직인다 — 그 사이 바뀌었으면 앱이 끝난 뒤 값과 맞춰 본다.
     db = before if summary == before else _stats(run)
+    hidden = summary == (0, 0, 0) and db[1] < HOME_STATS_MIN_SIGNUPS  # 기준 미만이라 숨김 — 화면도 같은 0 을 그린다
+    if hidden:
+        db = summary
     check.that(summary == db, f'/home/summary {summary} ≠ DB {db}')
     if said.get('result') == 'pass':
         if db == (0, 0, 0):
