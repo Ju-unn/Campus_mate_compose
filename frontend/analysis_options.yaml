@@ -40,6 +40,7 @@ linter:
     prefer_single_quotes: true
     prefer_const_constructors: true
     prefer_const_declarations: true
+    close_sinks: true
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options
