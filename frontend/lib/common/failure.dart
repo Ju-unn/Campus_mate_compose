@@ -206,6 +206,13 @@ enum AppError {
 
   /// 자기소개 초안(AI)을 만들지 못했다(06-1b) — 빈 칸에 직접 쓰게 한다.
   bioDraft,
+
+  /// 문의하기(21)의 하루 상한 429. 공용 429 글자(잠시 후 다시 시도)는 오늘 안에는 풀리지 않는 한도와 맞지 않아 따로 둔다 —
+  /// 서버 `errors.INQUIRY_DAILY_LIMIT` 과 같은 글자.
+  inquiryDailyLimit,
+
+  /// 문의하기 "답장 받을 메일" 칸의 형식 오류. 칸을 벗어났는데도 틀려 있을 때만 띄운다(서버 `REPLY_EMAIL` 규칙과 같다).
+  inquiryEmailInvalid,
 }
 
 /// 출생연도가 나이 하한에 걸렸다(04-1). [fromYear] 년생부터 가입할 수 있다 — 서버 422(schemas.py)와 같은 글자.

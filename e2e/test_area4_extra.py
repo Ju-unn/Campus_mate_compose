@@ -392,85 +392,73 @@ class MailDisabledTest(unittest.TestCase):
             self.assertEqual(area4_extra.mail_apps('emulator-5554'), ['com.android.email', 'com.google.android.gm'])
 
 
-MAIL = area4_extra.SUPPORT_MAIL
 GM = 'com.google.android.gm'
-# 실제 에뮬 dumpsys 의 한 줄(구글 계정이 없어 Gmail 이 작성 화면 대신 첫 실행 화면을 띄워도 Intent 줄은 그대로 남는다)
-INTENT = f'  Intent {{ act=android.intent.action.SENDTO dat=mailto:{MAIL} flg=0x14000000 cmp={GM}/.ComposeActivityGmailExternal }}'
+APP_FAIL = {'result': 'fail', 'note': '앱이 문의하기 화면을 못 찾음'}
 
 
 class Set52Test(Base):
-    """E-SET-52 — 받는 사람을 화면 글자 대신 dumpsys 의 SENDTO Intent 줄에서 읽는다(에뮬에는 구글 계정이 없어 Gmail 이 첫 실행 화면만 띄운다)."""
+    """E-SET-52 — FAQ 빈 화면의 "문의하기" 링크는 메일 앱이 아니라 앱 안 문의하기 화면을 연다. 화면 확인은 앱이 하고 PC 는 앱 결과만 받는다."""
 
-    def world(self, dump, screen=False, top=f'{GM}/.welcome.WelcomeTourActivity'):
-        events = []
-
-        def adb(serial, *args, check=True):
-            events.append(args)
-            if args[:3] == ('shell', 'pm', 'query-activities'):
-                return f'priority=0 preferredOrder=0\n  {GM}/.ComposeActivityGmail\n'
-            if args[:4] == ('shell', 'dumpsys', 'activity', 'activities'):
-                return dump
-            return ''
-
-        class Phone(FakePhone):
-            def __call__(self, midway=None, **job):
-                events.append(('app', job.get('token_hash') is not None))
-                return super().__call__(midway=midway, **job)
-
-        phone = Phone(top=top)
+    def run52(self, phone, case='E-SET-52', adb=None):
         phone.serial = 'emulator-5554'
-        return events, phone, adb, mock.patch.object(area4_extra.notify, 'screen_has', lambda serial, text: screen)
+        calls = []
+        off = set()
 
-    def run52(self, dump, screen=False):
-        events, phone, adb, screen_patch = self.world(dump, screen)
-        with mock.patch.object(tools, 'call', Fake([])), mock.patch.object(tools, 'adb', adb), screen_patch:
-            return area1.attempt_phone(self.run, 'E-SET-52', phone), events
+        def default_adb(serial, *args, check=True):
+            calls.append(args)
+            if args[:3] == ('shell', 'pm', 'query-activities'):
+                return '' if GM in off else f'priority=0 preferredOrder=0\n  {GM}/.ComposeActivityGmail\n'
+            if 'disable-user' in args:
+                off.add(args[-1])
+                return 'Package x new state: disabled-user'
+            return ''
+        with mock.patch.object(tools, 'call', Fake([])), mock.patch.object(tools, 'adb', adb or default_adb):
+            return area1.attempt_phone(self.run, case, phone), calls
 
-    def test_the_recipient_is_read_from_the_sendto_intent_line(self):
-        for dump, want in ((INTENT, True), (INTENT.replace(MAIL, 'someone@else.com'), False),
-                           (f'act=android.intent.action.SENDTO\n dat=mailto:{MAIL}', False), ('', False)):
-            with self.subTest(dump=dump[:60]):
-                with mock.patch.object(tools, 'adb', lambda serial, *args, check=True, d=dump: d):
-                    self.assertEqual(area4_extra.mail_intent_to('emulator-5554', MAIL), want)
-
-    def test_the_view_intent_url_launcher_really_sends_counts_too(self):
-        # 실기기(에뮬) dumpsys 의 진짜 줄 — url_launcher 의 openUrl 은 SENDTO 가 아니라 VIEW 로 보낸다.
-        view = INTENT.replace('SENDTO', 'VIEW').replace('flg=0x14000000', 'flg=0x10080000 xflg=0x4') + ' (has extras)'
-        for dump, want in ((view, True), (view.replace('VIEW', 'VIEWER'), False), (view.replace(MAIL, MAIL + '.evil'), False),
-                           (view.replace(f'dat=mailto:{MAIL}', f'dat=mailto:{MAIL}?subject=x'), True),
-                           (view.replace('action.VIEW', 'action.MAIN'), False)):
-            with self.subTest(dump=dump[:80]):
-                with mock.patch.object(tools, 'adb', lambda serial, *args, check=True, d=dump: d):
-                    self.assertEqual(area4_extra.mail_intent_to('emulator-5554', MAIL), want)
-
-    def test_an_emulator_with_no_account_passes_on_the_intent_alone(self):
-        (result, note), _ = self.run52(INTENT, screen=False)
+    def test_it_passes_when_the_app_says_the_inquiry_screen_opened(self):
+        (result, note), _ = self.run52(FakePhone())
         self.assertEqual(result, 'pass', note)
 
-    def test_the_screen_is_not_read_when_the_intent_line_already_matched(self):
-        # uiautomator 덤프가 실패하면 screen_has 가 Blocked 를 던져 가설 전체를 막는다 — Intent 줄이 맞으면 화면을 보지 않는다.
-        events, phone, adb, _ = self.world(INTENT)
+    def test_the_app_failing_to_open_the_inquiry_screen_is_a_fail(self):
+        (result, _), _ = self.run52(FakePhone(APP_FAIL))
+        self.assertEqual(result, 'fail')
 
-        def broken(serial, text):
-            raise Blocked('화면 덤프를 못 읽음(uiautomator)')
-        with mock.patch.object(tools, 'call', Fake([])), mock.patch.object(tools, 'adb', adb), \
-                mock.patch.object(area4_extra.notify, 'screen_has', broken):
-            (result, note) = area1.attempt_phone(self.run, 'E-SET-52', phone)
+    def test_the_pc_no_longer_looks_for_a_mail_app_or_a_mailto_intent(self):
+        _, calls = self.run52(FakePhone())
+        self.assertEqual([c for c in calls if 'mailto:' in ' '.join(c) or 'dumpsys' in c or 'query-activities' in c], [])
+        self.assertFalse(hasattr(area4_extra, 'mail_intent_to'))
+
+    def test_the_app_is_given_a_login_link_for_a_fresh_home_account(self):
+        phone = FakePhone()
+        self.run52(phone)
+        self.assertTrue(phone.jobs[0].get('token_hash'))
+
+    def test_the_dart_case_taps_the_inquiry_link_and_waits_for_the_form_labels(self):
+        text = (tools.ROOT / 'frontend' / 'integration_test' / 'area4_extra.dart').read_text(encoding='utf-8')
+        body = text[text.index("'E-SET-52'"):text.index("'E-SET-67/A'")]
+        self.assertIn('_pressFaqInquiryLink', body)
+        self.assertNotIn('appmailerl4538', text)
+        helper = text[text.index('Future<void> _pressFaqInquiryLink'):text.index('Future<void> _sessionAlive')]
+        for word in ('_faqInquiryLink', "'문의 사유'", "'답장 받을 메일'"):
+            self.assertIn(word, helper)
+
+
+class Set53Test(Set52Test):
+    """E-SET-53 — 메일 앱을 다 끈 기기에서도 같은 링크가 문의하기 화면을 연다. 끈 앱은 끝나면 되켠다."""
+
+    def test_mail_apps_are_turned_off_during_the_press_and_back_on_after(self):
+        _, calls = self.run52(FakePhone(), 'E-SET-53')
+        self.assertIn(('shell', 'pm', 'disable-user', '--user', '0', GM), calls)
+        self.assertIn(('shell', 'pm', 'enable', GM), calls)
+
+    def test_it_passes_when_the_app_says_the_inquiry_screen_opened_with_no_mail_app(self):
+        (result, note), _ = self.run52(FakePhone(), 'E-SET-53')
         self.assertEqual(result, 'pass', note)
 
-    def test_a_device_with_an_account_that_shows_the_address_on_screen_also_passes(self):
-        (result, note), _ = self.run52('', screen=True)
-        self.assertEqual(result, 'pass', note)
-
-    def test_neither_the_intent_nor_the_screen_is_a_fail(self):
-        (result, note), _ = self.run52(INTENT.replace(MAIL, 'someone@else.com'), screen=False)
-        self.assertEqual(result, 'fail', note)
-        self.assertIn(MAIL, note)
-
-    def test_the_mail_apps_are_force_stopped_before_the_press_so_an_old_task_cannot_pass_for_this_one(self):
-        _, events = self.run52(INTENT)
-        stop = events.index(('shell', 'am', 'force-stop', GM))
-        self.assertLess(stop, events.index(('app', True)))
+    def test_the_app_failing_without_a_mail_app_is_a_fail_and_the_apps_still_come_back(self):
+        (result, _), calls = self.run52(FakePhone(APP_FAIL), 'E-SET-53')
+        self.assertEqual(result, 'fail')
+        self.assertIn(('shell', 'pm', 'enable', GM), calls)
 
 
 class Set12Test(Base):

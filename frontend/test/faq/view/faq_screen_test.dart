@@ -1,11 +1,8 @@
 import 'dart:async';
 
-import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
-import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
-import 'package:campus_mate/consent/model/repository/open_url.dart';
-import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -14,42 +11,40 @@ import 'package:campus_mate/faq/model/repository/faq_cache.dart';
 import 'package:campus_mate/faq/model/repository/faq_repository.dart';
 import 'package:campus_mate/faq/view/faq_screen.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
-import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import '../model/repository/fake_faq.dart';
 
 void main() {
-  late List<Uri> opened;
-  late Future<bool> Function(Uri) openUrl;
-
-  setUp(() {
-    opened = [];
-    openUrl = (uri) async {
-      opened.add(uri);
-      return true;
-    };
-  });
+  /// 검색 결과 없음 화면의 메일 버튼이 push 한 길(문의하기 화면 자리에 표식 글자만 둔다).
+  late GoRouter router;
 
   Future<void> pump(WidgetTester tester, {double textScale = 1.0, Future<void>? gate}) async {
+    router = GoRouter(
+      routes: [
+        GoRoute(path: '/', builder: (context, state) => const FaqScreen()),
+        GoRoute(path: AppRoutes.inquiry, builder: (context, state) => const Text('문의하기 화면')),
+      ],
+    );
+    addTearDown(router.dispose);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           faqRepositoryProvider.overrideWithValue(FakeFaqRepository(const Success(faqFixture), gate: gate)),
           faqCacheProvider.overrideWithValue(FakeFaqCache()),
-          openExternalUrlProvider.overrideWithValue((uri) => openUrl(uri)),
         ],
-        child: MaterialApp(
+        child: MaterialApp.router(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(textScale)),
             child: child!,
           ),
-          home: const FaqScreen(),
+          routerConfig: router,
         ),
       ),
     );
@@ -243,9 +238,10 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  const mail = 'appmailerl4538@gmail.com';
+  // 링크 글자는 메일 주소가 아니라 "문의하기"(11-10 사용자 결정, pen o0LQI0) — 누르면 문의하기 화면이 열린다.
+  const link = '문의하기';
 
-  testWidgets('걸린 게 없으면 21-1 빈 상태: 마스코트 120 → 24 → 제목 18/600 → 8 → 설명 세 줄, 메일만 14/600 #C4224B(pen IhXOF)', (tester) async {
+  testWidgets('걸린 게 없으면 21-1 빈 상태: 마스코트 120 → 24 → 제목 18/600 → 8 → 설명 세 줄, 링크 "문의하기"만 14/600 #C4224B(pen IhXOF)', (tester) async {
     await pump(tester);
     await searchNothing(tester);
 
@@ -259,17 +255,17 @@ void main() {
 
     final first = find.text('다른 말로 검색하거나');
     expect(tester.getTopLeft(first).dy, tester.getBottomLeft(title).dy + 8);
-    for (final line in ['다른 말로 검색하거나', '으로', '물어봐 주세요']) {
+    for (final line in ['다른 말로 검색하거나', '로', '물어봐 주세요']) {
       expect(styleOf(tester, line).fontSize, 14);
       expect(styleOf(tester, line).color, AppColors.muted);
     }
-    final link = tester.renderObject<RenderParagraph>(find.text(mail)).text.style!;
-    expect(link.fontSize, 14);
-    expect(link.fontWeight, FontWeight.w600);
-    expect(link.color, AppColors.primaryText);
-    // 메일 · "으로" 는 한 줄, 사이 4(pen `CvTKu`).
-    expect(tester.getCenter(find.text('으로')).dy, tester.getCenter(find.text(mail)).dy);
-    expect(tester.getTopLeft(find.text('으로')).dx, tester.getTopRight(find.text(mail)).dx + 4);
+    final linkStyle = tester.renderObject<RenderParagraph>(find.text(link)).text.style!;
+    expect(linkStyle.fontSize, 14);
+    expect(linkStyle.fontWeight, FontWeight.w600);
+    expect(linkStyle.color, AppColors.primaryText);
+    // 링크 · "로" 는 한 줄, 사이 0(pen `CvTKu` — 링크 `o0LQI0` 와 조사 `PTHrQ`).
+    expect(tester.getCenter(find.text('로')).dy, tester.getCenter(find.text(link)).dy);
+    expect(tester.getTopLeft(find.text('로')).dx, tester.getTopRight(find.text(link)).dx);
 
     // 본문(136~600) 한가운데 — Empty `justifyContent center`.
     final top = tester.getTopLeft(mascot).dy;
@@ -277,35 +273,29 @@ void main() {
     expect((top + bottom) / 2, closeTo((136 + 600) / 2, 1));
   });
 
-  testWidgets('메일 주소는 누름 48, 누르면 mailto 로 메일 앱을 연다(대장 09-29)', (tester) async {
+  testWidgets('링크는 누름 48, 누르면 메일 앱이 아니라 문의하기 화면으로 간다(11-08 회의 할 일 6번)', (tester) async {
     await pump(tester);
     await searchNothing(tester);
 
-    final button = find.ancestor(of: find.text(mail), matching: find.byType(TextButton));
+    final button = find.ancestor(of: find.text(link), matching: find.byType(TextButton));
     expect(tester.getSize(button).height, 48);
-    await tester.tap(find.text(mail));
-    await tester.pump();
-    expect(opened, [Uri.parse('mailto:$mail')]);
-    expect(find.byType(AppToast), findsNothing);
+    await tester.tap(find.text(link));
+    await tester.pumpAndSettle();
+
+    expect(find.text('문의하기 화면'), findsOneWidget);
+    expect(find.text('찾는 질문이 없어요'), findsNothing);
   });
 
-  testWidgets('메일 앱을 못 열면 안내를 3초 띄우고 화면에 남는다 — 가입 동의 화면과 같다(대장 09-29)', (tester) async {
-    openUrl = (_) async => false;
+  testWidgets('화면 읽기는 링크를 "문의하기" 버튼으로 읽고 메일 주소는 읽지 않는다', (tester) async {
+    final handle = tester.ensureSemantics();
     await pump(tester);
     await searchNothing(tester);
 
-    await tester.tap(find.text(mail));
-    await tester.pump();
-    expect(find.widgetWithText(AppToast, failureText(AppLocalizationsKo(), const UnknownFailure())), findsOneWidget);
-    await tester.pump(const Duration(seconds: 3));
-    expect(find.byType(AppToast), findsNothing);
-
-    openUrl = (_) async => throw Exception('no mail app');
-    await tester.tap(find.text(mail));
-    await tester.pump();
-    expect(find.widgetWithText(AppToast, failureText(AppLocalizationsKo(), const UnknownFailure())), findsOneWidget);
-    expect(find.text('찾는 질문이 없어요'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 3));
+    final node = tester.getSemantics(find.ancestor(of: find.text(link), matching: find.byType(TextButton)));
+    expect(node.label, '문의하기');
+    expect(node.getSemanticsData().flagsCollection.isButton, isTrue);
+    expect(find.bySemanticsLabel(RegExp('appmailerl4538')), findsNothing);
+    handle.dispose();
   });
 
   testWidgets('360 폭 · 2.0배에서 검색칸 안내 글자가 말줄임 없이 다 보인다(칸이 따라 커진다)', (tester) async {
@@ -317,7 +307,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('360 폭 · 2.0배에서 빈 상태의 긴 메일 주소가 넘치지 않는다', (tester) async {
+  testWidgets('360 폭 · 2.0배에서 빈 상태의 링크 · 조사가 넘치지 않는다', (tester) async {
     tester.view.physicalSize = const Size(360, 640);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);

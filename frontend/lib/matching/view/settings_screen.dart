@@ -146,6 +146,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   title: l10n.matchingSettingsFaq,
                   onTap: () => context.push(AppRoutes.faq),
                 ),
+              // pen `dxyiY`: 3D 이메일 24 + 셰브런. 문의하기 화면(21a)이 열린다 — FAQ 줄이 숨어도 이 줄은 늘 있다.
+              _Row(icon: AppIcon3d.mail, title: l10n.matchingSettingsInquiry, onTap: () => context.push(AppRoutes.inquiry)),
               // pen 에 없는 줄(앱 투어 — 사용자 확정 지시). 줄 모양은 다른 줄과 같고 그림은 있는 3D 정보 아이콘을 쓴다.
               _Row(icon: AppIcon3d.infoBlue, title: l10n.matchingSettingsReplayTour, onTap: _replayTour),
               _Row(icon: AppIcon3d.terms, title: l10n.matchingSettingsTerms, onTap: () => _open(context, ref, termsLink)),

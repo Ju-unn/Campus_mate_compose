@@ -115,6 +115,15 @@ Future<void> _faqNoResult(WidgetTester tester) async {
   await pumpUntil(tester, find.text('찾는 질문이 없어요'), timeout: const Duration(seconds: 5));
 }
 
+/// FAQ 검색 결과 없음 화면의 "문의하기" 링크를 눌러 문의하기 화면(21a)이 열린 것까지 본다.
+Future<void> _pressFaqInquiryLink(WidgetTester tester) async {
+  await tap(tester, find.text(_faqInquiryLink));
+  for (final label in ['문의 사유', '내용', '답장 받을 메일']) {
+    await pumpUntil(tester, find.text(label), timeout: const Duration(seconds: 5));
+  }
+  must(find.text('찾는 질문이 없어요').evaluate().isEmpty, '문의하기 화면이 열렸는데 FAQ 빈 화면이 그대로 보임');
+}
+
 /// 이 기기(B)의 세션이 서버에서도 살아 있다 — 세션이 있고, 서버가 그 세션의 사용자를 알려 주고(getUser 는 서버에 묻는다),
 /// 새 열쇠를 받을 수 있다(A 가 모든 기기를 로그아웃시켰다면 서버가 세션을 지워 여기서 막힌다).
 Future<void> _sessionAlive(String when) async {
@@ -212,28 +221,17 @@ final Map<String, Area1Case> _extraCases = {
     await _blockAndWait(tester, job);
     return null;
   }),
-  // 52: FAQ 에서 없는 말을 검색해 빈 화면의 메일 주소를 누른다. 메일 앱이 맨 위로 뜨는지는 PC 가 본다(밖으로 나가면 앱 프레임이 멎어 바로 끝낸다).
+  // 52: FAQ 에서 없는 말을 검색해 빈 화면의 "문의하기" 링크를 누르면 메일 앱이 아니라 앱 안 문의하기 화면(21a)이 열린다(11-10 사용자 결정).
+  // 화면이 열렸는지는 앱이 스스로 본다 — 문의 사유 · 내용 · 답장 받을 메일 칸 라벨이 보이고 FAQ 빈 화면은 가려진다.
   'E-SET-52': _session((tester, job) async {
     await _faqNoResult(tester);
-    await tester.ensureVisible(find.text(_faqMail));
-    await tester.pump();
-    await tester.tap(find.text(_faqMail));
+    await _pressFaqInquiryLink(tester);
     return null;
   }),
-  // 53: 메일 앱이 없는 기기(PC 가 끔) — 같은 줄을 누르면 앱 안에 오류 안내가 뜨고 3초쯤 뒤 사라진다.
+  // 53: 메일 앱이 하나도 없는 기기(PC 가 끔) — 같은 링크가 여전히 문의하기 화면을 연다(메일 앱에 기대지 않는다).
   'E-SET-53': _session((tester, job) async {
     await _faqNoResult(tester);
-    final notice = find.text(failureText(AppLocalizationsKo(), const UnknownFailure()));
-    must(notice.evaluate().isEmpty, '누르기 전부터 안내가 떠 있음');
-    await tap(tester, find.text(_faqMail));
-    await pumpUntil(tester, notice, timeout: const Duration(seconds: 3));
-    await wait(tester, const Duration(seconds: 2));
-    must(notice.evaluate().isNotEmpty, '안내가 3초가 되기 전에 사라짐');
-    final gone = Stopwatch()..start();
-    while (notice.evaluate().isNotEmpty) {
-      must(gone.elapsed < const Duration(seconds: 3), '안내가 5초가 지나도 안 사라짐');
-      await tester.pump(const Duration(milliseconds: 100));
-    }
+    await _pressFaqInquiryLink(tester);
     return null;
   }),
   // 67 A폰: 로그인 → 대화 탭에 상대 방 → (B 가 들어올 때까지) → 설정에서 로그아웃 → 로그인 화면.

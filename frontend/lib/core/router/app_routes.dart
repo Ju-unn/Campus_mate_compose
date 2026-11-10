@@ -92,6 +92,10 @@ abstract final class AppRoutes {
 
   /// 21 자주 묻는 질문(설정 "자주 묻는 질문" 줄이 연다, 계획서 2026-09-29-faq.md).
   static const String faq = '/settings/faq';
+
+  /// 문의하기(11-08 회의 할 일 6번, pen 21a ~ 21c). 설정 "문의하기" 줄과 FAQ 검색 결과 없음 화면이 push 로 연다.
+  static const String inquiry = '/settings/inquiry';
+
   /// 지인 리뷰 — 20c 받은 리뷰, 20e 내가 쓴 리뷰, 20b 리뷰 쓰기(`/home/friend-reviews/write/:profileId` — 푸시로 와도 홈 위에 시트)
   static const String friendReviews = '/friend-reviews';
   static const String friendReviewsWritten = '/friend-reviews/written';

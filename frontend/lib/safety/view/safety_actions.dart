@@ -23,17 +23,20 @@ import 'package:go_router/go_router.dart';
 ///
 /// 신고 · 차단이 끝나면 화면을 떠나 대화 목록으로 가므로 화면 안 상태가 아니라 앱 전체 ScaffoldMessenger 로 띄운다 —
 /// 그래야 목록 화면 위에 남는다. [messenger] 는 화면을 떠나기 전에 잡아 둔다.
+/// [icon] 을 null 로 주면 글자만 뜬다(문의 보냄 토스트 pen `WxKM6` 은 앞 아이콘이 꺼져 있다).
+/// [shrinkToText] 를 켜면 288 고정 폭 대신 글자 길이에 맞춰 줄어든 알약이 가운데에 뜬다(`WxKM6` 126×37). 기본은 기존 모양 그대로다.
 /// 띄운 토스트를 돌려준다(15d 커뮤니티는 떠 있는 동안 "질문하기" 알약을 숨긴다). 다른 화면은 버려도 된다.
 ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showSafetyToast(
   ScaffoldMessengerState messenger,
   String message, {
-  IconData icon = AppIcons.circleCheck,
+  IconData? icon = AppIcons.circleCheck,
+  bool shrinkToText = false,
 }) {
   return messenger.showSnackBar(
     SnackBar(
-      content: AppToast(leading: Icon(icon, size: 16, color: AppColors.onInk), label: message),
-      // pen 토스트 폭 288(전시판 320 안 fill). 글자 칸 232 에서 두 줄로 내려간다.
-      width: 288,
+      content: _toast(icon, message, shrinkToText),
+      // pen 토스트 폭 288(전시판 320 안 fill). 글자 칸 232 에서 두 줄로 내려간다. 글자에 맞추는 변형은 폭을 정하지 않고 가운데 정렬한다.
+      width: shrinkToText ? null : 288,
       behavior: SnackBarBehavior.floating,
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -42,6 +45,11 @@ ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showSafetyToast(
       duration: const Duration(seconds: 3),
     ),
   );
+}
+
+Widget _toast(IconData? icon, String message, bool shrinkToText) {
+  final toast = AppToast(leading: icon == null ? null : Icon(icon, size: 16, color: AppColors.onInk), label: message);
+  return shrinkToText ? Center(child: toast) : toast;
 }
 
 /// 신고 시트 → 결과 토스트. 신고하면 차단도 된다(결정 4) — 신고됨 · 이미 신고면 상대가 사라지니 대화 목록으로 간다.

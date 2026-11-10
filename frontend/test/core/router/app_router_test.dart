@@ -49,6 +49,8 @@ import 'package:campus_mate/faq/model/repository/faq_cache.dart';
 import 'package:campus_mate/faq/model/repository/faq_repository.dart';
 import 'package:campus_mate/faq/view/faq_screen.dart';
 import 'package:campus_mate/home/view/event_coming_screen.dart';
+import 'package:campus_mate/inquiry/model/repository/inquiry_account_email_provider.dart';
+import 'package:campus_mate/inquiry/view/inquiry_screen.dart';
 import 'package:campus_mate/friend_review/view/friend_code_screen.dart';
 import 'package:campus_mate/friend_review/model/repository/friend_review_repository_provider.dart';
 import 'package:campus_mate/home/model/repository/home_repository_provider.dart';
@@ -421,6 +423,8 @@ void main() {
           // 21 이 열리면 FAQ 를 읽는다.
           faqRepositoryProvider.overrideWithValue(FakeFaqRepository(const Success(faqFixture))),
           faqCacheProvider.overrideWithValue(FakeFaqCache()),
+          // 21a 문의하기가 열리면 계정 메일을 읽는다(Supabase 없이).
+          inquiryAccountEmailProvider.overrideWithValue(null),
         ],
       );
       addTearDown(container.dispose);
@@ -478,6 +482,15 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(FaqScreen), findsOneWidget);
+    });
+
+    testWidgets('/settings/inquiry 는 21a 문의하기다', (tester) async {
+      final router = await pumpRouter(tester);
+
+      router.go(AppRoutes.inquiry);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(InquiryScreen), findsOneWidget);
     });
 
     testWidgets('/me/avatar-regen 은 15b-4 아바타 다시 만들기 · 사진 고르기다', (tester) async {
