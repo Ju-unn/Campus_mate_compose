@@ -48,7 +48,7 @@ const _inviteNote = '내 추천 코드를 친구에게 보내요'; // :75
 const _notificationsRow = '알림'; // :84
 
 // 16i — frontend/lib/referral/view/invite_friends_sheet.dart
-const _inviteBody = '친구가 가입할 때 이 코드를 넣으면 둘 다 하트 50개를 받아요.'; // :35
+const _inviteBody = '친구가 가입할 때 이 코드를 넣으면 친구는 하트 50개, 나는 25개를 받아요.'; // :35
 const _copy = '복사'; // _CopyButton :223
 const _copied = '코드를 복사했어요'; // :61
 

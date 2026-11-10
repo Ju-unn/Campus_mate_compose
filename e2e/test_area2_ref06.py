@@ -1,5 +1,5 @@
 """E-REF-06 판 시험 — 가짜 서버 · 가짜 앱으로 돈다(폰 · 운영 없음). 저장소 루트에서 `python -m unittest e2e.test_area2_ref06`.
-기대는 시나리오 줄: referrals 1행 · 원장 reason=referral(ref=B id) · A +50 · B +50. 계정은 만든 순서대로 id-1(코드 주인 A) · id-2(새 사람 B)."""
+기대는 시나리오 줄: referrals 1행 · 원장 reason=referral(ref=B id) · A +25(코드 주인) · B +50(새 사람). 계정은 만든 순서대로 id-1(코드 주인 A) · id-2(새 사람 B)."""
 
 import re
 import subprocess
@@ -14,7 +14,7 @@ from e2e.test_area2 import Base, Fake
 from e2e.tools import Reply
 
 A, B = 'id-1', 'id-2'
-GOOD_LEDGER = {A: [{'amount': 50, 'ref_id': B}], B: [{'amount': 50, 'ref_id': B}]}
+GOOD_LEDGER = {A: [{'amount': 25, 'ref_id': B}], B: [{'amount': 50, 'ref_id': B}]}
 
 
 def read(*parts):
@@ -39,7 +39,7 @@ class RunTest(Base):
         with mock.patch.object(tools, 'call', fake):
             return area1.attempt_phone(self.run, 'E-REF-06', phone), phone
 
-    def test_pass_one_referral_row_and_fifty_hearts_each_with_the_newcomers_id_as_ref(self):
+    def test_pass_one_referral_row_newcomer_fifty_and_code_owner_twenty_five_with_the_newcomers_id_as_ref(self):
         (result, note), phone = self.run06()
         self.assertEqual(result, 'pass', note)
         self.assertEqual(phone.jobs[0]['code'], 'K7M2QX')  # 앱은 코드 주인의 코드를 넣는다
@@ -47,14 +47,16 @@ class RunTest(Base):
 
     def test_a_ledger_line_pointing_at_the_wrong_person_is_a_fail(self):
         # E-ONB-60 은 금액만 봐서 통과시키지만, 시나리오는 ref=B id 다.
-        wrong = {A: [{'amount': 50, 'ref_id': A}], B: [{'amount': 50, 'ref_id': B}]}
+        wrong = {A: [{'amount': 25, 'ref_id': A}], B: [{'amount': 50, 'ref_id': B}]}
         (result, note), _ = self.run06(wrong)
         self.assertEqual(result, 'fail', note)
         self.assertIn('코드 주인 A', note)
 
     def test_a_missing_or_wrong_amount_for_either_side_is_a_fail(self):
         for label, ledger in (('B 없음', {A: GOOD_LEDGER[A], B: []}), ('A 없음', {A: [], B: GOOD_LEDGER[B]}),
-                              ('A 40', {A: [{'amount': 40, 'ref_id': B}], B: GOOD_LEDGER[B]})):
+                              ('A 40', {A: [{'amount': 40, 'ref_id': B}], B: GOOD_LEDGER[B]}),
+                              ('A 옛 값 50', {A: [{'amount': 50, 'ref_id': B}], B: GOOD_LEDGER[B]}),
+                              ('B 25', {A: GOOD_LEDGER[A], B: [{'amount': 25, 'ref_id': B}]})):
             with self.subTest(label):
                 self.setUp()
                 (result, note), _ = self.run06(ledger)

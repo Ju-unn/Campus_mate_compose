@@ -4,7 +4,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(21);
+select plan(23);
 
 -- 1~3 표 · RLS · enum
 select has_table('public', 'faq', 'faq 표가 있다');
@@ -58,12 +58,12 @@ select ok((select answer like '%appmailerl4538@gmail.com 으로 가입한 학교
            from public.faq where question = '이용이 제한됐다고 나와요.'),
   '이용 제한 답변은 새 문의 메일을 안내한다');
 
--- 18~19 무료 하트 값(2026-10-16 사용자 확정 "무료하트조정 확정"): 에브리타임 40 · 투표 5 / 주 15, 단톡방 25 · 친구 50 은 그대로.
+-- 18~19 무료 하트 값(2026-10-16 사용자 확정 "무료하트조정 확정"): 에브리타임 40 · 투표 5 / 주 15, 단톡방 25 · 친구 초대 50(새 사람) · 25(코드 주인, 20261110120000).
 select is((select answer from public.faq where question = '하트를 무료로 얻는 방법이 있나요?'),
-  '네. 설정 → 무료로 하트 모으기에서 받을 수 있어요. 친구의 추천 코드를 넣으면 나와 친구가 각각 50하트를 받고, '
+  '네. 설정 → 무료로 하트 모으기에서 받을 수 있어요. 친구의 추천 코드를 넣으면 나는 50하트, 코드를 알려 준 친구는 25하트를 받고, '
   || '에브리타임 홍보 글 인증은 월 1회 40하트, 단톡방 공유 인증은 월 3회 25하트씩이에요. '
   || '커뮤니티 투표에 참여하면 하루 한 번 5하트, 한 주에 최대 15하트를 받아요.',
-  '무료 하트 답변은 에브리타임 40 · 단톡방 25 · 투표 하루 5 / 주 15 · 친구 50 이고 "학교 단톡방" 이 아니다');
+  '무료 하트 답변은 에브리타임 40 · 단톡방 25 · 투표 하루 5 / 주 15 · 친구 초대 50 · 25 이고 "학교 단톡방" 이 아니다');
 select is_empty(
   $$select id from public.faq
      where answer like '%월 1회 50하트%' or answer like '%하루 한 번 10하트%' or answer like '%최대 30하트%'
@@ -78,6 +78,15 @@ select is_empty(
   $$select id from public.faq
      where answer like '%졸업증명서는 받지 않아요%' or answer like '%학교 메일을 쓸 수 있으면 가입할 수 있어요%'$$,
   '"졸업증명서는 받지 않아요" · "학교 메일을 쓸 수 있으면" 옛 문장이 든 답변이 없다');
+
+-- 22~23 친구 초대 보상 변경(20261110120000, 2026-11-10 사용자 「새 사람 50 · 코드 주인 25」): 새로 가입한 사람 50 · 코드 준 사람 25.
+select is((select answer from public.faq where question = '추천 코드는 어떻게 쓰나요?'),
+  '가입 마지막 단계에서 친구에게 받은 코드를 한 번 넣을 수 있어요. 코드를 넣으면 나는 50하트, 코드를 알려 준 친구는 25하트를 받아요. '
+  || '내 코드는 설정 → 친구 초대에서 복사하거나 공유할 수 있어요.',
+  '추천 코드 사용법 답변은 나 50 · 코드를 알려 준 친구 25 이다');
+select is_empty(
+  $$select id from public.faq where answer like '%각각 50하트%'$$,
+  '"나와 친구가 각각 50하트" 옛 문장이 든 답변이 없다');
 
 select * from finish();
 rollback;

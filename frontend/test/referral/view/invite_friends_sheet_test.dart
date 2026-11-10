@@ -82,7 +82,7 @@ void main() {
   testWidgets('내 코드와 설명을 보여 준다', (tester) async {
     await pump(tester);
     expect(find.text('K7QMX2'), findsOneWidget);
-    expect(find.text('친구가 가입할 때 이 코드를 넣으면 둘 다 하트 50개를 받아요.'), findsOneWidget);
+    expect(find.text('친구가 가입할 때 이 코드를 넣으면 친구는 하트 50개, 나는 25개를 받아요.'), findsOneWidget);
   });
 
   testWidgets('복사하면 코드가 클립보드에 들어가고 안내가 3초 뜬다', (tester) async {
@@ -273,7 +273,7 @@ void main() {
       await pump(tester);
       final handle = rect(tester, find.byType(SheetHandle));
       final title = rect(tester, find.text('친구 초대'));
-      final description = rect(tester, find.text('친구가 가입할 때 이 코드를 넣으면 둘 다 하트 50개를 받아요.'));
+      final description = rect(tester, find.text('친구가 가입할 때 이 코드를 넣으면 친구는 하트 50개, 나는 25개를 받아요.'));
       final box = rect(tester, codeBox());
       final kakaoButton = rect(tester, find.widgetWithText(AppButton, '카카오톡으로 보내기'));
       final otherApps = rect(tester, find.widgetWithText(AppButton, '다른 앱으로 보내기'));
@@ -296,7 +296,7 @@ void main() {
       final title = styleOf(tester, '친구 초대');
       expect((title.fontSize, title.fontWeight, title.color), (20, FontWeight.w700, AppColors.ink));
       expect(tester.getSize(find.text('친구 초대')).height, 29);
-      final description = styleOf(tester, '친구가 가입할 때 이 코드를 넣으면 둘 다 하트 50개를 받아요.');
+      final description = styleOf(tester, '친구가 가입할 때 이 코드를 넣으면 친구는 하트 50개, 나는 25개를 받아요.');
       expect(
         (description.fontSize, description.fontWeight, description.height, description.color),
         (14, FontWeight.w400, 1.55, AppColors.muted),

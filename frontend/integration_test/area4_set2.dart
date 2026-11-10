@@ -5,7 +5,7 @@ part of 'area4.dart';
 // 앱이 안 보이는 사이(공유 창)에는 프레임이 안 돌 수 있어, 그동안은 우편함(step)만 부른다.
 
 const _faqHint = '궁금한 내용을 검색해 보세요';
-const _inviteDescription = '친구가 가입할 때 이 코드를 넣으면 둘 다 하트 50개를 받아요.';
+const _inviteDescription = '친구가 가입할 때 이 코드를 넣으면 친구는 하트 50개, 나는 25개를 받아요.';
 const _copied = '코드를 복사했어요';
 const _faqMail = 'appmailerl4538@gmail.com';
 // 소셜 로그인 뒤 로그아웃 시트 문구(core/auth/confirm_sign_out.dart, 2026-10-13 공급자 나열을 뺌).

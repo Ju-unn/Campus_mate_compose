@@ -866,7 +866,7 @@ def ref_14(run):
     _patch(run, f"profile_private?profile_id=eq.{me['id']}", {'phone_hmac': None})
     check.reply('해시 없는 계정', _redeem(run, me, _code(run, referrer)), 200)
     check.that(_ledger(run, me, 'referral') == [50], f'내 원장 {_ledger(run, me, "referral")}(기대 [50])')
-    check.that(_ledger(run, referrer, 'referral') == [50], f'추천인 원장 {_ledger(run, referrer, "referral")}(기대 [50])')
+    check.that(_ledger(run, referrer, 'referral') == [25], f'추천인 원장 {_ledger(run, referrer, "referral")}(기대 [25])')
     return check.result()
 
 
@@ -877,7 +877,7 @@ def ref_15(run):
     replies = _parallel(lambda: _redeem(run, me, code), lambda: _redeem(run, me, code))
     check.that(sorted(r[0] for r in replies) == [200, 409], f'상태 {[r[0] for r in replies]}(기대 200 · 409)')
     check.that(_ledger(run, me, 'referral') == [50], f'내 원장 {_ledger(run, me, "referral")}(기대 [50])')
-    check.that(_ledger(run, referrer, 'referral') == [50], f'추천인 원장 {_ledger(run, referrer, "referral")}(기대 [50])')
+    check.that(_ledger(run, referrer, 'referral') == [25], f'추천인 원장 {_ledger(run, referrer, "referral")}(기대 [25])')
     return check.result()
 
 

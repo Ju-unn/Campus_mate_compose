@@ -56,6 +56,19 @@ void main() {
       expect(hint.data, isNot(matches(RegExp(r'\d'))));
     });
 
+    testWidgets('허위 정보 경고 한 줄: 개인정보 안내 아래, 12 muted 작은 글씨', (tester) async {
+      await pumpScreen(tester);
+
+      const warning = '허위 정보나 다른 사람의 정보로 인증하면 그 책임은 본인에게 있어요.';
+      expect(find.text(warning), findsOneWidget);
+      final style = tester.widget<Text>(find.text(warning)).style!;
+      expect((style.fontSize, style.color), (12.0, AppColors.muted));
+      expect(
+        tester.getTopLeft(find.text(warning)).dy,
+        greaterThan(tester.getBottomLeft(find.text('인증이 끝나면 이메일은 어디에도 공개되지 않아요.')).dy),
+      );
+    });
+
     testWidgets('앱바가 없다', (tester) async {
       await pumpScreen(tester);
 

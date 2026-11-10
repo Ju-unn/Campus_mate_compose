@@ -1,4 +1,4 @@
-"""E-REF-06 — 새 사람(B)이 가입 마지막(화면 20)에서 코드 주인(A)의 추천 코드를 넣으면 그 자리에서 둘 다 50하트.
+"""E-REF-06 — 새 사람(B)이 가입 마지막(화면 20)에서 코드 주인(A)의 추천 코드를 넣으면 그 자리에서 새 사람 B 50 · 코드 주인 A 25하트.
 
 화면 흐름은 영역 1 E-ONB-60 과 같아 앱 쪽은 그 가설을 그대로 쓴다(frontend/integration_test/e2e_test.dart 의 `E-REF-06` → `E-ONB-60`):
 앱이 B 로 06-3 까지 마친 뒤 20 에서 코드를 넣고 "코드 확인하기" → 20b 리뷰 시트를 닫고 → 20d. 시나리오의 "두 기기" 중 코드 주인(A)의 화면은 이 가설이 보지 않아
@@ -10,7 +10,8 @@ from e2e import area1
 from e2e.area1 import Check, _app, _rows, _signed_in
 from e2e.area1_b2 import _referrer
 
-FIFTY = 50
+FIFTY = 50  # 새로 가입한 사람(B)
+TWENTY_FIVE = 25  # 코드 주인(A) — 2026-11-10 사용자 「새 사람 50 · 코드 주인 25」
 
 
 def _ledger(run, account_id):
@@ -28,9 +29,9 @@ def p_ref_06(run, phone):
     check.that(rows == [{'referrer_id': owner['id']}], f'referrals(B 가 받은 쪽) {rows}(기대 A 한 줄)')
     given = _rows(run, f"referrals?referrer_id=eq.{owner['id']}&select=referee_id")
     check.that(given == [{'referee_id': newcomer['id']}], f'referrals(A 가 준 쪽) {given}(기대 B 한 줄 — 총 1행)')
-    for who, account in (('새 사람 B', newcomer), ('코드 주인 A', owner)):
+    for who, account, amount in (('새 사람 B', newcomer, FIFTY), ('코드 주인 A', owner, TWENTY_FIVE)):
         got = _ledger(run, account['id'])
-        check.that(got == [(FIFTY, newcomer['id'])], f'{who} 원장 {got}(기대 [(+{FIFTY}, ref=B id)])')
+        check.that(got == [(amount, newcomer['id'])], f'{who} 원장 {got}(기대 [(+{amount}, ref=B id)])')
     return check.result()
 
 

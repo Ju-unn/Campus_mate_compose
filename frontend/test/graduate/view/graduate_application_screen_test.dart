@@ -117,6 +117,16 @@ void main() {
       final icon = find.byWidgetPredicate((w) => w is Image && w.width == 18 && w.height == 18);
       expect(icon, findsOneWidget);
     });
+
+    testWidgets('허위 정보 경고 한 줄: 사진 안내 줄 아래, 12/1.5 muted (기존 힌트 글씨와 같다)', (tester) async {
+      await pump(tester);
+
+      const warning = '허위 정보나 다른 사람의 정보로 인증하면 그 책임은 본인에게 있어요.';
+      expect(find.text(warning), findsOneWidget);
+      final style = styleOf(tester, warning);
+      expect((style.fontSize, style.color, style.height), (12.0, AppColors.muted, 1.5));
+      expect(tester.getTopLeft(find.text(warning)).dy, greaterThan(tester.getBottomLeft(find.text('사진은 확인이 끝나면 바로 지워져요')).dy));
+    });
   });
 
   group('사진 칸 (값표 §3 `gCJ2p` · `oaPh3`)', () {
