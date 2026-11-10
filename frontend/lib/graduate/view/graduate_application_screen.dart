@@ -99,6 +99,8 @@ class _FormBody extends ConsumerWidget {
         _EmailBlock(state: state, viewModel: viewModel),
         const SizedBox(height: AppSpacing.md),
         HintLine(context.l10n.graduateApplicationPhotoHint),
+        const SizedBox(height: 6),
+        Text(context.l10n.commonFalseInfoWarning, style: _hintStyle),
         const SizedBox(height: AppSpacing.md),
         // 개인정보 동의 줄(계획서 D11 (나)). **값표(02-g)에 없는 줄**이다 — 뷰모델이 동의를 요구해(`canSubmit`) 앱이 문구를 정했다.
         // pen 에 같은 마스터(`ConsentRow`)로 추가돼야 한다(보고).

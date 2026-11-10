@@ -108,6 +108,8 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       context.l10n.authSignUpPrivacy,
                       style: AppTypography.body.copyWith(color: AppColors.body),
                     ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(context.l10n.commonFalseInfoWarning, style: AppTypography.caption.copyWith(color: AppColors.muted)),
                     const SizedBox(height: AppSpacing.xl),
                     Text(context.l10n.authSignUpEmailLabel, style: AppTypography.labelSmall.copyWith(color: AppColors.body)),
                     const SizedBox(height: AppSpacing.xs),
