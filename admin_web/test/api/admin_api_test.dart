@@ -279,13 +279,18 @@ void main() {
       );
     });
 
-    test('글 가림: POST /admin/content/polls|friend-reviews/{id}/blind|unblind {reason}', () async {
+    test('글 가림: POST /admin/content/polls|friend-reviews|poll-comments/{id}/blind|unblind {reason}', () async {
       final api = apiWith((_) => json(200, {'id': 'c', 'status': 'blinded'}));
 
       await api.setContentStatus(ReportTargetType.poll, 'c1', blind: true, reason: '사유');
       await api.setContentStatus(ReportTargetType.friendReview, 'c2', blind: false, reason: '사유');
+      await api.setContentStatus(ReportTargetType.pollComment, 'c3', blind: true, reason: '사유');
 
-      expect(requests.map((r) => r.url.path), ['/admin/content/polls/c1/blind', '/admin/content/friend-reviews/c2/unblind']);
+      expect(requests.map((r) => r.url.path), [
+        '/admin/content/polls/c1/blind',
+        '/admin/content/friend-reviews/c2/unblind',
+        '/admin/content/poll-comments/c3/blind',
+      ]);
     });
 
     test('번호에 / · . · % 가 있으면 요청을 보내지 않고 실패 — 다른 관리자 API 를 부르지 못한다', () async {

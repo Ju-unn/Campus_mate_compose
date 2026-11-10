@@ -109,7 +109,7 @@ class AdminApi {
 
   // 신고 검수(A4) — 409 already_done 도 [AlreadyReviewed](이미 처리됨)로 던진다. 사유 · 메모는 앞뒤 공백만 떼고 그대로 보낸다.
 
-  /// 오래된 순 · 최대 50(서버 기본). 사본 · 사진은 없다(신고자 수 · 투표 질문 앞부분은 있다) — 줄을 고르면 [getReport].
+  /// 오래된 순 · 최대 50(서버 기본). 사본 · 사진은 없다(신고자 수 · 투표 질문 · 댓글 본문 앞부분은 있다) — 줄을 고르면 [getReport].
   Future<List<ReportSummary>> listReports({ReportStatus status = ReportStatus.open, ReportTargetType? type}) {
     final query = {'status': status.code, if (type != null) 'type': type.code};
     return _read(send('GET', '/admin/reports', query: query), (body) {
@@ -158,9 +158,13 @@ class AdminApi {
     return _read(send('POST', path, body: body), (_) {});
   }
 
-  /// 투표 글 · 지인 리뷰 가림([blind]) / 해제
+  /// 투표 글 · 지인 리뷰 · 댓글 가림([blind]) / 해제
   Future<void> setContentStatus(ReportTargetType kind, String contentId, {required bool blind, required String reason}) async {
-    final segment = kind == ReportTargetType.poll ? 'polls' : 'friend-reviews';
+    final segment = switch (kind) {
+      ReportTargetType.poll => 'polls',
+      ReportTargetType.pollComment => 'poll-comments',
+      _ => 'friend-reviews',
+    };
     final path = '${_idPath('/admin/content/$segment', contentId)}/${blind ? 'blind' : 'unblind'}';
     return _read(send('POST', path, body: {'reason': reason.trim()}), (_) {});
   }
