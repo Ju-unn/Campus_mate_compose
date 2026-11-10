@@ -378,7 +378,7 @@ final Map<String, Area1Case> area1Cases = {
     await _consentRow(tester, '전체 동의');
     must(_checkedBoxes(tester) == 0, '두 번 누른 뒤 켜진 칸 ${_checkedBoxes(tester)}');
     await _consentRow(tester, '전체 동의');
-    await _consentRow(tester, '마케팅 알림 받기');
+    await _consentRow(tester, '마케팅 활용 동의');
     must(!_allAgreeChecked(tester), '마케팅을 껐는데 전체 동의가 켜져 있음');
     must(enabled(tester, _consentCta), '필수가 다 켜졌는데 버튼이 꺼짐');
     return null;
@@ -386,8 +386,8 @@ final Map<String, Area1Case> area1Cases = {
   'E-GATE-11': _session((tester, job) async {
     await arrive(tester, 'consent');
     Finder view(String label) => find.byWidgetPredicate((w) => w is Semantics && w.properties.label == '$label 보기');
-    must(find.text('보기').evaluate().length == 2, '"보기" ${find.text('보기').evaluate().length}개');
-    must(view('마케팅 알림 받기').evaluate().isEmpty, '마케팅 줄에 보기가 있음');
+    must(find.text('보기').evaluate().length == 3, '"보기" ${find.text('보기').evaluate().length}개');
+    must(view('마케팅 활용 동의').evaluate().isNotEmpty, '마케팅 줄에 보기가 없음');
     // 누르고 바로 끝낸다 — 브라우저가 뜨면 앱이 멈춤(paused) 상태가 돼 pump 가 끝나지 않는다.
     // 브라우저가 맨 위인지는 PC 가 본다(e2e/area1.py p_gate_11).
     await tester.ensureVisible(view('이용약관'));
