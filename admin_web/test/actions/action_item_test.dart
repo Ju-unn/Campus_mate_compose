@@ -57,6 +57,8 @@ void main() {
       expect(row('heart_task_approve', type: 'heart_task_submission', id: 'e4100000-0000-4000-8000-000000000001').targetLabel, '제출 e4100000…');
       expect(row('report_resolve', type: 'report', id: '12345678-0000-4000-8000-000000000001').targetLabel, '신고 12345678…');
       expect(row('profile_note', type: 'profile', id: 'abcdef12-0000-4000-8000-000000000001').targetLabel, '사용자 abcdef12…');
+      // 댓글 가림(admin_set_content_status 가 target_type 에 report_target 값을 남긴다)
+      expect(row('content_blind', type: 'poll_comment', id: 'c0ffee12-0000-4000-8000-000000000001').targetLabel, '댓글 c0ffee12…');
     });
 
     test('대상이 없으면 "-"', () {
