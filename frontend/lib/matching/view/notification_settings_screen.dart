@@ -13,8 +13,7 @@ import 'package:campus_mate/matching/viewmodel/notification_settings_view_model.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// 한 줄 = 서버 스위치 하나. "내 글의 새 댓글"(pen `KjGQd`)은 대응 컬럼이 없어 이번 조각에서 빠진다
-/// (커뮤니티가 조각 6 에서 컬럼과 함께 만든다).
+/// 한 줄 = 서버 스위치 하나. "내 글의 새 댓글"(pen `KjGQd`)은 서버 키 `poll_comment` — 지인 리뷰·커뮤니티 카드의 둘째 줄이다.
 typedef _Row = ({String key, String title, String? note, AppIcon3d icon});
 
 List<({String title, List<_Row> rows})> _sections(AppLocalizations l10n) => [
@@ -63,6 +62,8 @@ List<({String title, List<_Row> rows})> _sections(AppLocalizations l10n) => [
             note: null,
             icon: AppIcon3d.heartHandshake,
           ),
+          // pen `KjGQd`: 같은 카드의 52 줄(부연 없음), 3D 대화 22(`Lua1H`).
+          (key: 'poll_comment', title: l10n.matchingNotificationPollComment, note: null, icon: AppIcon3d.chat),
         ],
       ),
       (

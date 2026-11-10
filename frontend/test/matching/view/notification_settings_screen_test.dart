@@ -43,7 +43,7 @@ void main() {
     return repository;
   }
 
-  testWidgets('서버가 가진 스위치를 그리고 댓글 스위치는 그리지 않는다', (tester) async {
+  testWidgets('서버가 가진 스위치를 그린다 — "내 글의 새 댓글" 도 지인 리뷰·커뮤니티 카드에 있다', (tester) async {
     await pump(tester);
 
     expect(find.text('오늘의 카드 도착'), findsOneWidget);
@@ -51,8 +51,7 @@ void main() {
     expect(find.text('상대가 나에게 대화를 신청했을 때'), findsOneWidget);
     // 매칭 성사 알림 행은 사용자 확인 전까지 옛 글자 그대로다(지시문 23 F).
     expect(find.text('서로 수락해 대화가 열렸을 때'), findsOneWidget);
-    // 댓글 스위치는 대응 컬럼이 없어 이번 조각에서 그리지 않는다(커뮤니티는 조각 6).
-    expect(find.text('내 글의 새 댓글'), findsNothing);
+    expect(find.text('내 글의 새 댓글'), findsOneWidget);
   });
 
   testWidgets('줄마다 pen 의 3D 그림이 그 순서로 그려진다(pen `wAQtn` · `zxXQG` · `U17hk` · `oq6tX` · `d7e1q` · `I58co`)', (tester) async {
@@ -66,6 +65,7 @@ void main() {
       AppIcon3d.chat, // 새 메시지(pen 인스턴스 `K4uiNp` — 그림 확인 전)
       AppIcon3d.clock, // 신뢰 확인 리마인드
       AppIcon3d.heartHandshake, // 새 지인 리뷰(pen 인스턴스 `K4uiNp` — 그림 확인 전)
+      AppIcon3d.chat, // 내 글의 새 댓글(pen `KjGQd` · `Lua1H` 3D 대화 22)
       AppIcon3d.megaphone, // 혜택·이벤트 소식
       AppIcon3d.moon, // 방해 금지 시간
     ]);
@@ -132,7 +132,8 @@ void main() {
     expect(hasLine('오늘의 카드 도착'), isTrue); // 64
     expect(hasLine('매칭 성립'), isTrue); // 64 · 카드의 마지막 줄이어도 선 있음
     expect(hasLine('새 메시지'), isTrue); // 52 · 카드 첫 줄
-    expect(hasLine('새 지인 리뷰'), isFalse); // 52 · 카드의 마지막(유일한) 줄
+    expect(hasLine('새 지인 리뷰'), isTrue); // 52 · 카드 첫 줄
+    expect(hasLine('내 글의 새 댓글'), isFalse); // 52 · 카드의 마지막 줄
     expect(hasLine('방해 금지 시간 (22:00 ~ 08:00)'), isFalse); // 52 · 카드의 마지막 줄
   });
 
@@ -153,9 +154,9 @@ void main() {
       phone(tester);
       await pump(tester);
 
-      // 매칭 3줄 64×3 · 대화 52 + 64 · 지인 리뷰 52(앱에는 한 줄 — "내 글의 새 댓글" 보류) · 기타 64 + 52.
+      // 매칭 3줄 64×3 · 대화 52 + 64 · 지인 리뷰·커뮤니티 52 + 52(`ZLaua` 328×104) · 기타 64 + 52.
       // pen 높이는 최소값이다 — 시험 글꼴(Ahem)은 한글이 넓어 부연 글이 두 줄로 꺾이면 줄이 더 커진다. 부연 글 없는 지인 리뷰 줄만 딱 맞는다.
-      final heights = {'오늘의 카드 도착': 192.0, '새 메시지': 116.0, '새 지인 리뷰': 52.0, '혜택·이벤트 소식': 116.0};
+      final heights = {'오늘의 카드 도착': 192.0, '새 메시지': 116.0, '새 지인 리뷰': 104.0, '혜택·이벤트 소식': 116.0};
       for (final MapEntry(key: first, value: height) in heights.entries) {
         final found = card(first);
         expect(found, findsOneWidget, reason: first);
@@ -203,11 +204,27 @@ void main() {
       expect(tester.getTopLeft(find.text('매칭')).dy - button.bottom, 20);
     });
 
-    testWidgets('"내 글의 새 댓글" 은 대응 컬럼이 없어 그리지 않는다(보류 — 사용자 결정 필요)', (tester) async {
+    testWidgets('"내 글의 새 댓글" 줄은 "새 지인 리뷰" 바로 아래 같은 52 줄(부연 없음) — 라벨 16/normal #222222 · 스위치 켜짐(KjGQd · Jm3PA)', (tester) async {
+      phone(tester);
       await pump(tester);
 
-      expect(find.text('내 글의 새 댓글'), findsNothing);
+      final review = tester.getRect(find.ancestor(of: find.text('새 지인 리뷰'), matching: find.byType(SwitchListTile)));
+      final comment = tester.getRect(find.ancestor(of: find.text('내 글의 새 댓글'), matching: find.byType(SwitchListTile)));
+      expect(comment.top - review.top, closeTo(52, 1)); // 줄 간격 = 52 줄
+      expect(comment.height, closeTo(review.height, 1));
+      final label = tester.widget<Text>(find.text('내 글의 새 댓글')).style!;
+      expect((label.fontSize, label.color), (16, AppColors.ink));
+      expect(tester.widget<SwitchListTile>(find.ancestor(of: find.text('내 글의 새 댓글'), matching: find.byType(SwitchListTile))).value, isTrue);
     });
+  });
+
+  testWidgets('"내 글의 새 댓글" 을 끄면 poll_comment 키만 서버로 간다', (tester) async {
+    final repository = await pump(tester);
+
+    await tester.tap(find.ancestor(of: find.text('내 글의 새 댓글'), matching: find.byType(SwitchListTile)));
+    await tester.pump();
+
+    expect(repository.preferenceUpdates.single, (key: 'poll_comment', value: false));
   });
 
   testWidgets('스위치를 끄면 그 키만 서버로 간다', (tester) async {
