@@ -73,6 +73,36 @@ def test_reports_go_one_year_after_they_were_resolved_and_open_ones_stay(client,
     assert "created_at" not in world.calls("DELETE", "/rest/v1/reports")[0].url.params
 
 
+def test_inquiries_go_one_year_after_they_were_answered_and_unanswered_ones_stay(client, world):
+    """문의는 답변 완료(answered_at) 후 1년에 지운다. 아직 답하지 않은 문의는 몇 년이 지나도 남는다."""
+    world.inquiries = [
+        {"id": "q-new", "answered_at": None},
+        {"id": "q-answered-old", "answered_at": NOW - timedelta(days=366)},
+        {"id": "q-answered-new", "answered_at": NOW - timedelta(days=364)},
+    ]
+
+    result = _run(client)
+
+    assert result["deleted_inquiries"] == 1
+    assert [i["id"] for i in world.inquiries] == ["q-new", "q-answered-new"]
+
+
+def test_a_failing_inquiry_cleanup_does_not_stop_the_other_steps(client, world, caplog):
+    """서버가 DB(inquiries 표)보다 먼저 배포돼 이 단계가 500 이어도 재가입 제한 · 하트 인증샷 · 취향 채우기는 돈다."""
+    world.signup_blocks = [{"email_hmac": "a", "blocked_until": NOW - timedelta(days=1)}]
+    world.fail = {"DELETE /rest/v1/inquiries"}
+
+    with caplog.at_level(logging.WARNING):
+        result = _run(client)
+
+    assert result["deleted_inquiries"] == 0
+    assert result["deleted_signup_blocks"] == 1
+    assert "deleted_heart_proofs" in result and "refilled_taste" in result
+    # 로그에는 예외 클래스 이름만 — 서버가 돌려준 문장은 없다.
+    logged = " ".join(r.getMessage() for r in caplog.records)
+    assert "문의 정리 실패" in logged and "HTTPStatusError" in logged and "boom" not in logged
+
+
 def test_expired_signup_blocks_go_but_infinity_stays(client, world):
     world.signup_blocks = [
         {"email_hmac": "a", "blocked_until": NOW - timedelta(days=1)},
@@ -96,7 +126,7 @@ def test_running_again_finds_nothing_left(client, world):
 
     assert _run(client) == {
         "deleted_accounts": 0, "skipped_accounts": 0, "deleted_reports": 0,
-        "deleted_signup_blocks": 0, "stale_key_rows": 0,
+        "deleted_inquiries": 0, "deleted_signup_blocks": 0, "stale_key_rows": 0,
         "deleted_heart_proofs": 0, "deleted_unverified": 0, "deleted_temp_email_accounts": 0,
         "refilled_taste": 0,
     }

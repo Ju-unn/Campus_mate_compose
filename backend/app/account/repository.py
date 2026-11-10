@@ -110,6 +110,13 @@ class AccountRepository(PostgrestRepository):
             "resolved_at": f"lt.{cutoff.isoformat()}", "select": "id",
         })
 
+    async def delete_inquiries_before(self, cutoff: datetime) -> int:
+        # 답변 완료 시각(answered_at)에서 1년이다. 답하지 않은 문의는 answered_at 이 null 이라(inquiries_status_pair) `lt.` 에 걸리지 않고 남는다.
+        # ponytail: answered_at 인덱스 없음 — 문의가 수만 건이면 부분 인덱스 마이그레이션.
+        return await self._delete_counted("inquiries", {
+            "answered_at": f"lt.{cutoff.isoformat()}", "select": "id",
+        })
+
     async def delete_signup_blocks_before(self, now: datetime) -> int:
         # infinity(정지 중 탈퇴)는 어떤 시각보다도 크다 — 이 조건으로는 지워지지 않는다.
         return await self._delete_counted("signup_blocks", {
