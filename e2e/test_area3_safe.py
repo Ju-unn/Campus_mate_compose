@@ -26,7 +26,7 @@ ALREADY = '이미 신고를 완료했어요'
 SUSPENDED = '이용이 제한된 계정이에요'
 REASONS = {'abuse', 'sexual', 'spam', 'fake', 'other'}
 # 정지를 보지 않는 문(로그인만 보는 get_caller). 나머지 API 는 전부 정지 403.
-OPEN_FOR_SUSPENDED = ('/me/verification-status', '/me/consents', '/account/withdraw', '/cards/push-tokens')
+OPEN_FOR_SUSPENDED = ('/me/verification-status', '/me/consents', '/account/withdraw', '/cards/push-tokens', '/inquiries')
 
 API_ONLY = ('E-SAFE-10 E-SAFE-12 E-SAFE-14 E-SAFE-16 E-SAFE-19 E-SAFE-20 E-SAFE-21 E-SAFE-23 E-SAFE-24 E-SAFE-29 E-SAFE-33 '
             'E-SAFE-34 E-SAFE-44 E-SAFE-47 E-SAFE-48 E-SAFE-49 E-SAFE-51 E-SAFE-52 E-SAFE-54 E-SAFE-56 E-SAFE-58 '
@@ -569,6 +569,11 @@ class SuspendedTest(SafeBase):
     def test_51_fails_naming_the_route_that_lets_a_suspended_account_in(self):
         self.fake.rules['gate_open'] |= {'/blocks'}
         self.fails('E-SAFE-51', 'GET /blocks')
+
+    def test_inquiries_is_a_door_a_suspended_person_may_use(self):
+        # 문의하기는 get_caller(로그인만 본다) — 정지된 사람도 운영자에게 글을 쓸 수 있는 게 의도다.
+        self.assertIn('/inquiries', OPEN_FOR_SUSPENDED)
+        self.assertNotIn('POST /inquiries', area3_safe.VERIFIED_ROUTES)
 
     def test_51_fails_when_a_suspended_request_still_writes(self):
         self.fake.rules['gate_writes'] = True

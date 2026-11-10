@@ -131,6 +131,9 @@ MESSAGE_NOT_FOUND = "메시지를 찾을 수 없어요"
 ACCOUNT_SUSPENDED = "이용이 제한된 계정이에요"
 ACCOUNT_WITHDRAWN = "탈퇴한 계정이에요"
 
+# 문의하기: 한 사람 하루(한국 시간) 5건. 429. 앱은 detail 문구를 그대로 보인다.
+INQUIRY_DAILY_LIMIT = "오늘은 더 문의할 수 없어요"
+
 # 커뮤니티
 POLL_NOT_FOUND = "질문을 찾을 수 없어요"
 POLL_ALREADY_VOTED = "이미 투표했어요"

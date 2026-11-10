@@ -27,6 +27,8 @@ WITHDRAWN_RETENTION = timedelta(days=30)
 # 소셜로 가입하고 학교 메일 확인을 이만큼 안 한 계정은 지운다(소셜 로그인 전환).
 UNVERIFIED_RETENTION_DAYS = 14
 REPORT_RETENTION = timedelta(days=365)
+# 문의는 답변 완료(answered_at) 후 이만큼 지나면 지운다. 아직 답하지 않은 문의는 남는다.
+INQUIRY_RETENTION = timedelta(days=365)
 # 학교 메일 verify 가 지우지 못한 임시 이메일 계정(provider=email 하나뿐, 프로필 없음)은 이만큼 뒤 지운다.
 TEMP_EMAIL_ACCOUNT_RETENTION = timedelta(hours=24)
 ADMIN_USERS_PER_PAGE = 100
@@ -67,7 +69,7 @@ async def run_cleanup(accounts: AccountRepository, admin: SupabaseAdmin, now: da
     ① 탈퇴 30일 지난 계정: 버킷 다섯(STORAGE_BUCKETS)의 파일 → auth 사용자(profiles 는 cascade)
     ①-b 가입 14일이 지나도록 학교 메일 확인을 안 한 계정: ① 과 같은 길, 지우기 직전 재확인(deleted_unverified)
     ①-c 학교 메일 verify 가 못 지운 임시 이메일 계정 24시간 뒤(deleted_temp_email_accounts)
-    ② 처리 끝나고 1년 지난 신고(열린 신고는 남는다) ③ 만료된 재가입 제한 ④ 옛 키 버전 지인 차단 세기(경고)
+    ② 처리 끝나고 1년 지난 신고(열린 신고는 남는다) · 답변 완료 후 1년 지난 문의(답 안 한 문의는 남는다) ③ 만료된 재가입 제한 ④ 옛 키 버전 지인 차단 세기(경고)
     ⑤ 검수 끝나고 60일 지난 하트 인증샷은 엔드포인트(run_cleanup_batch)가 이어서 지운다.
     ⑥ 글 속 취향 단어 칸이 빈 사람 다시 만들기도 엔드포인트가 한다(matching.vectors.refill_taste).
     skipped_accounts 는 ① · ①-b · ①-c 에서 건너뛴 사람을 합친 수다(①-c 는 프로필 있음 · 확인 실패)."""
@@ -84,6 +86,15 @@ async def run_cleanup(accounts: AccountRepository, admin: SupabaseAdmin, now: da
         logger.warning("임시 이메일 계정 정리 실패 %s", type(exc).__name__)
         deleted_temp = skipped_temp = 0
 
+    deleted_reports = await accounts.delete_reports_before(now - REPORT_RETENTION)
+    deleted_signup_blocks = await accounts.delete_signup_blocks_before(now)
+    try:
+        # 맨 뒤에 둔다 — 서버가 DB(inquiries 표)보다 먼저 배포돼 여기가 실패해도 위 정리는 이미 끝났다.
+        deleted_inquiries = await accounts.delete_inquiries_before(now - INQUIRY_RETENTION)
+    except Exception as exc:
+        logger.warning("문의 정리 실패 %s", type(exc).__name__)
+        deleted_inquiries = 0
+
     stale = await accounts.count_contact_blocks_not_on(IDENTITY_KEY_VERSION)
     if stale:
         # 키를 바꾼 뒤 옛 버전 행은 후보 대조에서 빠진다(같은 버전끼리만 맞춘다).
@@ -93,8 +104,9 @@ async def run_cleanup(accounts: AccountRepository, admin: SupabaseAdmin, now: da
         "skipped_accounts": skipped + skipped_unverified + skipped_temp,
         "deleted_unverified": deleted_unverified,
         "deleted_temp_email_accounts": deleted_temp,
-        "deleted_reports": await accounts.delete_reports_before(now - REPORT_RETENTION),
-        "deleted_signup_blocks": await accounts.delete_signup_blocks_before(now),
+        "deleted_reports": deleted_reports,
+        "deleted_inquiries": deleted_inquiries,
+        "deleted_signup_blocks": deleted_signup_blocks,
         "stale_key_rows": stale,
     }
 

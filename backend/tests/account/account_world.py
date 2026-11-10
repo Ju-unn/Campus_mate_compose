@@ -58,6 +58,7 @@ class AccountWorld:
         self.real_names: dict[str, str] = {}
         self.decrypt_bodies: list[dict] = []
         self.reports: list[dict] = []          # {id, created_at, resolved_at}
+        self.inquiries: list[dict] = []        # {id, answered_at} — answered_at 이 null 이면 아직 답하지 않은 문의
         self.signup_blocks: list[dict] = []    # {email_hmac, blocked_until}
         self.contact_key_versions: list[int] = []
         self.taste_unsplit: list[str] = []     # 취향 단어 칸이 null 인 profile_vectors 행(나누기 실패)
@@ -303,6 +304,13 @@ class AccountWorld:
                 if all(r[column] is not None and r[column] < cutoff for column, cutoff in cutoffs.items())]
         self.reports = [r for r in self.reports if r not in gone]
         return httpx.Response(200, json=[{"id": r["id"]} for r in gone])
+
+    def _inquiries(self, method, params, body):
+        assert method == "DELETE"
+        cutoff = _when(params["answered_at"])
+        gone = [i for i in self.inquiries if i["answered_at"] is not None and i["answered_at"] < cutoff]
+        self.inquiries = [i for i in self.inquiries if i not in gone]
+        return httpx.Response(200, json=[{"id": i["id"]} for i in gone])
 
     def _signup_blocks(self, method, params, body):
         assert method == "DELETE"

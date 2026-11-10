@@ -87,6 +87,11 @@ class Settings(BaseSettings):
     min_app_version: str = ""
     # 홈 숫자(전달된 카드 · 가입 수 · 시작된 대화)를 보이는 가입 수 기준(HOME_STATS_MIN_SIGNUPS). 이보다 적으면 셋 다 0 으로 내린다.
     home_stats_min_signups: int = 300
+    # 문의하기(inquiries/mailer.py): 저장한 뒤 운영 메일로 알린다. 받는 곳 · 보내는 계정은 이미 약관 · 앱에 공개된 운영 메일이다.
+    # 비밀번호는 구글 계정의 "앱 비밀번호"(Secret Manager `inquiry-smtp-password`). 비면 메일만 건너뛴다 — 문의 저장은 그대로 된다(로컬 · 시험).
+    inquiry_notify_to: str = "appmailerl4538@gmail.com"
+    inquiry_smtp_user: str = "appmailerl4538@gmail.com"
+    inquiry_smtp_password: str = ""
 
     @property
     def postgrest_url(self) -> str:
