@@ -124,7 +124,7 @@ class _RemoveButton extends StatelessWidget {
                 width: _removeCircle,
                 height: _removeCircle,
                 // pen 바탕 #00000099 — 사진 위 어두운 반투명 원(04-2 칸의 x 와 같다).
-                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), shape: BoxShape.circle),
+                decoration: BoxDecoration(color: AppColors.photoRemoveBadge, shape: BoxShape.circle),
                 child: const Icon(AppIcons.x, size: 14, color: AppColors.onInk),
               ),
             ),

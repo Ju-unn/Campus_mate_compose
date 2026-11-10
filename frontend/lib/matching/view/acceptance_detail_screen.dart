@@ -59,7 +59,7 @@ class _AcceptanceDetailScreenState extends ConsumerState<AcceptanceDetailScreen>
         leadingWidth: 56,
         titleSpacing: 4,
         leading: Padding(
-          padding: const EdgeInsets.only(left: 8),
+          padding: const EdgeInsets.only(left: AppSpacing.xs),
           child: BackButton(color: AppColors.ink, onPressed: _leave),
         ),
         title: Text(context.l10n.matchingAcceptanceDetailTitle, style: AppTypography.navTitle),

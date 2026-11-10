@@ -59,7 +59,7 @@ class _ContactPickerScreenState extends ConsumerState<ContactPickerScreen> {
       appBar: AppBar(
         leadingWidth: 56,
         titleSpacing: 4,
-        leading: const Padding(padding: EdgeInsets.only(left: 8), child: BackButton(color: AppColors.ink)),
+        leading: const Padding(padding: EdgeInsets.only(left: AppSpacing.xs), child: BackButton(color: AppColors.ink)),
         title: Text(context.l10n.safetyContactPickerTitle, style: AppTypography.navTitle),
       ),
       body: Column(

@@ -63,4 +63,22 @@ void main() {
       BoxShadow(color: Color(0x26000000), offset: Offset(0, -2), blurRadius: 16),
     ]);
   });
+
+  // 1.0.2 계획 B2 — 화면 안에 있던 그림자를 값 그대로 토큰으로 옮겼다. 값이 바뀌면 화면이 바뀐다.
+  test('화면 하나에만 쓰던 그림자는 옮기기 전 값 그대로다', () {
+    expect(AppElevation.glassPill, const BoxShadow(color: Color(0x1F1A1619), offset: Offset(0, 8), blurRadius: 24));
+    expect(AppElevation.glassBubble, const BoxShadow(color: Color(0x331A1619), offset: Offset(0, 5), blurRadius: 12));
+    expect(AppElevation.floatingButton, const <BoxShadow>[
+      BoxShadow(color: Color(0x2E1A1619), offset: Offset(0, 6), blurRadius: 16),
+    ]);
+    expect(AppElevation.pollCard, const <BoxShadow>[
+      BoxShadow(color: Color(0x10000000), offset: Offset(0, 1), blurRadius: 6),
+    ]);
+    expect(AppElevation.pollBadge, const <BoxShadow>[
+      BoxShadow(color: Color(0x26000000), offset: Offset(0, 1), blurRadius: 4),
+    ]);
+    expect(AppElevation.verifiedBadge, const <BoxShadow>[
+      BoxShadow(color: Color(0x2434223A), offset: Offset(0, 2), blurRadius: 8),
+    ]);
+  });
 }

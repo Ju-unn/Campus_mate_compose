@@ -30,7 +30,7 @@ class ContactBlockListScreen extends StatelessWidget {
         leadingWidth: 56,
         titleSpacing: 4,
         leading: Navigator.of(context).canPop()
-            ? const Padding(padding: EdgeInsets.only(left: 8), child: BackButton(color: AppColors.ink))
+            ? const Padding(padding: EdgeInsets.only(left: AppSpacing.xs), child: BackButton(color: AppColors.ink))
             : null,
         title: Text(context.l10n.safetyContactBlockTitle, style: AppTypography.navTitle),
       ),

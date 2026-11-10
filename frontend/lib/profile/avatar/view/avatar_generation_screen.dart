@@ -392,8 +392,8 @@ class _LockedPhoto extends StatelessWidget {
                     ),
                   ),
                 // 잠금 덮개 140×175(모서리 24 는 위 ClipRRect 가 자른다) — 검정 25% 로 밝은 사진 위에서도 흰 자물쇠가 보이게
-                // (대장 전달 pen 값 10-17 `#000000` 25%). 맞는 색 토큰이 없어 값을 둔다(scrim 은 50%).
-                const ColoredBox(color: Color(0x40000000)),
+                // (대장 전달 pen 값 10-17 `#000000` 25%). scrim 은 50% 라 [AppColors.lockOverlay] 를 쓴다.
+                const ColoredBox(color: AppColors.lockOverlay),
                 const Center(child: Icon(AppIcons.lock, size: 28, color: AppColors.onInk)),
               ],
             ),

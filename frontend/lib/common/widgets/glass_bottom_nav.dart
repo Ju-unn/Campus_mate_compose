@@ -9,6 +9,7 @@ import 'package:campus_mate/core/haptics/haptics_gateway.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -18,15 +19,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-// pen 값 중 토큰표에 없는 것(구역 `MX4jk`, 마스터 `AppBottomNavGlass` `xtj0K`, 사용자 승인 2026-10-13).
-/// 알약 채움 #FFFFFF C7 — 알파 78%(마스터 context "알파 최소 78%").
-const _pillFill = Color(0xC7FFFFFF);
-
-/// 알약 안쪽 1px 선 #FFFFFF99.
-const _pillStroke = Color(0x99FFFFFF);
-
-/// 알약 그림자 (0,8) blur 24 #1A16191F.
-const _pillShadow = BoxShadow(color: Color(0x1F1A1619), offset: Offset(0, 8), blurRadius: 24);
+// 색 · 그림자는 구역 `MX4jk`, 마스터 `AppBottomNavGlass` `xtj0K` 값(사용자 승인 2026-10-13)을 `AppColors.glass*` · `AppElevation.glass*` 로 옮겼다.
 
 /// 알약 background_blur 반지름 20 — 시그마 20 으로 옮긴다(대장 지시).
 const double _pillBlurSigma = 20;
@@ -39,12 +32,7 @@ const double _cellMinHeight = _pillMinHeight - 2 * AppSpacing.xxs;
 const double _iconLabelGap = 2;
 
 /// 선택 방울(`ANnU7` · `e5De2` · `bTYXh` · `xWvRT` · `g6Wcb`): 채움 #FFFFFF99, 위쪽만 1px #FFFFFFE6, 모서리 27.
-const _bubbleFill = Color(0x99FFFFFF);
-const _bubbleTopStroke = Color(0xE6FFFFFF);
 const double _bubbleRadius = 27;
-
-/// 방울 그림자 (0,5) blur 12 #1A161933.
-const _bubbleShadow = BoxShadow(color: Color(0x331A1619), offset: Offset(0, 5), blurRadius: 12);
 
 /// 방울은 탭 칸보다 좌우 6 씩 넓고(76 = 64 + 12) 알약 위아래에서 6 씩 들어온다(y 6, 높이 54).
 const double _bubbleOverhang = 6;
@@ -208,7 +196,7 @@ class _GlassBottomNavState extends ConsumerState<GlassBottomNav> with SingleTick
                   onHorizontalDragUpdate: (details) => _dragUpdate(details, cellWidth),
                   onHorizontalDragEnd: (_) => _dragEnd(),
                   child: CustomPaint(
-                    painter: const _OuterShadowPainter(_pillShadow, AppRadius.pill),
+                    painter: const _OuterShadowPainter(AppElevation.glassPill, AppRadius.pill),
                     child: Stack(
                       children: [
                         const Positioned.fill(child: _GlassFill()),
@@ -282,9 +270,9 @@ class _GlassFill extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: _pillBlurSigma, sigmaY: _pillBlurSigma),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: _pillFill,
+            color: AppColors.glassFill,
             borderRadius: BorderRadius.circular(AppRadius.pill),
-            border: Border.all(color: _pillStroke),
+            border: Border.all(color: AppColors.glassVeil),
           ),
         ),
       ),
@@ -298,12 +286,12 @@ class _Bubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: const _OuterShadowPainter(_bubbleShadow, _bubbleRadius),
+      painter: const _OuterShadowPainter(AppElevation.glassBubble, _bubbleRadius),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: _bubbleFill,
+          color: AppColors.glassVeil,
           borderRadius: BorderRadius.circular(_bubbleRadius),
-          border: const Border(top: BorderSide(color: _bubbleTopStroke)),
+          border: const Border(top: BorderSide(color: AppColors.glassHighlight)),
         ),
       ),
     );

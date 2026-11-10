@@ -283,7 +283,7 @@ void main() {
       Finder dot(Color color) => find.byWidgetPredicate((w) =>
           w is Container && w.decoration is BoxDecoration && (w.decoration! as BoxDecoration).shape == BoxShape.circle &&
           (w.decoration! as BoxDecoration).color == color);
-      expect(tester.getSize(dot(pollAgreeBlue)), const Size(8, 8));
+      expect(tester.getSize(dot(AppColors.pollAgree)), const Size(8, 8));
       expect(tester.getSize(dot(AppColors.primary)), const Size(8, 8));
       final label = tester.widget<Text>(find.text('찬성')).style!;
       expect((label.fontSize, label.fontWeight, label.color), (14, FontWeight.w600, AppColors.ink));
@@ -315,7 +315,7 @@ void main() {
       expect(a.top - tester.getRect(find.text('63%')).bottom, 12);
       final aBox = tester.widget<DecoratedBox>(find.byKey(FeedPollCard.agreeBarKey)).decoration as BoxDecoration;
       final bBox = tester.widget<DecoratedBox>(find.byKey(FeedPollCard.disagreeBarKey)).decoration as BoxDecoration;
-      expect((aBox.color, aBox.borderRadius), (pollAgreeBlue, BorderRadius.circular(8)));
+      expect((aBox.color, aBox.borderRadius), (AppColors.pollAgree, BorderRadius.circular(8)));
       expect(bBox.color, AppColors.primary);
       expect(tester.getRect(find.byKey(FeedPollCard.separatorKey)).top - a.bottom, 12);
     });

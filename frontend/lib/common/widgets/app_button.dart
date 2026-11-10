@@ -1,5 +1,6 @@
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
+import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 
@@ -69,7 +70,7 @@ class AppButton extends StatelessWidget {
     }
     return Row(
       mainAxisSize: MainAxisSize.min,
-      children: [Flexible(child: text), const SizedBox(width: 8), Icon(icon, size: 20)],
+      children: [Flexible(child: text), const SizedBox(width: AppSpacing.xs), Icon(icon, size: 20)],
     );
   }
 
@@ -82,7 +83,7 @@ class AppButton extends StatelessWidget {
           dimension: 20,
           child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.disabled),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: AppSpacing.xs),
         Flexible(child: Text(label, style: AppTypography.button)),
       ],
     );
@@ -102,7 +103,7 @@ class AppButton extends StatelessWidget {
       // 줄 안 버튼은 라벨 폭에 맞춘다 — 가로 최소를 무한으로 두면 Row 안에서 넓이를 정할 수 없다.
       minimumSize: Size(isInline ? 0 : double.infinity, height),
       maximumSize: Size(double.infinity, height),
-      padding: isInline ? const EdgeInsets.symmetric(horizontal: 16) : EdgeInsets.zero,
+      padding: isInline ? const EdgeInsets.symmetric(horizontal: AppSpacing.md) : EdgeInsets.zero,
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_isNeutral ? AppRadius.sm : AppRadius.button)),
     );

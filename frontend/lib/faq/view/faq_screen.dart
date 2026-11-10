@@ -32,7 +32,7 @@ class FaqScreen extends ConsumerWidget {
         leadingWidth: 56,
         titleSpacing: 4,
         leading: Padding(
-          padding: const EdgeInsets.only(left: 8),
+          padding: const EdgeInsets.only(left: AppSpacing.xs),
           child: IconButton(
             onPressed: () => Navigator.of(context).maybePop(),
             icon: const Icon(AppIcons.arrowLeft, size: 22, color: AppColors.ink),

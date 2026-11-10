@@ -68,4 +68,30 @@ abstract final class AppElevation {
   static const List<BoxShadow> top = <BoxShadow>[
     BoxShadow(color: Color(0x26000000), offset: Offset(0, -2), blurRadius: 16),
   ];
+
+  /// 하단 내비 알약 (마스터 `AppBottomNavGlass`) — #1A16191F (0,8) blur 24. 블러 뒤에 따로 그려서 `BoxShadow` 하나로 둔다.
+  static const BoxShadow glassPill = BoxShadow(color: Color(0x1F1A1619), offset: Offset(0, 8), blurRadius: 24);
+
+  /// 하단 내비 선택 방울 — #1A161933 (0,5) blur 12
+  static const BoxShadow glassBubble = BoxShadow(color: Color(0x331A1619), offset: Offset(0, 5), blurRadius: 12);
+
+  /// 떠 있는 버튼(커뮤니티 피드 새 글 버튼) — #1A16192E (0,6) blur 16
+  static const List<BoxShadow> floatingButton = <BoxShadow>[
+    BoxShadow(color: Color(0x2E1A1619), offset: Offset(0, 6), blurRadius: 16),
+  ];
+
+  /// 투표 카드(`PollCard`) — #00000010 (0,1) blur 6
+  static const List<BoxShadow> pollCard = <BoxShadow>[
+    BoxShadow(color: Color(0x10000000), offset: Offset(0, 1), blurRadius: 6),
+  ];
+
+  /// 피드 투표 카드의 동그란 배지 — #00000026 (0,1) blur 4
+  static const List<BoxShadow> pollBadge = <BoxShadow>[
+    BoxShadow(color: Color(0x26000000), offset: Offset(0, 1), blurRadius: 4),
+  ];
+
+  /// 내 프로필 학교 인증 뱃지 (pen `EQjrL`) — #34223A24 (0,2) blur 8. [badge] 와 색 · 번짐이 달라 따로 둔다
+  static const List<BoxShadow> verifiedBadge = <BoxShadow>[
+    BoxShadow(color: Color(0x2434223A), offset: Offset(0, 2), blurRadius: 8),
+  ];
 }

@@ -1,4 +1,5 @@
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 
@@ -83,7 +84,7 @@ class _Tab extends StatelessWidget {
             children: [
               // 위 12(pen padding-top) 에서 글자 시작.
               Padding(
-                padding: const EdgeInsets.fromLTRB(0, 12, 0, 14),
+                padding: const EdgeInsets.fromLTRB(0, AppSpacing.sm, 0, 14),
                 child: Center(
                   heightFactor: 1,
                   child: Text(

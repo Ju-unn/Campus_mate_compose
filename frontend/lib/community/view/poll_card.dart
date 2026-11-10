@@ -5,6 +5,7 @@ import 'package:campus_mate/community/view/poll_time.dart';
 import 'package:campus_mate/community/view/vote_option.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -12,7 +13,6 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 
 /// 카드 그림자(pen `RpRBi` #00000010 (0,1) blur 6, 값표 1004). AppElevation 토큰과 값이 달라 여기 둔다.
-const List<BoxShadow> _cardShadow = [BoxShadow(color: Color(0x10000000), offset: Offset(0, 1), blurRadius: 6)];
 
 /// `poll-card`(pen 마스터 `RpRBi`) — **17c 상세 전용**(`BwL1G` > `y0uSd4`). 15d 피드는 개선안 A 의
 /// `FeedPollCard`(`IFUWA`)로 옮겨 갔다. 17c 는 pen 이 바뀌지 않아 도넛 결과 · 질문 전문 그대로다.
@@ -42,7 +42,7 @@ class PollCard extends StatelessWidget {
     // 색 · 그림자는 바깥 DecoratedBox, 눌림 효과는 안쪽 투명 Material 이 받는다 — InkWell 의 가장 가까운
     // Material 이 카드 자신이라 스크롤해도 효과가 카드와 같이 움직인다(COMMON §4-2).
     return DecoratedBox(
-      decoration: ShapeDecoration(color: AppColors.canvas, shape: shape, shadows: _cardShadow),
+      decoration: ShapeDecoration(color: AppColors.canvas, shape: shape, shadows: AppElevation.pollCard),
       child: Material(
         type: MaterialType.transparency,
         shape: shape,
@@ -129,13 +129,13 @@ class PollReportButton extends StatelessWidget {
             children: [
               const Icon3d(AppIcon3d.siren, size: 22),
               const SizedBox(height: 2),
-              // pen `Wwsmw` 10/600 #6E5861, 줄높이 속성 없음 · 렌더 10. 이 색은 이 버튼에만 있어 토큰으로 올리지 않는다.
+              // pen `Wwsmw` 10/600 #6E5861, 줄높이 속성 없음 · 렌더 10. 색은 AppColors.reportLabel.
               Text(
                 context.l10n.commonReport,
                 style: AppTypography.badge.copyWith(
                   height: 1,
                   letterSpacing: 0,
-                  color: const Color(0xFF6E5861),
+                  color: AppColors.reportLabel,
                 ),
               ),
             ],

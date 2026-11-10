@@ -1,9 +1,6 @@
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:flutter/widgets.dart';
 
-/// 덮개 색 — pen `tFIey` Dim 검정 알파 B3(70%). 토큰 [AppColors.scrim] 은 50% 라 다르다(토큰표 밖 리터럴).
-const Color _dim = Color(0xB3000000);
-
 /// 테두리 두께(pen `tFIey` Ring primary 2px).
 const double _ring = 2;
 
@@ -32,10 +29,10 @@ class _CoachOverlayPainter extends CustomPainter {
       ..addRect(Offset.zero & size);
     final cut = hole;
     if (cut == null || cut.width < 1 || cut.height < 1) {
-      canvas.drawPath(dim, Paint()..color = _dim);
+      canvas.drawPath(dim, Paint()..color = AppColors.coachDim);
       return;
     }
-    canvas.drawPath(dim..addRRect(RRect.fromRectAndRadius(cut, Radius.circular(radius))), Paint()..color = _dim);
+    canvas.drawPath(dim..addRRect(RRect.fromRectAndRadius(cut, Radius.circular(radius))), Paint()..color = AppColors.coachDim);
     // 선 가운데가 구멍 가장자리 1 바깥 — 테두리가 대상 위로 올라오지 않는다.
     canvas.drawRRect(
       RRect.fromRectAndRadius(cut.inflate(_ring / 2), Radius.circular(radius + _ring / 2)),

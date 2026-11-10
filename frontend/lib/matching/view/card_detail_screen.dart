@@ -66,7 +66,7 @@ class CardDetailScreen extends ConsumerWidget {
         titleSpacing: 4,
         leading: Navigator.of(context).canPop()
             ? const Padding(
-                padding: EdgeInsets.only(left: 8),
+                padding: EdgeInsets.only(left: AppSpacing.xs),
                 child: BackButton(color: AppColors.ink),
               )
             : null,
