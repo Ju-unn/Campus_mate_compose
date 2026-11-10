@@ -40,7 +40,7 @@ router = APIRouter()
 
 
 class ReportRequest(BaseModel):
-    target_type: Literal["profile", "message", "friend_review", "poll"]
+    target_type: Literal["profile", "message", "friend_review", "poll", "poll_comment"]
     target_id: UUID
     reason: str
     reason_note: str | None = None
@@ -147,6 +147,24 @@ async def _poll_target(wiring: _Wiring, poll_id: UUID) -> dict:
     return poll
 
 
+async def _poll_comment_target(wiring: _Wiring, comment_id: UUID) -> dict:
+    """신고할 O/X 글 댓글. 화면 목록(poll_comments_page)에 보이는 남의 댓글만 — 없는 댓글 · 가려진 댓글 · 작성자가 active 가 아닌 댓글 ·
+    가려진 글 · 글쓴이가 active 가 아닌 글 · 내 댓글은 전부 같은 404."""
+    repo = CommunityRepository(wiring.settings.postgrest_url, wiring.settings.supabase_service_role_key,
+                               wiring.client)
+    comment = await repo.fetch_comment_for_report(comment_id)
+    if (
+        not comment
+        or comment["status"] != "visible"
+        or comment["author"]["status"] != "active"
+        or comment["poll"]["status"] != "visible"
+        or comment["poll"]["author"]["status"] != "active"
+        or comment["author_id"] == wiring.profile_id
+    ):
+        raise HTTPException(status_code=404, detail=errors.POLL_COMMENT_NOT_FOUND)
+    return comment
+
+
 async def _profile_snapshot(wiring: _Wiring, target: str) -> dict:
     """서명 URL 이 아니라 **storage 경로**를 남긴다 — 서명 URL 은 만료돼 검토할 때 열리지 않는다."""
     profile = await wiring.repo.fetch_snapshot_profile(target)
@@ -164,7 +182,7 @@ async def report(body: ReportRequest, wiring: _Wiring = Depends(_wire)) -> dict:
     me = wiring.profile_id
 
     # ① 대상 확인 + 접근 권한(과거 매칭 상대만)
-    review = poll = None
+    review = poll = comment = None
     if body.target_type == "profile":
         target = str(body.target_id)
         match = await find_match(wiring.chat, me, target)
@@ -175,9 +193,12 @@ async def report(body: ReportRequest, wiring: _Wiring = Depends(_wire)) -> dict:
     elif body.target_type == "friend_review":
         review = await _friend_review_target(wiring, body.target_id)
         target, match, message = review["reviewer_id"], None, None
-    else:
+    elif body.target_type == "poll":
         poll = await _poll_target(wiring, body.target_id)
         target, match, message = poll["author_id"], None, None
+    else:
+        comment = await _poll_comment_target(wiring, body.target_id)
+        target, match, message = comment["author_id"], None, None
 
     # ② 하루 상한
     since = wiring.now - DAILY_REPORT_WINDOW
@@ -191,6 +212,9 @@ async def report(body: ReportRequest, wiring: _Wiring = Depends(_wire)) -> dict:
     elif poll is not None:
         snapshot = {"poll_id": poll["id"], "question": poll["question"], "option_a_label": poll["option_a_label"],
                     "option_b_label": poll["option_b_label"], "created_at": poll["created_at"]}
+    elif comment is not None:
+        snapshot = {"comment_id": comment["id"], "poll_id": comment["poll_id"], "body": comment["body"],
+                    "created_at": comment["created_at"]}
     else:
         snapshot = await _profile_snapshot(wiring, target) if message is None else {
             "message_id": message["id"], "match_id": message["match_id"],
@@ -201,8 +225,8 @@ async def report(body: ReportRequest, wiring: _Wiring = Depends(_wire)) -> dict:
     # 실패했을 때 "신고만 되고 차단은 안 된" 채로 갇힌다 — 다시 신고해도 409 라 영영 차단할 길이 없다.
     # 차단은 멱등이라 먼저 해도, 두 번 해도 안전하다. 반대로 차단만 되고 신고가 실패하면 앱이 시트를
     # 닫지 않고 다시 보낸다(차단 뒤에는 방 · 14c · 카드가 사라져 신고 진입점이 없어진다).
-    # 지인 리뷰 · 투표 글 신고(match 없음)는 차단 · 자동 가림을 하지 않는다 — 받은 사람이 작성자를 막으면 받은 사람에게만
-    # 사라지고(계획서 P1), 투표 글쓴이는 익명이라 매칭 상대가 아니다. 글 가림은 운영자가 대시보드에서(ERD content_status).
+    # 지인 리뷰 · 투표 글 · 댓글 신고(match 없음)는 차단 · 자동 가림을 하지 않는다 — 받은 사람이 작성자를 막으면 받은 사람에게만
+    # 사라지고(계획서 P1), 투표 글쓴이 · 댓글 작성자는 익명이라 매칭 상대가 아니다. 글 · 댓글 가림은 운영자가 대시보드에서(ERD content_status).
     if match is not None:
         await block_profile(wiring, match, target)
 

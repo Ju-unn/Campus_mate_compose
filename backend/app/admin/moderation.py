@@ -17,7 +17,7 @@ from app.admin.request_ip import request_ip
 router = APIRouter()
 
 # 경로 이름 → DB 의 report_target 값. 경로에는 하이픈, DB 에는 밑줄이다.
-_CONTENT_KINDS = {"polls": "poll", "friend-reviews": "friend_review"}
+_CONTENT_KINDS = {"polls": "poll", "friend-reviews": "friend_review", "poll-comments": "poll_comment"}
 _CONTENT_STATUS = {"blind": "blinded", "unblind": "visible"}
 
 
@@ -44,9 +44,9 @@ async def act_on_profile(
 
 @router.post("/content/{kind}/{content_id}/{action}")
 async def set_content_status(
-    kind: Literal["polls", "friend-reviews"], content_id: UUID, action: Literal["blind", "unblind"],
+    kind: Literal["polls", "friend-reviews", "poll-comments"], content_id: UUID, action: Literal["blind", "unblind"],
     body: ReasonBody, request: Request, caller: AdminCaller = Depends(get_admin_caller),
 ) -> dict:
-    """투표 글 · 지인 리뷰 가림 / 해제(content_status). 신고를 닫는 것은 따로다(POST /admin/reports/{id}/resolve)."""
+    """투표 글 · 지인 리뷰 · 댓글 가림 / 해제(content_status). 신고를 닫는 것은 따로다(POST /admin/reports/{id}/resolve)."""
     return await _repo(caller).set_content_status(caller.admin_user_id, _CONTENT_KINDS[kind], content_id,
                                                   _CONTENT_STATUS[action], body.reason, request_ip(request))

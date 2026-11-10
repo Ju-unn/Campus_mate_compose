@@ -42,6 +42,8 @@ def report(rid: str, *, target_type: str = "profile", target_id: str = TARGET, s
         "target_profile": target_profile() if profile == "default" else profile,
         # 서버 select 의 별칭 preview_question:target_snapshot->>question — PostgREST 는 그 칸이 없는 사본이면 null 을 돌려준다.
         "preview_question": snapshot.get("question"),
+        # 댓글 신고의 목록 한 줄 요약(별칭 preview_body:target_snapshot->>body) — 사본에 body 칸이 없으면 null.
+        "preview_body": snapshot.get("body"),
         "target_snapshot": snapshot,
     }
 
@@ -355,7 +357,7 @@ class AdminWorld:
             return self._act(name, body)
         if path == "/rest/v1/reports" and request.method == "GET":
             return self._reports(params)
-        if path in ("/rest/v1/polls", "/rest/v1/friend_reviews") and request.method == "GET":
+        if path in ("/rest/v1/polls", "/rest/v1/friend_reviews", "/rest/v1/poll_comments") and request.method == "GET":
             status = self.content.get(params["id"].removeprefix("eq."))
             return httpx.Response(200, json=[{"status": status}] if status else [])
         if path == "/rest/v1/messages" and request.method == "GET":

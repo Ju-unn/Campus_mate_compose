@@ -138,6 +138,8 @@ INQUIRY_DAILY_LIMIT = "오늘은 더 문의할 수 없어요"
 POLL_NOT_FOUND = "질문을 찾을 수 없어요"
 POLL_ALREADY_VOTED = "이미 투표했어요"
 POLL_DAILY_LIMIT = "오늘은 질문을 더 올릴 수 없어요"
+POLL_COMMENT_NOT_FOUND = "댓글을 찾을 수 없어요"
+POLL_COMMENT_DAILY_LIMIT = "오늘은 댓글을 더 달 수 없어요"
 
 # 지인 리뷰
 FRIEND_REVIEW_NOT_FOUND = "리뷰를 찾을 수 없어요"

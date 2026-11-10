@@ -91,7 +91,9 @@ def test_list_asks_for_open_reports_oldest_first_with_the_reported_person(client
     assert "target_profile:profiles!target_profile_id(id,nickname,status,auto_hidden_at,universities(name))" in params["select"]
     # 목록에는 사본을 통째로 싣지 않는다(사진 경로 · 채팅 본문 포함) — 고른 건만 상세로 받고, 투표 질문 한 칸만 별칭으로 고른다.
     assert "preview_question:target_snapshot->>question" in params["select"]
-    assert "target_snapshot" not in params["select"].replace("preview_question:target_snapshot->>question", "")
+    assert "preview_body:target_snapshot->>body" in params["select"]
+    stripped = params["select"].replace("preview_question:target_snapshot->>question", "").replace("preview_body:target_snapshot->>body", "")
+    assert "target_snapshot" not in stripped
 
 
 def test_list_filters_by_type_and_status_and_takes_a_limit(client, world):
@@ -174,6 +176,32 @@ def test_only_poll_reports_carry_a_preview(client, world, target_type):
 
     assert item["preview"] is None
     assert "기분 나쁜 말" not in str(item) and "별로" not in str(item)
+
+
+COMMENT_SNAPSHOT = {"comment_id": POLL, "poll_id": POLL, "created_at": "2026-11-10T10:00:00+00:00"}
+
+
+@pytest.mark.parametrize(("body", "preview"), [
+    ("그건 좀 아니죠", "그건 좀 아니죠"),
+    ("가" * 40, "가" * 40),
+    ("가" * 41, "가" * 40 + "…"),
+    ("  앞뒤 공백  ", "앞뒤 공백"),
+    ("   ", None),
+    (None, None),
+], ids=["짧음", "40자", "41자", "공백", "공백뿐", "null"])
+def test_a_poll_comment_report_row_previews_the_start_of_the_comment(client, world, body, preview):
+    world.reports[R1] = report(R1, target_type="poll_comment", target_id=POLL, snapshot={**COMMENT_SNAPSHOT, "body": body})
+
+    (item,) = client.get("/admin/reports", headers=ADMIN_HEADERS).json()["items"]
+
+    assert item["preview"] == preview
+
+
+def test_the_list_filter_accepts_poll_comment(client, world):
+    response = client.get("/admin/reports?type=poll_comment", headers=ADMIN_HEADERS)
+
+    assert response.status_code == 200
+    assert world.calls("GET", "/rest/v1/reports")[0].url.params["target_type"] == "eq.poll_comment"
 
 
 def test_the_detail_of_a_poll_report_also_carries_the_preview(client, world):
@@ -292,6 +320,8 @@ def test_detail_counts_open_reporters_and_lists_the_same_persons_other_reports(c
     ("poll", "/rest/v1/polls", "blinded", "blinded"),
     ("friend_review", "/rest/v1/friend_reviews", "visible", "visible"),
     ("poll", "/rest/v1/polls", None, None),  # 글이 지워졌다(작성자 탈퇴 cascade)
+    ("poll_comment", "/rest/v1/poll_comments", "blinded", "blinded"),
+    ("poll_comment", "/rest/v1/poll_comments", None, None),  # 댓글이 지워졌다(글쓴이가 지움 · 글 삭제 · 탈퇴 cascade)
 ])
 def test_content_reports_carry_the_current_content_status(client, world, target_type, table, stored, expected):
     world.reports[R1] = report(R1, target_type=target_type, target_id=POLL, snapshot={"poll_id": POLL})

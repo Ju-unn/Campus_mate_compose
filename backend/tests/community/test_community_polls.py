@@ -14,13 +14,14 @@ PROFILE_ID = "11111111-1111-1111-1111-111111111111"
 POLL_ID = "22222222-2222-2222-2222-222222222222"
 AUTH_HEADERS = {"Authorization": "Bearer valid-token"}
 POLL_KEYS = {"id", "question", "option_a_label", "option_b_label", "created_at",
-             "a_count", "b_count", "my_choice", "is_mine"}
+             "a_count", "b_count", "my_choice", "is_mine", "comment_count"}
 
 
 def _row(**overrides) -> dict:
     row = {
         "id": POLL_ID, "question": "첫 데이트 더치페이", "option_a_label": "찬성", "option_b_label": "반대",
         "created_at": "2026-09-27T05:00:00+00:00", "a_count": 5, "b_count": 3, "my_choice": None, "is_mine": False,
+        "comment_count": 4,
     }
     return {**row, **overrides}
 
@@ -62,13 +63,14 @@ def _rpc(name: str, response: httpx.Response) -> Callable[[httpx.Request], httpx
     return handler
 
 
-def test_feed_gives_nine_keys_and_never_author_id():
+def test_feed_gives_ten_keys_including_comment_count_and_never_author_id():
     # DB 함수가 실수로 author_id 를 돌려줘도 응답에는 실리지 않아야 한다(익명, Global Constraint 1).
     leaked = _row(author_id=PROFILE_ID)
     response = _wire(_rpc("poll_feed", httpx.Response(200, json=[leaked]))).get(
         "/community/polls", headers=AUTH_HEADERS)
     assert response.status_code == 200
     assert set(response.json()["polls"][0]) == POLL_KEYS
+    assert response.json()["polls"][0]["comment_count"] == 4
 
 
 def test_feed_sends_viewer_cursor_and_page_size():

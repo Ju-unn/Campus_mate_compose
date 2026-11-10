@@ -189,6 +189,18 @@ def test_marketing_opt_out_clears_the_consent_time():
     assert body["marketing_consented_at"] is None
 
 
+def test_poll_comment_switch_defaults_on_and_can_be_turned_off():
+    """내 글의 새 댓글 알림(2026-11-10) — 행이 없으면 켜짐, 앱이 끄면 그대로 컬럼에 쓴다."""
+    handler, seen = _recorder()
+    client = _wire(handler)
+
+    assert client.get("/cards/notification-settings", headers=AUTH_HEADERS).json()["poll_comment"] is True
+    response = client.patch("/cards/notification-settings", headers=AUTH_HEADERS, json={"poll_comment": False})
+
+    assert response.status_code == 200
+    assert json.loads(seen[-1].content)["poll_comment"] is False
+
+
 def test_unknown_switch_name_is_refused():
     """스위치 이름을 그대로 컬럼으로 쓰기 때문에 아는 이름만 받는다."""
     response = _wire(_recorder()[0]).patch("/cards/notification-settings", headers=AUTH_HEADERS,
