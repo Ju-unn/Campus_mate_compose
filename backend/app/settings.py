@@ -85,6 +85,8 @@ class Settings(BaseSettings):
     # 강제 업데이트(`GET /app/version`, app_version/router.py): 이 버전 **미만** 인 앱은 업데이트 안내로 막힌다. 비면 아무도 막지 않는다.
     # 글자로 받는다 — 형식(숫자.숫자.숫자)이 틀려도 Settings() 가 죽어 서버 전체가 멈추지 않게. 검사는 그 경로가 하고, 틀리면 안 막는다.
     min_app_version: str = ""
+    # 홈 숫자(전달된 카드 · 가입 수 · 시작된 대화)를 보이는 가입 수 기준(HOME_STATS_MIN_SIGNUPS). 이보다 적으면 셋 다 0 으로 내린다.
+    home_stats_min_signups: int = 300
 
     @property
     def postgrest_url(self) -> str:

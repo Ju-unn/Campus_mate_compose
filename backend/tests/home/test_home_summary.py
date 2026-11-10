@@ -93,6 +93,39 @@ def test_summary_returns_service_stats_and_my_completion():
     }
 
 
+# 초반 숫자 숨기기(회의 결정): 가입 수가 기준 미만이면 세 숫자를 0 으로 내린다 — 앱은 0 인 칸을 숨기고 셋 다 0 이면 행 전체를 숨긴다 ----
+
+def _stats_with_min_signups(minimum: int) -> dict:
+    app.dependency_overrides[get_settings] = lambda: _settings(home_stats_min_signups=minimum)
+    response = _wire(_handler(FULL_PROFILE)).get("/home/summary", headers=AUTH_HEADERS)
+    assert response.status_code == 200
+    return response.json()
+
+
+def test_the_three_stats_are_zero_while_signups_are_below_the_threshold():
+    body = _stats_with_min_signups(343)  # 가입 수 342 < 343
+
+    assert (body["delivered_cards"], body["signups"], body["conversations_started"]) == (0, 0, 0)
+    assert body["campuses"] == ["고려대학교", "서울대학교", "연세대학교"]  # 숫자 셋만 숨긴다
+    assert body["profile_completion_percent"] == 100
+
+
+def test_the_three_stats_show_as_they_are_when_signups_equal_the_threshold():
+    body = _stats_with_min_signups(342)
+
+    assert (body["delivered_cards"], body["signups"], body["conversations_started"]) == (1280, 342, 57)
+
+
+def test_the_three_stats_show_as_they_are_when_signups_exceed_the_threshold():
+    body = _stats_with_min_signups(341)
+
+    assert (body["delivered_cards"], body["signups"], body["conversations_started"]) == (1280, 342, 57)
+
+
+def test_the_threshold_defaults_to_300_signups():
+    assert _settings().home_stats_min_signups == 300
+
+
 # 스토어 평점(review-strip): 사람이 env 로 넣은 실제 값만 싣는다. 넣지 않았거나 잘못 넣었으면 0 — 앱이 띠를 숨긴다 ----
 
 def _store_rating(**extra: str) -> tuple:

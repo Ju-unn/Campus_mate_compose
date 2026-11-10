@@ -118,6 +118,9 @@ async def get_home_summary(caller: Caller = Depends(get_verified_caller)) -> dic
         logger.exception("last_active_at 갱신 실패 profile=%s", profile_id)
 
     stats = await repo.fetch_stats()
+    # 초반엔 작은 숫자가 오히려 휑해 보인다 — 앱이 0 인 칸을 숨기니(셋 다 0 이면 행 전체) 0 으로 내린다. DB 값은 그대로다.
+    if stats["signups"] < settings.home_stats_min_signups:
+        stats = {**stats, "delivered_cards": 0, "signups": 0, "conversations_started": 0}
     me = await repo.fetch_completion_materials(profile_id)
 
     # 코호트(19): 학교가 아직 첫 카드를 안 열었으면 앱이 메인 대신 대기 화면을 그린다. null 은 이미 열린 학교다.
