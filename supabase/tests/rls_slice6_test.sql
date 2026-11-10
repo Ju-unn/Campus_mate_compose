@@ -154,8 +154,8 @@ select enum_has_labels(
 
 select enum_has_labels(
   'public', 'report_target',
-  array['profile', 'message', 'friend_review', 'poll'],
-  'report_target 값은 profile message friend_review poll 이다'
+  array['profile', 'message', 'friend_review', 'poll', 'poll_comment'],
+  'report_target 값은 profile message friend_review poll poll_comment 다'
 );
 
 select enum_has_labels(
