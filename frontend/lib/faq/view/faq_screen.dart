@@ -1,12 +1,6 @@
-import 'dart:async';
-
-import 'package:campus_mate/common/failure.dart';
-import 'package:campus_mate/common/support_email.dart';
-import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
-import 'package:campus_mate/consent/model/repository/open_url.dart';
-import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
+import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
@@ -19,6 +13,7 @@ import 'package:campus_mate/faq/viewmodel/faq_provider.dart';
 import 'package:campus_mate/faq/viewmodel/faq_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 /// 자주 묻는 질문(DESIGN §8.13 · §9 화면 21, pen `fszuX`). 설정(16) "자주 묻는 질문" 줄이 연다.
 class FaqScreen extends ConsumerWidget {
@@ -244,44 +239,13 @@ class _FaqList extends StatelessWidget {
 }
 
 /// 검색 0개(사용자 결정 ② 가 → pen 21-1 `U19HAx` · Empty `TVc8b` 인스턴스 `IhXOF`): 본문 좌우 16 + 여백 24, 가운데.
-/// 마스코트 120 → 24 → 제목 → 8 → 설명 세 줄(메일 주소만 `o0LQI0` 14/600 primaryText, 누르면 메일 앱).
-class _NoResults extends ConsumerStatefulWidget {
+/// 마스코트 120 → 24 → 제목 → 8 → 설명 세 줄(링크 글자만 `o0LQI0` 14/600 primaryText, 누르면 문의하기 화면 — 11-08 회의 할 일 6번. 11-10 사용자 결정으로 링크 글자도 메일 주소 대신 "문의하기").
+class _NoResults extends StatelessWidget {
   const _NoResults();
-
-  @override
-  ConsumerState<_NoResults> createState() => _NoResultsState();
-}
-
-class _NoResultsState extends ConsumerState<_NoResults> {
-  /// 메일 앱을 못 연 안내(pen 에 없음). 가입 동의 화면(`consent_screen.dart`)과 같은 문구 · 모양 · 3초(대장 09-29).
-  String? _notice;
-  Timer? _noticeTimer;
-
-  @override
-  void dispose() {
-    _noticeTimer?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _openMail() async {
-    bool opened;
-    try {
-      opened = await ref.read(openExternalUrlProvider)(Uri.parse('mailto:$supportEmail'));
-    } catch (_) {
-      opened = false;
-    }
-    if (opened || !mounted) return;
-    _noticeTimer?.cancel();
-    setState(() => _notice = context.errorText(const UnknownFailure()));
-    _noticeTimer = Timer(const Duration(seconds: 3), () {
-      if (mounted) setState(() => _notice = null);
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
     final description = AppTypography.bodySmall.copyWith(color: AppColors.muted);
-    final notice = _notice;
     return Column(
       children: [
         Expanded(
@@ -308,15 +272,14 @@ class _NoResultsState extends ConsumerState<_NoResults> {
                         const SizedBox(height: AppSpacing.xs),
                         // pen `ksubx` 줄마다 14/400 lh1.55 muted(마스터 설명 `DFs55` 값).
                         Text(context.l10n.faqNoResultsLine1, textAlign: TextAlign.center, style: description),
-                        // pen `CvTKu` 가로 · 간격 4. 글자를 키워 폭이 모자라면 "으로" 가 다음 줄로 간다.
+                        // pen `CvTKu` 가로 · 링크 "문의하기"(`o0LQI0`)와 조사 "로"(`PTHrQ`) 사이 간격 0. 글자를 키워 폭이 모자라면 "로" 가 다음 줄로 간다.
                         Wrap(
                           alignment: WrapAlignment.center,
                           crossAxisAlignment: WrapCrossAlignment.center,
-                          spacing: AppSpacing.xxs,
                           children: [
                             // 모양은 pen 그대로, 누름 칸만 위아래로 늘려 48(대장 09-29 · 03 "메일 다시 받기" 와 같은 방식).
                             TextButton(
-                              onPressed: _openMail,
+                              onPressed: () => context.push(AppRoutes.inquiry),
                               style: TextButton.styleFrom(
                                 minimumSize: const Size(0, 48),
                                 padding: EdgeInsets.zero,
@@ -324,7 +287,7 @@ class _NoResultsState extends ConsumerState<_NoResults> {
                                 foregroundColor: AppColors.primaryText,
                                 textStyle: AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w600),
                               ),
-                              child: const Text(supportEmail, textAlign: TextAlign.center),
+                              child: Text(context.l10n.faqNoResultsLink, textAlign: TextAlign.center),
                             ),
                             Text(context.l10n.faqNoResultsLine2, style: description),
                           ],
@@ -338,13 +301,6 @@ class _NoResultsState extends ConsumerState<_NoResults> {
             ),
           ),
         ),
-        if (notice != null) ...[
-          AppToast(
-            leading: const Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk),
-            label: notice,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-        ],
       ],
     );
   }
