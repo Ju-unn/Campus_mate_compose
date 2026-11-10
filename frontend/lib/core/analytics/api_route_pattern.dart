@@ -34,6 +34,7 @@ abstract final class ApiRoutePattern {
     'cards',
     'chat',
     'code-lookup',
+    'comments',
     'community',
     'consents',
     'contact-blocks',

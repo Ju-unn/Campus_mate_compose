@@ -66,6 +66,7 @@ void main() {
         'friend_review_write',
         'heart_tasks',
         'heart_task_retry',
+        'poll',
         'other',
       ],
     );

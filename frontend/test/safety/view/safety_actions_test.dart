@@ -14,6 +14,8 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../chat/model/repository/fake_chat_repository.dart';
 import '../model/repository/fake_safety_repository.dart';
 
+const double _baselineBottom = 770; // 360×780 에서 잰 값(토스트 288×40, x 36 ~ 324)
+
 /// 신고 · 차단 흐름 자체는 채팅방(chat_room_safety_test)과 14c(partner_profile_screen_test)가 확인한다.
 void main() {
   testWidgets('완료 토스트는 공용 AppToast 로 pen yEDB9 크기(288×60, 글자 232×40)다', (tester) async {
@@ -40,6 +42,43 @@ void main() {
     expect(tester.getSize(toast), const Size(288, 60));
     expect(tester.getSize(find.text(AppLocalizationsKo().safetyReported)), const Size(232, 40));
     expect(find.descendant(of: toast, matching: find.byIcon(AppIcons.circleCheck)), findsOneWidget);
+  });
+
+  // 기본 호출(bottomInset 없음)은 기존 위치 그대로다 — 360×780 에서 토스트 바닥이 BASELINE 에 닿는다(값은 이 변경 전 코드에서 잰 것).
+  testWidgets('bottomInset 을 안 주면 토스트 위치는 그대로이고, 주면 그만큼만 올라간다', (tester) async {
+    tester.view.physicalSize = const Size(360, 780);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    var inset = 0.0;
+    await tester.pumpWidget(MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => inset == 0
+                ? showSafetyToast(ScaffoldMessenger.of(context), '기본')
+                : showSafetyToast(ScaffoldMessenger.of(context), '올림', bottomInset: inset),
+            child: const Text('띄우기'),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('띄우기'));
+    await tester.pumpAndSettle();
+    final base = tester.getRect(find.byType(AppToast));
+    expect(base.bottom, _baselineBottom);
+    expect(base.size, const Size(288, 40));
+
+    ScaffoldMessenger.of(tester.element(find.text('띄우기'))).hideCurrentSnackBar();
+    await tester.pumpAndSettle();
+    inset = 80;
+    await tester.tap(find.text('띄우기'));
+    await tester.pumpAndSettle();
+    final raised = tester.getRect(find.byType(AppToast));
+    expect(raised.size, base.size);
+    expect(raised.left, base.left);
+    expect(base.bottom - raised.bottom, 80);
   });
 
   testWidgets('아이콘을 넘기면 그 아이콘으로 띄운다(실패 · 404 안내)', (tester) async {

@@ -1,4 +1,4 @@
-/// 무엇을 신고하는가 — 프로필 · 메시지 · 지인 리뷰(20c, 차단 안 함 — 서버 B3) · 투표 글(차단 안 함 — 서버 #191).
+/// 무엇을 신고하는가 — 프로필 · 메시지 · 지인 리뷰(20c, 차단 안 함 — 서버 B3) · 투표 글(차단 안 함 — 서버 #191) · 투표 글의 댓글(차단 안 함).
 class ReportTarget {
   /// 채팅방 앱바 메뉴 · 14c 하단 액션 행에서 온 신고.
   const ReportTarget.profile(String profileId) : _type = 'profile', _id = profileId;
@@ -10,6 +10,9 @@ class ReportTarget {
 
   /// 15d 목록 · 17c 상세의 투표 카드 머리줄에서 온 신고 — 남의 글만(내 글은 서버도 404).
   const ReportTarget.poll(String pollId) : _type = 'poll', _id = pollId;
+
+  /// 17c 상세 댓글 "…" 메뉴의 신고 — 남의 댓글만(내 댓글은 서버도 404). 작성자는 익명이라 차단할 상대가 없다.
+  const ReportTarget.pollComment(String commentId) : _type = 'poll_comment', _id = commentId;
 
   final String _type;
   final String _id;

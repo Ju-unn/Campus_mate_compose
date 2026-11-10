@@ -7,6 +7,8 @@ import 'package:campus_mate/billing/task/viewmodel/heart_tasks_view_model.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_ui_state.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
+import 'package:campus_mate/community/model/repository/community_repository_provider.dart';
+import 'package:campus_mate/community/viewmodel/poll_detail_view_model.dart';
 import 'package:campus_mate/core/push/push_refresh.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_ui_state.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_view_model.dart';
@@ -23,6 +25,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../auth/gate/model/repository/fake_verification_gate_repository.dart';
 import '../../billing/task/model/repository/fake_heart_task_repository.dart';
+import '../../community/model/repository/fake_community_repository.dart';
 import '../../notifications/model/repository/fake_notifications_repository.dart';
 
 /// 어느 목록이 다시 읽혔는지만 적는 장부. 저장소를 거치지 않으니 build() 의 첫 조회가 섞이지 않는다.
@@ -78,7 +81,7 @@ void main() {
   });
 
   List<String> refreshedBy(Map<String, dynamic> data) {
-    refreshForPush(container.read, data, invalidate: container.invalidate);
+    refreshForPush(container.read, data, invalidate: container.invalidate, exists: container.exists);
     return List.of(_refreshed);
   }
 
@@ -131,7 +134,7 @@ void main() {
         await openHeartTasksScreen();
 
         refreshForPush(heartContainer.read, {'route': route, 'task': 'everytime_post'},
-            invalidate: heartContainer.invalidate);
+            invalidate: heartContainer.invalidate, exists: heartContainer.exists);
         await pumpEventQueue();
 
         expect(heartTasks.fetchCount, 2);
@@ -140,7 +143,7 @@ void main() {
     }
 
     test('18a 가 열려 있지 않으면 목록을 읽으러 가지 않는다 — 들어올 때 어차피 새로 읽는다', () async {
-      refreshForPush(heartContainer.read, {'route': 'heart_tasks'}, invalidate: heartContainer.invalidate);
+      refreshForPush(heartContainer.read, {'route': 'heart_tasks'}, invalidate: heartContainer.invalidate, exists: heartContainer.exists);
       await pumpEventQueue();
 
       expect(heartTasks.fetchCount, 0);
@@ -149,10 +152,82 @@ void main() {
     test('다른 알림은 18a 목록 · 하트 잔액을 건드리지 않는다', () async {
       await openHeartTasksScreen();
 
-      refreshForPush(heartContainer.read, {'route': 'friend_reviews'}, invalidate: heartContainer.invalidate);
+      refreshForPush(heartContainer.read, {'route': 'friend_reviews'}, invalidate: heartContainer.invalidate, exists: heartContainer.exists);
       await pumpEventQueue();
 
       expect((heartTasks.fetchCount, profileReads), (1, 1));
+    });
+  });
+
+  // 11-10 내 글의 새 댓글: 그 글의 상세를 이미 보고 있으면 새 댓글이 바로 붙는다. 안 열려 있으면 들어올 때 새로 읽는다.
+  group('내 글의 새 댓글 알림', () {
+    late FakeCommunityRepository community;
+    late ProviderContainer detailContainer;
+
+    setUp(() {
+      community = FakeCommunityRepository()..poll = Success(pollFixture());
+      detailContainer = ProviderContainer(overrides: [communityRepositoryProvider.overrideWithValue(community)]);
+      addTearDown(detailContainer.dispose);
+    });
+
+    test('열려 있는 상세의 댓글 목록을 다시 읽는다', () async {
+      detailContainer.listen(pollDetailViewModelProvider('p1'), (_, _) {});
+      await pumpEventQueue();
+      expect(community.commentRequests, hasLength(1));
+
+      refreshForPush(detailContainer.read, {'route': 'poll', 'poll_id': 'p1'}, invalidate: detailContainer.invalidate, exists: detailContainer.exists);
+      await pumpEventQueue();
+
+      expect(community.commentRequests, hasLength(2));
+    });
+
+    test('push 의 poll_id 와 다른 글의 열린 상세는 건드리지 않는다 — 그 글 하나만 다시 읽는다', () async {
+      detailContainer.listen(pollDetailViewModelProvider('p1'), (_, _) {});
+      detailContainer.listen(pollDetailViewModelProvider('p2'), (_, _) {});
+      await pumpEventQueue();
+      int readsOf(String id) => community.commentRequests.where((r) => r.pollId == id).length;
+      expect((readsOf('p1'), readsOf('p2')), (1, 1));
+
+      refreshForPush(detailContainer.read, {'route': 'poll', 'poll_id': 'p2'}, invalidate: detailContainer.invalidate, exists: detailContainer.exists);
+      await pumpEventQueue();
+
+      expect((readsOf('p1'), readsOf('p2')), (1, 2));
+    });
+
+    test('poll_id 가 없거나 문자열이 아니면 열린 상세를 아무것도 비우지 않는다', () async {
+      detailContainer.listen(pollDetailViewModelProvider('p1'), (_, _) {});
+      await pumpEventQueue();
+
+      for (final data in <Map<String, dynamic>>[
+        {'route': 'poll'},
+        {'route': 'poll', 'poll_id': 7},
+        {'route': 'poll', 'poll_id': ''},
+      ]) {
+        refreshForPush(detailContainer.read, data, invalidate: detailContainer.invalidate, exists: detailContainer.exists);
+      }
+      await pumpEventQueue();
+
+      expect(community.commentRequests, hasLength(1));
+    });
+
+    test('상세를 비우지(invalidate) 않는다 — 열린 화면의 입력 · 스크롤을 지키려고 다시 읽기만 한다', () async {
+      detailContainer.listen(pollDetailViewModelProvider('p1'), (_, _) {});
+      await pumpEventQueue();
+      final invalidated = <Object>[];
+
+      refreshForPush(detailContainer.read, {'route': 'poll', 'poll_id': 'p1'},
+          invalidate: invalidated.add, exists: detailContainer.exists);
+      await pumpEventQueue();
+
+      expect(invalidated, isEmpty);
+      expect(community.commentRequests, hasLength(2));
+    });
+
+    test('상세가 열려 있지 않으면 아무것도 읽지 않는다', () async {
+      refreshForPush(detailContainer.read, {'route': 'poll', 'poll_id': 'p1'}, invalidate: detailContainer.invalidate, exists: detailContainer.exists);
+      await pumpEventQueue();
+
+      expect(community.commentRequests, isEmpty);
     });
   });
 

@@ -26,17 +26,26 @@ import 'package:go_router/go_router.dart';
 /// [icon] 을 null 로 주면 글자만 뜬다(문의 보냄 토스트 pen `WxKM6` 은 앞 아이콘이 꺼져 있다).
 /// [shrinkToText] 를 켜면 288 고정 폭 대신 글자 길이에 맞춰 줄어든 알약이 가운데에 뜬다(`WxKM6` 126×37). 기본은 기존 모양 그대로다.
 /// 띄운 토스트를 돌려준다(15d 커뮤니티는 떠 있는 동안 "질문하기" 알약을 숨긴다). 다른 화면은 버려도 된다.
+///
+/// [bottomInset] 은 화면 아래에 붙은 줄의 높이다 — 토스트를 그만큼 위로 올린다(17c 는 댓글 입력줄 위에 띄운다).
+/// 0(기본)이면 기존 모양 그대로다. 올릴 때는 SnackBar 상자 자체가 토스트만 감싸야 입력줄의 탭을 가로막지 않아서,
+/// 폭 288 대신 좌우 여백(side)으로 같은 자리에 둔다.
 ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showSafetyToast(
   ScaffoldMessengerState messenger,
   String message, {
   IconData? icon = AppIcons.circleCheck,
   bool shrinkToText = false,
+  double bottomInset = 0,
 }) {
+  final raised = bottomInset > 0;
+  final side = raised ? (MediaQuery.sizeOf(messenger.context).width - 288) / 2 : 0.0;
   return messenger.showSnackBar(
     SnackBar(
       content: _toast(icon, message, shrinkToText),
       // pen 토스트 폭 288(전시판 320 안 fill). 글자 칸 232 에서 두 줄로 내려간다. 글자에 맞추는 변형은 폭을 정하지 않고 가운데 정렬한다.
-      width: shrinkToText ? null : 288,
+      // 입력줄 위로 올릴 때(raised)도 폭을 정하지 않고 좌우 여백(margin)으로 같은 자리에 둔다.
+      width: (shrinkToText || raised) ? null : 288,
+      margin: raised ? EdgeInsets.fromLTRB(side, 5, side, 10 + bottomInset) : null,
       behavior: SnackBarBehavior.floating,
       backgroundColor: Colors.transparent,
       elevation: 0,

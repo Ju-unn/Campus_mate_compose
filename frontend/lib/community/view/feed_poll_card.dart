@@ -127,7 +127,7 @@ class _FeedPollCardState extends State<FeedPollCard> {
                 child: SizedBox(height: 1),
               ),
               const SizedBox(height: AppSpacing.sm),
-              _Footer(total: poll.total, onOpen: widget.onOpen),
+              _Footer(total: poll.total, commentCount: poll.commentCount, onOpen: widget.onOpen),
             ],
           ),
         ),
@@ -447,11 +447,13 @@ class _SplitBar extends StatelessWidget {
       );
 }
 
-/// 아래 줄(pen `OXJyX`): 사람 16 → 6 → "N명 참여" 12/500 muted ……… "자세히 보기"(댓글 버튼 `G4zmKC` 자리).
+/// 아래 줄(pen `OXJyX` · 18f `v9mXy`): 사람 16 → 6 → "N명 참여" 12/500 muted → 8 → 말풍선 16 → 4 → "댓글 N" 12/500 muted ……… "자세히 보기".
+/// 댓글 0 이어도 "댓글 0" 으로 보인다(사용자 11-10 「보여 줌」).
 class _Footer extends StatelessWidget {
-  const _Footer({required this.total, required this.onOpen});
+  const _Footer({required this.total, required this.commentCount, required this.onOpen});
 
   final int total;
+  final int commentCount;
   final VoidCallback onOpen;
 
   @override
@@ -469,6 +471,11 @@ class _Footer extends StatelessWidget {
             const SizedBox(width: _smallGap),
             // pen `YfHDO` 줄높이 속성 없음, 렌더 16.
             Flexible(child: Text(context.l10n.communityParticipants(count: total), style: caption.copyWith(height: 16 / 12))),
+            // pen CommentCount `Qzv5q`: 앞 간격 8, 아이콘 16 + 4 + 글자.
+            const SizedBox(width: AppSpacing.xs),
+            const Icon(AppIcons.messageCircle, size: 16, color: AppColors.muted),
+            const SizedBox(width: AppSpacing.xxs),
+            Flexible(child: Text(context.l10n.communityCommentCount(count: commentCount), style: caption.copyWith(height: 16 / 12))),
           ],
         ),
         InkWell(

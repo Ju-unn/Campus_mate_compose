@@ -41,6 +41,24 @@ void main() {
     expect(PushRoute.resolve({'route': 'friend_review_write', 'profile_id': ''}), isNull);
   });
 
+  // 11-10 O/X 글 새 댓글: 글쓴이에게 가는 푸시(data route poll + poll_id)는 그 글의 상세(17c)로 바로 간다.
+  group('내 글의 새 댓글 알림', () {
+    test('그 글의 상세로 간다', () {
+      expect(PushRoute.resolve({'route': 'poll', 'poll_id': 'p1'}), '/community/polls/p1');
+      expect(PushRoute.resolve({'route': 'poll', 'poll_id': 'p1'}), '${AppRoutes.communityPoll}/p1');
+    });
+
+    test('어느 글인지 모르면 아무 데도 보내지 않는다', () {
+      expect(PushRoute.resolve({'route': 'poll'}), isNull);
+      expect(PushRoute.resolve({'route': 'poll', 'poll_id': ''}), isNull);
+    });
+
+    test('사용 통계 종류는 poll', () {
+      expect(PushRoute.typeOf({'route': 'poll', 'poll_id': 'p1'}), PushOpenType.poll);
+      expect(PushOpenType.poll.wire, 'poll');
+    });
+  });
+
   // 10-17 학생증 제거: 알림함에 남은 옛 "학생증 결과" 줄(route verification)은 모르는 값처럼 아무 데도 보내지 않는다.
   test('옛 학생증 검토 결과 알림(verification)은 아무 데도 보내지 않는다', () {
     expect(PushRoute.resolve({'route': 'verification'}), isNull);

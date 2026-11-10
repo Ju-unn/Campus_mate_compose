@@ -15,8 +15,25 @@ void main() {
 
   test('나머지 스위치의 기본값은 그대로다(마케팅만 꺼짐)', () {
     const defaults = NotificationPreferences();
-    expect([defaults.cardArrived, defaults.acceptanceReceived, defaults.matchMade, defaults.newMessage, defaults.trustReminder, defaults.newFriendReview],
+    expect([defaults.cardArrived, defaults.acceptanceReceived, defaults.matchMade, defaults.newMessage, defaults.trustReminder, defaults.newFriendReview, defaults.pollComment],
         everyElement(isTrue));
     expect(defaults.marketing, isFalse);
+  });
+
+  // 11-10 내 글의 새 댓글(서버 키 poll_comment, 기본 켜짐).
+  test('내 글의 새 댓글 스위치는 서버 값을 읽고, 없으면(옛 서버) 켜짐이다', () {
+    expect(NotificationPreferences.fromJson(const {'poll_comment': false}).pollComment, isFalse);
+    expect(NotificationPreferences.fromJson(const {'poll_comment': true}).pollComment, isTrue);
+    expect(NotificationPreferences.fromJson(const {}).pollComment, isTrue);
+  });
+
+  test('withValue · valueOf 가 poll_comment 를 다른 스위치와 섞지 않는다', () {
+    final changed = const NotificationPreferences().withValue('poll_comment', false);
+    expect(changed.valueOf('poll_comment'), isFalse);
+    expect(changed.pollComment, isFalse);
+    // 나머지는 그대로.
+    expect(changed.newFriendReview, isTrue);
+    expect(changed.quietHours, isFalse);
+    expect(changed.withValue('quiet_hours', true).pollComment, isFalse);
   });
 }

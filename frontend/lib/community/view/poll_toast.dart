@@ -22,7 +22,8 @@ typedef PollToast = ScaffoldFeatureController<SnackBar, SnackBarClosedReason>;
 /// "삭제했어요"(15d-5 `SKQgV` · 토스트 `VuCcc` 아이콘 끔)도 글자만. 나머지(오류)는 경고 아이콘.
 ///
 /// 띄운 토스트를 돌려준다 — 15d 는 토스트가 떠 있는 동안 "질문하기" 알약을 숨긴다(17A-2 `O8hjge`).
-PollToast showPollToast(BuildContext context, String message) {
+/// [bottomInset] 은 화면 아래에 붙은 줄의 높이 — 17c 는 댓글 입력줄(80) 위에 띄운다.
+PollToast showPollToast(BuildContext context, String message, {double bottomInset = 0}) {
   final l10n = context.l10n;
   final textOnly = message == l10n.communityVoteReward || message == l10n.communityDeleted;
   final messenger = ScaffoldMessenger.of(context)..hideCurrentSnackBar();
@@ -32,7 +33,7 @@ PollToast showPollToast(BuildContext context, String message) {
       elevation: 0,
       // pen `NDZnK`: 하단 내비 위 16. SnackBar 기본(바깥 아래 10 + 안쪽 위아래 14)을 걷어 낸다.
       padding: EdgeInsets.zero,
-      margin: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
+      margin: EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.md + bottomInset),
       content: Center(
         child: AppToast(
           leading: textOnly ? null : const Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk),

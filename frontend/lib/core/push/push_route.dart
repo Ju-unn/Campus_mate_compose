@@ -40,6 +40,7 @@ abstract final class PushRoute {
         'friend_review_write' => PushOpenType.friendReviewWrite,
         'heart_tasks' => PushOpenType.heartTasks,
         'heart_task_retry' => PushOpenType.heartTaskRetry,
+        'poll' => PushOpenType.poll,
         _ => PushOpenType.other,
       };
 
@@ -58,6 +59,11 @@ abstract final class PushRoute {
         // 인증샷 결과(2026-10-18 "가") — 승인은 18a 목록, 반려는 사유 알림이 뜨는 18b-2 다시 제출.
         'heart_tasks' => AppRoutes.heartTasks,
         'heart_task_retry' => _heartTaskRetry(data),
+        // 내 O/X 글에 새 댓글(2026-11-10) — 그 글의 상세. 어느 글인지 모르면 보내지 않는다.
+        'poll' => switch (data['poll_id']) {
+            final String id when id.isNotEmpty => '${AppRoutes.communityPoll}/$id',
+            _ => null,
+          },
         // 옛 학생증 검토 결과(`verification`, 2026-10-17 학생증 제거)도 여기로 온다 — 알림함에 남은 줄을 눌러도 무동작.
         // 졸업생 인증 결과(`graduate_verification`)도 여기로 온다 — 화면은 옮기지 않는다. `refreshForPush` 가 관문만 다시 물으면 AuthRedirect 가 옮긴다.
         _ => null,

@@ -1,7 +1,9 @@
 import 'dart:async';
 
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/community/model/data/poll.dart';
+import 'package:campus_mate/community/model/data/poll_comment.dart';
 import 'package:campus_mate/community/model/data/poll_feed.dart';
 import 'package:campus_mate/community/model/repository/community_repository.dart';
 
@@ -15,6 +17,7 @@ Poll pollFixture({
   int bCount = 3,
   PollChoice? myChoice,
   bool isMine = false,
+  int commentCount = 0,
 }) =>
     Poll(
       id: id,
@@ -26,6 +29,26 @@ Poll pollFixture({
       bCount: bCount,
       myChoice: myChoice,
       isMine: isMine,
+      commentCount: commentCount,
+    );
+
+PollComment commentFixture({
+  String id = 'c1',
+  String body = '저는 상관없어요',
+  DateTime? createdAt,
+  int? aliasNo = 1,
+  bool isPostAuthor = false,
+  bool isMine = false,
+  bool canDelete = false,
+}) =>
+    PollComment(
+      id: id,
+      body: body,
+      createdAt: createdAt ?? DateTime(2026, 9, 27, 13),
+      aliasNo: aliasNo,
+      isPostAuthor: isPostAuthor,
+      isMine: isMine,
+      canDelete: canDelete,
     );
 
 /// 화면 · ViewModel 테스트용 가짜 저장소. 돌려줄 값을 필드로 바꿔 끼운다.
@@ -42,6 +65,21 @@ class FakeCommunityRepository implements CommunityRepository {
   /// 부른 순간의 값을 잡으니, 요청 하나를 붙잡아 두고 비운 뒤 다음 요청은 바로 돌려줄 수 있다.
   Completer<void>? holdPage;
   Result<Poll>? poll;
+
+  /// 댓글 첫 쪽. 커서가 있는 요청(더 보기)에는 [nextCommentPage] 를 돌려준다.
+  Result<PollCommentPage> commentPage = const Success(PollCommentPage(comments: [], hasMore: false));
+  Result<PollCommentPage>? nextCommentPage;
+  Result<PollComment>? addCommentResult;
+  Result<void> deleteCommentResult = const Success(null);
+
+  /// 채워 두면 댓글 보내기 응답이 이것이 끝날 때까지 멈춘다 — 보내는 중 상태용.
+  Completer<void>? holdAddComment;
+
+  /// 채워 두면 이어 읽기(커서가 있는 요청)가 이것이 끝날 때까지 멈춘다 — 끝 로딩 표시 · 겹침 방지 확인용.
+  Completer<void>? holdMoreComments;
+  final List<({String pollId, DateTime? after, String? afterId})> commentRequests = [];
+  final List<({String pollId, String body})> addedComments = [];
+  final List<String> deletedComments = [];
   Result<void> createResult = const Success(null);
   Result<VoteOutcome>? voteResult;
   Result<void> deleteResult = const Success(null);
@@ -71,7 +109,7 @@ class FakeCommunityRepository implements CommunityRepository {
   @override
   Future<Result<Poll>> fetchPoll(String pollId) async {
     fetchedPollIds.add(pollId);
-    return poll!;
+    return poll ?? const FailureResult(NotFoundFailure());
   }
 
   @override
@@ -97,5 +135,25 @@ class FakeCommunityRepository implements CommunityRepository {
     deleted.add(pollId);
     await holdDelete?.future;
     return deleteResult;
+  }
+
+  @override
+  Future<Result<PollCommentPage>> fetchComments(String pollId, {DateTime? after, String? afterId}) async {
+    commentRequests.add((pollId: pollId, after: after, afterId: afterId));
+    if (after != null) await holdMoreComments?.future;
+    return after == null ? commentPage : (nextCommentPage ?? commentPage);
+  }
+
+  @override
+  Future<Result<PollComment>> addComment(String pollId, String body) async {
+    addedComments.add((pollId: pollId, body: body));
+    await holdAddComment?.future;
+    return addCommentResult!;
+  }
+
+  @override
+  Future<Result<void>> deleteComment(String commentId) async {
+    deletedComments.add(commentId);
+    return deleteCommentResult;
   }
 }
