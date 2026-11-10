@@ -211,7 +211,7 @@ gcloud scheduler jobs create http campus-mate-chat-gate \
 
 **전제: 큐 리전 = Cloud Run 리전(`asia-northeast3`).** 코드가 리전을 모듈 상수로 박고 있어서
 (`app/profile_onboarding/avatar_tasks.py`), 큐를 다른 리전에 만들면 작업 등록이 **조용히 404 로
-실패**한다. 화면에는 "잠시 뒤 다시 시도해 주세요"만 뜬다.
+실패**한다. 화면에는 "잠시 후 다시 시도해 주세요"만 뜬다.
 
 ```bash
 gcloud services enable cloudtasks.googleapis.com
@@ -246,7 +246,7 @@ gcloud iam service-accounts add-iam-policy-binding <계정 이메일> \
   --role="roles/iam.serviceAccountUser"
 ```
 
-- **이 역할이 빠지면**: `POST /avatar/generate` 가 502, 백엔드 로그에 "아바타 작업 등록 실패" + Cloud Tasks 403 이다. 앱은 502 · 503 을 "잠시 뒤 다시 시도해 주세요" 로 보인다(`ServerUnavailableFailure`). 그 밖의 5xx 는 "알 수 없는 오류" 다.
+- **이 역할이 빠지면**: `POST /avatar/generate` 가 502, 백엔드 로그에 "아바타 작업 등록 실패" + Cloud Tasks 403 이다. 앱은 502 · 503 을 "잠시 후 다시 시도해 주세요" 로 보인다(`ServerUnavailableFailure`). 그 밖의 5xx 는 "알 수 없는 오류" 다.
 - 운영 서비스 계정에는 `serviceAccountUser` 가 있고, 옛 `serviceAccountTokenCreator` 도 아직 남아 있다. 둘 다 있어도 동작엔 지장 없고, 최소 권한 원칙상 옛 역할을 뺄지는 사용자 결정 대기다.
 
 - 환경변수 3개(`AVATAR_TASKS_QUEUE` · `AVATAR_WORKER_URL` · `AVATAR_TASKS_SERVICE_ACCOUNT`)는 §2 의

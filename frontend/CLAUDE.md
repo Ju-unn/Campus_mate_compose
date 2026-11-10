@@ -94,7 +94,7 @@
 - **구글 심사원 로그인(안드로이드 전용).** 시작 화면(01) 로고 자리를 5초 안에 7번 누르면 영어 "Reviewer sign-in" 시트가 열리고 이메일 · 비밀번호로 Supabase `signInWithPassword` 로 들어간다. 가입 없음 · 분석 `login` 이벤트 없음 · 낭독기 제외 · 이미 로그인된 상태면 입구 없음. iOS · 웹에는 입구가 없다 — 코드는 모든 빌드에 실려 있지만 `start_view.dart` 의 `_isAndroid()` 가 iOS 에서 걸러낸다 (애플 가이드라인 2.3.1 숨은 기능 규칙). 서버 · DB 코드는 따로 없고 기존 심사용 계정(id 앞 8자 `acdbb0fc`)에 운영 Auth 관리자 API 로 비밀번호를 붙여 쓴다 (값은 저장소에 적지 않는다, `../backend/DEPLOY.md` §4-16). `LabeledField` 의 `obscureText`(기본 false) · ARB 키 `authSocialReviewer*` 5개(영어 그대로) · 오류 문구는 `errorText` 그대로(한국어). **심사 통과 뒤 비밀번호를 무작위로 바꿔 막는다.** 심사원이 탈퇴하면 되돌릴 수 없어 심사 안내문에 금지로 적었다. 입구와 소셜 버튼이 겹치지 않는지는 `start_view_test.dart` 가 지킨다. DESIGN.md §9 01-3 · §13-158.
 - **카드 지급 한계(알려진 것).** 지급일이 아닌 날 카드 0장 + 후보 1명이면 유료 제안으로 보이다가 다음 지급일 배치에서 무료로 나간다. 구매와 접기가 같은 순간에 겹치면 같은 상대를 유료 · 무료로 둘 다 받을 수 있다 (`../backend/DEPLOY.md` §4-21). 첫 방문 0장이면 화면 11 은 "다음 카드를 준비하고 있어요" 를 보인다.
 - **출시 후로 미룬 것(지금 하지 않는다):** 스크린샷 방지 · 졸업생 D8 자기 취소 · 하트 스토어 대기 목록 · 안드로이드 큰 알림 아이콘 · 카드 신고 버튼(반려 시) · 환불 정책 B · 카카오 연결 해제 웹훅 · 아이패드 전용 화면 · DESIGN.md §13-155 의 "칸에도 넣을까요?" 안내.
-- **계획으로만 있는 정리:** 색 / 크기 / 간격 토큰 정리 · 공통 컴포넌트 · SonarQube(저장소는 공개지만 라이선스가 없어 5만 줄 무료 한도 기준) · 시작은 사용자가 정한다.
+- **계획으로만 있는 정리:** 색 / 크기 / 간격 토큰 정리 · 공통 컴포넌트 · SonarQube(저장소는 공개지만 라이선스가 없어 5만 줄 무료 한도 기준). 시작은 사용자가 정한다.
 
 ### 2.4 문서 지도
 
@@ -295,7 +295,7 @@ if (status == statusPending) { ... }   // 대기 상태일 때만 처리
 
 - **화면 문구는 문구 파일 한 곳에서만 정한다.** `lib/l10n/app_ko.arb`(한국어만, `l10n.yaml` 이 `AppLocalizations` 를 만든다)에 키를 더하고 `context.l10n.<키>`(`lib/core/l10n/l10n_context.dart`)로 읽는다. 키 이름은 `<기능><화면/요소><뜻>`(예 `faqSearchHint`), 뜻과 글자가 모두 같은 공용 문구는 `common<뜻>`.
 - **`lib/` 전체에 한글 문자열 리터럴이 없다**(생성 폴더 `lib/l10n/` 제외). 서버와 글자까지 같아야 하는 값(프로필 태그 · 투표 기본 선택지 · 서버 문구 비교 상수)은 옮기지 않고 `// l10n-ignore(wire|server-text): 이유` 마커를 단다. 로그(`debugPrint`) · `assert` · `throw` · `RegExp` 안의 글자는 면제다. 서버가 문구를 비교하는 상수(`l10n-ignore(server-text)` 자리)는 앱 글자만 바꾸면 비교가 깨지므로 서버와 같이 바꾼다 (전체 목록은 `grep -rn "l10n-ignore" lib`). 지킴 시험 `test/l10n/no_hangul_literal_test.dart`. ARB 형식(정렬 · 중복 · 자리표시자 · 안 쓰는 키)은 `test/l10n/arb_test.dart` 가 지킨다.
-- **문구의 보조 용언은 띄어 쓴다** — "골라 주세요 · 알려 드릴게요" (붙인 "골라주세요" 는 `test/l10n/ko_spacing_test.dart` 가 잡는다, §8 표). 서버가 같은 글자로 비교하는 `l10n-ignore(server-text)` 문구는 서버와 같이 바꾼다.
+- **문구의 보조 용언은 띄어 쓴다** — "골라 주세요 · 알려 드릴게요" (붙인 "골라주세요" 는 `test/l10n/ko_spacing_test.dart` 가 잡는다, §8 표).
 - **ARB 를 고치면 `flutter pub get` 을 먼저 한다.** 생성 파일(`lib/l10n/app_localizations*.dart`)은 커밋하지 않고(`.gitignore`) `flutter pub get` · `flutter run` · `flutter build` 가 만든다. `flutter test` · `flutter analyze` 만으로는 만들지 않아, 없으면 "Undefined name AppLocalizations" 가 난다 (CI 는 `flutter pub get` 으로 시작해 영향 없음).
 - **에러 문구는 키가 `error` 로 시작하고, 글자로 바꾸는 곳은 `lib/core/l10n/error_text.dart` 한 파일뿐이다.** 뷰모델은 문자열을 만들지 않고 `Failure`(`common/failure.dart` 의 sealed 종류)만 상태에 담고, view 가 `context.errorText(failure)` 로 읽는다. **에러 자리(뷰모델 · UiState 에서 이름에 error · failure · rejection 이 든 칸)는 `Failure?` · `AppError?` 만** — `String` 이면 `test/l10n/error_slot_type_test.dart` 가 잡는다(view 위젯의 글자 인자 `LabeledField.errorText` · `AppToast.label` 은 대상 아님). 에러가 아닌 곳에서 `error*` 키를 쓰거나 `error_text.dart` 가 일반 키를 쓰면 `test/l10n/error_key_scope_test.dart` 가 잡는다. 서버가 준 문구를 그대로 보이는 가지(거절 종류)만 ARB 를 쓰지 않는다 (서버 `detail` 이 기준)
 - **`context.l10n` 에는 한국어 대체가 없다.** `l10n.yaml` 의 `nullable-getter: false` 라 위임자(`AppLocalizations.localizationsDelegates`)가 없는 곳에서 읽으면 바로 실패한다. lib 은 `AppLocalizationsKo()` 를 직접 만들지 않는다(`test/l10n/no_direct_korean_l10n_test.dart`).

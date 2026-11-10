@@ -80,7 +80,7 @@ erDiagram
 | `universities` · `university_email_domains` | `anon` · `authenticated` 전체 | 가입 화면의 학교·도메인 확인 |
 | `region_group_settings` | `authenticated` 전체 | 다음 지급 시각 표시 |
 | `profiles` | 본인 행 (`id`) | |
-| `profile_private` | 본인 행 (`profile_id`) · 컬럼 grant `profile_id` 만 | 번호 암호문·`phone_hmac`·카카오톡 아이디 암호문은 내려가지 않는다. 앱은 이 표를 직접 읽지 않는다. 본인 `kakao_id`(16e · 14f · 16e-1)는 FastAPI `GET /account` · `GET /account/kakao-id` 가 내려준다(§11-20). 실명은 받지 않는다 — 학생증 인증 제거(2026-10-17) 뒤 `GET /account` 응답에 싣지 않고 앱도 읽지 않는다(옛 계정에 암호문 `real_name_enc` 가 남아 있어도 읽지 않는다). 암호문 열 `real_name_enc` · `kakao_id_enc` 는 grant 하지 않는다(`20261011010000`) — 읽기는 서버가 `service_role` 로 `decrypt_profile_private` 를 불러서만 한다(§3). 평문 `real_name` · `kakao_id` 열은 없다(`20261012010000` 이 지웠고 그 컬럼 grant 도 함께 사라졌다) |
+| `profile_private` | 본인 행 (`profile_id`) · 컬럼 grant `profile_id` 만 | 번호 암호문·`phone_hmac`·카카오톡 아이디 암호문은 내려가지 않는다. 앱은 이 표를 직접 읽지 않는다. 본인 `kakao_id`(16e · 14f · 16e-1)는 FastAPI `GET /account` · `GET /account/kakao-id` · `GET /chat/matches/{id}` 의 `my_kakao_id`(14f) 가 내려준다(§11-20). 실명은 받지 않는다 — 학생증 인증 제거(2026-10-17) 뒤 `GET /account` 응답에 싣지 않고 앱도 읽지 않는다(옛 계정에 암호문 `real_name_enc` 가 남아 있어도 읽지 않는다). 암호문 열 `real_name_enc` · `kakao_id_enc` 는 grant 하지 않는다(`20261011010000`) — 읽기는 서버가 `service_role` 로 `decrypt_profile_private` 를 불러서만 한다(§3). 평문 `real_name` · `kakao_id` 열은 없다(`20261012010000` 이 지웠고 그 컬럼 grant 도 함께 사라졌다) |
 | `student_verification_attempts` | 없음 | FastAPI 전용 — 본인 반려 사유는 FastAPI 응답으로 내려주고, 재시도 횟수는 행 수로 FastAPI 가 센다(§12-4) |
 | `profile_photos` · `profile_avatars` · `survey_answers` | 본인 행 (`profile_id`) | |
 | `profile_vectors` | 없음 | FastAPI 전용 |
