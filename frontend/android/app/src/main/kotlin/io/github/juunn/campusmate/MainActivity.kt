@@ -2,14 +2,17 @@ package io.github.juunn.campusmate
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.pm.ApplicationInfo
 import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
 
 class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         createDefaultNotificationChannel()
+        blockScreenCaptureInRelease()
     }
 
     // 매니페스트의 default_notification_channel_id 가 가리키는 채널. 만들지 않으면 FCM 이
@@ -24,5 +27,12 @@ class MainActivity : FlutterActivity() {
             NotificationManager.IMPORTANCE_HIGH,
         ).apply { description = "카드 도착 · 수락 · 매칭 · 채팅 알림" }
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+    }
+
+    // 스크린샷 · 화면 녹화 · 최근 앱 미리보기를 검게 만든다. 디버그 빌드는 개발 · 홍보 캡처용이라 제외하고,
+    // BuildConfig 가 없어도 되도록 앱의 debuggable 플래그로 릴리스를 가른다.
+    private fun blockScreenCaptureInRelease() {
+        if ((applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0) return
+        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
     }
 }
