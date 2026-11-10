@@ -5,10 +5,6 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 
-/// 찬성 O 버튼 · 도넛 A 몫 파랑(pen `VhiAe`, DESIGN §8.11). 토큰표 밖 값이다.
-/// 결과도 버튼 색을 따른다 — A 파랑 · B 분홍(사용자 결정, 09-27).
-const Color pollAgreeBlue = Color(0xFF2D96DE);
-
 /// 투표 뒤 결과 도넛(pen `raSK1` 96×96). 12시에서 시계 방향으로 **A 몫 파랑**, 이어서 **B 몫 분홍**,
 /// 가운데 % 는 **우세한 쪽**이다(DESIGN §8.11 — 대장 예외). 끝은 평평하고 두 색 사이 틈이 없다.
 /// 아무도 안 눌렀으면 회색 고리만 남는다.
@@ -68,7 +64,7 @@ class _DonutPainter extends CustomPainter {
     final total = aCount + bCount;
     if (total == 0) return;
     final aSweep = 2 * pi * aCount / total;
-    canvas.drawArc(rect, -pi / 2, aSweep, false, paint..color = pollAgreeBlue);
+    canvas.drawArc(rect, -pi / 2, aSweep, false, paint..color = AppColors.pollAgree);
     canvas.drawArc(rect, -pi / 2 + aSweep, 2 * pi - aSweep, false, paint..color = AppColors.primary);
   }
 

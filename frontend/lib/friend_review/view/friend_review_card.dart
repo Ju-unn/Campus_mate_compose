@@ -192,11 +192,11 @@ class _ReportButton extends StatelessWidget {
                 Text(
                   context.l10n.commonReport,
                   // pen `o1niSD` 10/600 #6E5861 lh1. 10px 는 접근성 최소(12)보다 작지만 pen 값이라 두고,
-                  // 글자 배율은 그대로 따라 커진다. 이 색은 투표 카드 신고 버튼과 이 버튼에만 있어 토큰으로 올리지 않는다.
+                  // 글자 배율은 그대로 따라 커진다. 색은 AppColors.reportLabel.
                   style: AppTypography.badge.copyWith(
                     height: 1,
                     letterSpacing: 0,
-                    color: const Color(0xFF6E5861),
+                    color: AppColors.reportLabel,
                   ),
                 ),
               ],

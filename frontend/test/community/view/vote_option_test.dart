@@ -1,4 +1,3 @@
-import 'package:campus_mate/community/view/poll_donut.dart';
 import 'package:campus_mate/community/view/vote_option.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -34,8 +33,8 @@ void main() {
 
   testWidgets('O 칸(g6Cxp): 파랑 · 높이 72 · 모서리 8 · 흰 원 34', (tester) async {
     await pump(tester, const VoteOption.mark(side: VoteSide.agree, semanticLabel: '찬성'));
-    expect(fill(tester), pollAgreeBlue);
-    expect(pollAgreeBlue, const Color(0xFF2D96DE));
+    expect(fill(tester), AppColors.pollAgree);
+    expect(AppColors.pollAgree, const Color(0xFF2D96DE));
     expect(tester.getSize(find.byType(VoteOption)).height, 72);
     final icon = tester.widget<Icon>(find.byIcon(AppIcons.circle));
     expect((icon.size, icon.color), (34.0, const Color(0xFFFFFFFF)));
@@ -53,12 +52,12 @@ void main() {
   testWidgets('누르지 않는 칸(질문 작성의 미리보기)은 버튼이 아니다', (tester) async {
     await pump(tester, const VoteOption.mark(side: VoteSide.agree, interactive: false));
     expect(find.byType(FilledButton), findsNothing);
-    expect(fill(tester), pollAgreeBlue);
+    expect(fill(tester), AppColors.pollAgree);
   });
 
   testWidgets('글자 칸(PollCard 직접 적기): 파랑·빨강 · 72 · 흰 20/700 · 밑줄 없음', (tester) async {
     await pump(tester, VoteOption.text(side: VoteSide.agree, label: '짜장', onPressed: () {}));
-    expect(fill(tester), pollAgreeBlue);
+    expect(fill(tester), AppColors.pollAgree);
     expect(tester.getSize(find.byType(VoteOption)).height, 72);
     final style = tester.widget<Text>(find.text('짜장')).style!;
     expect((style.fontSize, style.fontWeight, style.color), (20.0, FontWeight.w700, const Color(0xFFFFFFFF)));
@@ -106,7 +105,7 @@ void main() {
 
   testWidgets('투표 중이라 꺼진 칸도 색이 남는다 — 파랑/빨강 반투명 + 흰 아이콘 · 글자(깜빡임 방지)', (tester) async {
     for (final (option, color) in [
-      (const VoteOption.mark(side: VoteSide.agree), pollAgreeBlue),
+      (const VoteOption.mark(side: VoteSide.agree), AppColors.pollAgree),
       (const VoteOption.text(side: VoteSide.disagree, label: '짬뽕'), AppColors.primary),
     ]) {
       await pump(tester, option);
@@ -138,7 +137,7 @@ void main() {
     testWidgets('O/X 알약: 높이 56 · 모서리 끝까지 둥글게(28) · 같은 파랑/빨강 · 흰 34', (tester) async {
       await pump(tester, const VoteOption.mark(side: VoteSide.agree, semanticLabel: '찬성', pill: true));
       expect(tester.getSize(find.byType(VoteOption)).height, 56);
-      expect(fill(tester), pollAgreeBlue);
+      expect(fill(tester), AppColors.pollAgree);
       final shape = tester.widget<FilledButton>(find.byType(FilledButton)).style!.shape!.resolve({}) as RoundedRectangleBorder;
       expect(shape.borderRadius, BorderRadius.circular(AppRadius.pill));
       final icon = tester.widget<Icon>(find.byIcon(AppIcons.circle));
@@ -168,7 +167,7 @@ void main() {
       final controller = TextEditingController(text: '짜장');
       addTearDown(controller.dispose);
       await pump(tester, VoteOption.input(side: VoteSide.agree, controller: controller, hint: '보기 1'), width: 158);
-      expect(fill(tester), pollAgreeBlue);
+      expect(fill(tester), AppColors.pollAgree);
       final box = tester.getRect(find.byType(VoteOption));
       expect(box.size, const Size(158, 72));
       final style = tester.widget<TextField>(find.byType(TextField)).style!;

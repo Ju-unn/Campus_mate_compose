@@ -15,6 +15,7 @@ import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -216,8 +217,7 @@ class _AskButton extends StatelessWidget {
   final bool hidden;
   final VoidCallback onPressed;
 
-  /// 떠 있는 것에만 그림자를 준다(DESIGN §6). 이 버튼에만 있는 값이라 AppElevation 에 올리지 않는다.
-  static const List<BoxShadow> _shadow = [BoxShadow(color: Color(0x2E1A1619), offset: Offset(0, 6), blurRadius: 16)];
+  /// 떠 있는 것에만 그림자를 준다(DESIGN §6).
 
   @override
   Widget build(BuildContext context) {
@@ -241,7 +241,7 @@ class _AskButton extends StatelessWidget {
           duration: duration,
           curve: AppMotion.standardCurve,
           child: DecoratedBox(
-            decoration: const ShapeDecoration(shape: StadiumBorder(), shadows: _shadow),
+            decoration: const ShapeDecoration(shape: StadiumBorder(), shadows: AppElevation.floatingButton),
             child: FilledButton(
               key: CommunityFeedScreen.askButtonKey,
               onPressed: onPressed,

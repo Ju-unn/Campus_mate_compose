@@ -1,4 +1,3 @@
-import 'package:campus_mate/community/view/poll_donut.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -6,7 +5,7 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// 투표 보기의 두 쪽. 찬성(O) 쪽은 파랑 [pollAgreeBlue], 반대(X) 쪽은 빨강 [AppColors.primary].
+/// 투표 보기의 두 쪽. 찬성(O) 쪽은 파랑 [AppColors.pollAgree], 반대(X) 쪽은 빨강 [AppColors.primary].
 enum VoteSide { agree, disagree }
 
 enum _VoteOptionKind { mark, text, input }
@@ -92,7 +91,7 @@ class VoteOption extends StatelessWidget {
   final List<TextInputFormatter> inputFormatters;
   final VoidCallback? onChanged;
 
-  Color get _fill => side == VoteSide.agree ? pollAgreeBlue : AppColors.primary;
+  Color get _fill => side == VoteSide.agree ? AppColors.pollAgree : AppColors.primary;
 
   static const double _lineHeight = 1.2;
 
