@@ -55,7 +55,7 @@
 | --- | --- |
 | 언제 | API 공통 계층(`core/http/http_send.dart` `sendHttpRequest`)에서 **서버 5xx · 연결 실패 · 조회 시간 초과(15초)** 가 났을 때. 4xx(사용자 입력 오류 · 401 · 429)와 성공은 보내지 않는다. 4xx 인데 몸통이 JSON 이 아니라 생긴 파싱 오류(`FormatException`)도 보내지 않는다 |
 | 보내는 것 | `HandledApiError`(`core/analytics/handled_api_error.dart`)의 **세 값뿐**: `kind`(예외 타입 이름 `SocketException` · `TimeoutException` · `ClientException` 등, 5xx 는 `ServerError`) / `status`(5xx 상태 코드, 예외면 없음) / `route`(요청 경로 패턴) |
-| 경로 패턴 | `ApiRoutePattern`(`core/analytics/api_route_pattern.dart`). **고정 낱말 목록**(`ApiRoutePattern.routeWords`, 앱이 실제로 부르는 길 조각)에 있는 조각만 남기고 나머지(UUID · 숫자 · 토큰 · 코드, 소문자로만 된 닉네임 · 영문 코드 포함)는 `:id`, 쿼리 문자열과 호스트는 버림. **새 API 경로를 더하면 이 목록에도 더한다**(서버를 부르는 소스를 읽는 지킴 시험이 빠진 낱말을 알려 준다). 예: `/cards/3f2a…/decision?x=1` → `/cards/:id/decision` |
+| 경로 패턴 | `ApiRoutePattern`(`core/analytics/api_route_pattern.dart`). **고정 낱말 목록**(`ApiRoutePattern.routeWords`, 앱이 실제로 부르는 길 조각)에 있는 조각만 남기고 나머지(UUID · 숫자 · 토큰 · 코드, 소문자로만 된 닉네임 · 영문 코드 포함)는 `:id`, 쿼리 문자열과 호스트는 버림. **새 API 경로를 더하면 이 목록에도 더한다**(서버를 부르는 소스를 읽는 지킴 시험이 빠진 낱말을 알려 준다. 2026-11-11 휴대폰 문자 인증이 `phone-verification` · `send` 를 더했다). 예: `/cards/3f2a…/decision?x=1` → `/cards/:id/decision` |
 | 보내지 않는 것 | 예외 메시지 · 응답 본문 · 쿼리 문자열 · 요청 본문 · 값이 채워진 id · 사용자 정보. `CrashReporter.recordHandledError` 는 `HandledApiError` 만 받는다(다른 예외를 넘길 수 없다) |
 | 폭주 방지 | `HandledErrorReporter`(`core/analytics/handled_error_reporter.dart`): 같은 오류(종류 × 상태 × 경로)는 **1분에 한 번**. 앱을 껐다 켜면 비워진다(shortcut 주석) |
 | 연결 | `apiClientProvider`(`core/http/api_client_provider.dart`) → `ApiClient(onHandledError)` → `sendAuthorizedRequest` → `sendHttpRequest`. 보고기가 던져도 사용자 요청 결과는 바뀌지 않는다 |

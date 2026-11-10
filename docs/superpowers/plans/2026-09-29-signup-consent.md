@@ -29,7 +29,7 @@
   - 앱바 "약관 동의", 버튼 "동의하고 계속하기", "로그아웃", "전체 동의", "보기"
   - 줄(§0-b): "이용약관" · "개인정보 수집·이용" · "마케팅 알림 받기" (11-11 칸 이름 → 마케팅 활용 동의, [보기] 추가)
 - 노션 링크(대장 확인, 비로그인 공개): 기본 `https://app.notion.com/p/3e9d998f0dee8082be84e126630b02a7`. 실기기에서 로그인 요구가 뜨면 `https://golden-leech-197.notion.site/3e9d998f0dee8082be84e126630b02a7` 로 바꾼다(상수 한 줄).
-  - 앵커 — 이용약관 `#792b6855eaa04bf8a24c19c86702d62f` · 개인정보 수집·이용(종교 문단 포함) `#efcc38385bef4185b6577d663ebd3bc8` · 마케팅은 "보기" 없음. (2부 7항 국외 이전 `#dd3fc6260fa64d78ab12cfaa8a271120` 은 §0-b 로 쓰지 않는다.)
+  - 앵커 — 이용약관 `#792b6855eaa04bf8a24c19c86702d62f` · 개인정보 수집·이용(종교 문단 포함) `#efcc38385bef4185b6577d663ebd3bc8` · 마케팅은 "보기" 없음. (2부 7항 국외 이전 `#dd3fc6260fa64d78ab12cfaa8a271120` 은 §0-b 로 쓰지 않는다.) (11-11 칸 이름 → 마케팅 활용 동의, [보기] 추가)
 - url_launcher: `launchUrl(uri, mode: LaunchMode.externalApplication)` 만 쓴다. `canLaunchUrl` 을 쓰지 않으므로 AndroidManifest `<queries>` 는 바꾸지 않는다.
 
 ## Review Focus
