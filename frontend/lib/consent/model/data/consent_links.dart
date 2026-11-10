@@ -8,6 +8,9 @@ const _termsPage = '$_site/3e9d998f0dee8082be84e126630b02a7';
 /// "개인정보 처리방침" 페이지(방침의 단일 원본).
 const _privacyPage = '$_site/3ead998f0dee80d08709d6b75c79ddc0';
 
+/// "마케팅 활용 동의서" 페이지(11-11 공개 확인).
+const _marketingPage = '$_site/414d998f0dee804580e1f3ec50ff4362';
+
 /// 이용약관(02-c "보기" · 설정 16 "이용약관" 줄). I 부가 페이지 맨 위라 앵커가 없다.
 final Uri termsLink = Uri.parse(_termsPage);
 
@@ -23,3 +26,6 @@ final Uri privacyPolicyLink = Uri.parse(_privacyPage);
 /// 앵커는 노션 블록 id 라 아직 모른다 — 지금은 페이지 맨 위(I 부)가 열린다.
 /// 노션 교체 뒤 II 부 블록 링크를 받으면 `'$_termsPage#<블록 id>'` 로 앵커를 더할 수 있다.
 final Uri paidServiceTermsLink = Uri.parse(_termsPage);
+
+/// 02-c "마케팅 활용 동의" 보기(선택 항목). 앵커 없이 동의서 맨 위.
+final Uri marketingConsentLink = Uri.parse(_marketingPage);

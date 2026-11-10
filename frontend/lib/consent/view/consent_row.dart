@@ -27,7 +27,7 @@ class ConsentRow extends StatelessWidget {
   /// 뱃지. null 이면 뱃지가 없다(전체 동의).
   final bool? isRequired;
 
-  /// "보기 ›". null 이면 없다(전체 동의 · 마케팅).
+  /// "보기 ›". null 이면 없다(전체 동의).
   final VoidCallback? onView;
   final bool isAllAgree;
 

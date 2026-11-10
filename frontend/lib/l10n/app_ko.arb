@@ -370,7 +370,7 @@
   "communityVoteSummary": "{optionA} {aPercent}% · {optionB} {bPercent}% · {total}명 참여",
   "@communityVoteSummary": {"placeholders": {"optionA": {"type": "String"}, "aPercent": {"type": "int"}, "optionB": {"type": "String"}, "bPercent": {"type": "int"}, "total": {"type": "int"}}},
   "consentAgreeAll": "전체 동의",
-  "consentItemMarketing": "마케팅 알림 받기",
+  "consentItemMarketing": "마케팅 활용 동의",
   "consentItemPrivacy": "개인정보 수집·이용",
   "consentItemTerms": "이용약관",
   "consentRowBadgeOptional": "선택",
