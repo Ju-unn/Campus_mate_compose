@@ -268,6 +268,147 @@ def test_basic_info_takes_only_male_or_female_before_writing(gender):
     assert writes == []
 
 
+def _require_phone_verification() -> None:
+    """PHONE_VERIFICATION_REQUIRED=true 인 서버(새 앱이 나간 뒤). 기본은 false 다(심사 중인 옛 앱)."""
+    base = app.dependency_overrides[get_settings]()
+    app.dependency_overrides[get_settings] = lambda: base.model_copy(update={"phone_verification_required": True})
+
+
+def _phone_rpcs(check: str = "ok", save: str = "saved",
+                check_status: int = 200) -> tuple[Callable[[httpx.Request], httpx.Response], list[str]]:
+    """basic-info 가 보내는 쓰기 요청과 번호 RPC 를 순서대로 남긴다(check · save 는 DB 함수의 결과를 정해 둔다).
+    check_status=404 는 DB 에 미리 보기 함수가 아직 없는 운영(서버가 마이그레이션보다 먼저 나간 경우)이다."""
+    calls: list[str] = []
+    answers = {"check_verified_phone_number": check, "save_verified_phone_number": save, "set_phone_number": None}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        name = request.url.path.removeprefix("/rest/v1/rpc/")
+        if name in answers:
+            calls.append(name)
+            if name == "check_verified_phone_number" and check_status != 200:
+                return httpx.Response(check_status, json={"code": "PGRST202"})
+            return httpx.Response(200, json=answers[name])
+        if request.method in ("PATCH", "POST") and request.url.path in ("/rest/v1/profiles", "/rest/v1/profile_private"):
+            calls.append(f"{request.method} {request.url.path.removeprefix('/rest/v1/')}")
+        return _pending_profile_patch(request) or httpx.Response(200, json=[])
+
+    return handler, calls
+
+
+@pytest.mark.parametrize("check", ["not_verified", "in_use"])
+def test_basic_info_without_the_flag_saves_an_unverified_number_as_before(check):
+    """옛 앱은 인증 없이 번호를 보낸다 — 플래그가 꺼져 있으면 지금처럼 저장한다(서버 먼저 배포 규칙).
+    다른 계정이 인증한 번호(in_use)여도 막지 않는다 — 옛 동작 그대로다."""
+    handler, calls = _phone_rpcs(check=check)
+
+    response = _wire(handler).post("/profile-onboarding/basic-info", headers=AUTH_HEADERS, json=BASIC_INFO)
+
+    assert response.status_code == 200
+    assert calls == ["PATCH profiles", "POST profile_private", "check_verified_phone_number", "set_phone_number"]
+
+
+def test_basic_info_without_the_flag_marks_a_number_the_new_app_verified():
+    """플래그를 켜기 전에도 새 앱은 문자 인증을 한다 — 그 인증이 있으면 인증한 번호로 저장해 표시를 단다(in_use 가 지켜 준다)."""
+    handler, calls = _phone_rpcs(check="ok")
+
+    response = _wire(handler).post("/profile-onboarding/basic-info", headers=AUTH_HEADERS, json=BASIC_INFO)
+
+    assert response.status_code == 200
+    assert calls == ["PATCH profiles", "POST profile_private", "check_verified_phone_number", "save_verified_phone_number"]
+
+
+@pytest.mark.parametrize("save", ["not_verified", "in_use"])
+def test_basic_info_without_the_flag_falls_back_when_the_verified_save_loses_a_race(save):
+    """미리 보기 뒤 그사이 인증이 쓰였거나 다른 계정이 먼저 인증해 저장했다 — 플래그가 꺼져 있으면 막지 않고 옛 길로 저장한다."""
+    handler, calls = _phone_rpcs(check="ok", save=save)
+
+    response = _wire(handler).post("/profile-onboarding/basic-info", headers=AUTH_HEADERS, json=BASIC_INFO)
+
+    assert response.status_code == 200
+    assert calls[-2:] == ["save_verified_phone_number", "set_phone_number"]
+
+
+def test_basic_info_without_the_flag_still_saves_when_the_check_function_is_missing(caplog):
+    """서버가 마이그레이션보다 먼저 나가 미리 보기 함수가 없어도(404) 옛 앱의 가입은 그대로 된다."""
+    handler, calls = _phone_rpcs(check_status=404)
+
+    with caplog.at_level(logging.WARNING):
+        response = _wire(handler).post("/profile-onboarding/basic-info", headers=AUTH_HEADERS, json=BASIC_INFO)
+
+    assert response.status_code == 200
+    assert calls[-2:] == ["check_verified_phone_number", "set_phone_number"]
+    assert any("HTTPStatusError" in record.getMessage() for record in caplog.records)
+
+
+def test_basic_info_with_the_flag_lets_the_same_verified_number_through_again():
+    """04-1 을 같은 번호로 다시 낼 때 DB 가 ok · saved 를 주면(내가 이미 인증해 저장한 번호) 문자 없이 통과한다.
+    판정 자체는 pgTAP(phone_verifications_test 35 · 35-a · 35-b)이 진짜 DB 에서 본다."""
+    _require_phone_verification()
+    handler, calls = _phone_rpcs(check="ok", save="saved")
+    api = _wire(handler)
+
+    first = api.post("/profile-onboarding/basic-info", headers=AUTH_HEADERS, json=BASIC_INFO)
+    again = api.post("/profile-onboarding/basic-info", headers=AUTH_HEADERS, json=BASIC_INFO)
+
+    assert (first.status_code, again.status_code) == (200, 200)
+    assert calls.count("check_verified_phone_number") == 2 and calls.count("set_phone_number") == 0
+
+
+def test_basic_info_with_the_flag_checks_first_then_saves_through_the_verified_number_function():
+    _require_phone_verification()
+    sent: list[dict] = []
+    handler, calls = _phone_rpcs()
+
+    def spy(request: httpx.Request) -> httpx.Response:
+        if request.url.path.startswith("/rest/v1/rpc/"):
+            sent.append(json.loads(request.content))
+        return handler(request)
+
+    response = _wire(spy).post("/profile-onboarding/basic-info", headers=AUTH_HEADERS, json=BASIC_INFO)
+
+    assert response.status_code == 200
+    assert calls == ["check_verified_phone_number", "PATCH profiles", "POST profile_private", "save_verified_phone_number"]
+    phone_hmac = bytea_literal(hash_phone("identity-key-test", "+821001352468"))
+    assert sent[0] == {"p_profile_id": str(PROFILE_ID), "p_phone_hmac": phone_hmac, "p_phone_hmac_key_version": 1}
+    assert sent[1] == {"p_profile_id": str(PROFILE_ID), "p_phone": "+821001352468", "p_key": "phone-key-test",
+                       "p_phone_hmac": phone_hmac, "p_phone_hmac_key_version": 1}
+
+
+def test_basic_info_with_the_flag_refuses_an_unverified_number_before_saving_anything():
+    """422 면 닉네임 · 성별 · 출생연도도 저장하지 않는다 — 인증하고 다시 누르면 그대로 이어진다."""
+    _require_phone_verification()
+    handler, calls = _phone_rpcs(check="not_verified")
+
+    response = _wire(handler).post("/profile-onboarding/basic-info", headers=AUTH_HEADERS, json=BASIC_INFO)
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "휴대폰 번호 인증을 먼저 해 주세요", "code": "phone_not_verified"}
+    assert calls == ["check_verified_phone_number"]
+
+
+def test_basic_info_with_the_flag_refuses_a_number_another_account_verified_before_saving_anything():
+    _require_phone_verification()
+    handler, calls = _phone_rpcs(check="in_use")
+
+    response = _wire(handler).post("/profile-onboarding/basic-info", headers=AUTH_HEADERS, json=BASIC_INFO)
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "이미 다른 계정에서 쓰는 번호예요", "code": "phone_number_in_use"}
+    assert calls == ["check_verified_phone_number"]
+
+
+@pytest.mark.parametrize(("save", "status", "code"), [("not_verified", 422, "phone_not_verified"),
+                                                       ("in_use", 409, "phone_number_in_use")])
+def test_basic_info_with_the_flag_still_answers_when_the_save_loses_a_race(save, status, code):
+    """미리 보기와 저장 사이에 다른 계정이 먼저 저장했거나 인증이 쓰였다 — 저장 함수가 다시 본 결과를 그대로 준다."""
+    _require_phone_verification()
+    handler, _ = _phone_rpcs(save=save)
+
+    response = _wire(handler).post("/profile-onboarding/basic-info", headers=AUTH_HEADERS, json=BASIC_INFO)
+
+    assert (response.status_code, response.json()["code"]) == (status, code)
+
+
 def test_nickname_availability_ignores_callers_own_nickname():
     """04-1 을 다시 채울 때 방금 저장된 자기 닉네임이 '이미 있는 닉네임' 으로 막히면 안 된다."""
     seen_params: list[httpx.QueryParams] = []
