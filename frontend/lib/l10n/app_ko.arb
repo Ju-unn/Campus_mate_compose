@@ -1056,7 +1056,7 @@
   "referralCodeHeadline": "친구에게 받은 코드가 있나요?",
   "referralInviteCopied": "코드를 복사했어요",
   "referralInviteCopy": "복사",
-  "referralInviteDescription": "친구가 가입할 때 이 코드를 넣으면 둘 다 하트 50개를 받아요.",
+  "referralInviteDescription": "친구가 가입할 때 이 코드를 넣으면 친구는 하트 50개, 나는 25개를 받아요.",
   "referralInviteSendKakao": "카카오톡으로 보내기",
   "referralInviteSendOther": "다른 앱으로 보내기",
   "referralInviteTitle": "친구 초대",
