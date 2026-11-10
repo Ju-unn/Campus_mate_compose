@@ -29,7 +29,7 @@ class _FakeAppleClient implements AppleLoginClient {
     nonces.add(hashedNonce);
     final current = error;
     if (current != null) {
-      throw current;
+      Error.throwWithStackTrace(current, StackTrace.current);
     }
     return 'apple-id-token';
   }

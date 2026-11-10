@@ -25,7 +25,7 @@ class _FakeAppleClient implements AppleLoginClient {
     codeRequests++;
     final current = error;
     if (current != null) {
-      throw current;
+      Error.throwWithStackTrace(current, StackTrace.current);
     }
     return 'apple-one-time-code';
   }
