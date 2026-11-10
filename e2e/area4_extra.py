@@ -31,9 +31,7 @@ from e2e.area5_photo import COST, _hearts_to, _two_ready
 from e2e.area5_read import _ready_avatars
 from e2e.tools import Blocked
 
-SUPPORT_MAIL = 'appmailerl4538@gmail.com'  # frontend/lib/common/support_email.dart supportEmail
 HOLD = 300  # E-SET-67: A 가 로그아웃한 뒤 B 가 그대로인지 보기 전에 기다리는 시간(초) — 시나리오 "5분 뒤"
-SEEN = 10  # 앱이 누른 뒤 맨 위 화면이 바뀌기를 기다리는 시간(초) — 처음 여는 앱은 5초를 넘기기도 한다
 # 계정 탈퇴(/account/withdraw)는 하트 출금이 아니다 — 'withdraw' 는 하트 이름이 붙은 경로만 센다.
 FORBIDDEN_HEART = ('refund', 'cashout', 'transfer', 'gift', 'send_heart', 'send-heart', 'exchange',
                    'heart_withdraw', 'heart-withdraw', 'hearts/withdraw')
@@ -255,7 +253,7 @@ def p_set_43(run, phone):
     return check.result(area2_time_batch._zero_note(control=True))
 
 
-# ── E-SET-52 · 53 FAQ 의 문의 메일(에뮬) ────────────────────────────────────────────────────────────────
+# ── E-SET-52 · 53 FAQ 빈 화면의 "문의하기" 링크(에뮬) ────────────────────────────────────────────────────────────────
 
 MAIL_VIEW = ('shell', 'pm', 'query-activities', '--brief', '-a', 'android.intent.action.SENDTO', '-d', 'mailto:')
 
@@ -289,44 +287,19 @@ def mail_disabled(serial):
             tools.adb(serial, 'shell', 'pm', 'enable', package, check=False)
 
 
-def mail_intent_to(serial, address):
-    """`dumpsys activity activities` 에 이 주소로 간 메일 Intent 줄이 있는지 — 구글 계정이 없는 에뮬은 Gmail 이 작성 화면 대신 첫 실행 화면만 띄워
-    화면 글자로는 받는 사람을 못 읽지만, Intent 줄(act=…SENDTO|VIEW dat=mailto:주소 …)은 가려지지 않고 남는다. act 와 dat 가 **같은 줄**에 있어야 한다.
-    앱이 쓰는 url_launcher 의 openUrl 은 SENDTO 가 아니라 **VIEW** 로 보낸다(에뮬 dumpsys 실측) — 둘 다 인정한다. 주소는 뒤에 글자가 더 붙으면(…evil) 다른 주소다."""
-    out = tools.adb(serial, 'shell', 'dumpsys', 'activity', 'activities', check=False)
-    mail = re.compile(r'act=android\.intent\.action\.(SENDTO|VIEW)\b.*\bdat=mailto:' + re.escape(address) + r'(?=[\s?,]|$)')
-    return any(mail.search(line) for line in out.splitlines())
-
-
 def p_set_52(run, phone):
-    """FAQ 의 문의 메일 줄을 누르면 메일 앱이 맨 위로 뜨고 받는 사람이 문의 주소다. 앱은 누르자마자 pass 를 말한다(밖으로 나가면 앱 프레임이 멎는다) —
-    메일 앱이 떴는지는 여기서 본다. 에뮬은 실제 Gmail 이 없어 임시 보관 메일이 남지 않는다."""
-    serial = _emulator(phone)
+    """FAQ 에서 없는 말을 검색해 빈 화면의 "문의하기" 링크를 누르면 메일 앱이 아니라 앱 안 문의하기 화면(21a)이 열린다(11-10 사용자 결정 — 예전에는
+    메일 주소를 눌러 mailto Intent 가 떴다). 화면이 열렸는지는 앱이 스스로 본다(integration_test area4_extra.dart). 이제 메일 앱은 뜨지 않으므로
+    PC 는 앱 결과만 받는다."""
     check = Check()
-    apps = mail_apps(serial)
-    if not apps:
-        raise Blocked('준비: 에뮬에 mailto: 를 받는 메일 앱이 없음')
     account = area2._home(run)
-    for app in apps:  # 옛 작성 task 가 남아 있으면 이 누름이 아니라 옛 Intent 로 통과할 수 있다 — 누르기 전에 끝낸다
-        tools.adb(serial, 'shell', 'am', 'force-stop', app, check=False)
     _app(check, phone(token_hash=run.link(account['email'])))
-    top = ''
-    for _ in range(SEEN):
-        top = phone.top()
-        if any(app in top for app in apps):
-            break
-        time.sleep(1)
-    check.that(any(app in top for app in apps), f'맨 위 화면이 메일 앱이 아님({", ".join(apps)}): {top or "못 읽음"}')
-    if any(app in top for app in apps):
-        # 받는 사람 = dumpsys 의 메일 Intent 줄(구글 계정이 없는 에뮬은 화면 글자로 못 읽는다) 또는 화면 글자(계정 있는 기기)
-        check.that(mail_intent_to(serial, SUPPORT_MAIL) or notify.screen_has(serial, SUPPORT_MAIL),
-                   f'받는 사람 {SUPPORT_MAIL} 을 메일 Intent 줄(SENDTO · VIEW)에서도 메일 앱 화면에서도 못 찾음')
-    return check.result('받는 사람은 dumpsys 의 메일 Intent 줄(SENDTO · VIEW)로 읽음(에뮬에 구글 계정이 없어 Gmail 은 첫 실행 화면만 띄운다)')
+    return check.result('링크를 누르면 문의하기 화면이 열림(화면은 앱이 확인) — 메일 앱 Intent 는 더 이상 기대하지 않는다')
 
 
 def p_set_53(run, phone):
-    """메일 앱이 하나도 없는 기기에서 문의 메일 줄을 누르면 앱 안에 "알 수 없는 오류가 발생했습니다" 안내가 뜨고 약 3초 뒤 사라진다(화면은 앱이).
-    메일 앱을 끄는 것은 에뮬에서만, 끝나면(실패해도) 되켠다."""
+    """메일 앱이 하나도 없는 기기(에뮬에서 PC 가 끔)에서도 같은 "문의하기" 링크가 문의하기 화면을 연다 — 메일 앱에 기대지 않는다.
+    메일 앱을 끄는 것은 에뮬에서만, 끝나면(실패해도) 되켠다. (예전에는 앱 안에 "알 수 없는 오류" 안내가 3초 떴다.)"""
     serial = _emulator(phone)
     check = Check()
     account = area2._home(run)

@@ -7,7 +7,8 @@ part of 'area4.dart';
 const _faqHint = '궁금한 내용을 검색해 보세요';
 const _inviteDescription = '친구가 가입할 때 이 코드를 넣으면 친구는 하트 50개, 나는 25개를 받아요.';
 const _copied = '코드를 복사했어요';
-const _faqMail = 'appmailerl4538@gmail.com';
+// 검색 결과 없음 화면의 링크 글자(11-10 사용자 결정: 메일 주소 대신 "문의하기") — 누르면 문의하기 화면이 열린다.
+const _faqInquiryLink = '문의하기';
 // 소셜 로그인 뒤 로그아웃 시트 문구(core/auth/confirm_sign_out.dart, 2026-10-13 공급자 나열을 뺌).
 const _logoutDescription = '다시 로그인하려면 처음 화면에서 쓰던 소셜 계정으로 로그인해 주세요.';
 const _withdrawnToast = '탈퇴한 계정이에요';
@@ -241,7 +242,7 @@ final Map<String, Area1Case> _set2Cases = {
     await pumpUntil(tester, find.byKey(const ValueKey('faq-list')));
     await _search(tester, job['needle'] as String);
     await pumpUntil(tester, find.text('찾는 질문이 없어요'), timeout: const Duration(seconds: 5));
-    for (final text in ['다른 말로 검색하거나', _faqMail, '으로', '물어봐 주세요']) {
+    for (final text in ['다른 말로 검색하거나', _faqInquiryLink, '로', '물어봐 주세요']) {
       must(find.text(text).evaluate().isNotEmpty, '빈 화면에 "$text" 가 없음');
     }
     return null;
