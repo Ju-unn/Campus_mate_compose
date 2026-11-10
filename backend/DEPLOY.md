@@ -80,7 +80,7 @@ gcloud run deploy campus-mate-backend \
 셋 중 하나라도 비면 그 단계만 건너뛴다(경고 없이, 서버 시작은 막지 않는다). 앱이 탈퇴 본문에 `apple_authorization_code` 를 실어 보낸 애플 사용자만 철회한다 — 코드를 애플 `/auth/token` 으로 refresh_token 과 바꾼 뒤 `/auth/revoke` 로 바로 철회하고, 토큰은 저장하지 않는다. client_id 는 번들 ID(`io.github.juunn.campusmate`)다. 값은 이 문서에 적지 않는다.
 
 **설정 개수와 전체 `--set-*` 명령 주의.** 위 전체 명령은 최초 배포용이라 지금 서비스 설정과 같지 않다(그대로 다시 돌리지 않는다). 이 명령에는 `APPLE_TEAM_ID` · `APPLE_KEY_ID`(env)와 `APPLE_PRIVATE_KEY=apple-sign-in-private-key:latest`(시크릿), 아이폰 하트 구매용 `APPLE_IAP_KEY_ID` · `APPLE_IAP_ISSUER_ID`(env)와 `APPLE_IAP_PRIVATE_KEY=apple-iap-private-key:latest`(시크릿, §4-10), 홈 리뷰 띠용 `STORE_RATING` · `STORE_RATING_COUNT`(§4-13), 관리자 웹용 `ADMIN_ALLOWED_ORIGINS` · `ADMIN_BASE_URL` · `ADMIN_MFA_MAX_AGE_HOURS`(§4-14), 졸업생 스위치 `GRADUATE_VERIFICATION_ENABLED`(§4-14), `MIN_APP_VERSION`(아래)이 빠져 있다. `--set-env-vars` · `--set-secrets` 는 **목록 전체를 갈아끼우므로** 서비스에 들어 있는 이 값들이 지워진다(애플 값이 비면 탈퇴 때 애플 토큰 철회가 조용히 건너뛰어진다). 배포는 아래 "현행 배포 방식"으로 하고, 새 값은 `--update-env-vars` · `--update-secrets` 로 **더한다.**
-코드로 센 설정은 `Settings` 27개(env 16 · 시크릿 11) + 별도 클래스 `AdminWebSettings` 의 `ADMIN_ALLOWED_ORIGINS` 1개 = 28개다(`ADMIN_MFA_MAX_AGE_HOURS`(기본 12, 관리자 2단계 인증 나이 상한) · `MIN_APP_VERSION`(기본 빈 글자)이 `Settings` 에 있다). 운영 서비스는 env 27개(그중 시크릿 11)다 — `ADMIN_MFA_MAX_AGE_HOURS`(운영에 넣지 않은 것으로 추정, §4-14) · `MIN_APP_VERSION`(아직 안 넣었다)이 없고, `settings.py` 밖의 `GRADUATE_VERIFICATION_ENABLED` 가 있어 27개다. `MIN_APP_VERSION` 을 넣으면 28개가 된다. 이 개수를 지키는 시험은 없다(`backend/tests/test_deploy_docs.py` 는 아래 `MIN_APP_VERSION` 문단의 "두 스토어" · "공개" 만 본다). 애플 키 6개는 운영 서비스에 모두 연결돼 있다(대장 전달 값).
+코드로 센 설정은 `Settings` 27개(env 16 · 시크릿 11) + 별도 클래스 `AdminWebSettings` 의 `ADMIN_ALLOWED_ORIGINS` 1개 = 28개다(`ADMIN_MFA_MAX_AGE_HOURS`(기본 12, 관리자 2단계 인증 나이 상한) · `MIN_APP_VERSION`(기본 빈 글자)이 `Settings` 에 있다). 운영 서비스는 env 27개(그중 시크릿 11)다 — `ADMIN_MFA_MAX_AGE_HOURS`(운영에 넣지 않은 것으로 추정, §4-14) · `MIN_APP_VERSION`(아직 안 넣었다)이 없고, `settings.py` 밖의 `GRADUATE_VERIFICATION_ENABLED` 가 있어 27개다. `MIN_APP_VERSION` 을 넣으면 28개가 된다. 이 개수를 지키는 시험은 없다(`backend/tests/test_deploy_docs.py` 는 아래 `MIN_APP_VERSION` 문단의 "두 스토어" · "공개" 만 본다). 애플 키 6개는 운영 서비스에 모두 연결돼 있다(대장 전달 값). **2026-11-11 코드 기준(운영 미배포): `Settings` 37개(env 22 · 시크릿 15) + `AdminWebSettings` 1개 = 38개다** — 11-08 회의 묶음이 env 6개(`HOME_STATS_MIN_SIGNUPS` · `INQUIRY_NOTIFY_TO` · `INQUIRY_SMTP_USER` · `SMS_PROVIDER` · `SMS_DAILY_GLOBAL_LIMIT` · `PHONE_VERIFICATION_REQUIRED`)와 시크릿 4개(`INQUIRY_SMTP_PASSWORD` · `SOLAPI_API_KEY` · `SOLAPI_API_SECRET` · `SOLAPI_SENDER`)를 더했다(§4-25). 운영 서비스는 이 값을 넣기 전까지 위 27개 그대로다.
 
 **현행 배포 방식(2026-10-13 ~ 14 배포 기준, 대장 전달 값)** — 설정을 바꾸지 않는 코드 배포는 env · 시크릿 목록을 넘기지 않는다. 그러면 새 리비전이 **직전 리비전의 env · 시크릿을 그대로 이어받는다**:
 
@@ -440,7 +440,7 @@ gcloud scheduler jobs create http campus-mate-cleanup \
   - ① 의 버킷은 **4개**다 — `avatars` · `profile-photos` · `student-id-temp` · `heart-task-proofs`(`app/account/batch_router.py` `STORAGE_BUCKETS`). **⑤ 검수 끝나고 60일 지난 무료 하트 인증샷**을 하루 100장씩 지운다(파일 먼저, 경로 비우기는 나중 — `app/heart_tasks/cleanup.py`). `heart-task-proofs` 버킷이 운영에 없으면 ① 이 그 버킷에서 막혀 탈퇴 계정이 전부 `skipped` 가 된다 — 무료 하트 마이그레이션(§4-5)이 먼저다.
   - ② 는 `resolved_at` 기준이다(열린 신고는 남는다).
   - **⑥ 글 속 취향 나누기가 실패해 단어 칸이 null 인 사람의 4칸을 다시 만든다**(하루 최대 20명 · 150초 예산, `app/matching/vectors.py` `refill_taste`). ⑤ 뒤에 돌고 07:00 카드 배치보다 먼저 메운다. 자세한 내용은 §4-19.
-- 결과는 `{"deleted_accounts", "skipped_accounts", "deleted_reports", "deleted_signup_blocks", "stale_key_rows", "deleted_heart_proofs", "refilled_taste"}` 모양이다(`deleted_heart_proofs` = ⑤, `refilled_taste` = ⑥ 에서 다시 만들려고 **시도한** 사람 수 — 실패한 사람도 센다).
+- 결과는 `{"deleted_accounts", "skipped_accounts", "deleted_reports", "deleted_signup_blocks", "stale_key_rows", "deleted_heart_proofs", "refilled_taste"}` 모양이다(`deleted_heart_proofs` = ⑤, `refilled_taste` = ⑥ 에서 다시 만들려고 **시도한** 사람 수 — 실패한 사람도 센다). **2026-11-11 코드(운영 미배포)부터 응답에 `deleted_inquiries`(답변 완료 1년 지난 문의 — 답을 안 한 문의는 남는다)와 `deleted_phone_verifications`(보낸 지 30일 지난 문자 인증 줄) 두 키가 더해진다** — 두 단계는 DB 표가 아직 없어도 다른 정리가 멈추지 않게 따로 감싸 실패하면 0 으로 두고 경고만 남긴다(§4-25).
   `skipped_accounts` 는 파일 삭제가 실패해 **내일 다시** 할 사람이다. 며칠째 같은 수면 로그의 `탈퇴 계정 정리 건너뜀` 을 본다.
   `stale_key_rows` 가 0 이 아니면 `identity-hmac-key` 를 바꾼 뒤 옛 행이 남은 것이다(`app/signup_policy.py` 의 `IDENTITY_KEY_VERSION`).
 - 확인: `gcloud scheduler jobs run campus-mate-cleanup --location=asia-northeast3` 뒤 §4-3 의 `logging read` 로 `/batch/cleanup` 200 을 본다. 다시 돌려도 안전하다(두 번째는 전부 0).
@@ -749,7 +749,7 @@ gcloud run services update campus-mate-backend --project=<PROJECT_ID> --region=a
 | 에브리타임 홍보 | **40하트** · 월 1회 | 서버 `REWARD_HEARTS["everytime_post"]` — 제출할 때 금액을 행에 적고, 승인 트리거가 그 금액을 준다(이미 낸 제출은 적힌 금액으로 승인) |
 | 단톡방 공유 | **25하트**(그대로) · 월 3회 | 서버 `REWARD_HEARTS["kakao_share"]`. 앱 18b 캡션은 "3명 이상이 있는 단톡방에 …" |
 | 커뮤니티 투표 | **하루 첫 투표 5하트** · **주 최대 15**(한국 시간 월요일 0시 기준) | 지급은 DB `cast_poll_vote` · `poll_vote_reward_due`(마이그레이션 `20261016144525`). 서버 `POLL_VOTE_REWARD` 5 는 18a 표시용이다 |
-| 친구 코드(추천) | **양쪽 50하트**(그대로) | DB `redeem_referral` |
+| 친구 코드(추천) | **양쪽 50하트**(그대로) → **2026-11-10 개정: 새 사람 50 · 코드 주인 25**(DB `20261110120000`, 운영 미적용, §4-25) | DB `redeem_referral` |
 
 - **DB 마이그레이션 2개**: `20261016144525_poll_vote_reward_5_cap_15`(두 함수 안 숫자만 바꾸는 `create or replace` — 이름 · 인자 · 반환형 · 권한 그대로) · `20261016144530_faq_free_heart_amounts`(FAQ "하트를 무료로 얻는 방법이 있나요?" 답의 숫자와 "학교 단톡방" → "단톡방", `update … replace` 라 두 번 돌려도 같다)
 - **운영 적용**: 두 파일 모두 운영에 적용됐다(2026-10-16, 사용자 승인 문장 뒤 `apply_migration`). 투표 함수 파일 머리말의 "초안 — 아직 어디에도 적용하지 않았다" 와 FAQ 파일 머리말의 적용 날짜는 쓸 때의 문장이다 — SQL 파일은 고치지 않는다(`docs/SUPABASE.md` §1). FAQ 는 운영 실제 문구 "하루 첫 투표에 10하트" 까지 바꾸게 고친 SQL 그대로다(PR #573).
@@ -1123,17 +1123,107 @@ DB 변경 없음, 새 시크릿 · job 없음, 앱 변경 없음. `settings.py` 
 **확인 못 한 것**: 규칙을 켠 뒤 실제로 지워진 이미지의 개수 · 용량과 남은 15개의 목록은 전달받지 못했다. 업로드 버킷의 첫 자동 삭제는 규칙이 켜진 날(2026-11-04)로부터 30일 이후에 눈에 보인다.
 
 
-## 5. 현재 배포 상태 (2026-11-09 기준)
+## 4-25. 2026-11-10 ~ 11 회의 할 일 서버 묶음 — 문의하기 · O/X 댓글 · 휴대폰 문자 인증 · 친구 초대 50/25 · 홈 숫자 기준 (서버 PR #686 ~ #689 · #694) — **#686(홈 숫자 기준)만 운영 배포됨(`00102-46b`), 나머지는 main 에 merge, 운영 DB 미적용 · 서버 미배포(사용자 승인 대기)**
+
+사용자 결정은 11-08 회의 "준석 할 일" 1·2·3·4·5·6·9·10 번과 11-10 ~ 11 에 받은 선택이다(원문은 `docs/decisions/2026-11-11-meeting1-decisions.md`). 운영 서버는 `00102-46b`(§5)인데, 이 리비전이 올린 것은 #686(홈 숫자 기준 미만 숨김)과 서버 글자 고침 #683 · 자기소개 프롬프트의 "졸업생" 뿐이다(서버 배포 ①, 사용자 승인 뒤). **그래서 이 절의 나머지(문의 · 댓글 · 문자 인증 · 친구 초대 50/25)는 운영에 없다.** 새 앱(문의하기 #691 · 댓글 #693)을 두 스토어에 내기 전에 이 절의 순서로 서버를 먼저 올려야 한다 — 새 앱은 서버에 이 경로가 없으면 문의 · 댓글이 실패한다.
+
+| PR | 내용 | 마이그레이션 |
+| --- | --- | --- |
+| #686 | 홈 숫자 기준 미만 숨김(`HOME_STATS_MIN_SIGNUPS`) — **운영 배포됨(`00102-46b`)** | 없음 |
+| #688 | 친구 초대 보상 새 사람 50 · 코드 주인 25하트 | `20261110120000_referral_referrer_25` |
+| #687 | 문의하기 접수 · 운영 메일 알림 · 관리자 문의 API · 1년 정리 | `20261110200000_create_inquiries` |
+| #689 | O/X 글 댓글 · 신고 대상 `poll_comment` · 글쓴이 푸시 · 관리자 가림 | `20261111000000_report_target_poll_comment` · `20261111000100_create_poll_comments` · `20261111000200_poll_comment_functions` |
+| #694 | 휴대폰 문자 인증 서버(문자 발송기 · 보내기 · 확인 · 기본 정보 저장 연결 · 30일 정리) | `20261111010000_create_phone_verifications` |
+
+앱 쪽은 #691(문의하기 화면) · #693(댓글 화면 · 알림 설정 칸) 이 merge 됐고 화면 규칙은 `frontend/docs/DESIGN.md` §9 · §8.11 에 있다. 휴대폰 인증 앱 화면(PR #696, 기본 정보 04-1)도 merge 됐다 — 앱 쪽 내용은 아래 "휴대폰 인증 앱 쪽"에 있다. 관리자 웹 PR #690(문의 목록) · #692(댓글 신고 가림)은 draft 이고 서버 배포 때 같이 merge 한다.
+
+**마이그레이션 6개는 모두 운영 미적용이다**(저장소 109개 중 운영 103개, `docs/ERD.md` 상태줄). 순서는 파일 이름 순이다. 전부 **뒤 호환**이다 — 옛 서버(`00101`)는 새 표 · 칸을 부르지 않고, 바뀐 함수(`poll_feed` 의 칸 추가, `set_phone_number` 의 인증 표시, `redeem_referral` 의 금액)는 옛 서버가 고르는 칸 · 인자 그대로 돈다. 거꾸로 **새 서버를 DB 보다 먼저 올리면** 문의 · 댓글 · 번호 인증 경로가 500 이다(정리 배치의 두 단계와 기본 정보 저장의 인증 연결만 실패해도 멈추지 않게 감싸 두었다).
+
+### 새 경로
+
+| 경로 | 인증 | 동작 |
+| --- | --- | --- |
+| `POST /inquiries` | 로그인만(`get_caller` — 정지된 사람 · 학교 메일/학과 입력 전 사람도 보낼 수 있다. 탈퇴 계정은 401) | 본문 `reason`(`account` `payment` `matching` `safety` `bug` `other`) · `body`(앞뒤 공백을 자르고 1~1000자) · `reply_email`(공백 · 쉼표 · 꺾쇠 · 비ASCII 불가, 254자 이하). 201 `{ok, id}`. **하루(한국 시간 0시부터) 5건**을 넘으면 429 "오늘은 더 문의할 수 없어요". 저장이 먼저고 운영 메일은 덤이다 — 메일이 실패 · 15초 넘김이어도 201. 로그에는 문의 번호만 남긴다 |
+| `GET /admin/inquiries` · `PATCH /admin/inquiries/{id}` | 관리자(§4-14 관문) | 목록은 최근 순 · 상태 필터 · 커서(`before` + `before_id`), 기본 50 최대 100. 수정은 `status`(`new` `in_progress` `answered`) · `admin_memo`(1000자) — `answered` 가 되면 `answered_at` 을 찍는다(1년 보관의 기준). 기록(`admin_actions` `inquiry_update`)을 먼저 남기고 실패하면 바꾸지 않는다. 기록에는 상태만 있고 메모 글은 없다 |
+| `GET /community/polls/{poll_id}/comments` | 학교 메일 확인 · 학과 입력까지 마친 사람(`get_verified_caller`) | 오래된 순 10개 + `has_more`. 더 보려면 마지막 댓글의 `created_at` · `id` 를 `after` · `after_id` 로 같이 보낸다(하나만 오면 422). 가려진 글 · 떠난 사람의 글은 404. **작성자 id 는 어떤 응답에도 없다** — 칸은 `id` `body` `created_at` `alias_no` `is_post_author` `is_mine` `can_delete` 뿐이다 |
+| `POST /community/polls/{poll_id}/comments` | 위와 같음 | 본문 1~200자(앞뒤 공백 자름). 201 로 새 댓글 한 줄. 처음 쓰는 사람은 그 글 안의 다음 번호(익명1 · 익명2 …)를 받고, **글쓴이는 번호가 없다**(`alias_no` null, `is_post_author` true). **한국 시간 하루 50개** 초과 429 "오늘은 댓글을 더 달 수 없어요". 없는 글 · 가려진 글 · 떠난 사람의 글은 404 |
+| `DELETE /community/comments/{comment_id}` | 위와 같음 | 내 댓글이거나 내 글에 달린 댓글이면 행을 지운다(204). 남의 댓글이든 없는 댓글이든 같은 404 "댓글을 찾을 수 없어요"(남의 id 인지 새지 않게) |
+| `POST /reports`(`target_type=poll_comment`) | 학교 메일 확인 · 학과 입력까지 마친 사람 | 화면 목록에 보이는 **남의** 댓글만 신고된다 — 없는 댓글 · 가려진 댓글 · 작성자 또는 글쓴이가 active 가 아닌 경우 · 가려진 글 · 내 댓글은 모두 같은 404. 신고해도 차단하지 않는다(익명이라 매칭 상대가 아니다). 신고에 댓글 본문이 스냅샷으로 남는다 |
+| `POST /admin/content/poll-comments/{id}/blind` · `unblind` | 관리자 | 댓글 가림 / 해제(`content_status`). 신고 목록 미리보기는 질문 대신 댓글 본문 앞 부분이다 |
+| `POST /phone-verification/send` | 학교 메일 확인 · 학과 입력까지 마친 사람(`get_verified_caller`) | 본문 `phone_number`. 010 번호만(해외 번호로 비싼 문자를 보내게 하는 공격 방지, 가짜 번호 규칙도 같이). 200 `{resend_after_seconds, expires_in_seconds, already_sent}`. 400 `phone_number_invalid` · 409 `phone_number_in_use`(다른 활동 계정이 문자로 인증해 저장한 번호) · 429 `phone_verification_rate_limited`(+ `retry_after_seconds`, `Retry-After` 헤더) · 503 `sms_unavailable` |
+| `POST /phone-verification/verify` | 위와 같음 | 본문 `phone_number` · `code`(숫자 6자리). 200 `{verified: true}`. 400 `phone_code_mismatch`(+ `remaining_attempts`) · `phone_code_expired` · `phone_code_locked` |
+
+**인증번호 규칙**(DB 함수 `issue_phone_verification` · `attempt_phone_verification` 이 한 잠금으로 줄 세워 판정한다 — 서버가 여러 대로 늘어도 한도가 느슨해지지 않는다): 6자리 난수(`secrets`), 유효 **3분**, 확인 시도 **5번**(넘으면 잠김, 새로 받아야 한다), 새로 보내면 옛 번호는 못 쓴다. 한도는 같은 번호 **1분에 1번 · 하루 5번**, 한 계정 **하루 10번**, 전체 **하루 `SMS_DAILY_GLOBAL_LIMIT`(기본 300)번**(한국 시간 0시부터). 같은 계정이 1분 안에 다시 누르면 문자 없이 `already_sent` + 남은 초를 돌려준다. 다른 계정이 인증한 번호면 문자를 보내지 않고 시도만 남긴다(계정 하루 한도에는 센다). 인증번호는 원문을 저장하지 않고 신원 키(`identity-hmac-key`)의 HMAC 으로만 두며 비교는 `hmac.compare_digest` 다. 문자 본문은 인증번호 한 줄뿐이다(홍보 문구를 섞으면 광고 문자가 된다). 하루 전체 한도의 마지막 한 통을 보낸 요청이 디스코드(`discord-review-webhook-url`)로 한 번 알린다 — 번호 · 인증번호 · 계정은 싣지 않는다. 문자 발송이 실패하면 그 줄을 지워 사용자의 한도를 먹지 않게 하고 503 을 준다.
+
+**기본 정보 저장(`POST /profile-onboarding/basic-info`)과의 연결**: 맞힌 인증은 **30분 안에 한 번**만 번호 저장에 쓰인다. `PHONE_VERIFICATION_REQUIRED=true` 면 인증한 번호만 받는다(422 `phone_not_verified`, 다른 활동 계정이 인증한 번호면 409 `phone_number_in_use`) — 이 검사는 프로필 칸을 고치기 전에 먼저 본다. **기본값 false(꺼짐)** 일 때는 이 계정 · 이 번호로 쓸 수 있는 인증이 있으면 인증한 번호로 저장해 `phone_verified_at` 표시를 달고, 없으면 지금까지처럼 인증 없이 저장한다(인증 줄을 만들지 않는 옛 앱이 그대로 가입한다). 인증 조회가 실패해도(서버가 DB 보다 먼저 나간 경우 등) 옛 길로 저장해 가입을 멈추지 않는다. 번호가 바뀌면 `phone_verified_at` 을 지운다.
+
+### 새 설정
+
+| 이름 | 종류 | 기본 | 뜻 |
+| --- | --- | --- | --- |
+| `SMS_PROVIDER` | env | `fake` | `solapi` 면 솔라피로 보낸다. 그 밖은 가짜 발송기인데 **로컬 스택(`SUPABASE_URL` 이 루프백)에서만** 만들어지고, 운영 주소면 발송기가 없어 503 이다 |
+| `SOLAPI_API_KEY` · `SOLAPI_API_SECRET` · `SOLAPI_SENDER` | 시크릿 | 빈 글자 | Secret Manager 이름 `solapi-api-key` · `solapi-api-secret` · `solapi-sender`(발신번호는 숫자만). 하나라도 비면 `solapi` 여도 보내지 않고 503 이다 |
+| `SMS_DAILY_GLOBAL_LIMIT` | env | `300` | 하루(한국 시간) 전체 발송 상한 — 요금 폭탄의 마지막 방어선. 솔라피 하루 한도(개인 50 · 사업자 1,000)보다 낮게 둔다. 정수만(빈 값은 서버가 안 뜬다) |
+| `PHONE_VERIFICATION_REQUIRED` | env | `false` | 위 "기본 정보 저장과의 연결". 새 앱이 두 스토어에 공개된 뒤에 켠다 |
+| `INQUIRY_SMTP_PASSWORD` | 시크릿 | 빈 글자 | Secret Manager 이름 `inquiry-smtp-password`(구글 계정의 앱 비밀번호). 비면 문의 알림 메일만 건너뛴다(문의 저장은 된다). 지메일 SSL 465 로 보낸다(표준 `smtplib`, 새 의존성 없음) |
+| `INQUIRY_NOTIFY_TO` · `INQUIRY_SMTP_USER` | env | 운영 메일 | 받는 곳 · 보내는 계정. 기본값이 코드에 있어 보통 넣지 않는다(주소는 이 문서에 적지 않는다). 받은 메일의 "답장" 이 사용자 `reply_email` 로 가도록 `Reply-To` 를 붙인다 |
+| `HOME_STATS_MIN_SIGNUPS` | env | `300` | `GET /home/summary` 가 **가입 수(active)가 이보다 적으면 전달된 카드 · 가입 수 · 시작된 대화 세 숫자를 모두 0 으로 내린다.** DB 값은 그대로다. 앱은 0 인 칸을 숨기고 셋 다 0 이면 줄 전체를 숨긴다. **가입자가 300명 미만인 동안 홈 숫자 줄이 사라진다.** 기본값 300 은 11-10 회의 할 일 계획에서 대장이 정했고 사용자가 그 계획을 승인한 상태로 **`00102-46b` 에 이미 배포됐다**(env 를 따로 넣지 않아 코드 기본값이 운영 값이다). 되돌릴 리비전은 `00101-bc9` |
+
+`backend/.env.example` 에 위 이름이 값 없이 들어 있다(공개 저장소 — 값은 적지 않는다). 새 시크릿 읽기 권한은 §1 에서 서비스 계정에 프로젝트 단위로 준 `roles/secretmanager.secretAccessor` 로 된다(이름만 새로 만들면 된다).
+
+### 솔라피 고정 나가는 IP
+
+솔라피 API 키는 **허용 IP** 에서 온 요청만 받는다. Cloud Run 의 기본 나가는 IP 는 요청마다 바뀌는 구글 대역이라(일회성 발송 시험이 "허용되지 않은 IP" 403 으로 막혔다) 고정 IP 를 만들어 서버를 거기에 묶는다. 아래는 모두 **운영 프로젝트에 만들어 둔 것**이고 서버는 아직 연결하지 않았다(IP 숫자는 이 문서에 적지 않는다 — 콘솔 · `gcloud compute addresses describe` 로 본다).
+
+| 항목 | 이름 |
+| --- | --- |
+| 고정 IP(외부 주소) | `campusmate-egress-ip` |
+| Cloud Router | `campusmate-egress-router` |
+| Cloud NAT | `campusmate-egress-nat` (서울 `default` 서브넷의 나가는 길을 위 IP 하나로) |
+| 네트워크 / 서브넷 | `default` / `default`(`asia-northeast3`) |
+
+서버를 이 길에 묶는 배포 플래그는 `--network=default --subnet=default --vpc-egress=all-traffic` 이다. 솔라피 화면에서 API 키의 허용 대상에 이 고정 IP 를 등록하는 것은 사용자가 한다. **`all-traffic` 은 서버가 밖으로 부르는 모든 요청(Supabase · OpenAI · FCM · 애플 · 구글 API · 지메일 SMTP)을 NAT 로 보낸다** — 문자뿐 아니라 모든 호출이 이 길을 지나므로 0% 새 판 시험에서 문자 말고도 카드 · 채팅 · 푸시 · 아바타가 도는지 본다(Private Google Access 설정 여부는 확인하지 못했다). 달마다 드는 고정 IP · NAT 비용은 노션 비용 문서에 있다.
+
+### 배포 순서 (사용자 승인을 그때그때 받는다)
+
+1. **DB 6개 적용**(뒤 호환, 위). 클라우드 쓰기라 사용자 원문 승인 뒤 MCP `apply_migration` 으로 파일 내용 그대로(`docs/SUPABASE.md` §4). 함수가 새로 생기거나 바뀌었으니 필요하면 `NOTIFY pgrst, 'reload schema';`.
+2. **0% 새 판 시험.** 새 리비전을 트래픽 0% 로 올리고(`--no-traffic` + 시험용 태그 주소) 위 고정 IP 플래그와 새 env · 시크릿을 `--update-env-vars` · `--update-secrets` 로 **더한다**(`--set-*` 금지, §2). 새 판에서 본다: `/health` · 문의 한 건(운영 메일이 오는지) · 댓글 쓰기 · 목록 · 삭제 · **문자 한 통(받는 번호는 사용자 시험 번호 하나뿐 — 아무 번호로 보내지 않는다)** · 위 NAT 점검 · 새 리비전 ERROR 로그. 솔라피로 보내는 요청의 `Date` 를 "…Z" 로 만드는데 실제 발송에서 거절되는지는 처음 운영 발송에서 확인한다.
+3. **100%.** 시험이 끝나면 새 리비전으로 트래픽을 옮긴다. 이때 `PHONE_VERIFICATION_REQUIRED` 는 꺼진 채다.
+4. **앱 빌드 · 제출.** 새 앱은 **서버 플래그와 상관없이 번호 인증이 필수**다(앱 [다음] 은 인증된 번호일 때만 켜지고 인증 경로는 `/phone-verification/*` 하나뿐이다). 그래서 앱보다 서버(솔라피 설정)를 먼저 올려야 한다 — 서버에 인증 경로가 없으면 새 앱의 가입이 04-1 에서 멈춘다.
+5. **새 앱이 두 스토어에 공개된 뒤에만** `PHONE_VERIFICATION_REQUIRED=true` 를 켜고, **같은 때 `MIN_APP_VERSION` 을 휴대폰 인증을 넣은 앱 버전으로 올린다**(§2 · §4-20). 공개 전에 켜면 인증하지 못하는 옛 앱의 가입이 전부 422 로 막힌다.
+
+### 휴대폰 인증 앱 쪽 (앱 PR #696, 2026-11-11 merge)
+
+- **화면**: 기본 정보(04-1)의 번호 줄 아래에 "인증번호 받기" → 인증번호 줄(6자리 · 남은 시간 · 다시 받기) → "인증됐어요" / "번호 바꾸기". 규칙과 오류 문구는 `frontend/docs/DESIGN.md` §9 04-1. **[다음] 은 인증된 번호일 때만 켜진다.**
+- **서버 플래그와 무관**: 새 앱은 `PHONE_VERIFICATION_REQUIRED` 가 꺼져 있어도 인증을 거친다. 그래서 **앱보다 서버(솔라피 설정 · 고정 나가는 IP)를 먼저 배포한다.** 서버 플래그를 켜는 것은 옛 앱(인증 줄을 만들지 않는)이 더는 없을 때다.
+- **쓰는 경로와 응답**: `POST /phone-verification/send` 의 200(`resend_after_seconds` · `expires_in_seconds` · `already_sent`) · 400 `phone_number_invalid` · 409 `phone_number_in_use` · 429(`retry_after_seconds`) · 503 `sms_unavailable`, `POST /phone-verification/verify` 의 400 `phone_code_mismatch`(`remaining_attempts`) · `phone_code_expired` · `phone_code_locked`, 기본 정보 저장의 422 `phone_not_verified` · 409 `phone_number_in_use`. 앱은 code 로 가르고 글자는 앱이 정한다.
+- **분석**: `ApiRoutePattern.routeWords` 에 `phone-verification` · `send` 낱말이 더해졌다(5xx · 연결 실패 기록의 경로 패턴).
+- **기기 E2E 7건이 막혀 있다**: E-ONB-05 · 06 · 07 · 10 · 11 · 16 · 17 은 04-1 [다음] 이 인증된 번호에서만 켜지는데 하네스가 인증번호를 앱에 건넬 길이 없고, 운영 서버에서 무작위 번호로 받기를 누르면 남의 폰에 문자가 가서 `E2eBlocked` 로 판정하지 않는다. **다음 PR 에서 로컬 가짜 문자로 되살린다**(받는 번호는 사용자 시험 번호 하나뿐). E-ONB-12 · 13 은 인증번호 받기도 꺼져 있는지 함께 본다.
+
+**롤백**: 새 리비전 → `00102-46b` 로 트래픽을 돌리면 네트워크(고정 IP) 설정도 그 리비전 것으로 돌아온다. DB 는 추가뿐이라 되돌리지 않는다(지우려면 서버를 먼저 되돌린 뒤 사용자 승인으로 — 새 표를 먼저 지우면 새 서버가 500 이다). 하한은 `00063` 아래 금지 + `00087` 이전 금지(§4-14), 이미지 하한은 §4-24. 새 서버가 알림함에 쌓은 `poll_comment` 줄을 옛 앱이 만났을 때의 모양은 확인하지 못했다.
+
+**배포 후 점검 목록 (다음 배포에도 같은 목록을 쓴다)**
+- `/health` ok · 새 리비전 ERROR 로그 0 · env 개수가 넣은 값만큼만 늘었는지(§2) · 빌드 로그 `inflating: /workspace/.venv` 0줄
+- `POST /batch/cleanup` 응답에 `deleted_inquiries` · `deleted_phone_verifications` 두 키(처음엔 0)
+- 문의 한 건이 운영 메일에 도착 · 댓글 푸시가 글쓴이에게 도착(같은 글 10분 묶음) · 관리자 웹 #690 · #692 가 새 경로를 부름
+
+**알려진 한계 · 확인 못 한 것**
+- 정지된 계정은 앱의 `AuthRedirect` 때문에 문의하기 화면에 들어가지 못한다(정지 안내 화면에는 메일 주소만 있다). 서버는 정지 계정의 문의도 받는다. 별건으로 사용자에게 물을 일이다.
+- 솔라피 발신번호는 지금 개인 번호 하나이고 모든 가입자에게 보인다. 통신사 번호도용 문자차단 서비스에 가입된 발신번호는 발송이 막힌다(상태 코드 3113) — 해지 뒤 수신 성공(4000)을 확인했다(대장 전달). 전용 번호로 바꾸면 `solapi-sender` 새 버전만 넣는다.
+- 솔라피 키 만료일과 사업자 인증 뒤 하루 한도(1,000)는 대장 전달 값이다. 이 문서 담당은 솔라피 · 클라우드를 조회하지 않았다.
+- 같은 글에 초당 여러 댓글이 달리면 댓글 푸시가 한 번 더 갈 수 있다(10분 묶음의 읽고 쓰는 사이 틈, 코드 주석 `shortcut`). 한 글의 댓글이 수천이 되면 `poll_feed` 의 댓글 수 세기를 집계 칸으로 바꾼다.
+
+## 5. 현재 배포 상태 (2026-11-11 기준)
 
 대장 전달 값이다 — 이 문서 담당이 클라우드를 조회하지 않았다. 리비전 · 마이그레이션 개수가 바뀌면 이 절 하나만 고친다.
 
 | 항목 | 값 |
 | --- | --- |
 | Cloud Run 서비스 | `campus-mate-backend` (asia-northeast3) |
-| 돌고 있는 리비전 | **`campus-mate-backend-00101-bc9`**(2026-11-04 배포, 트래픽 100%) — 서버 PR #653(§4-23)까지 들어 있다. 이 뒤 서버 코드 · 서버 배포는 없다(2026-11-09 대장 전달) |
-| 운영 마이그레이션 | **103개 = 저장소 103개**(마지막 `20261108090000_faq_graduate_certificate`, 2026-11-09 적용 — `docs/SUPABASE.md` §1 · `docs/ERD.md` 상태줄) |
+| 돌고 있는 리비전 | **`campus-mate-backend-00102-46b`**(2026-11-10 08:49 UTC 에 만들어짐, 트래픽 100%, 서버 배포 ①, 사용자 승인 뒤) — 서버 PR #653(§4-23)까지에 더해 **#686 홈 숫자 기준 미만 숨김 · #683 서버 글자 고침("잠시 후" · 푸시 제목 "학교 인증") · 자기소개 프롬프트의 "졸업생"** 이 들어 있다(2026-11-11 대장 전달). **그 뒤 main 에 들어간 서버 코드(문의 · 댓글 · 문자 인증 · 친구 초대 50/25, PR #687 ~ #689 · #694, §4-25)는 배포하지 않았다.** 바로 앞 리비전은 `00101-bc9` |
+| 운영 마이그레이션 | **103개 적용, 저장소는 109개 — 6개가 운영 미적용(사용자 승인 대기)**. 마지막 적용은 `20261108090000_faq_graduate_certificate`(2026-11-09). 미적용 6개는 `20261110120000` · `20261110200000` · `20261111000000` · `20261111000100` · `20261111000200` · `20261111010000`(§4-25 · `docs/SUPABASE.md` §1 · `docs/ERD.md` 상태줄) |
 | 되돌림 하한 | 기능상 `00063` 아래 금지(§4-4) + `00087` 이전 금지(§4-14). 이미지가 남은 가장 오래된 리비전은 **`00086`**(§4-24 — 배포가 늘수록 올라간다). 되돌리기 전에 그 리비전의 이미지가 창고에 남아 있는지 먼저 확인한다 |
-| 리비전별 되돌림 | `00101` → `00100`: 흡연 칸 감점 규칙만 빠진다(§4-23). `00100` → `00099`: 푸시 고치기 4건만(§4-22). `00099` → `00098`: 후보 1명 무료만(§4-21). `00098` → `00097`: `GET /app/version` 만 사라지고 앱은 막지 않는다(§4-20). `00097` → `00096`: 새벽 4시 취향 단어 다시 채우기(⑥)만(§4-19). `00096` → `00095`: 글 속 취향 부딪힘 감점만(§4-18). `00094` 아래: 첫 카드와 학번 숫자 규칙이 빠진다(§4-17) |
+| 리비전별 되돌림 | `00102` → `00101`: 홈 숫자 기준 미만 숨김 · 글자 고침 · 프롬프트 "졸업생" 만 빠진다(§4-25). `00101` → `00100`: 흡연 칸 감점 규칙만 빠진다(§4-23). `00100` → `00099`: 푸시 고치기 4건만(§4-22). `00099` → `00098`: 후보 1명 무료만(§4-21). `00098` → `00097`: `GET /app/version` 만 사라지고 앱은 막지 않는다(§4-20). `00097` → `00096`: 새벽 4시 취향 단어 다시 채우기(⑥)만(§4-19). `00096` → `00095`: 글 속 취향 부딪힘 감점만(§4-18). `00094` 아래: 첫 카드와 학번 숫자 규칙이 빠진다(§4-17) |
 | 설정 | 약관 동의 판 `2026-10-20` · 홈 리뷰 띠 숨김(`STORE_RATING_COUNT=0`) · 졸업생 스위치 켜짐 · 최대 인스턴스 20 · 로그 보관 30일 · env 27개(그중 시크릿 11, §2) |
 | Cloud Scheduler | 4개, 전부 OIDC(§4-3) — 카드 지급 `campus-mate-daily-cards` 매일 07:00 · 정리 `campus-mate-cleanup` 매일 04:00 · 채팅 확인 `campus-mate-chat-gate` 매시 정각 · 환불 확인(`/batch/billing-voided`) 매시 30분. 전부 Asia/Seoul · asia-northeast3 |
 | Cloud Tasks 큐 | `avatar-generate`(asia-northeast3) — 재시도 1회(실효상 끔), 동시 처리 5, 호출자 서비스 계정 `avatar-task-invoker`(§4-2) |
@@ -1149,3 +1239,4 @@ DB 변경 없음, 새 시크릿 · job 없음, 앱 변경 없음. `settings.py` 
 4. 후보 1명 무료 카드 · 흡연 칸 · 푸시 고치기의 운영 실제 결과는 전달받지 못했다(§4-21 · §4-23 · §4-22).
 5. 배포 창고 정리 규칙을 켠 뒤 실제 삭제 결과는 전달받지 못했다(§4-24).
 6. `MIN_APP_VERSION` 은 두 스토어에 고친 빌드가 공개된 뒤에만 올린다(§2).
+7. **11-08 회의 묶음의 나머지(문의 · 댓글 · 휴대폰 인증 · 친구 초대 50/25 — 홈 숫자 기준은 `00102-46b` 로 이미 배포됐다)는 DB 6개 · 서버 · 고정 나가는 IP · 관리자 웹 #690 · #692 가 모두 승인 대기다.** 순서와 점검은 §4-25. `PHONE_VERIFICATION_REQUIRED` 는 새 앱이 두 스토어에 공개된 뒤에 켜고 `MIN_APP_VERSION` 과 같이 올린다.

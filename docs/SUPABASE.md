@@ -7,7 +7,7 @@
 ## 1. 현재 상태
 
 - Supabase **MCP 플러그인(`supabase`)이 설치·인증돼 있다.** 클라우드 프로젝트는 `campus_mate`(조직 CampusMate, Seoul) 하나뿐이다.
-- 운영 적용 상태의 기준은 **`docs/ERD.md` 상태줄**이다: 저장소 `supabase/migrations/` 103개 = 운영 103개, 모두 적용(마지막 `20261108090000_faq_graduate_certificate`). 이 숫자는 대장 전달 값이라 확인은 MCP `list_migrations` 로 한다. 원격 버전은 파일 이름이 아니라 적용 시각이므로 대조는 `name` 으로 한다(§4).
+- 운영 적용 상태의 기준은 **`docs/ERD.md` 상태줄**이다: 저장소 `supabase/migrations/` 109개, 운영 103개 — **6개는 운영 미적용(사용자 승인 대기)**(운영의 마지막은 `20261108090000_faq_graduate_certificate`, 미적용은 `20261110120000` · `20261110200000` · `20261111000000` · `20261111000100` · `20261111000200` · `20261111010000` — 문의 · O/X 댓글 · 휴대폰 문자 인증 · 친구 초대 50/25, 목록과 표별 상태는 `docs/ERD.md` 상태줄 · `backend/DEPLOY.md` §4-25). 이 6개는 모두 뒤 호환이라 서버 배포보다 먼저 적용한다. 이 숫자는 대장 전달 값이라 확인은 MCP `list_migrations` 로 한다. 원격 버전은 파일 이름이 아니라 적용 시각이므로 대조는 `name` 으로 한다(§4).
 - 클라우드 쓰기(적용)는 항상 클라우드 프로젝트에 MCP `apply_migration` 으로만, 사용자 원문 승인을 인용한 뒤에 한다(§4). 적용은 **ERD 그림 → 사용자 검토 → 사용자 승인** 뒤에만 한다.
 - 로컬 스택(Docker)에서 `supabase db reset` · `supabase test db`(pgTAP)로 먼저 검증한다. 모든 작업 폴더가 같은 로컬 DB 를 쓰므로 한 번에 한 작업만 돌린다(`frontend/CLAUDE.md` §10 · `.claude/team/COMMON.md` §4).
 - 적용 순서가 서버 배포와 얽힌 기능의 순서는 `backend/DEPLOY.md` §4 가 기준이다(보통 DB → 서버 → 관리자 웹 → 앱).
