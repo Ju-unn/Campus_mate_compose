@@ -56,6 +56,7 @@ class ActionRow {
       'profile_private_view' => '전화·카톡 열람',
       'account_close' => '탈퇴 대행',
       'account_close_cleanup' => '탈퇴 뒤 정리',
+      'inquiry_update' => '문의 처리',
       _ => action,
     };
   }
@@ -73,6 +74,7 @@ class ActionRow {
       'profile' => '사용자',
       'poll' => '투표',
       'friend_review' => '리뷰',
+      'inquiry' => '문의',
       _ => type,
     };
     return '$kind ${id.length > 8 ? id.substring(0, 8) : id}…';
