@@ -56,6 +56,13 @@ void main() {
     (const AppErrorFailure(AppError.nicknameTaken), '이미 있는 닉네임이에요'),
     (const AppErrorFailure(AppError.heightRange), '120~230 사이로 입력해 주세요'),
     (const AppErrorFailure(AppError.phoneInvalid), '올바른 휴대폰 번호를 입력해 주세요'),
+    // 04-1 휴대폰 문자 인증 — pen 오류 줄 모음 xzT59 · 상태 화면 ④⑤ 글자 그대로.
+    (const AppErrorFailure(AppError.phoneInUse), '이미 다른 계정에서 쓰는 번호예요'),
+    (const AppErrorFailure(AppError.phoneDailyLimit), '오늘은 인증번호를 더 받을 수 없어요'),
+    (const AppErrorFailure(AppError.phoneNotMobile), '010으로 시작하는 휴대폰 번호만 쓸 수 있어요'),
+    (const AppErrorFailure(AppError.phoneCodeExpired), '시간이 지났어요. 인증번호를 다시 받아 주세요'),
+    (const AppErrorFailure(AppError.phoneCodeLocked), '5번 틀려서 인증번호를 새로 받아야 해요'),
+    (const PhoneCodeMismatchFailure(4), '인증번호가 맞지 않아요. (남은 기회 4번)'),
     (const BirthYearFailure(2007), '2007년생부터 가입할 수 있어요'),
     (const AppErrorFailure(AppError.saveFailed), '저장하지 못했어요. 잠시 후 다시 시도해 주세요'),
     (const AppErrorFailure(AppError.noFace), '얼굴이 보이는 사진을 골라 주세요'),

@@ -266,4 +266,45 @@ void main() {
       expect(find.bySemanticsLabel('저장'), findsOneWidget);
     });
   });
+
+  // 04-1 휴대폰 인증의 줄 안 버튼(pen Button `HE8FZ` 폭 fit — "인증번호 받기" 124×52 · "확인" 62×52, 안쪽 [0,16]).
+  // 보내는 중 ⑩ · 확인 중 ⑪ 은 #E5E5E5 채움 + 라벨 왼쪽 20 스피너(간격 8) + #929292 라벨이다.
+  group('AppButton 줄 안 버튼(isInline)', () {
+    Future<void> pumpInRow(WidgetTester tester, AppButton button) => tester.pumpWidget(
+          MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(body: Row(children: [const Expanded(child: SizedBox()), button])),
+          ),
+        );
+
+    testWidgets('폭은 라벨에 맞추고 양옆 16 · 높이 52 다 — 줄 안에 Expanded 없이 놓인다', (tester) async {
+      await pumpInRow(tester, AppButton(label: '확인', onPressed: () {}, isInline: true));
+
+      final button = tester.getRect(find.byType(AppButton));
+      final label = tester.getRect(find.text('확인'));
+      expect(button.height, 52);
+      expect(label.left - button.left, 16);
+      expect(button.right - label.right, 16);
+    });
+
+    testWidgets('보내는 중이면 #E5E5E5 위에 20 스피너가 라벨 왼쪽 8 에 서고 라벨은 #929292 로 남는다', (tester) async {
+      var tapped = false;
+      await pumpInRow(tester, AppButton(label: '보내는 중', onPressed: () => tapped = true, isLoading: true, isInline: true));
+
+      final spinner = find.descendant(of: find.byType(AppButton), matching: find.byType(CircularProgressIndicator));
+      expect(tester.getSize(spinner), const Size(20, 20));
+      expect(tester.widget<CircularProgressIndicator>(spinner).color, AppColors.disabled);
+      expect(tester.getTopLeft(find.text('보내는 중')).dx - tester.getTopRight(spinner).dx, 8);
+      final button = tester.getRect(find.byType(AppButton));
+      expect(tester.getTopLeft(spinner).dx - button.left, 16);
+      expect(button.right - tester.getTopRight(find.text('보내는 중')).dx, 16);
+      final style = tester.widget<ElevatedButton>(find.byType(ElevatedButton)).style!;
+      expect(style.backgroundColor?.resolve({WidgetState.disabled}), AppColors.primaryDisabled);
+      expect(style.foregroundColor?.resolve({WidgetState.disabled}), AppColors.disabled);
+
+      await tester.tap(find.byType(AppButton));
+      expect(tapped, isFalse);
+    });
+  });
 }

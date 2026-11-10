@@ -16,6 +16,7 @@ class AppButton extends StatelessWidget {
     this.height,
     this.isLoading = false,
     this.trailingIcon,
+    this.isInline = false,
     super.key,
   });
 
@@ -34,6 +35,11 @@ class AppButton extends StatelessWidget {
   /// 라벨 오른쪽 20×20 아이콘(간격 8). 결제 카드 안내 시트의 "알겠어요 →"(pen `yqPNS`)가 쓴다. 비워 두면 글자만이다.
   final IconData? trailingIcon;
 
+  /// 줄 안 버튼(04-1 휴대폰 인증 "인증번호 받기" · "확인", pen `HE8FZ` 폭 fit · 안쪽 [0,16]): 폭을 라벨에 맞춘다.
+  /// [isLoading] 이면 글자를 지우지 않고 꺼진 회색(#E5E5E5) 위에 20 스피너를 라벨 왼쪽(간격 8)에 두고 라벨을 disabled 색으로 남긴다
+  /// (pen 보내는 중 ⑩ · 확인 중 ⑪). 끄면(기본) 지금까지와 같다.
+  final bool isInline;
+
   bool get _isTextVariant => variant == AppButtonVariant.text;
 
   bool get _isNeutral => variant == AppButtonVariant.neutral;
@@ -50,7 +56,7 @@ class AppButton extends StatelessWidget {
       onPressed: isLoading ? null : onPressed,
       style: _styleFor(height ?? (_isTextVariant ? 48 : 52)),
       child: isLoading
-          ? _spinner()
+          ? (isInline ? _inlineLoading() : _spinner())
           : _content(),
     );
   }
@@ -67,6 +73,21 @@ class AppButton extends StatelessWidget {
     );
   }
 
+  /// 줄 안 버튼의 보내는 중 · 확인 중 — 스피너 20(선 2) → 8 → 라벨. 색은 꺼진 버튼의 글자색(disabled)이다.
+  Widget _inlineLoading() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox.square(
+          dimension: 20,
+          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.disabled),
+        ),
+        const SizedBox(width: 8),
+        Flexible(child: Text(label, style: AppTypography.button)),
+      ],
+    );
+  }
+
   /// 글자가 빠져도 낭독기에는 버튼 이름이 들리게 스피너에 이름을 단다.
   /// 선 두께 2 는 앱의 다른 작은 스피너(`LabeledField` 확인 중)와 같게 둔 것 — pen `sMuCd` 값이 오면 다시 맞춘다(대장 09-28).
   Widget _spinner() {
@@ -78,9 +99,10 @@ class AppButton extends StatelessWidget {
 
   ButtonStyle _styleFor(double height) {
     final base = ElevatedButton.styleFrom(
-      minimumSize: Size(double.infinity, height),
+      // 줄 안 버튼은 라벨 폭에 맞춘다 — 가로 최소를 무한으로 두면 Row 안에서 넓이를 정할 수 없다.
+      minimumSize: Size(isInline ? 0 : double.infinity, height),
       maximumSize: Size(double.infinity, height),
-      padding: EdgeInsets.zero,
+      padding: isInline ? const EdgeInsets.symmetric(horizontal: 16) : EdgeInsets.zero,
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_isNeutral ? AppRadius.sm : AppRadius.button)),
     );
@@ -93,7 +115,8 @@ class AppButton extends StatelessWidget {
 
   WidgetStateProperty<Color> _backgroundColor() {
     return WidgetStateProperty.resolveWith((states) {
-      if (isLoading) {
+      // 전체 폭 버튼은 흰 스피너가 보이게 평상시 채움을 둔다. 줄 안 버튼은 pen ⑩ ⑪ 대로 꺼진 회색이다.
+      if (isLoading && !isInline) {
         return _idleBackground();
       }
       if (states.contains(WidgetState.disabled)) {

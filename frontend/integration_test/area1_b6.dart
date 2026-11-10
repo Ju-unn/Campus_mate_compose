@@ -9,6 +9,7 @@ const _afterNext = Duration(seconds: 20);
 final Map<String, Area1Case> _b6Cases = {
   // 같은 닉네임을 채우고 멈춤 → PC 가 두 기기를 같이 보냄 → 다음 → 저장(04-1b) 아니면 거절(04-1 + 문구).
   'E-ONB-05': _session((tester, job) async {
+    _needsVerifiedPhone();
     await arrive(tester, '04-1');
     await _fillBasics(tester, nickname: job['nickname'] as String);
     await step('typed');

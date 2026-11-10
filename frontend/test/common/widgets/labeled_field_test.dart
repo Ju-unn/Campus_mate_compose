@@ -133,11 +133,10 @@ void main() {
     expect(tester.testTextInput.isVisible, isFalse);
   });
 
-  // 도움말 간격이 바뀐 출생연도·전화번호 칸(04-1 MLJum·EKXNe)과 06-2a 쓰는 도중 안내.
+  // 도움말 간격이 바뀐 출생연도 칸(04-1 MLJum)과 06-2a 쓰는 도중 안내. 전화번호 도움말은 04-1 에서 뺐다(11-11).
   for (final scale in [1.0, 1.3, 1.5, 2.0]) {
     for (final (name, helper, guide) in [
       ('출생연도 도움말', '숫자 4자리', null),
-      ('전화번호 도움말', '다른 사람이 나를 지인으로 등록했을 때만 사용돼요', null),
       ('쓰는 도중 안내', null, '10자 이상 입력해 주세요'),
     ]) {
       testWidgets('글자 배율 $scale 에서도 $name 글자가 잘리지 않는다', (tester) async {
