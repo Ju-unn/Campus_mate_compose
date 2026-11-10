@@ -32,6 +32,7 @@ COUNT_NOTE = '신고자 수는 디스코드 대신 DB 로 셈(열린 신고의 �
 # get_verified_caller(학교 메일 · 학과 · 정지 관문 — 학생증은 10-17 에 빠졌다)를 거치는 경로 전부 — test_area3_safe 가 서버 코드와 대조한다.
 VERIFIED_ROUTES = [
     'GET /profile-onboarding/nickname-availability', 'POST /profile-onboarding/basic-info',
+    'POST /phone-verification/send', 'POST /phone-verification/verify',
     'POST /profile-onboarding/kakao-id', 'POST /profile-onboarding/photos', 'DELETE /profile-onboarding/photos/{position}',
     'POST /profile-onboarding/avatar/generate', 'GET /profile-onboarding/avatar/status',
     'POST /profile-onboarding/appearance-type', 'POST /profile-onboarding/interests', 'POST /profile-onboarding/my-traits',
