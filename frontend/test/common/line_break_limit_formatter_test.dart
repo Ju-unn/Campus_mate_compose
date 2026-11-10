@@ -90,7 +90,7 @@ void main() {
     });
 
     test('줄 바꿈을 하나라도 늘리면(엔터 · 붙여넣기) 막는다', () {
-      final old = TextEditingValue(text: legacy, selection: const TextSelection.collapsed(offset: legacy.length));
+      const old = TextEditingValue(text: legacy, selection: TextSelection.collapsed(offset: legacy.length));
       expect(
         formatter.formatEditUpdate(old, const TextEditingValue(text: '$legacy\n', selection: TextSelection.collapsed(offset: 10))),
         old,

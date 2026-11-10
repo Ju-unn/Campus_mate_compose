@@ -90,9 +90,9 @@ class GoogleLoginGateway implements IdTokenGateway {
   }
 
   Future<LoginNonce> _initializeOnce() {
-    return _initialization ??= _initialize().catchError((Object error) {
+    return _initialization ??= _initialize().catchError((Object error, StackTrace stackTrace) {
       _initialization = null;
-      throw error;
+      Error.throwWithStackTrace(error, stackTrace);
     });
   }
 

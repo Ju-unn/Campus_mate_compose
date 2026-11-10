@@ -151,7 +151,7 @@ void main() {
       expect(tester.getRect(find.text('0 / 100')).bottom, box.bottom - 12);
       expect(tester.getRect(find.text(_placeholder)).topLeft - box.topLeft, const Offset(12, 12));
       final button = tester.getRect(submit());
-      expect(button, Rect.fromLTWH(16, 780 - 24 - 52, 328, 52));
+      expect(button, const Rect.fromLTWH(16, 780 - 24 - 52, 328, 52));
       final label = tester.widget<Text>(find.text('리뷰 남기기')).style!;
       expect((label.fontSize, label.fontWeight), (18, FontWeight.w700));
     });
@@ -460,7 +460,7 @@ void main() {
       expect(find.descendant(of: sheet(), matching: find.text('봄')), findsOneWidget);
       expect(find.descendant(of: sheet(), matching: find.text(AppLocalizationsKo().friendReviewRelation)), findsOneWidget);
       expect(repository.targetRequests, isEmpty);
-      expect(tester.getRect(submit()), Rect.fromLTWH(16, 780 - 24 - 52, 328, 52));
+      expect(tester.getRect(submit()), const Rect.fromLTWH(16, 780 - 24 - 52, 328, 52));
     });
 
     testWidgets('남기면 friend_code 로 보내고 "리뷰를 남겼어요" 토스트 뒤 닫힌다, 결과 true', (tester) async {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
 import 'package:campus_mate/core/back_exit/back_exit_view_model.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
@@ -185,7 +187,7 @@ void main() {
     testWidgets('시트가 열려 있으면 시트만 닫는다', (tester) async {
       await _pump(tester);
       final context = tester.element(find.text('최상위'));
-      showModalBottomSheet<void>(context: context, builder: (_) => const SizedBox(height: 100, child: Text('시트')));
+      unawaited(showModalBottomSheet<void>(context: context, builder: (_) => const SizedBox(height: 100, child: Text('시트'))));
       await tester.pumpAndSettle();
 
       await _back(tester);

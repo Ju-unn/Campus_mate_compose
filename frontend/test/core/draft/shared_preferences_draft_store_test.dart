@@ -305,7 +305,7 @@ void main() {
       writes.add(preferences.getString('onboarding_draft/account-a/ideal_note'));
 
       expect(writes.first, isNull, reason: '마지막 입력 뒤 500ms 가 지나기 전에는 디스크를 건드리지 않는다');
-      expect(jsonDecode(writes.last!)['data'], {'note': '가나다'});
+      expect((jsonDecode(writes.last!) as Map<String, dynamic>)['data'], {'note': '가나다'});
     });
 
     testWidgets('기다리는 동안에도 읽으면 마지막 값이 보인다', (tester) async {

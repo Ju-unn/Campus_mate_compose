@@ -29,7 +29,7 @@ class _FakeKakaoClient implements KakaoLoginClient {
     calls.add('logout');
     final error = logoutError;
     if (error != null) {
-      throw error;
+      Error.throwWithStackTrace(error, StackTrace.current);
     }
   }
 
@@ -45,7 +45,7 @@ class _FakeKakaoClient implements KakaoLoginClient {
     nonces.add(hashedNonce);
     final error = talkError;
     if (error != null) {
-      throw error;
+      Error.throwWithStackTrace(error, StackTrace.current);
     }
     return idToken;
   }
@@ -56,7 +56,7 @@ class _FakeKakaoClient implements KakaoLoginClient {
     nonces.add(hashedNonce);
     final error = accountError;
     if (error != null) {
-      throw error;
+      Error.throwWithStackTrace(error, StackTrace.current);
     }
     return idToken;
   }

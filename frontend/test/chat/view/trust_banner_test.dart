@@ -73,7 +73,7 @@ void main() {
     final iconWidget = tester.widget<Icon>(find.byIcon(AppIcons.shieldCheck));
     expect((iconWidget.size, iconWidget.color), (20, AppColors.primaryText));
     final titleRect = rectOf(tester, find.text(title), banner);
-    expect(titleRect.topLeft, Offset(16 + 20 + 10, 12));
+    expect(titleRect.topLeft, const Offset(16 + 20 + 10, 12));
     final captionRect = rectOf(tester, find.text(caption), banner);
     expect(captionRect.left, titleRect.left);
     expect(captionRect.top - titleRect.bottom, 2);

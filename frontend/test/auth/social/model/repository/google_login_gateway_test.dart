@@ -26,7 +26,7 @@ class _FakeGoogleClient implements GoogleLoginClient {
     signOutCalls++;
     final error = signOutError;
     if (error != null) {
-      throw error;
+      Error.throwWithStackTrace(error, StackTrace.current);
     }
   }
 
@@ -35,7 +35,7 @@ class _FakeGoogleClient implements GoogleLoginClient {
     initializedNonces.add(hashedNonce);
     final error = initializeError;
     if (error != null) {
-      throw error;
+      Error.throwWithStackTrace(error, StackTrace.current);
     }
   }
 
@@ -44,7 +44,7 @@ class _FakeGoogleClient implements GoogleLoginClient {
     authenticateCalls++;
     final error = authenticateError;
     if (error != null) {
-      throw error;
+      Error.throwWithStackTrace(error, StackTrace.current);
     }
     return idToken;
   }

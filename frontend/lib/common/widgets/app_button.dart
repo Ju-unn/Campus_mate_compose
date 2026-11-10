@@ -42,7 +42,7 @@ class AppButton extends StatelessWidget {
   static final TextStyle _textLabel = AppTypography.button.copyWith(fontWeight: FontWeight.w600);
 
   /// neutral 라벨(pen `l44zcf` 18/700).
-  static final TextStyle _neutralLabel = AppTypography.label;
+  static const TextStyle _neutralLabel = AppTypography.label;
 
   @override
   Widget build(BuildContext context) {

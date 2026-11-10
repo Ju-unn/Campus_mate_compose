@@ -62,7 +62,7 @@ class FakeBillingRepository implements BillingRepository {
     await holdVerify?.future;
     running--;
     final error = throwOnVerify;
-    if (error != null) throw error;
+    if (error != null) Error.throwWithStackTrace(error, StackTrace.current);
     return outcome;
   }
 }

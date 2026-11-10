@@ -24,7 +24,7 @@ class _Launcher {
 
   Future<bool> call(Uri uri) async {
     opened.add(uri);
-    if (error != null) throw error!;
+    if (error case final error?) Error.throwWithStackTrace(error, StackTrace.current);
     return hold?.future ?? result;
   }
 }

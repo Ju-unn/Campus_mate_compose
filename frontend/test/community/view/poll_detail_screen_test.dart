@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/community/model/data/poll.dart';
@@ -49,7 +51,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(container: container, child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router)),
     );
-    router.push('/community/polls/$pollId');
+    unawaited(router.push('/community/polls/$pollId'));
     await tester.pumpAndSettle();
   }
 

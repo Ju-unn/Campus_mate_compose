@@ -25,7 +25,7 @@ class _FakeKakaoShareClient implements KakaoShareClient {
 
   @override
   Future<void> shareCustom({required int templateId, required Map<String, String> templateArgs}) async {
-    if (error case final error?) throw error;
+    if (error case final error?) Error.throwWithStackTrace(error, StackTrace.current);
     templateIds.add(templateId);
     this.templateArgs.add(templateArgs);
   }

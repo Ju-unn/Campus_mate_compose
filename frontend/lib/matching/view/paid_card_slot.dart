@@ -55,7 +55,7 @@ class _PaidCardSlotState extends ConsumerState<PaidCardSlot> {
   @override
   Widget build(BuildContext context) {
     return switch (widget.paidCard) {
-      PaidCardOffered offered => PaidCardLocked(
+      final PaidCardOffered offered => PaidCardLocked(
           card: offered,
           busy: _opening || ref.watch(todayCardsViewModelProvider.select((state) => state.isPurchasing)),
           onInfo: () => showPaidCardInfoSheet(context),

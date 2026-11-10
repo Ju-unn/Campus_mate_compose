@@ -268,6 +268,8 @@ extension _CancelHook<T> on Stream<T> {
   /// 구독이 끊겼는지 보려고 쓴다 — `StreamController.broadcast` 는 onCancel 이 늦게 불려서
   /// 화면이 닫혔는지 확인하려면 구독 쪽에 걸어야 한다.
   Stream<T> doOnCancel(void Function() onCancel) {
+    // 구독 취소가 이 감싸개의 끝이라 닫지 않는다(원본 통로도 닫히지 않는다) — lib 의 RealtimeMessageStream 과 같다.
+    // ignore: close_sinks
     late StreamController<T> controller;
     StreamSubscription<T>? subscription;
     controller = StreamController<T>(

@@ -51,7 +51,7 @@ void main() {
         child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router),
       ),
     );
-    router.push('/community/new');
+    unawaited(router.push('/community/new'));
     await tester.pumpAndSettle();
   }
 

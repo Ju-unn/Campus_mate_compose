@@ -13,7 +13,7 @@ void main() {
   late _MockCrashlytics crashlytics;
   late FirebaseCrashReporter reporter;
 
-  setUpAll(() => registerFallbackValue(FlutterErrorDetails(exception: 'x')));
+  setUpAll(() => registerFallbackValue(const FlutterErrorDetails(exception: 'x')));
 
   setUp(() {
     crashlytics = _MockCrashlytics();

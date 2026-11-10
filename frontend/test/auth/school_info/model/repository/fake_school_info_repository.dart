@@ -22,7 +22,7 @@ class FakeSchoolInfoRepository implements SchoolInfoRepository {
     submittedStudentNumbers.add(studentNumber);
     final error = nextSubmitError;
     if (error != null) {
-      return Future.delayed(Duration.zero, () => throw error);
+      return Future.delayed(Duration.zero, () => Error.throwWithStackTrace(error, StackTrace.current));
     }
     return Future.delayed(Duration.zero, () => nextSubmitResult);
   }

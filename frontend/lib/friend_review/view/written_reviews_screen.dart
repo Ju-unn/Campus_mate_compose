@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
@@ -84,7 +86,7 @@ class WrittenReviewsScreen extends ConsumerWidget {
     final saved = await showFriendReviewComposeSheet(context, friend.profileId);
     if (saved != true || !context.mounted) return;
     ref.invalidate(writableFriendsProvider);
-    ref.read(friendReviewListViewModelProvider(_written).notifier).refresh();
+    unawaited(ref.read(friendReviewListViewModelProvider(_written).notifier).refresh());
   }
 
   /// 20e-3 토스트(pen `W7HENj`, Toast `I8UOWm`): 가운데, 아래 24, 아이콘 꺼짐. 실패는 pen 에 없어 20b 실패 토스트와

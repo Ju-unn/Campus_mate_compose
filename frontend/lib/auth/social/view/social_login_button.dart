@@ -138,11 +138,11 @@ class _OfficialAppleButton extends StatelessWidget {
         // 애플 시스템 버튼(ASAuthorizationAppleIDButton)처럼 글자 배율을 따르지 않는다 — 46 칸에서 잘리지 않게.
         // 큰 글자를 쓰는 사람도 읽기 이름(Semantics)으로 같은 문구를 듣는다.
         child: MediaQuery.withNoTextScaling(
-          child: SignInWithAppleButton(
+          child: const SignInWithAppleButton(
             onPressed: _drawsEnabled,
             text: SocialLoginLabels.apple,
             height: SocialLoginButton.height,
-            borderRadius: const BorderRadius.all(Radius.circular(AppRadius.socialButton)),
+            borderRadius: BorderRadius.all(Radius.circular(AppRadius.socialButton)),
           ),
         ),
       ),

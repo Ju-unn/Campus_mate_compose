@@ -82,6 +82,9 @@ class RealtimeMessageStream implements MessageStream {
   @override
   Stream<Message> subscribe(String matchId, {void Function()? onRejoined, void Function()? onReady}) {
     RealtimeChannel? channel;
+    // 구독 취소(onCancel)가 이 통로의 끝이라 닫지 않는다 — 닫으면 removeChannel 이 끝나기 전에 오는 늦은 콜백의 add 가
+    // StateError 를 던진다(취소된 통로의 add 는 조용히 버려진다).
+    // ignore: close_sinks
     late final StreamController<Message> controller;
     controller = StreamController<Message>(
       onListen: () {
