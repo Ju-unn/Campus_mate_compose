@@ -126,11 +126,11 @@ void main() {
     expect(tester.getRect(time).left - tester.getRect(thumbs().last).right, 8);
     expect(tester.getCenter(time).dy, closeTo(tester.getCenter(thumbs().first).dy, 1));
 
-    final badge = find.ancestor(of: find.text('검수중'), matching: find.byType(DecoratedBox)).first;
+    final badge = find.ancestor(of: find.text('검수 중'), matching: find.byType(DecoratedBox)).first;
     expect((tester.widget<DecoratedBox>(badge).decoration as BoxDecoration).color, AppColors.surfaceStrong);
     expect(tester.getRect(badge).right, 328);
     expect(tester.getSize(badge).height, 28);
-    final label = tester.widget<Text>(find.text('검수중')).style!;
+    final label = tester.widget<Text>(find.text('검수 중')).style!;
     expect((label.fontSize, label.fontWeight, label.color), (10, FontWeight.w700, AppColors.muted));
     expect(find.byIcon(AppIcons.timer), findsOneWidget);
   });
@@ -188,8 +188,8 @@ void main() {
       pending('b', at(16, 2), ['u4', null]),
     ]);
 
-    expect(find.bySemanticsLabel('오늘 14:20 제출, 사진 3장, 검수중'), findsOneWidget);
-    expect(find.bySemanticsLabel('오늘 16:02 제출, 사진 2장, 검수중'), findsOneWidget);
+    expect(find.bySemanticsLabel('오늘 14:20 제출, 사진 3장, 검수 중'), findsOneWidget);
+    expect(find.bySemanticsLabel('오늘 16:02 제출, 사진 2장, 검수 중'), findsOneWidget);
     expect(find.bySemanticsLabel('검수 대기 2건'), findsOneWidget);
     handle.dispose();
   });

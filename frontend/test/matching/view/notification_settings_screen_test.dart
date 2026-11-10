@@ -79,7 +79,7 @@ void main() {
 
     expect(find.text('방해 금지 시간 (22:00 ~ 08:00)'), findsOneWidget);
     expect(
-      find.text('오늘의 카드 도착 알림은 방해 금지 시간에도 보내드려요. 카드가 도착하는 시각이 아침 7시예요.'),
+      find.text('오늘의 카드 도착 알림은 방해 금지 시간에도 보내 드려요. 카드가 도착하는 시각이 아침 7시예요.'),
       findsOneWidget,
     );
   });

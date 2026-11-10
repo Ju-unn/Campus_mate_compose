@@ -32,7 +32,7 @@ class _FakeKakaoShareClient implements KakaoShareClient {
 }
 
 void main() {
-  const deviceText = 'CampusMate 에서 같이 해요! 가입할 때 추천 코드 K7QMX2 를 넣어 줘.';
+  const deviceText = 'CampusMate에서 같이 해요! 가입할 때 추천 코드 K7QMX2를 넣어 줘.';
 
   test('공유 글은 19 결정 5 문구다(문구 파일 referralShareText — 화면이 만들어 넘긴다)', () {
     expect(AppLocalizationsKo().referralShareText(code: 'K7QMX2'), deviceText);

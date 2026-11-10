@@ -100,7 +100,7 @@ void main() {
     await tester.tap(find.text('카카오톡으로 보내기'));
     await tester.pump();
     expect(kakaoShared, ['K7QMX2']);
-    expect(kakaoFallbackTexts, ['CampusMate 에서 같이 해요! 가입할 때 추천 코드 K7QMX2 를 넣어 줘.']);
+    expect(kakaoFallbackTexts, ['CampusMate에서 같이 해요! 가입할 때 추천 코드 K7QMX2를 넣어 줘.']);
     expect(shared, isEmpty);
   });
 
@@ -108,7 +108,7 @@ void main() {
     await pump(tester);
     await tester.tap(find.text('다른 앱으로 보내기'));
     await tester.pump();
-    expect(shared, ['CampusMate 에서 같이 해요! 가입할 때 추천 코드 K7QMX2 를 넣어 줘.']);
+    expect(shared, ['CampusMate에서 같이 해요! 가입할 때 추천 코드 K7QMX2를 넣어 줘.']);
     expect(kakaoShared, isEmpty);
   });
 

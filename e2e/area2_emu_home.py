@@ -47,7 +47,7 @@ def date_label(opens):
 
 def invite_text(code):
     """공유 글 — 문구 파일 ARB 의 referralShareText(19 대기 화면 cohort_wait_view.dart 가 만들어 넘긴다). 하트 숫자 · 스토어 링크 없음."""
-    return f'CampusMate 에서 같이 해요! 가입할 때 추천 코드 {code} 를 넣어 줘.'
+    return f'CampusMate에서 같이 해요! 가입할 때 추천 코드 {code}를 넣어 줘.'
 
 
 def chooser_count(dump):
@@ -175,7 +175,7 @@ def _copy_from_sheet(phone, check, text, notes):
 
 
 def p_home_30(run, phone):
-    """대기 화면 버튼 → 휴대폰 공유 창 → "복사" → 클립보드 = "CampusMate 에서 같이 해요! 가입할 때 추천 코드 {내 코드} 를 넣어 줘."(하트 숫자 없음)."""
+    """대기 화면 버튼 → 휴대폰 공유 창 → "복사" → 클립보드 = "CampusMate에서 같이 해요! 가입할 때 추천 코드 {내 코드}를 넣어 줘."(하트 숫자 없음)."""
     _emulator(phone)
     check = Check()
     account, token = _signed_in(run, 'home')

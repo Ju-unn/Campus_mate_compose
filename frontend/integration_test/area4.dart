@@ -79,7 +79,7 @@ const _switchDefaults = {
   'card_arrived': true, 'acceptance_received': true, 'match_made': true, 'new_message': true, 'trust_reminder': true,
   'new_friend_review': true, 'marketing': false, 'quiet_hours': false,
 };
-const _cardException = '오늘의 카드 도착 알림은 방해 금지 시간에도 보내드려요. 카드가 도착하는 시각이 아침 7시예요.';
+const _cardException = '오늘의 카드 도착 알림은 방해 금지 시간에도 보내 드려요. 카드가 도착하는 시각이 아침 7시예요.';
 
 const _kakaoLabel = '카카오톡 아이디';
 const _unblockDescription = '이 상대가 다시 카드에 나타날 수 있어요. 사라진 대화는 돌아오지 않아요.';

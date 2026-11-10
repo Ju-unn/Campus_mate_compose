@@ -202,7 +202,7 @@ def _invite_case(run, phone):
 def p_set_60(run, phone):
     check = Check()
     token, code = _invite(run)
-    text = f'CampusMate 에서 같이 해요! 가입할 때 추천 코드 {code} 를 넣어 줘.'
+    text = f'CampusMate에서 같이 해요! 가입할 때 추천 코드 {code}를 넣어 줘.'
     note = []
 
     def sheet(said):

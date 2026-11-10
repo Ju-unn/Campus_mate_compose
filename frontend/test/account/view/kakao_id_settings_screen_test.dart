@@ -77,10 +77,10 @@ void main() {
     expect(find.descendant(of: notice, matching: find.text('꼭 확인해 주세요')), findsOneWidget);
     expect(find.descendant(of: notice, matching: find.byType(KakaoSettingExample)), findsOneWidget);
     expect(
-      find.text("카카오톡에서 'ID 검색 허용'을 켜주셔야 상대가 내 아이디를 검색할 수 있어요. 꺼져 있으면 신뢰 확인을 마쳐도 연락이 닿지 않아요."),
+      find.text("카카오톡에서 'ID 검색 허용'을 켜 주셔야 상대가 내 아이디를 검색할 수 있어요. 꺼져 있으면 신뢰 확인을 마쳐도 연락이 닿지 않아요."),
       findsOneWidget,
     );
-    expect(find.text('카카오톡 > 설정 > 프로필 관리 > 카카오톡 ID 에서 켤 수 있어요'), findsOneWidget);
+    expect(find.text('카카오톡 > 설정 > 프로필 관리 > 카카오톡 ID에서 켤 수 있어요'), findsOneWidget);
   });
 
   testWidgets('저장된 아이디가 입력칸에 채워진다', (tester) async {

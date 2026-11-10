@@ -367,7 +367,7 @@ def p_ref_04(run, phone):
     check = Check()
     account, token = _signed_in(run, 'home')
     code = area4_set2._code(run, account['id'])
-    text = f'CampusMate 에서 같이 해요! 가입할 때 추천 코드 {code} 를 넣어 줘.'
+    text = f'CampusMate에서 같이 해요! 가입할 때 추천 코드 {code}를 넣어 줘.'
     note = []
 
     def sheet(said):

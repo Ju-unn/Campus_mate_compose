@@ -75,7 +75,7 @@ const _me = MyProfile(
 const _revealTitle = '짜잔, 매칭 전에는\n이렇게 보여요';
 const _realLabel = '나만 보는 실제 사진';
 const _avatarLabel = '상대에게 보이는 모습';
-const _revealBody = '매칭 전에는 AI가 그려준 아바타만 보여요. 상호 수락 후 신뢰 확인을 마치면 실제 사진이 공개돼요.';
+const _revealBody = '매칭 전에는 AI가 그려 준 아바타만 보여요. 상호 수락 후 신뢰 확인을 마치면 실제 사진이 공개돼요.';
 const _confirmLabel = '확인했어요';
 const _lockedPhotoSemantics = '나만 보는 실제 사진, 가려져 있어요';
 const _homeNotice = '내 아바타가 홈 화면에서 다른 회원에게 보일 수 있어요';
@@ -561,9 +561,9 @@ void main() {
   group('만드는 중 · 실패 얼개(pen 05-12 · 05-12b)', () {
     const failedTitle = '아바타 생성에 실패했어요';
     const freeHint = '5번까지는 무료로 다시 시도할 수 있어요';
-    // pen 원문(대장 전달 10-15 · 10-17). 05-12b 의 "시도해주세요" 는 원문 그대로 붙여 쓴다.
+    // pen 원문(대장 전달 10-15 · 10-17). 05-12b 의 "시도해 주세요" 는 띄어쓰기만 맞춤법대로 띄운다(사용자 결정 「맞춤법대로 맞춤」 2026-11-09).
     const generatingSubtitle = '선택한 사진으로 아바타를 만드는 중이에요. 잠시만 기다려 주세요.';
-    const failedSubtitle = '사진이 흐릿하거나 서버가 혼잡했을 수 있어요. 다른 사진으로 다시 시도해주세요.';
+    const failedSubtitle = '사진이 흐릿하거나 서버가 혼잡했을 수 있어요. 다른 사진으로 다시 시도해 주세요.';
     const retryLabel = '다시 시도';
     final subtitleStyle = AppTypography.body.copyWith(color: AppColors.body);
 

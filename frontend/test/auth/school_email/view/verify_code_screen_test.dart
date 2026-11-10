@@ -55,7 +55,7 @@ void main() {
     final container = await pumpScreen(tester, now: () => sentAt);
 
     expect(find.text('인증 코드를 입력해요'), findsOneWidget);
-    expect(find.text('hong@snu.ac.kr 로 6자리 숫자를 보냈어요'), findsOneWidget);
+    expect(find.text('hong@snu.ac.kr로 6자리 숫자를 보냈어요'), findsOneWidget);
     expect(find.textContaining('뒤에 만료돼요'), findsOneWidget);
     // 로그인 화면이 방금 보낸 메일이라 열리는 순간부터 60초를 센다. 남은 초 **글자** 는
     // `CountdownBuilder` 가 기기 시계를 보고 그리므로, 전체 실행이 첫 프레임까지 1초를 넘기면
@@ -426,7 +426,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
     await tester.pump(const Duration(milliseconds: 1));
 
-    expect(find.text('학교 메일 인증을 마치지 못했어요. 잠시 뒤 다시 시도해 주세요'), findsOneWidget);
+    expect(find.text('학교 메일 인증을 마치지 못했어요. 잠시 후 다시 시도해 주세요'), findsOneWidget);
   });
   // 사용자 10-16 "Node ID: VuiDi 여기 인증코드 아래에 안내문 하나 넣어줘 스팸함도 확인 해달라고" — pen HintLine `MOmaZ`(04-2 설명 줄과 같은 부품).
   group('스팸함 안내 줄(pen VuiDi · 오류 Vn6w4)', () {

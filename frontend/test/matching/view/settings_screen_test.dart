@@ -515,7 +515,7 @@ void main() {
     expect(tester.getSize(tile('매칭 활성화')).height, 72);
     expect(icon3d(tester, '매칭 활성화').icon, AppIcon3d.users);
     expect(icon3d(tester, '매칭 활성화').size, 22);
-    final note = tester.renderObject<RenderParagraph>(find.text('잠시 쉬고 싶으면 꺼두세요')).text.style!;
+    final note = tester.renderObject<RenderParagraph>(find.text('잠시 쉬고 싶으면 꺼 두세요')).text.style!;
     expect(note.fontSize, 12);
     expect(note.color, AppColors.muted);
   });

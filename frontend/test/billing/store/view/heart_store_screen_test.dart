@@ -872,7 +872,7 @@ void main() {
 
       expect(find.textContaining('구글'), findsNothing);
       expect(find.text('지금은 하트를 살 수 없어요'), findsOneWidget);
-      expect(find.text('서버에서 상태를 읽지 못했어요 · 잠시 뒤 다시 시도해 주세요'), findsOneWidget);
+      expect(find.text('서버에서 상태를 읽지 못했어요 · 잠시 후 다시 시도해 주세요'), findsOneWidget);
     }, variant: ios);
 
     testWidgets('환불된 거래(422 purchase_revoked) → "환불된 결제예요" 토스트(info) — 성공 표시(circle-check)가 아니다', (tester) async {
