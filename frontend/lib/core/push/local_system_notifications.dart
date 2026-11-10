@@ -20,7 +20,7 @@ class LocalSystemNotifications implements SystemNotifications {
   static const String _smallIcon = 'ic_stat_campusmate';
 
   /// MainActivity.kt 가 앱을 켤 때 만드는 채널과 id · 이름 · 설명이 같아야 한다 — 이미 있으면 플러그인은 그대로 쓴다.
-  static final NotificationDetails _details = NotificationDetails(
+  static const NotificationDetails _details = NotificationDetails(
     android: AndroidNotificationDetails(
       'campus_mate_default',
       // l10n-ignore-start(wire): 안드로이드 네이티브 MainActivity.kt 가 만드는 같은 채널의 이름 · 설명과 글자까지 같아야 한다(문구 파일을 못 읽는 쪽이 원본)

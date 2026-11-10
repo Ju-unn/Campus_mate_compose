@@ -85,7 +85,7 @@ void main() {
     // gotrue 는 세션 복구 실패 같은 것을 스트림 오류로도 보낸다 — onError 가 없으면 잡히지 않은 오류가 된다.
     await pump(tester);
 
-    authChanges.addError(AuthException('refresh failed'));
+    authChanges.addError(const AuthException('refresh failed'));
     await tester.pump();
 
     expect(tester.takeException(), isNull);

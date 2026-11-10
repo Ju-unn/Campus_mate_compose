@@ -25,7 +25,7 @@ const double _guideBottomGap = AppSpacing.xl;
 /// [image] 를 전체 화면으로 연다. [index] 는 칸 번호(0부터) — 화면 읽기가 "사진 N 크게 보기" 로 읽는다.
 /// 열고 닫기는 투명도만 `{motion.standard}` 동안 바뀌고, 동작 줄이기면 바로 열리고 닫힌다.
 Future<void> showPhotoZoomViewer(BuildContext context, {required ImageProvider image, required int index}) {
-  final curve = AppMotion.standardCurve;
+  const curve = AppMotion.standardCurve;
   return showGeneralDialog<void>(
     context: context,
     barrierColor: _backdrop,

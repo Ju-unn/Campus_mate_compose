@@ -282,7 +282,7 @@ void main() {
       final original = debugPrint;
       debugPrint = (message, {wrapWidth}) => logs.add(message ?? '');
       addTearDown(() => debugPrint = original);
-      stubPasswordFailure(AuthException('bad $email $password', statusCode: '400'));
+      stubPasswordFailure(const AuthException('bad $email $password', statusCode: '400'));
 
       await repository.signInWithPassword(email, password);
 

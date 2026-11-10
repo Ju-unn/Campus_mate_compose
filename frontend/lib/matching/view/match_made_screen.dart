@@ -57,11 +57,11 @@ class MatchMadeScreen extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Entrance(
+        const Entrance(
           scaleFrom: 0.92,
           duration: AppMotion.emphasis,
           curve: AppMotion.emphasisCurve,
-          child: const _CelebrationScene(),
+          child: _CelebrationScene(),
         ),
         const SizedBox(height: AppSpacing.lg),
         Entrance(

@@ -64,7 +64,7 @@ void main() {
     var notified = 0;
     listenable.addListener(() => notified++);
 
-    authStateController.addError(AuthException('refresh failed'));
+    authStateController.addError(const AuthException('refresh failed'));
     await Future<void>.delayed(Duration.zero);
 
     expect(notified, 0);

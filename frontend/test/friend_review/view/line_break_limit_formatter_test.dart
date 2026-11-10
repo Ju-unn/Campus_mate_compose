@@ -20,7 +20,7 @@ void main() {
     });
 
     test('3번째 줄 바꿈(4번째 줄)은 무시하고 글·커서는 그대로다', () {
-      final old = TextEditingValue(text: '가\n나\n다', selection: const TextSelection.collapsed(offset: 5));
+      const old = TextEditingValue(text: '가\n나\n다', selection: TextSelection.collapsed(offset: 5));
       final result = formatter.formatEditUpdate(
         old,
         const TextEditingValue(text: '가\n나\n다\n', selection: TextSelection.collapsed(offset: 6)),

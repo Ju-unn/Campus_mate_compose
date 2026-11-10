@@ -10,7 +10,7 @@ void main() {
     expect(() {
       reporter.enableAfterConsent();
       reporter.disable();
-      reporter.recordFlutterFatalError(FlutterErrorDetails(exception: 'x'));
+      reporter.recordFlutterFatalError(const FlutterErrorDetails(exception: 'x'));
       reporter.recordFatalError('x', StackTrace.current);
       reporter.recordHandledError(HandledApiError.fromStatus(503, Uri.parse('https://api.test/cards/today')));
     }, returnsNormally);

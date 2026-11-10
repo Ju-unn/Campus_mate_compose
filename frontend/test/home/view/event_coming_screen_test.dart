@@ -103,7 +103,7 @@ void main() {
     );
     expect(tester.widget<Text>(find.text(_description)).style, AppTypography.bodySmall.copyWith(color: AppColors.body));
     // 본문 묶음이 앱바 아래 · 바닥 48 위 칸의 가운데다(03b 와 같은 규칙).
-    final bodyCenter = (56 + (780 - 48)) / 2;
+    const bodyCenter = (56 + (780 - 48)) / 2;
     expect((image.top + action.bottom) / 2, closeTo(bodyCenter, 0.5));
   });
 

@@ -579,7 +579,7 @@ void main() {
   // 목록 안쪽 사방 16 · 카드 아래 간격 14 · 빈 방 문구 16/400 1.6 muted 가운데 폭 = 카드(pen PI7Kg · U6x9nV).
   group('첫 입장 안내 카드', () {
     const hint = '먼저 인사를 건네 보세요';
-    final introItem = "지금부터 48시간이 '신뢰 확인' 시간이에요. 서로 카카오톡 아이디와 실제 사진을 공개해도 좋은지 정하는 시간이에요.";
+    const introItem = "지금부터 48시간이 '신뢰 확인' 시간이에요. 서로 카카오톡 아이디와 실제 사진을 공개해도 좋은지 정하는 시간이에요.";
 
     Future<void> pumpRoom(
       WidgetTester tester, {

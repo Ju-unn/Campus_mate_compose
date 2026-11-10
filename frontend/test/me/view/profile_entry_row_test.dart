@@ -106,7 +106,7 @@ void main() {
   });
 
   testWidgets('마스코트 미리 보기 `I5Dw4` 는 32 — 원 안 가운데(6,6)', (tester) async {
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(const MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: Align(
