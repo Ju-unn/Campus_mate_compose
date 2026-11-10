@@ -96,7 +96,7 @@ final c = '다';
 
     test('윈도 줄바꿈(CRLF)으로 저장된 소스에서도 마커가 그대로 듣는다', () {
       const source = "final a = '가'; // l10n-ignore(wire): 서버 식별자\r\n"
-          "// l10n-ignore(server-text): 서버 문구와 같아야 함\r\n"
+          '// l10n-ignore(server-text): 서버 문구와 같아야 함\r\n'
           "final b = '나';\r\n"
           "final c = '다';\r\n";
 
