@@ -93,4 +93,45 @@ abstract final class AppColors {
 
   /// 구글 레이블
   static const Color googleLabel = Color(0xFF1F1F1F);
+
+  /// 카카오톡 아이디 화면이 흉내 낸 카카오톡 화면의 어두운 패널
+  static const Color kakaoPanel = Color(0xFF0A0A0A);
+
+  /// 같은 화면의 체크 표시 색
+  static const Color kakaoCheckMark = Color(0xFF2B2200);
+
+  // ── 화면 하나에만 쓰던 pen 값들. 값은 그대로 두고 이름만 붙였다(1.0.2 계획 B2).
+
+  /// 하단 내비 알약 채움 #FFFFFFC7 — 알파 78%(마스터 `AppBottomNavGlass` "알파 최소 78%")
+  static const Color glassFill = Color(0xC7FFFFFF);
+
+  /// 하단 내비 알약 안쪽 1px 선 · 선택 방울 채움 #FFFFFF99
+  static const Color glassVeil = Color(0x99FFFFFF);
+
+  /// 하단 내비 선택 방울의 위쪽 1px 선 #FFFFFFE6
+  static const Color glassHighlight = Color(0xE6FFFFFF);
+
+  /// 투표 찬성(O) 쪽 파랑 — 버튼 · 도넛 A 몫 · 막대 (pen `VhiAe`, DESIGN §8.11)
+  static const Color pollAgree = Color(0xFF2D96DE);
+
+  /// 신고 버튼 글자 — 투표 카드 · 지인 리뷰 카드 (pen `Wwsmw` · `o1niSD`)
+  static const Color reportLabel = Color(0xFF6E5861);
+
+  /// 홈 리뷰 띠 바탕 (pen `L7wKi`)
+  static const Color reviewStripSurface = Color(0xFFFFF8EC);
+
+  /// 홈 프로필 안내 진행 막대 테두리 (pen `v8D23`)
+  static const Color profileNudgeTrackEdge = Color(0x40D8C8D9);
+
+  /// 프로필 목록 행 아이콘 동그라미 바탕(`emphasis` 가 아닐 때)
+  static const Color profileEntryIconSurface = Color(0xFFF7F3FF);
+
+  /// 잠금 카드 덮개 — 검정 25%. [scrim] 은 50% 라 다르다
+  static const Color lockOverlay = Color(0x40000000);
+
+  /// 사진 칸 모서리의 x 동그라미 바탕 — 검정 60% (pen `#00000099`)
+  static final Color photoRemoveBadge = Colors.black.withValues(alpha: 0.6);
+
+  /// 코치 마크 덮개 — 검정 알파 B3(70%) (pen `tFIey` Dim). [scrim] 은 50% 라 다르다
+  static const Color coachDim = Color(0xB3000000);
 }
