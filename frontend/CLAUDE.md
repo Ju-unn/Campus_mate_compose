@@ -93,7 +93,7 @@
 
 - **구글 심사원 로그인(안드로이드 전용).** 시작 화면(01) 로고 자리를 5초 안에 7번 누르면 영어 "Reviewer sign-in" 시트가 열리고 이메일 · 비밀번호로 Supabase `signInWithPassword` 로 들어간다. 가입 없음 · 분석 `login` 이벤트 없음 · 낭독기 제외 · 이미 로그인된 상태면 입구 없음. iOS · 웹에는 입구가 없다 — 코드는 모든 빌드에 실려 있지만 `start_view.dart` 의 `_isAndroid()` 가 iOS 에서 걸러낸다 (애플 가이드라인 2.3.1 숨은 기능 규칙). 서버 · DB 코드는 따로 없고 기존 심사용 계정(id 앞 8자 `acdbb0fc`)에 운영 Auth 관리자 API 로 비밀번호를 붙여 쓴다 (값은 저장소에 적지 않는다, `../backend/DEPLOY.md` §4-16). `LabeledField` 의 `obscureText`(기본 false) · ARB 키 `authSocialReviewer*` 5개(영어 그대로) · 오류 문구는 `errorText` 그대로(한국어). **심사 통과 뒤 비밀번호를 무작위로 바꿔 막는다.** 심사원이 탈퇴하면 되돌릴 수 없어 심사 안내문에 금지로 적었다. 입구와 소셜 버튼이 겹치지 않는지는 `start_view_test.dart` 가 지킨다. DESIGN.md §9 01-3 · §13-158.
 - **카드 지급 한계(알려진 것).** 지급일이 아닌 날 카드 0장 + 후보 1명이면 유료 제안으로 보이다가 다음 지급일 배치에서 무료로 나간다. 구매와 접기가 같은 순간에 겹치면 같은 상대를 유료 · 무료로 둘 다 받을 수 있다 (`../backend/DEPLOY.md` §4-21). 첫 방문 0장이면 화면 11 은 "다음 카드를 준비하고 있어요" 를 보인다.
-- **출시 후로 미룬 것(지금 하지 않는다):** 스크린샷 방지 · 졸업생 D8 자기 취소 · 하트 스토어 대기 목록 · 안드로이드 큰 알림 아이콘 · 카드 신고 버튼(반려 시) · 환불 정책 B · 카카오 연결 해제 웹훅 · 아이패드 전용 화면 · DESIGN.md §13-155 의 "칸에도 넣을까요?" 안내.
+- **출시 후로 미룬 것(지금 하지 않는다):** 졸업생 D8 자기 취소 · 하트 스토어 대기 목록 · 안드로이드 큰 알림 아이콘 · 카드 신고 버튼(반려 시) · 환불 정책 B · 카카오 연결 해제 웹훅 · 아이패드 전용 화면 · DESIGN.md §13-155 의 "칸에도 넣을까요?" 안내. (스크린샷 방지는 2026-11-10 사용자 결정으로 릴리스 빌드에 넣었다 — `docs/decisions/2026-11-11-meeting1-decisions.md` 3번.)
 - **계획으로만 있는 정리:** 색 / 크기 / 간격 토큰 정리 · 공통 컴포넌트 · SonarQube(저장소는 공개지만 라이선스가 없어 5만 줄 무료 한도 기준). 시작은 사용자가 정한다.
 
 ### 2.4 문서 지도
@@ -162,7 +162,7 @@ lib/
     └── theme/             디자인 토큰 (DESIGN.md §12 매핑)
 ```
 
-`<기능>` 14개: tour · faq · account · community · notifications · referral · me · consent · friend_review · graduate · home · chat · safety · matching. **큰 기능 3개 — auth · profile · billing — 는 `<기능>/<세부 기능>/` 한 층을 더 둔다.**
+`<기능>` 15개: tour · faq · inquiry(2026-11-10 문의하기) · account · community · notifications · referral · me · consent · friend_review · graduate · home · chat · safety · matching. **큰 기능 3개 — auth · profile · billing — 는 `<기능>/<세부 기능>/` 한 층을 더 둔다.**
 
 | 폴더 | 넣는 것 | 넣지 않는 것 |
 | --- | --- | --- |
