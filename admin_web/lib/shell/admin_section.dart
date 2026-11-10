@@ -8,6 +8,8 @@ enum AdminSection {
   heartTasks('/heart-tasks', '인증샷 검수', LucideIcons.image),
   graduates('/graduates', '졸업생', LucideIcons.graduationCap),
   reports('/reports', '신고', LucideIcons.flag),
+  // pen 에 없는 메뉴(11-08 회의 6번 · 사용자 요청) — 신고 바로 아래 둔다. 아이콘은 Lucide 말풍선.
+  inquiries('/inquiries', '문의', LucideIcons.messageSquare),
   matching('/matching', '매칭', LucideIcons.heartHandshake),
   users('/users', '사용자', LucideIcons.users),
   billing('/billing', '결제', LucideIcons.creditCard),
@@ -21,12 +23,14 @@ enum AdminSection {
   final IconData icon;
 
   /// TopBar · 탭 제목. 신고 아래 주소(`/reports/{id}`)는 "신고 상세"(pen A4 상세 TopBar), 사용자 아래 주소는 "사용자 상세"(A5),
+  /// 문의 아래 주소(`/inquiries/{id}`)는 "문의 상세",
   /// 결제는 "결제 조회"(A8 TopBar — 메뉴 이름은 "결제"), 매칭은 "매칭 현황"(A9 TopBar — 메뉴 이름은 "매칭"), 그 밖은 메뉴 이름.
   String titleOf(String path) {
     final detail = path != this.path;
     return switch (this) {
       reports when detail => '신고 상세',
       users when detail => '사용자 상세',
+      inquiries when detail => '문의 상세',
       billing => '결제 조회',
       matching => '매칭 현황',
       // pen A10 TopBar "졸업생 검수" — 메뉴 이름은 "졸업생"
