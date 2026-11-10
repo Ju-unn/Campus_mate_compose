@@ -11,11 +11,11 @@ E-ONB-05 는 지금 `--device` 로 고른 기기와 나머지 한 기기(A ↔ B
 import subprocess
 import threading
 
-from e2e import area1, area1_b2, area1_emu, emu, notify, tools
+from e2e import area1, area1_b2, area1_emu, emu, notify, phone_sms, tools
 from e2e.area1 import Check, _app, _nickname, _rows, _signed_in
 from e2e.tools import Blocked
 
-RELEASE_WAIT = 120  # 두 앱이 다 멈출 때까지 기다리는 초 — 로그인 · 04-1 채우기가 느린 에뮬에서 넉넉히
+RELEASE_WAIT = 180  # 두 앱이 다 멈출 때까지 · 짝 기기가 인증을 마칠 때까지 기다리는 초 — 로그인 · 04-1 채우기 · 문자 인증이 느린 에뮬에서 넉넉히
 
 
 # ── E-ONB-74 (B에뮬) ───────────────────────────────────────────────────────────────────────────
@@ -62,8 +62,13 @@ def _other_phone(run, phone, case):
 
 
 def p_onb_05(run, phone):
-    """04-1 에서 두 기기가 같은 새 닉네임을 채우고 멈춤 → 둘이 다 멈추면 같이 보냄 → 한쪽만 저장되고 다른 쪽은 409 로 04-1 에 남는다.
-    두 앱이 거의 동시에 "다음" 을 누르게 하려는 것이고, 시각이 조금 엇갈려도 결과(한쪽만 저장)는 같다 — 닉네임이 유일해야 하므로."""
+    """04-1 에서 두 기기가 같은 새 닉네임을 채우고 문자 인증을 마친 채 멈춤 → 둘이 다 멈추면 같이 보냄 → 한쪽만 저장되고 다른 쪽은 409 로 04-1 에 남는다.
+    두 앱이 거의 동시에 "다음" 을 누르게 하려는 것이고, 시각이 조금 엇갈려도 결과(한쪽만 저장)는 같다 — 닉네임이 유일해야 하므로.
+
+    시험 번호가 하나라 두 기기가 같은 번호로 차례로 인증한다(번호 묶임은 저장할 때 생기므로 둘 다 인증은 할 수 있다). 같은 번호는 60초에
+    1번이라 [phone_sms.SendTurn] 이 한 기기씩 받기를 누르게 하고 앞 기기의 간격을 풀어 준다. 저장은 닉네임 중복(409)이 번호 확인보다 먼저라
+    진 쪽은 번호가 아니라 닉네임으로 거절된다(서버 PHONE_VERIFICATION_REQUIRED 가 켜져 있으면 번호 미리 보기가 앞서므로 드물게 번호 거절이 먼저일 수 있다)."""
+    number, log = area1._texting_setup(run)
     other, hub = _other_phone(run, phone, 'E-ONB-05')
     try:
         for device in (phone, other):
@@ -75,7 +80,8 @@ def p_onb_05(run, phone):
         check = Check()
         nickname = _nickname()
         people = [_signed_in(run, 'gate_done') for _ in (phone, other)]
-        results = _race(check, [phone, other], [token for _, token in people], nickname)
+        turn = phone_sms.SendTurn(run, wait=RELEASE_WAIT)
+        results = _race(check, [phone, other], [token for _, token in people], nickname, number, log, turn)
         check.that(sorted(r for r in results if r) == ['saved', 'taken'],
                    f'두 기기 결과 {results} — 한쪽만 저장되고 다른 쪽은 "이미 있는 닉네임" 이어야 함')
         rows = _rows(run, f'profiles?nickname=eq.{nickname}&select=id')
@@ -88,8 +94,9 @@ def p_onb_05(run, phone):
         hub.close()
 
 
-def _race(check, devices, tokens, nickname):
-    """두 기기를 따로 돌려 둘 다 멈출 때까지 기다렸다가 같이 보낸다 → 기기 순서대로 앱의 결과(outcome, 못 받았으면 None)."""
+def _race(check, devices, tokens, nickname, number, log, turn):
+    """두 기기를 따로 돌려 둘 다 인증을 마치고 멈출 때까지 기다렸다가 같이 보낸다 → 기기 순서대로 앱의 결과(outcome, 못 받았으면 None).
+    앱의 멈춤 셋: send(받기 누르기 전 — 차례를 받는다) · code(받기를 누른 뒤 — 서버 로그의 인증번호를 건넨다) · typed(인증을 마침 — 차례를 넘기고 짝을 기다린다)."""
     barrier = threading.Barrier(len(devices), timeout=RELEASE_WAIT)
     outcomes = [None] * len(devices)
     errors = [None] * len(devices)
@@ -97,14 +104,15 @@ def _race(check, devices, tokens, nickname):
     released = [False] * len(devices)
 
     def release(index):
-        def midway(stopped):
+        def typed(said):
+            turn.give_back(index)  # 인증을 마쳤다 — 짝이 받기를 누르게 차례를 넘기고 나서 짝을 기다린다
             barrier.wait()
             released[index] = True
-        return midway
+        return phone_sms.stepping(devices[index].hub, lambda said: turn.take(index), lambda said: {'code': log.next_code()}, typed)
 
     def drive(index):
         try:
-            said = devices[index](midway=release(index), token_hash=tokens[index], nickname=nickname)
+            said = devices[index](midway=release(index), token_hash=tokens[index], nickname=nickname, phone=number)
             outcomes[index] = _app(check, said, f'기기 {index + 1}').get('outcome')
         except threading.BrokenBarrierError:
             errors[index] = '짝 기기가 멈추기 전에 끝났거나 답하지 않음'
@@ -112,6 +120,7 @@ def _race(check, devices, tokens, nickname):
             stopped.append(error)
         except Exception as error:  # 한 기기의 예외가 다른 기기를 영영 기다리게 두지 않는다
             errors[index] = f'{type(error).__name__}: {error}'
+        turn.give_back(index)  # 어떻게 끝나든 쥔 차례는 놓는다 — 짝이 영영 기다리지 않게
         if not released[index]:
             barrier.abort()  # 멈추지 못하고 끝났으면 기다리는 짝을 풀어 준다 — 멈춘 뒤 끝난 쪽은 건드리지 않는다(짝이 막 깨어나는 중일 수 있다)
 
@@ -132,3 +141,4 @@ PHONE = {'E-ONB-74': p_onb_74, 'E-ONB-05': p_onb_05}
 
 area1.PHONE.update(PHONE)
 area1.BUNDLES['area1-b6'] = list(PHONE)
+tools.CASE_LIMITS['E-ONB-05'] = 600  # 두 기기가 차례로 문자 인증을 마친 뒤에야 같이 누른다 — 기본 420초로는 느린 에뮬에서 모자라다
