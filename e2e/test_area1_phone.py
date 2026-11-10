@@ -461,3 +461,56 @@ class StartScreenContractTest(unittest.TestCase):
         body = source[source.index('Future<void> tap('):source.index('Future<void> type(')]
         waits = [int(ms) for ms in re.findall(r'milliseconds: (\d+)', body)]
         self.assertTrue(waits and waits[-1] > 500, waits)
+
+
+class PhoneVerificationContractTest(unittest.TestCase):
+    """앱 쪽(integration_test)이 문자 인증을 거치는 길 — 인증번호 받기를 누르는 곳은 한 군데이고, 거기엔 PC 가 준 시험 번호만 들어간다."""
+
+    SENDING = ('E-ONB-05', 'E-ONB-06', 'E-ONB-07', 'E-ONB-10', 'E-ONB-11', 'E-ONB-16', 'E-ONB-17')
+
+    @staticmethod
+    def sources():
+        folder = tools.ROOT / 'frontend' / 'integration_test'
+        return {path.name: path.read_text(encoding='utf-8') for path in sorted(folder.glob('*.dart'))}
+
+    def case_body(self, source, case):
+        start = source.index(f"'{case}': _session(")
+        return source[start:source.index("'E-", start + 10)] if "'E-" in source[start + 10:] else source[start:]
+
+    def test_no_hypothesis_is_blocked_for_want_of_a_verified_number_any_more(self):
+        for name, source in self.sources().items():
+            self.assertNotIn('_needsVerifiedPhone', source, name)
+
+    def test_the_send_button_is_tapped_in_exactly_one_place_and_only_after_checking_the_typed_number_is_the_job_number(self):
+        taps = [(name, source.count('tap(tester, button(_sendCode))')) for name, source in self.sources().items()]
+        self.assertEqual([t for t in taps if t[1]], [('area1.dart', 1)])
+        source = self.sources()['area1.dart']
+        body = source[source.index('Future<void> _verifyPhone('):]
+        body = body[:body.index('\n}\n')]
+        self.assertLess(body.index("job['phone']"), body.index('tap(tester, button(_sendCode))'))
+        self.assertLess(body.index('시험 번호가 아님'), body.index('tap(tester, button(_sendCode))'))
+        self.assertIn("step('code')", body)
+
+    def test_the_random_number_is_never_typed_by_a_sending_hypothesis(self):
+        areas = self.sources()
+        for case in self.SENDING:
+            source = areas['area1_b6.dart'] if case == 'E-ONB-05' else areas['area1.dart']
+            body = self.case_body(source, case)
+            self.assertIn('_verifyPhone(', body.replace('_fillVerifiedBasics(', '_verifyPhone('), case)
+            self.assertNotIn('_randomPhone', body, case)
+
+    def test_the_labels_the_app_side_looks_for_are_the_app_labels(self):
+        messages = tools.arb_messages()
+        source = self.sources()['area1.dart']
+        for const, key in (('_sendCode', 'profileBasicInfoPhoneSend'), ('_codePlaceholder', 'profileBasicInfoCodePlaceholder'),
+                           ('_phoneVerified', 'profileBasicInfoPhoneVerified')):
+            self.assertIn(f"const {const} = '{messages[key]}';", source)
+
+    def test_the_two_device_hypothesis_waits_for_its_turn_before_asking_for_the_code(self):
+        body = self.case_body(self.sources()['area1_b6.dart'], 'E-ONB-05')
+        self.assertIn('waitForTurn: true', body)
+        self.assertLess(body.index('_fillVerifiedBasics('), body.index("step('typed')"))
+
+
+if __name__ == '__main__':
+    unittest.main()
