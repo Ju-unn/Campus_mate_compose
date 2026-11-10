@@ -72,7 +72,7 @@ void main() {
     final (blankClient, blankSeen) = recording(jsonResponse({'id': 'r1'}, 201));
     await buildRepository(blankClient)
         .create(revieweeId: 'p2', tags: ['성실해요'], comment: '   ');
-    expect(jsonDecode(blankSeen.single.body)['comment'], isNull);
+    expect((jsonDecode(blankSeen.single.body) as Map<String, dynamic>)['comment'], isNull);
   });
 
   test('lookupFriendCode 는 POST /friend-reviews/code-lookup {code} — 응답을 보낸 코드와 묶는다', () async {
@@ -116,7 +116,7 @@ void main() {
 
     final (blankClient, blankSeen) = recording(jsonResponse({'id': 'r1'}, 201));
     await buildRepository(blankClient).createReviewByCode(friendCode: 'K7M2QX', tags: ['성실해요'], comment: '   ');
-    expect(jsonDecode(blankSeen.single.body)['comment'], isNull);
+    expect((jsonDecode(blankSeen.single.body) as Map<String, dynamic>)['comment'], isNull);
   });
 
   test('fetchAbout 은 GET /friend-reviews/about/{id} 의 reviews 를 읽는다', () async {

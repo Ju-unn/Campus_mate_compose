@@ -37,6 +37,8 @@ List<Widget> _faqChildren(WidgetTester tester) {
 /// 지금 21 에 있는 질문 줄의 질문 글자(위 → 아래). `_FaqRow` 는 비공개 클래스지만 `item` 은 공개 칸이다.
 List<String> _faqQuestions(WidgetTester tester) => [
       for (final child in _faqChildren(tester))
+        // `_FaqRow` 는 다른 라이브러리의 비공개 클래스라 타입을 댈 수 없어 dynamic 으로 읽는다(이름으로 이미 걸렀다).
+        // ignore: avoid_dynamic_calls
         if (child.runtimeType.toString() == '_FaqRow') (child as dynamic).item.question as String,
     ];
 

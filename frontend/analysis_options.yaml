@@ -28,8 +28,8 @@ linter:
   # `// ignore_for_file: name_of_lint` syntax on the line or in the file
   # producing the lint.
   rules:
-    # 2026-11-02: 지금 걸리는 곳이 0건인 규칙만 켰다(앞으로 새로 쓰는 코드의 기준). 걸리는 곳을 고쳐야 하는 규칙
-    # (unawaited_futures · prefer_const_constructors · prefer_final_locals 등)은 1.0.2 코드 정리 때 켠다.
+    # 2026-11-02(앱 1.0.1): 그때 걸리는 곳이 0건인 규칙 5개를 켰다. 1.0.2 B4 에서 걸리던 곳을 고치고
+    # 8개(unawaited_futures 부터 avoid_dynamic_calls 까지)를 더 켰다 — 모두 새로 쓰는 코드의 기준이다.
     always_declare_return_types: true
     always_use_package_imports: true
     cancel_subscriptions: true
@@ -42,6 +42,7 @@ linter:
     prefer_const_declarations: true
     close_sinks: true
     only_throw_errors: true
+    avoid_dynamic_calls: true
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options
