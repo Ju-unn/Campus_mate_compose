@@ -64,6 +64,8 @@ void main() {
     (const AppErrorFailure(AppError.cardsLoad), '카드를 불러오지 못했어요'),
     (const AppErrorFailure(AppError.photoDocument), '학생증·신분증처럼 글자가 많은 사진은 올릴 수 없어요. 얼굴이 잘 나온 일반 사진을 올려 주세요'),
     (const AppErrorFailure(AppError.bioDraft), '초안을 만들지 못했어요. 직접 써 주세요'),
+    (const AppErrorFailure(AppError.inquiryDailyLimit), '오늘은 더 문의할 수 없어요'),
+    (const AppErrorFailure(AppError.inquiryEmailInvalid), '메일 주소 형식을 확인해 주세요'),
     (const PhotoMaxFailure(4), '사진은 최대 4장까지 올릴 수 있어요'),
     (const PhotoRejectedFailure(2), '2장은 얼굴이 보이지 않아 빠졌어요'),
     (const NoteTooShortFailure(10), '10자 이상 입력해 주세요'),

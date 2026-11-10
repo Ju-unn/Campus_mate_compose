@@ -61,6 +61,8 @@ String appErrorKindText(AppLocalizations l10n, AppError error) => switch (error)
       AppError.cardsLoad => l10n.errorCardsLoad,
       AppError.photoDocument => l10n.errorPhotoDocument,
       AppError.bioDraft => l10n.errorBioDraft,
+      AppError.inquiryDailyLimit => l10n.errorInquiryDailyLimit,
+      AppError.inquiryEmailInvalid => l10n.errorInquiryEmailInvalid,
     };
 
 String _takenText(AppLocalizations l10n, SchoolEmailTakenFailure failure) {

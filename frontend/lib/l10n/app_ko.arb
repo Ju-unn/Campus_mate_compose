@@ -399,6 +399,8 @@
   "errorGraduateEmailInvalid": "이전 학교 메일 형식을 다시 확인해 주세요",
   "errorHeartTaskMonthlyLimit": "이번 달에는 더 인증할 수 없어요",
   "errorHeightRange": "120~230 사이로 입력해 주세요",
+  "errorInquiryDailyLimit": "오늘은 더 문의할 수 없어요",
+  "errorInquiryEmailInvalid": "메일 주소 형식을 확인해 주세요",
   "errorLoginCancelled": "로그인이 취소됐어요",
   "errorMeLoad": "잠시 후 다시 시도해 주세요",
   "errorNetwork": "네트워크 연결을 확인해 주세요",
