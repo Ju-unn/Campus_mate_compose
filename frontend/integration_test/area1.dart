@@ -244,6 +244,11 @@ String _englishNickname() => String.fromCharCodes(List.generate(5, (_) => 97 + _
 
 String _koreanNickname() => String.fromCharCodes(List.generate(3, (_) => 0xAC00 + _random.nextInt(11172)));
 
+/// 04-1 "다음" 은 문자 인증한 번호에서만 켜진다(휴대폰 인증, 대장 결정 11-10). 이 하네스는 PC 가 인증번호를 앱에 건넬 길이 아직 없다 —
+/// 운영 서버에서 무작위 번호로 받기를 누르면 남의 폰에 문자가 간다. 길이 정해질 때까지 "다음" 이 켜져야 하는 가설은 판정하지 않는다(blocked).
+void _needsVerifiedPhone() =>
+    throw E2eBlocked('04-1 다음은 문자 인증한 번호에서만 켜진다 — E2E 인증번호 경로가 정해지면 받기 · 인증번호 입력으로 바꾼다');
+
 Future<void> _nickname(WidgetTester tester, String nickname, String message) async {
   await type(tester, labeled(_nicknameLabel), nickname);
   await pumpUntil(tester, find.text(message), timeout: const Duration(seconds: 5));
@@ -495,6 +500,7 @@ final Map<String, Area1Case> area1Cases = {
     return null;
   }),
   'E-ONB-06': _session((tester, job) async {
+    _needsVerifiedPhone();
     await arrive(tester, '04-1');
     final youngest = job['year'] as int;
     await _fillBasics(tester, year: '$youngest');
@@ -506,6 +512,7 @@ final Map<String, Area1Case> area1Cases = {
     return null;
   }),
   'E-ONB-07': _session((tester, job) async {
+    _needsVerifiedPhone();
     await arrive(tester, '04-1');
     await _fillBasics(tester, year: '1950');
     must(enabled(tester, '다음'), '1950 에 다음이 꺼짐');
@@ -515,6 +522,7 @@ final Map<String, Area1Case> area1Cases = {
     return null;
   }),
   'E-ONB-10': _session((tester, job) async {
+    _needsVerifiedPhone();
     await arrive(tester, '04-1');
     await _fillBasics(tester);
     for (final (height, ok) in [('120', true), ('230', true), ('119', false), ('231', false)]) {
@@ -525,6 +533,7 @@ final Map<String, Area1Case> area1Cases = {
     return null;
   }),
   'E-ONB-11': _session((tester, job) async {
+    _needsVerifiedPhone();
     await arrive(tester, '04-1');
     final phone = job['phone'] as String;
     await _fillBasics(tester, phone: phone);
@@ -538,6 +547,8 @@ final Map<String, Area1Case> area1Cases = {
   'E-ONB-12': _session((tester, job) async {
     await arrive(tester, '04-1');
     await _fillBasics(tester, phone: '0101234567');
+    // "다음" 은 인증 전이라 번호와 상관없이 꺼져 있다 — 짧은 번호는 "인증번호 받기" 부터 꺼진다.
+    must(!enabled(tester, '인증번호 받기'), '10자리 번호에 인증번호 받기가 켜짐');
     must(!enabled(tester, '다음'), '10자리 번호에 다음이 켜짐');
     return null;
   }),
@@ -545,6 +556,7 @@ final Map<String, Area1Case> area1Cases = {
   'E-ONB-13': _session((tester, job) async {
     await arrive(tester, '04-1');
     await _fillBasics(tester, phone: '0111234567');
+    must(!enabled(tester, '인증번호 받기'), '011 10자리에 인증번호 받기가 켜짐');
     must(!enabled(tester, '다음'), '011 10자리에 다음이 켜짐');
     return null;
   }),
@@ -555,6 +567,7 @@ final Map<String, Area1Case> area1Cases = {
     return null;
   }),
   'E-ONB-16': _session((tester, job) async {
+    _needsVerifiedPhone();
     await arrive(tester, '04-1');
     await _fillBasics(tester);
     await tap(tester, find.widgetWithText(SelectChip, '모름'));
@@ -563,6 +576,7 @@ final Map<String, Area1Case> area1Cases = {
     return null;
   }),
   'E-ONB-17': _session((tester, job) async {
+    _needsVerifiedPhone();
     await arrive(tester, '04-1');
     await _fillBasics(tester);
     for (final pole in ['E', 'N', 'T']) {
