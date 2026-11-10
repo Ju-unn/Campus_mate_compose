@@ -53,6 +53,13 @@ class DiscordNotifier:
             "DEPLOY.md §4-2 대로 업로드해 주세요."
         )
 
+    async def notify_sms_daily_limit(self, limit: int) -> None:
+        # 마지막 한 통을 보낸 요청이 한 번만 부른다(DB 함수가 줄 세워 판정). 번호 · 인증번호 · 계정은 싣지 않는다.
+        await self._send(
+            f"오늘 인증 문자가 하루 전체 한도({limit}통)에 닿았어요. 자정(한국 시간)까지 새 인증번호를 보내지 않아요. "
+            "문자 요금을 노린 남용인지 확인하고, 정상 가입이 몰린 것이면 SMS_DAILY_GLOBAL_LIMIT 를 올려 주세요."
+        )
+
     async def _send(self, content: str) -> None:
         # raise_for_status 를 쓰지 않는다 — 그 예외 문구에는 웹훅 주소(토큰 포함)가 통째로 들어가 로그에 남는다
         # (2026-10-12 보안 점검 #9). 상태 코드 · 예외 이름만 남긴다.

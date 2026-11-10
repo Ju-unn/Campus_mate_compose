@@ -32,6 +32,7 @@ COUNT_NOTE = '신고자 수는 디스코드 대신 DB 로 셈(열린 신고의 �
 # get_verified_caller(학교 메일 · 학과 · 정지 관문 — 학생증은 10-17 에 빠졌다)를 거치는 경로 전부 — test_area3_safe 가 서버 코드와 대조한다.
 VERIFIED_ROUTES = [
     'GET /profile-onboarding/nickname-availability', 'POST /profile-onboarding/basic-info',
+    'POST /phone-verification/send', 'POST /phone-verification/verify',
     'POST /profile-onboarding/kakao-id', 'POST /profile-onboarding/photos', 'DELETE /profile-onboarding/photos/{position}',
     'POST /profile-onboarding/avatar/generate', 'GET /profile-onboarding/avatar/status',
     'POST /profile-onboarding/appearance-type', 'POST /profile-onboarding/interests', 'POST /profile-onboarding/my-traits',
@@ -54,6 +55,8 @@ VERIFIED_ROUTES = [
     'POST /contact-blocks', 'GET /contact-blocks', 'DELETE /contact-blocks/{block_id}',
     'GET /community/polls', 'GET /community/polls/{poll_id}', 'POST /community/polls', 'POST /community/polls/{poll_id}/votes',
     'DELETE /community/polls/{poll_id}',
+    'GET /community/polls/{poll_id}/comments', 'POST /community/polls/{poll_id}/comments',
+    'DELETE /community/comments/{comment_id}',
     'GET /account', 'GET /account/kakao-id',
     'GET /referral/my-code', 'POST /referral/redeem',
     'GET /friend-reviews/received', 'GET /friend-reviews/about/{profile_id}', 'GET /friend-reviews/targets/{profile_id}',
