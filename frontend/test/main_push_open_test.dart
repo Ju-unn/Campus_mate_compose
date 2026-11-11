@@ -441,7 +441,14 @@ void main() {
       expect(find.byType(CohortWaitView), findsOneWidget);
     }
 
-    testWidgets('떠 있는 앱에서 인증샷 승인 알림을 눌러도 18a 가 아니라 홈 한 장이다', (tester) async {
+    /// 대기 화면 토끼가 계속 떠올라(19 `h9Hu7N`) pumpAndSettle 이 끝나지 않는다 — 이 묶음은 경로만 보므로 기기 "동작 줄이기"로 세운다.
+    void testStill(String description, WidgetTesterCallback body) => testWidgets(description, (tester) async {
+          tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+          addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+          await body(tester);
+        });
+
+    testStill('떠 있는 앱에서 인증샷 승인 알림을 눌러도 18a 가 아니라 홈 한 장이다', (tester) async {
       final (_, push) = await pumpHome(tester, summary: waiting);
       expectSingleWaitingHome(tester);
 
@@ -452,7 +459,7 @@ void main() {
       expectSingleWaitingHome(tester);
     });
 
-    testWidgets('떠 있는 앱에서 채팅 알림을 눌러도 방이 아니라 홈 한 장이다', (tester) async {
+    testStill('떠 있는 앱에서 채팅 알림을 눌러도 방이 아니라 홈 한 장이다', (tester) async {
       final (_, push) = await pumpHome(tester, summary: waiting);
 
       push.emitOpened({'route': 'chat', 'match_id': _roomId});
@@ -462,7 +469,7 @@ void main() {
       expectSingleWaitingHome(tester);
     });
 
-    testWidgets('꺼진 앱을 알림으로 켜도 요약이 오면 홈 한 장에 선다', (tester) async {
+    testStill('꺼진 앱을 알림으로 켜도 요약이 오면 홈 한 장에 선다', (tester) async {
       await pumpHome(tester, summary: waiting, launch: {'route': 'heart_tasks', 'task': 'everytime_post'});
 
       expect(find.byType(HeartTasksScreen, skipOffstage: false), findsNothing);
@@ -476,7 +483,7 @@ void main() {
       ('받은 수락', {'route': 'acceptances'}),
       ('매칭', {'route': 'match', 'match_id': _roomId}),
     ]) {
-      testWidgets('꺼진 앱을 $name 알림으로 켜도 요약이 오면 홈 한 장에 선다', (tester) async {
+      testStill('꺼진 앱을 $name 알림으로 켜도 요약이 오면 홈 한 장에 선다', (tester) async {
         await pumpHome(tester, summary: waiting, launch: data);
 
         expect(find.byType(ChatRoomScreen, skipOffstage: false), findsNothing);
@@ -487,7 +494,7 @@ void main() {
 
     // 막힌 탭 위에 설정(열린 곳)을 쌓은 채 대기로 바뀌면 맨 위만 보는 [_leaveBlockedScreen] 은 못 잡는다 —
     // 라우터 새로 고침(refreshListenable 의 대기 신호)이 맨 아래 막힌 경로를 홈으로 바꿔야 한다.
-    testWidgets('대화 탭 위에 설정을 연 채 요약이 대기로 바뀌면 대화 탭이 밑에 남지 않는다', (tester) async {
+    testStill('대화 탭 위에 설정을 연 채 요약이 대기로 바뀌면 대화 탭이 밑에 남지 않는다', (tester) async {
       final (_, push) = await pumpHome(tester);
       push.emitOpened({'route': 'acceptances'});
       await tester.pumpAndSettle();

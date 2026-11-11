@@ -6,6 +6,7 @@ import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
@@ -156,8 +157,7 @@ class _CohortWaitViewState extends ConsumerState<CohortWaitView> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _Hero(dayLabel: cohortDayLabel(now, opensAt), dateLabel: cohortDateLabel(context.l10n, now, opensAt)),
-                const SizedBox(height: 20),
-                _RecruitPanel(count: widget.cohort.recruitCount),
+                // 모집 판 `u7XsyB` 은 pen 에서 지웠다(사용자 결정 11-11) — 히어로 다음이 바로 설명 글이다.
                 const SizedBox(height: 20),
                 // `G5OV3t` 14/400 #3F3F3F lh1.5 — 문구는 PNG 08.
                 Text(
@@ -208,8 +208,7 @@ class _Hero extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // `of3fj` = 마스코트 male.
-          Image.asset('assets/images/mascot-male.png', width: 132, height: 132),
+          const _MascotPair(),
           const SizedBox(height: AppSpacing.xs),
           // `BBGsm` 14/600 #C4224B lh1.5. " · D-14" 는 Q1 (가) — 48 한 줄에 넣으면 폭이 모자란다.
           Text(
@@ -246,33 +245,69 @@ class _Hero extends StatelessWidget {
   }
 }
 
-/// 모집 판(pen `u7XsyB`) 92h #F7F7F7 r14 padding 16. 목표 배지 `R6EEu` 는 Q3 (가)로 뺐다.
-class _RecruitPanel extends StatelessWidget {
-  const _RecruitPanel({required this.count});
+/// 토끼 줄(pen `h9Hu7N`) — 남자 `jJpm0`(파란 목도리) · 여자 `U0Fx9E`(분홍 목도리) 120 둘, 가로 gap 16 가운데.
+/// 둘이 반 번 어긋나게 번갈아 위로 [_lift] 떠올랐다 내려온다 — 한 번이 `AppMotion.float`(pen 움직임 메모,
+/// 사용자 「캐릭터 2개 넣고 움직이게 해서 조금 덜 심심하게」 11-11). transform 만 바꿔 자리는 그대로다.
+/// 기기 "동작 줄이기" 또는 화면 읽기(낭독기)가 켜져 있으면 둘 다 제자리(pen 자리)에 선다 — 실행 중에 바꿔도 따른다(DESIGN §7).
+class _MascotPair extends StatefulWidget {
+  const _MascotPair();
 
-  final int count;
+  @override
+  State<_MascotPair> createState() => _MascotPairState();
+}
+
+class _MascotPairState extends State<_MascotPair> with SingleTickerProviderStateMixin {
+  /// 떠오르는 높이 — pen 움직임 메모 "약 6".
+  static const double _lift = 6;
+
+  /// 오르기(반 번)를 갔다가 되짚어 내려온다 — 왕복이 `AppMotion.float`.
+  late final AnimationController _float = AnimationController(vsync: this, duration: AppMotion.float ~/ 2);
+  /// 저절로 움직이지 않는 때 — 홈 흐르는 줄(AutoMarquee)과 같이 "동작 줄이기" 또는 낭독기 켜짐(WCAG 2.2.2 움직임 멈춤).
+  bool _still = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _still = MediaQuery.disableAnimationsOf(context) || MediaQuery.accessibleNavigationOf(context);
+    if (_still) {
+      _float.stop();
+      return;
+    }
+    if (!_float.isAnimating) _float.repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _float.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    // 92 는 최소 높이다 — 글자를 키우면 늘어난다(DESIGN §11.2).
-    // pen 은 padding 16 이지만 92 고정에 두 줄(63)을 가운데 둬 위아래가 15 · 14 다. 16 을 지키면 93 이 되어 위아래 14 로 둔다.
-    return Container(
-      constraints: const BoxConstraints(minHeight: 92),
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 14),
-      alignment: Alignment.centerLeft,
-      decoration: BoxDecoration(
-        color: AppColors.surfaceSoft,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 왼쪽 열 `o6UY45` gap 4. `WEPFQ` 14/400 #6A6A6A lh1.5 · `ebHk4` 24/700 #222222 lh1.5.
-          Text(context.l10n.homeCohortRecruitLabel, style: AppTypography.bodySmall.copyWith(color: AppColors.muted, height: 1.5)),
-          const SizedBox(height: AppSpacing.xxs),
-          Text(context.l10n.homeCohortRecruitCount(count: count), style: AppTypography.headline.copyWith(color: AppColors.ink, height: 1.5)),
-        ],
+    // 장식이라 낭독기에서 뺀다. 프레임마다 다시 만들지 않게 밖에서 한 번 만든다.
+    final male = Image.asset('assets/images/mascot-male.png', width: 120, height: 120, excludeFromSemantics: true);
+    final female = Image.asset('assets/images/mascot-female.png', width: 120, height: 120, excludeFromSemantics: true);
+    // 매 프레임 옮기기만 한다 — 히어로의 글자까지 다시 그리지 않게 경계를 둔다.
+    // 줄 256 이 히어로 안쪽보다 넓으면(폭 328 미만 폰) 날짜 줄처럼 줄여 보인다 — pen 폭 360 에선 그대로다.
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: RepaintBoundary(
+        child: AnimatedBuilder(
+          animation: _float,
+          builder: (context, _) {
+            final up = AppMotion.floatCurve.transform(_float.value);
+            // 한쪽이 오른 만큼 다른 쪽이 내려온다(반 번 어긋남).
+            final (maleUp, femaleUp) = _still ? (0.0, 0.0) : (up, 1 - up);
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Transform.translate(offset: Offset(0, -_lift * maleUp), child: male),
+                const SizedBox(width: AppSpacing.md),
+                Transform.translate(offset: Offset(0, -_lift * femaleUp), child: female),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

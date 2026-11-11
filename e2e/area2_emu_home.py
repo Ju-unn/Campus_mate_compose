@@ -7,8 +7,8 @@
 계정은 닫기 전에 만든다. 시나리오의 "G2 학교" 는 둘째 시험학교지만 코드는 시험대학 하나를 닫았다 되돌린다(HOME-23 과 같은 방식) —
 닫혀 있는 몇 분 동안은 이 에뮬 · 시험대학을 쓰는 다른 묶음을 돌리지 않는다(어차피 에뮬 B 는 한 번에 하나).
 
-모집 인원은 시험대학에 원래 있던 활성 계정(KEEP 등)까지 센다 — 시나리오의 "4명 → 3명" 은 가짜 학교 기준이라, 여기서는 DB 에서 센 값을
-앱이 그대로 보여 주는지, V 한 명이 탈퇴하면 정확히 하나 줄어드는지를 본다(요약 API 도 DB 와 같게 세는지 함께).
+모집 인원 판(pen `u7XsyB`)은 2026-11-11 사용자 결정으로 화면에서 빠졌다 — E-HOME-22 는 그 판이 없는지만 본다
+(요약 API 는 `recruit_count` 를 계속 보내지만 앱은 쓰지 않는다).
 
 시간을 만지는 가설은 없다 — 7개 모두 에뮬에서 된다. 에뮬 설정을 바꾸는 것은 둘이다: HOME-31 은 네트워크를 끈다(끝나면 켠다),
 HOME-33 은 화면 밀도와 글자 배율을 바꾼다(끝나면 `wm density reset` · 원래 배율). PC 가 중간에 꺼지면 에뮬이 360dp · 1.3배로 남을 수 있다 —
@@ -21,15 +21,13 @@ from contextlib import contextmanager
 
 from e2e import area1, area4_set2, emu, notify, tools
 from e2e import area2_time_device as td
-from e2e.area1 import Check, _api, _app, _rows, _signed_in
+from e2e.area1 import Check, _app, _signed_in
 from e2e.area1_emu import _emulator, _must_be_online
-from e2e.area2 import _set_status
 from e2e.area2_phone3 import tap_copy
 from e2e.tools import Blocked
 
 SHEET_WAIT = 3  # 버튼을 누른 뒤 공유 창이 뜨기를 기다리는 시간(초) — 먼저 코드를 서버에서 받아 온다
 FONT_SCALE, WIDTH_DP = 1.3, 360  # 시나리오 E-HOME-33 "글자 1.3배 · 360 폭"
-LEAVERS = 3  # E-HOME-22 의 V — 같은 학교에서 가입을 끝낸 다른 사람 3명
 SHEET = re.compile(r'ActivityRecord\{(\w+) u\d+ \S*(?:Chooser|Resolver)Activity')
 
 
@@ -97,16 +95,6 @@ def display_big(serial, scale, width_dp, sleep=time.sleep):
             _shell(serial, 'settings', 'put', 'system', 'font_scale', before)
 
 
-def _recruits(run, check, school, account):
-    """시험대학의 활성 계정 수(DB) — 앱이 "현재 모집 인원" 으로 보여 줄 값. 요약 API 가 같게 세는지도 본다.
-    ponytail: PostgREST 기본 상한 1000행 — 시험대학이 그만큼 커지면 세는 방법을 바꾼다(count=exact)."""
-    count = len(_rows(run, f'profiles?university_id=eq.{school}&status=eq.active&select=id'))
-    status, body = _api(run, 'GET', '/home/summary', account['token'])[:2]
-    said = ((body or {}).get('cohort') or {}).get('recruit_count') if status == 200 else None
-    check.that(said == count, f'요약 API 의 recruit_count {said!r} ≠ DB 활성 수 {count}(/home/summary {status})')
-    return count
-
-
 def _opens(now):
     return td.future_monday(now)
 
@@ -114,17 +102,15 @@ def _opens(now):
 # ── 19 코호트 대기 화면 ──────────────────────────────────────────────────────────────────────────────
 
 def p_home_20(run, phone):
-    """닫힌 학교(다음 월요일 07:00)의 메인 탭 = 대기 화면 — "첫 카드까지 · D-N" · 큰 날짜 "M월 D일" · 모집 인원 · 초대 버튼."""
+    """닫힌 학교(다음 월요일 07:00)의 메인 탭 = 대기 화면 — "첫 카드까지 · D-N" · 큰 날짜 "M월 D일" · 초대 버튼."""
     serial = _emulator(phone)
     check = Check()
-    account, token = _signed_in(run, 'home')
+    _, token = _signed_in(run, 'home')
     now = td.now_seoul()
     opens = _opens(now)
-    with emu.seoul_timezone(serial), td.opens_at_set(run, opens) as school:
-        recruit = _recruits(run, check, school, account)
-        _app(check, phone(token_hash=token, days=days_until(now, opens), date=date_label(opens), recruit=recruit,
-                          today=now.date().isoformat()))
-    return check.result(f'여는 시각 {opens:%m-%d %H:%M} · D-{days_until(now, opens)} · 모집 {recruit}명(DB)')
+    with emu.seoul_timezone(serial), td.opens_at_set(run, opens):
+        _app(check, phone(token_hash=token, days=days_until(now, opens), date=date_label(opens), today=now.date().isoformat()))
+    return check.result(f'여는 시각 {opens:%m-%d %H:%M} · D-{days_until(now, opens)}')
 
 
 def p_home_21(run, phone):
@@ -138,20 +124,13 @@ def p_home_21(run, phone):
 
 
 def p_home_22(run, phone):
-    """같은 학교에 가입을 끝낸 V 3명 + B → 앱을 켜 모집 인원을 보고, V 한 명을 탈퇴시킨 뒤 다시 켜면 정확히 하나 줄어 있다."""
+    """모집 인원 판은 없다(사용자 결정 2026-11-11, pen `u7XsyB` 삭제) — 닫힌 학교에서 앱을 켜면 대기 화면에 "현재 모집 인원" 글이 0개."""
     _emulator(phone)
     check = Check()
-    account, token = _signed_in(run, 'home')
-    leavers = [run.account('home') for _ in range(LEAVERS)]  # 학교를 닫기 전에 — 닫힌 학교에서 계정 만들기는 가설 밖이다
-    with td.opens_at_set(run, _opens(td.now_seoul())) as school:
-        before = _recruits(run, check, school, account)
-        _app(check, phone(token_hash=token, recruit=before), '첫 실행')
-        _set_status(run, leavers[0], 'withdrawn')
-        after = _recruits(run, check, school, account)
-        if after != before - 1:
-            raise Blocked(f'V 1명을 탈퇴 처리했는데 DB 활성 수가 {before} → {after}(기대 N-1 = {before - 1}) — 다른 계정이 같은 때 바뀌었나')
-        _app(check, phone(fresh=False, recruit=after), '재시작')
-    return check.result(f'모집 {before}명 → {after}명(DB · 요약 API · 앱 화면)')
+    _, token = _signed_in(run, 'home')
+    with td.opens_at_set(run, _opens(td.now_seoul())):
+        _app(check, phone(token_hash=token))
+    return check.result()
 
 
 # ── "친구에게 초대 링크 보내기" ─────────────────────────────────────────────────────────────────────
@@ -246,8 +225,6 @@ def p_home_33(run, phone):
 
 PHONE = {'E-HOME-20': p_home_20, 'E-HOME-21': p_home_21, 'E-HOME-22': p_home_22, 'E-HOME-30': p_home_30,
          'E-HOME-31': p_home_31, 'E-HOME-32': p_home_32, 'E-HOME-33': p_home_33}
-
-tools.CASE_LIMITS['E-HOME-22'] = 900  # 계정 4개 + 앱 두 번 — 기본 420초로는 계정 만들기가 느린 날 모자란다
 
 area1.PHONE.update(PHONE)
 area1.BUNDLES['area2-emu-home'] = list(PHONE)

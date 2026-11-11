@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
@@ -203,7 +204,20 @@ void main() {
     });
   });
 
-  testWidgets('pen 19 글이 다 있고 "첫 100명 모집 중" 배지는 없다(Q3 (가))', (tester) async {
+  /// 마스코트 그림(pen `h9Hu7N` 안 `jJpm0` · `U0Fx9E`).
+  Finder mascot(String asset) => find.byWidgetPredicate(
+        (widget) => widget is Image && widget.image is AssetImage && (widget.image as AssetImage).assetName == asset,
+      );
+  final male = mascot('assets/images/mascot-male.png');
+  final female = mascot('assets/images/mascot-female.png');
+
+  /// 기기 "동작 줄이기" — 마스코트가 제자리(pen 자리)에 선다.
+  void reduceMotion(WidgetTester tester) {
+    tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+  }
+
+  testWidgets('pen 19 글이 다 있고 "첫 100명 모집 중" 배지와 모집 인원 판은 없다(Q3 (가) · 사용자 결정 11-11)', (tester) async {
     now = DateTime(2099, 9, 7, 12);
     await pump(tester);
 
@@ -211,30 +225,35 @@ void main() {
     expect(find.text('첫 카드까지 · D-14'), findsOneWidget);
     expect(find.text('9월 21일'), findsOneWidget);
     expect(find.text('같은 날, 같은 설렘으로 시작해요'), findsOneWidget);
-    expect(find.text('현재 모집 인원'), findsOneWidget);
-    expect(find.text('87명'), findsOneWidget);
+    // 모집 판 `u7XsyB` 은 pen 에서 지웠다(사용자 「현재 모집 인원 빼고」 11-11).
+    expect(find.text('현재 모집 인원'), findsNothing);
+    expect(find.text('87명'), findsNothing);
     // "캠퍼스" 뒤에서 줄을 나눈다 — 폭에 맡기면 둘째 줄에 "요." 한 글자만 떨어진다(11-11 에뮬 확인).
     expect(find.text('친구와 함께 시작하면 첫날부터 더 많은 캠퍼스\n친구를 만날 수 있어요.'), findsOneWidget);
     expect(find.text('친구에게 초대 링크 보내기'), findsOneWidget);
     expect(find.textContaining('100명'), findsNothing);
   });
 
-  testWidgets('pen 값 — 히어로 330 · 모집 판 92 · 버튼 52 가 화면 아래 28 에 붙는다(360×800, 하단 내비 없음)', (tester) async {
+  testWidgets('pen 값 — 히어로 330 위에 토끼 둘 120 · 설명 · 버튼 52 가 화면 아래 28 에 붙는다(360×800, 하단 내비 없음)', (tester) async {
     tester.view.physicalSize = const Size(360, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
+    // 움직이는 중에는 자리가 6 안에서 바뀐다 — pen 자리는 멈춘 상태에서 본다.
+    reduceMotion(tester);
     now = DateTime(2099, 9, 7, 12);
     await pump(tester);
 
-    final mascot = find.byType(Image).first;
-    expect(tester.getSize(mascot), const Size(132, 132));
-    expect((tester.widget<Image>(mascot).image as AssetImage).assetName, 'assets/images/mascot-male.png');
-    // `gFbj2` 는 앱바 56 + 위 8 에서 시작해 330, 안쪽 위 20 에 마스코트.
-    final hero = find.ancestor(of: mascot, matching: find.byType(Container)).first;
+    // `h9Hu7N` 가로 gap 16 · 가운데: 히어로 안쪽 폭 288 에 256 줄이라 왼쪽 16. 남자(파란 목도리) 왼쪽 · 여자(분홍 목도리) 오른쪽.
+    expect(tester.getRect(male), const Rect.fromLTWH(52, 84, 120, 120));
+    expect(tester.getRect(female), const Rect.fromLTWH(188, 84, 120, 120));
+    // 장식이라 낭독기에서 뺀다.
+    expect(tester.widget<Image>(male).excludeFromSemantics, isTrue);
+    expect(tester.widget<Image>(female).excludeFromSemantics, isTrue);
+    // `gFbj2` 는 앱바 56 + 위 8 에서 시작해 330, 안쪽 위 20 에 토끼 줄.
+    final hero = find.ancestor(of: male, matching: find.byType(Container)).first;
     expect(tester.getRect(hero), const Rect.fromLTWH(16, 64, 328, 330));
-    expect(tester.getTopLeft(mascot).dy, 84);
-    final panel = find.ancestor(of: find.text('87명'), matching: find.byType(Container)).first;
-    expect(tester.getRect(panel), const Rect.fromLTWH(16, 414, 328, 92));
+    // `G5OV3t` 는 히어로 아래 `R1DPu` gap 20(pen 본문 y358 + 앱바 56).
+    expect(tester.getTopLeft(find.text('친구와 함께 시작하면 첫날부터 더 많은 캠퍼스\n친구를 만날 수 있어요.')).dy, 414);
     final button = find.ancestor(of: find.text('친구에게 초대 링크 보내기'), matching: find.byType(ElevatedButton));
     expect(tester.getSize(button), const Size(328, 52));
     // 버튼 글자는 button 16/700(디자인 공통 1003).
@@ -256,7 +275,7 @@ void main() {
     expect(800 - 34 - tester.getBottomLeft(button).dy, 28);
   });
 
-  testWidgets('pen 값 — 큰 날짜 `IDJ3M` 은 countdown 이 아닌 48/700 lh1.5 자간 0 · 모집 판 두 줄은 lh1.5 사이 4', (tester) async {
+  testWidgets('pen 값 — 큰 날짜 `IDJ3M` 은 countdown 이 아닌 48/700 lh1.5 자간 0', (tester) async {
     now = DateTime(2099, 9, 7, 12);
     await pump(tester);
 
@@ -265,12 +284,77 @@ void main() {
     expect(date.fontWeight, FontWeight.w700);
     expect(date.height, 1.5);
     expect(date.letterSpacing, 0);
-    // `WEPFQ` 14 · `ebHk4` 24 둘 다 lh1.5, 사이는 왼쪽 열 `o6UY45` gap 4. 판 92 는 위 테스트가 본다.
-    final label = find.text('현재 모집 인원');
-    final count = find.text('87명');
-    expect(tester.getSize(label).height, 21);
-    expect(tester.getSize(count).height, 36);
-    expect(tester.getTopLeft(count).dy - tester.getBottomLeft(label).dy, 4);
+  });
+
+  testWidgets('좁은 폭 320 에서도 토끼 줄(256)이 히어로 안쪽 248 을 넘치지 않고 그만큼 작아진다', (tester) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    reduceMotion(tester);
+    now = DateTime(2099, 9, 7, 12);
+    await pump(tester);
+
+    expect(tester.takeException(), isNull);
+    // 320 − 본문 좌우 16 · 16 − 히어로 안쪽 20 · 20 = 248.
+    expect(tester.getRect(female).right - tester.getRect(male).left, closeTo(248, 0.01));
+  });
+
+  group('토끼 두 마리가 번갈아 떠오른다(pen `h9Hu7N` 움직임 메모 — 약 6 · 한 번 1.6초 · easeInOut)', () {
+    double top(WidgetTester tester, Finder finder) => tester.getTopLeft(finder).dy;
+
+    testWidgets('한 마리가 오르는 만큼 다른 한 마리가 내려온다 — 둘 다 6 을 오르내리고 1.6초마다 처음 자리로', (tester) async {
+      now = DateTime(2099, 9, 7, 12);
+      await pump(tester);
+      await tester.pump(); // 움직임이 첫 프레임(0초)을 받는다.
+
+      final start = (top(tester, male), top(tester, female));
+      final males = <double>[];
+      final females = <double>[];
+      // 50ms 씩 32번 = 1.6초(한 번).
+      for (var step = 0; step < 32; step++) {
+        await tester.pump(const Duration(milliseconds: 50));
+        males.add(top(tester, male));
+        females.add(top(tester, female));
+        // 반 주기 어긋나 있다 — 두 높이의 합이 늘 같다.
+        expect(males.last + females.last, closeTo(start.$1 + start.$2, 0.01), reason: '${(step + 1) * 50}ms');
+      }
+      expect(males.reduce(math.max) - males.reduce(math.min), closeTo(6, 0.01));
+      expect(females.reduce(math.max) - females.reduce(math.min), closeTo(6, 0.01));
+      // 오르는 길은 floatCurve(easeInOut) — 반 번(0.8초)의 1/4 인 200ms 에 그 곡선의 0.25 지점만큼 올라 있다.
+      expect(males[3], closeTo(start.$1 - 6 * AppMotion.floatCurve.transform(0.25), 0.01));
+      expect(males.last, closeTo(start.$1, 0.01));
+      expect(females.last, closeTo(start.$2, 0.01));
+    });
+
+    testWidgets('기기 "동작 줄이기"면 둘 다 제자리에 서 있고 pumpAndSettle 이 끝난다', (tester) async {
+      reduceMotion(tester);
+      now = DateTime(2099, 9, 7, 12);
+      await pump(tester);
+
+      final start = (top(tester, male), top(tester, female));
+      expect(start.$1, start.$2, reason: '멈춘 자리는 둘 다 pen 자리(줄 맨 위)');
+      await tester.pump(const Duration(milliseconds: 800));
+      expect((top(tester, male), top(tester, female)), start);
+
+      await tester.pumpAndSettle();
+      expect((top(tester, male), top(tester, female)), start);
+    });
+
+    // 홈 흐르는 줄(AutoMarquee)과 같다 — 멈출 방법이 없는 장식 움직임은 낭독기 사용자에게 멈춰 둔다(WCAG 2.2.2, 대장 11-11 (가)).
+    testWidgets('화면 읽기(낭독기)가 켜져 있으면 둘 다 제자리에 서 있고 pumpAndSettle 이 끝난다', (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(accessibleNavigation: true);
+      addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+      now = DateTime(2099, 9, 7, 12);
+      await pump(tester);
+
+      final start = (top(tester, male), top(tester, female));
+      expect(start.$1, start.$2, reason: '멈춘 자리는 둘 다 pen 자리(줄 맨 위)');
+      await tester.pump(const Duration(milliseconds: 800));
+      expect((top(tester, male), top(tester, female)), start);
+
+      await tester.pumpAndSettle();
+      expect((top(tester, male), top(tester, female)), start);
+    });
   });
 
   testWidgets('여는 시각이 되면 요약을 다시 읽는다', (tester) async {
