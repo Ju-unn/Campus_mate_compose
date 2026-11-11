@@ -13,6 +13,7 @@ class AuthRedirect {
     this._gate,
     this._onboardingStep, {
     this._accountStatus = AccountStatus.active,
+    this._isCohortWaiting = false,
   });
 
   final bool _isAuthenticated;
@@ -20,6 +21,8 @@ class AuthRedirect {
   /// null 이면 아직 조회 중이다([OnboardingStepListenable]).
   final OnboardingStep? _onboardingStep;
   final AccountStatus _accountStatus;
+  /// 우리 학교가 아직 첫 카드를 안 열었다(홈 요약에 cohort). 요약을 못 받았으면 false — 열린 것으로 친다.
+  final bool _isCohortWaiting;
 
   /// 이동이 필요 없으면 null 을 돌려준다 (go_router 의 규약).
   String? resolve(String location) {
@@ -54,8 +57,31 @@ class AuthRedirect {
     if (_isBeforeHome(location)) {
       return AppRoutes.home;
     }
+    // 출시 전 막기(사용자 결정 11-11 「대기 화면 + 설정만」) — 학교가 열리기 전에는 홈(19 대기)과 설정만 연다.
+    // 푸시 · 링크로 바로 들어와도 홈으로 돌려보낸다. 설정은 애플이 요구하는 앱 안 탈퇴 · 로그아웃 · 문의 자리라 남긴다.
+    if (_isCohortWaiting && !_isOpenWhileWaiting(location)) {
+      return AppRoutes.home;
+    }
     return null;
   }
+
+  /// 학교 오픈 전에도 여는 곳 — 홈, 설정과 그 아래 경로 전부, 가입 끝의 앱 단계(지금 흐름 그대로).
+  /// 홈 아래 경로(`/home/friend-reviews/write/...` 지인 리뷰 쓰기)는 막는다.
+  bool _isOpenWhileWaiting(String location) {
+    return location == AppRoutes.home ||
+        location == AppRoutes.settings ||
+        location.startsWith('${AppRoutes.settings}/') ||
+        _signUpTailRoutes.contains(location);
+  }
+
+  /// 06-3 뒤 앱에서만 잇는 가입 끝 단계 — 아바타 확인 · 20 · 20d · 06-4 · 8d([_onboardingRoutes] 밖이라 가입을 마친 사람도 머문다).
+  static const _signUpTailRoutes = <String>{
+    AppRoutes.onboardingAvatar,
+    AppRoutes.onboardingReferral,
+    AppRoutes.onboardingAcquisition,
+    AppRoutes.onboardingContactBlock,
+    AppRoutes.onboardingContactPicker,
+  };
 
   /// 아직 통과하지 못한 게이트 화면. 모두 통과했으면 null.
   String? _gateTarget() {

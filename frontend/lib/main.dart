@@ -33,7 +33,9 @@ import 'package:campus_mate/core/push/push_provider.dart';
 import 'package:campus_mate/core/push/push_refresh.dart';
 import 'package:campus_mate/core/push/push_route.dart';
 import 'package:campus_mate/core/router/app_router.dart';
+import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/router/auth_redirect.dart';
+import 'package:campus_mate/core/router/cohort_wait_listenable_provider.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable.dart';
@@ -44,12 +46,14 @@ import 'package:campus_mate/core/supabase/auth_session_listenable_provider.dart'
 import 'package:campus_mate/core/supabase/supabase_config.dart';
 import 'package:campus_mate/core/supabase/supabase_initializer.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
+import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/tour/view/app_tour_host.dart';
 import 'package:campus_mate/tour/viewmodel/app_tour_view_model.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_performance/firebase_performance.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -113,6 +117,8 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   late final VerificationGateListenable _verificationGate;
   late final OnboardingStepListenable _onboardingStep;
   late final AccountStatusListenable _accountStatus;
+  /// 학교 오픈 전(코호트 대기)이면 라우터가 홈과 설정만 연다(출시 전 막기, 사용자 결정 11-11).
+  late final ValueListenable<bool> _cohortWaiting;
   late final GoRouter _router;
   /// 앱이 백그라운드에서 돌아올 때 하단 내비 "대화" 숫자를 갱신한다([_refreshChatsOnResume]).
   /// 앱이 화면에서 사라지고(hide) 다시 보일 때(show) 사용자 채널을 끊고 다시 건다([_syncUserChannel]).
@@ -136,6 +142,7 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
     _onboardingStep = ref.read(onboardingStepListenableProvider);
     // apiClientProvider 가 실패를 올리는 것과 같은 인스턴스다. 로그아웃하면 SessionScope 가 새로 만든다.
     _accountStatus = ref.read(accountStatusListenableProvider);
+    _cohortWaiting = ref.read(cohortWaitListenableProvider);
     _authSession.addListener(_refreshVerificationGate);
     _verificationGate.addListener(_startPushWhenGateOpens);
     _verificationGate.addListener(_startHeartPurchasesWhenGateOpens);
@@ -144,6 +151,7 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
     _verificationGate.addListener(_syncCollection);
     _onboardingStep.addListener(_openPendingPushRoute);
     _accountStatus.addListener(_signOutWhenWithdrawn);
+    _cohortWaiting.addListener(_leaveBlockedScreen);
     _router = _createRouter();
     _lifecycle = AppLifecycleListener(
       onResume: _onResume,
@@ -323,7 +331,28 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
       return;
     }
     _pendingPushPath = null;
-    PushRoute.open(_router, path);
+    // 학교 오픈 전이면 알림이 가리키는 곳(오늘 · 대화 · 채팅 · 하트 · 지인 리뷰 · 커뮤니티)이 모두 막혀 있다 — 홈으로만 간다.
+    // 그 경로를 push 하면 라우터가 홈으로 돌려보내며 홈이 한 겹 더 쌓인다.
+    // 꺼진 앱이면 아직 아무도 요약을 안 읽어 대기인지 모른다 — 채팅 · 대화 목록은 홈을 깔지 않고 열려(요약을 안 읽는 화면)
+    // 끝까지 모르게 되니 여기서 읽기를 시작한다. 관문 · 온보딩을 마친 뒤라 실패 요약이 남을 걱정([cohortWaitListenableProvider])이 없다.
+    // 요약이 대기로 오면 라우터 새로 고침 · [_leaveBlockedScreen] 이 홈으로 옮긴다.
+    ref.read(homeSummaryProvider);
+    PushRoute.open(_router, _cohortWaiting.value ? AppRoutes.home : path);
+  }
+
+  /// 요약이 늦게 와 학교 오픈 전(코호트 대기)으로 바뀌었는데 맨 위 화면이 막힌 곳이면 홈으로 옮긴다.
+  /// 라우터는 알림을 받아도 맨 아래 경로(홈)만 다시 보고 push 로 쌓인 화면은 다시 보지 않는다(go_router) —
+  /// 꺼진 앱을 알림으로 켜면 홈 요약보다 알림 경로가 먼저 열려 그 화면이 남았다.
+  void _leaveBlockedScreen() {
+    if (!_cohortWaiting.value) return;
+    final redirect = AuthRedirect(
+      _authSession.isAuthenticated,
+      _verificationGate.value,
+      _onboardingStep.value,
+      accountStatus: _accountStatus.value,
+      isCohortWaiting: true,
+    );
+    if (redirect.resolve(_router.state.matchedLocation) == AppRoutes.home) _router.go(AppRoutes.home);
   }
 
   GoRouter _createRouter() {
@@ -333,7 +362,15 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
       onboardingStep: () => _onboardingStep.value,
       isSplashHeld: _splashHold.isHolding,
       accountStatus: () => _accountStatus.value,
-      refreshListenable: Listenable.merge([_authSession, _verificationGate, _onboardingStep, _accountStatus, _splashHold]),
+      isCohortWaiting: () => _cohortWaiting.value,
+      refreshListenable: Listenable.merge([
+        _authSession,
+        _verificationGate,
+        _onboardingStep,
+        _accountStatus,
+        _cohortWaiting,
+        _splashHold,
+      ]),
       // 화면 이름(경로 패턴)만 사용 통계로 간다 — 수집은 약관 동의 뒤에만 켜져 있다.
       observers: [ScreenViewObserver(ref.read(analyticsServiceProvider))],
     );
@@ -353,6 +390,7 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
     _verificationGate.removeListener(_syncCollection);
     _onboardingStep.removeListener(_openPendingPushRoute);
     _accountStatus.removeListener(_signOutWhenWithdrawn);
+    _cohortWaiting.removeListener(_leaveBlockedScreen);
     _authSession.removeListener(_refreshVerificationGate);
     _splashHold.dispose();
     super.dispose();
