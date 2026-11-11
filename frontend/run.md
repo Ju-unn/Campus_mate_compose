@@ -61,6 +61,14 @@ flutter test
 
 **자동 E2E 하네스(`e2e/`)를 로컬 Docker 스택에 붙일 때(2026-11-02, 앱 1.0.1 PR #642).** `E2E_ENV=<로컬 env 파일> E2E_SERVICE_KEY=<로컬 service_role 키> python -m e2e run …` 로 돌린다(키 값은 이 문서에 적지 않는다). `SUPABASE_URL` 이 운영(`*.supabase.co`)이 아니면 gcloud(스케줄러 · 로그 · FCM · 서비스 키)를 부르는 길이 모두 막혀 `Blocked` 로 끝나고(`e2e/tools.py` `require_cloud`), 결과는 `E2E_결과/로컬_<날짜>/` 에 따로 쌓인다. 로컬 서버의 `/batch/*` 는 구글 ID 토큰이 있어야 열려 로컬에서 직접 부를 길이 없다. `E2E_ENV` 를 직접 적었는데 파일이 없으면 오타를 운영으로 읽지 않고 로컬로 본다.
 
+**가짜 문자 시험 준비물 (2026-11-11, PR #699 — 기기 E2E 7건 E-ONB-05 · 06 · 07 · 10 · 11 · 16 · 17).** 04-1 의 [인증번호 받기] 를 거치는 가설은 **로컬 스택에서만** 돈다. 앱이 시험 번호로 받기를 누르면 PC 하네스(`e2e/phone_sms.py`)가 로컬 서버의 가짜 발송기 로그에서 6자리를 읽어 앱에 건넨다. 값은 어디에도 적지 않고 이름과 자리만 적는다.
+1. **로컬 Supabase + PR #699 이후 코드의 서버**를 띄운다. 운영 서버나 운영 DB 에는 돌리지 않는다. 로컬 서버는 가짜 발송기를 쓴다(`SMS_PROVIDER` 가 `fake`).
+2. **서버 로그를 파일로 받는다**: `uvicorn app.main:app … > server.log 2>&1`.
+3. e2e env 에 `E2E_SERVER_LOG=<server.log 경로>` 와 `API_BASE_URL=<로컬 서버 주소>`(루프백)를 적는다. `SUPABASE_URL` 과 `API_BASE_URL` 중 하나라도 운영이거나 `API_BASE_URL` 을 알 수 없으면 가설은 `blocked` 로 끝난다.
+4. **시험 번호 파일**: 환경값 `E2E_TEST_PHONE`, 또는 저장소 밖 `~/campusmate-secrets/e2e-test-phone.txt`(`E2E_TEST_PHONE_FILE` 로 경로를 바꿀 수 있다). 번호 하나만 적는다. **무작위 010 번호로는 받기를 누르지 않는다**(앱도 칸의 번호가 PC 가 준 시험 번호가 아니면 누르기 전에 멈춘다).
+5. 가설마다 시작할 때 로컬 DB 의 인증 줄 · 번호 묶임을 비운다(운영 DB 는 건드리지 않는다). E-ONB-05 는 두 기기가 같은 시험 번호로 차례로 인증한다.
+6. 이 7건은 기기 실행을 아직 하지 않았다(2026-11-11 기준, PC 단위 시험 · 서버 시험 · `flutter analyze` 까지만 확인). 운영 문자 발신번호는 사용자 업무 번호이며 시험과 무관하다(`backend/DEPLOY.md` §4-25).
+
 **하네스 점수 기준 모델의 흡연 규칙 (2026-11-04, 흡연 "상관없어요" 칸 서버 PR #653).** `e2e/test_area2_time_batch.py` 의 가짜 세계 점수 기준(`score`, 249줄 근처)은 **옛 흡연 규칙 그대로**다 — 받는 사람이 비흡연자(`is_smoker` 거짓)이고 후보가 흡연자면 × 0.5. 서버(`backend/app/matching/scoring.py` `smoking_clash`)는 이제 `accepts_smoker` 칸도 보지만 e2e 계정은 이 칸이 null 이라 같은 결과가 나온다. 이 칸을 쓰는 시나리오를 만들 때 이 모델을 `smoking_clash` 에 맞춘다. 이번에는 e2e 실행형(에뮬레이터) 시나리오를 돌리지 않았고 단위 시험만 돌렸다(`backend/DEPLOY.md` §4-23).
 
 ## 주의
