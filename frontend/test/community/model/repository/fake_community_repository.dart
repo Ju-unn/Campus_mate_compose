@@ -77,6 +77,9 @@ class FakeCommunityRepository implements CommunityRepository {
 
   /// 채워 두면 이어 읽기(커서가 있는 요청)가 이것이 끝날 때까지 멈춘다 — 끝 로딩 표시 · 겹침 방지 확인용.
   Completer<void>? holdMoreComments;
+
+  /// 채워 두면 댓글 첫 쪽(커서 없는 요청)이 이것이 끝날 때까지 멈춘다 — 새로 고침 중 상태용. 끝내기 전에 넣은 [commentPage] 를 돌려준다.
+  Completer<void>? holdFirstComments;
   final List<({String pollId, DateTime? after, String? afterId})> commentRequests = [];
   final List<({String pollId, String body})> addedComments = [];
   final List<String> deletedComments = [];
@@ -141,6 +144,7 @@ class FakeCommunityRepository implements CommunityRepository {
   Future<Result<PollCommentPage>> fetchComments(String pollId, {DateTime? after, String? afterId}) async {
     commentRequests.add((pollId: pollId, after: after, afterId: afterId));
     if (after != null) await holdMoreComments?.future;
+    if (holdFirstComments case final hold? when after == null) await hold.future;
     return after == null ? commentPage : (nextCommentPage ?? commentPage);
   }
 
