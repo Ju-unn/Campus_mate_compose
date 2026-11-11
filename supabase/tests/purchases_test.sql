@@ -8,15 +8,18 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(80);
+select plan(89);
 
 -- 준비 --------------------------------------------------------------------
+-- 첫 구매 보너스 규칙(2026-11-12 사용자 결정): 100하트 이상 상품을 산 적이 없으면 +50 — 50하트를 먼저 사도 자격이 남고,
+-- 100하트 이상을 산 적이 있으면(환불된 것도 센다) 없다.
 -- A = …b0a1, B = …b0a2, C = …b0a3, 대학 = …b001. 토큰 해시는 64자 리터럴(repeat)로 둔다.
 --   'a' A heart_100 첫 구매(보너스) → 환불     'b' A heart_200 두 번째(시험 결제)
 --   'c' B heart_100 첫 구매(보너스) → 쓴 뒤 환불  'd' B 환불 뒤 heart_100(보너스 없음)
---   'e' C heart_50 → 잔액 0 에서 환불           'f' C heart_100(50 먼저 사서 보너스 없음) → 계정 삭제 뒤 환불
---   D = …b0a4, E = …b0a5 (23절 하트 규모별 환불): '2' D heart_50 → 30 쓰고 환불  '3' D heart_800(보너스 없음) → 다 쓰고 환불
+--   'e' C heart_50 → 잔액 0 에서 환불           'f' C heart_100(50 만 샀으니 100하트 이상은 처음이라 보너스) → 계정 삭제 뒤 환불
+--   D = …b0a4, E = …b0a5 (23절 하트 규모별 환불): '2' D heart_50 → 30 쓰고 환불  '3' D heart_800(50 만 샀으니 보너스, 850 지급) → 다 쓰고 환불
 --                                               '4' E heart_100 첫 구매(150 지급) → 다 쓰고 환불
+--   F = …b0a6, G = …b0a7 (24절 50하트를 먼저 산 사람): '5' · '6' · '7' F 50 → 200 → 100 · '8' G heart_50 → 환불 · '9' G heart_100
 insert into public.universities (id, name, region_group)
 values ('00000000-0000-0000-0000-00000000b001', '결제테스트대학교', 'seoul');
 
@@ -28,14 +31,18 @@ insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-00000000b0a2', 'pay-b@billing.ac.kr'),
   ('00000000-0000-0000-0000-00000000b0a3', 'pay-c@billing.ac.kr'),
   ('00000000-0000-0000-0000-00000000b0a4', 'pay-d@billing.ac.kr'),
-  ('00000000-0000-0000-0000-00000000b0a5', 'pay-e@billing.ac.kr');
+  ('00000000-0000-0000-0000-00000000b0a5', 'pay-e@billing.ac.kr'),
+  ('00000000-0000-0000-0000-00000000b0a6', 'pay-f@billing.ac.kr'),
+  ('00000000-0000-0000-0000-00000000b0a7', 'pay-g@billing.ac.kr');
 
 insert into public.profiles (id, university_id) values
   ('00000000-0000-0000-0000-00000000b0a1', '00000000-0000-0000-0000-00000000b001'),
   ('00000000-0000-0000-0000-00000000b0a2', '00000000-0000-0000-0000-00000000b001'),
   ('00000000-0000-0000-0000-00000000b0a3', '00000000-0000-0000-0000-00000000b001'),
   ('00000000-0000-0000-0000-00000000b0a4', '00000000-0000-0000-0000-00000000b001'),
-  ('00000000-0000-0000-0000-00000000b0a5', '00000000-0000-0000-0000-00000000b001')
+  ('00000000-0000-0000-0000-00000000b0a5', '00000000-0000-0000-0000-00000000b001'),
+  ('00000000-0000-0000-0000-00000000b0a6', '00000000-0000-0000-0000-00000000b001'),
+  ('00000000-0000-0000-0000-00000000b0a7', '00000000-0000-0000-0000-00000000b001')
 on conflict (id) do nothing;
 
 -- 1. 표 · RLS ----------------------------------------------------------------
@@ -174,7 +181,7 @@ select is((select is_test from public.purchases where token_hash = repeat('b', 6
 select ok((select store_order_id is null and price_krw = 10800 from public.purchases where token_hash = repeat('b', 64)),
   '주문 번호가 없어도 저장된다 · heart_200 판매가 10800');
 
--- 10. C: heart_50 먼저 → 보너스 없음, 이어서 heart_100 → 이미 산 사람이라 보너스 없음(결정 I-6) ---------
+-- 10. C: heart_50 먼저 → 보너스 없음(100하트 미만), 이어서 heart_100 → 100하트 이상은 처음이라 보너스 50(2026-11-12 결정) ---
 select is(
   public.grant_store_purchase('00000000-0000-0000-0000-00000000b0a3', 'play_store', 'heart_50', repeat('e', 64),
                               'GPA.test-e', now(), false) ->> 'bonus_hearts',
@@ -182,7 +189,7 @@ select is(
 select is(
   public.grant_store_purchase('00000000-0000-0000-0000-00000000b0a3', 'play_store', 'heart_100', repeat('f', 64),
                               'GPA.test-f', now(), false) ->> 'bonus_hearts',
-  '0', '50하트를 먼저 산 사람의 100하트에도 보너스가 없다(구매 이력 0건일 때만)');
+  '50', '50하트를 먼저 산 사람도 100하트 이상을 처음 사면 보너스 50(50하트는 100하트가 아니다)');
 
 -- 11. 모르는 상품 -----------------------------------------------------------------------------
 select is(
@@ -248,8 +255,8 @@ select is(
   '{"result": "granted", "hearts": 100, "bonus_hearts": 0, "heart_balance": 100}'::jsonb,
   '첫 구매가 환불돼도 보너스는 다시 주지 않는다');
 
--- 15. 잔액 0 에서 환불: C 가 150 을 다 쓴 뒤 heart_50 환불 → 원장 줄 없음 ----------------------------
-select public.grant_hearts('00000000-0000-0000-0000-00000000b0a3', -150, 'extra_card');
+-- 15. 잔액 0 에서 환불: C 가 200(50 + 100 + 보너스 50)을 다 쓴 뒤 heart_50 환불 → 원장 줄 없음 ------------------
+select public.grant_hearts('00000000-0000-0000-0000-00000000b0a3', -200, 'extra_card');
 select is(
   public.refund_store_purchase('play_store', repeat('e', 64)),
   '{"result": "refunded", "profile_id": "00000000-0000-0000-0000-00000000b0a3", "clawed_back": 0, "shortfall": 50}'::jsonb,
@@ -277,16 +284,16 @@ select is(
   'refund 50 after spending 30 claws back 20 — 모자람 30');
 select is((select heart_balance from public.entitlements where profile_id = '00000000-0000-0000-0000-00000000b0a4'),
   0, 'D 잔액 0');
--- D: 800하트(첫 구매가 아니라 보너스 없음) → 800 다 씀 → 잔액 0 에서 환불 = 0 회수 · 모자람 800
+-- D: 800하트(50 만 샀으니 100하트 이상은 처음이라 보너스 50 → 850 지급) → 850 다 씀 → 잔액 0 에서 환불 = 0 회수 · 모자람 850
 select is(
   public.grant_store_purchase('00000000-0000-0000-0000-00000000b0a4', 'play_store', 'heart_800', repeat('3', 64),
                               'GPA.test-3', now(), false) ->> 'bonus_hearts',
-  '0', '800하트는 첫 구매가 아니면 보너스가 없다');
-select public.grant_hearts('00000000-0000-0000-0000-00000000b0a4', -800, 'extra_card');
+  '50', '50하트만 산 사람의 첫 800하트에도 보너스 50');
+select public.grant_hearts('00000000-0000-0000-0000-00000000b0a4', -850, 'extra_card');
 select is(
   public.refund_store_purchase('play_store', repeat('3', 64)),
-  '{"result": "refunded", "profile_id": "00000000-0000-0000-0000-00000000b0a4", "clawed_back": 0, "shortfall": 800}'::jsonb,
-  'refund 800 after spending all claws back 0 — 모자람 800');
+  '{"result": "refunded", "profile_id": "00000000-0000-0000-0000-00000000b0a4", "clawed_back": 0, "shortfall": 850}'::jsonb,
+  'refund 800 + bonus after spending all claws back 0 — 모자람 850(보너스 포함)');
 select is(
   (select count(*)::int from public.heart_transactions
     where profile_id = '00000000-0000-0000-0000-00000000b0a4' and reason = 'refund'),
@@ -294,7 +301,7 @@ select is(
 select is(
   (select sum(amount)::int from public.heart_transactions where profile_id = '00000000-0000-0000-0000-00000000b0a4'),
   (select heart_balance from public.entitlements where profile_id = '00000000-0000-0000-0000-00000000b0a4'),
-  'D 원장 합 = 잔액(50 − 30 − 20 + 800 − 800)');
+  'D 원장 합 = 잔액(50 − 30 − 20 + 800 + 50 − 850)');
 -- E: 첫 구매 100하트(보너스 50 → 150 지급) → 150 다 씀 → 환불 = 0 회수 · 모자람 150
 select is(
   public.grant_store_purchase('00000000-0000-0000-0000-00000000b0a5', 'play_store', 'heart_100', repeat('4', 64),
@@ -308,6 +315,48 @@ select is(
 select ok(
   (select status = 'refunded' and clawed_back_hearts = 0 from public.purchases where token_hash = repeat('4', 64)),
   'E 구매 행: refunded · 회수량 0');
+
+-- 24. 50하트를 먼저 산 사람의 보너스(2026-11-12 결정) -----------------------------------------------------
+-- F: 50(보너스 없음) → 200(100하트 이상 첫 구매라 보너스 50) → 100(이미 받았으니 없음). 보너스는 평생 한 번.
+select is(
+  public.grant_store_purchase('00000000-0000-0000-0000-00000000b0a6', 'play_store', 'heart_50', repeat('5', 64),
+                              'GPA.test-5', now(), false) ->> 'bonus_hearts',
+  '0', 'F 의 50하트 첫 구매에는 보너스가 없다');
+select is(
+  public.grant_store_purchase('00000000-0000-0000-0000-00000000b0a6', 'play_store', 'heart_200', repeat('6', 64),
+                              'GPA.test-6', now(), false),
+  '{"result": "granted", "hearts": 200, "bonus_hearts": 50, "heart_balance": 300}'::jsonb,
+  '50하트만 산 F 가 200하트를 처음 사면 보너스 50 을 받는다');
+select is(
+  public.grant_store_purchase('00000000-0000-0000-0000-00000000b0a6', 'play_store', 'heart_100', repeat('7', 64),
+                              'GPA.test-7', now(), false) ->> 'bonus_hearts',
+  '0', 'F 가 보너스를 받은 뒤 100하트를 또 사도 보너스는 없다(한 사람 한 번)');
+select is(
+  public.grant_store_purchase('00000000-0000-0000-0000-00000000b0a6', 'play_store', 'heart_200', repeat('6', 64),
+                              'GPA.test-6', now(), false),
+  '{"result": "already_granted", "hearts": 200, "bonus_hearts": 50, "heart_balance": 400}'::jsonb,
+  '보너스를 받은 영수증을 다시 보내면 already_granted — 보너스도 그대로 50');
+select is(
+  (select count(*)::int from public.heart_transactions
+    where profile_id = '00000000-0000-0000-0000-00000000b0a6' and reason = 'first_purchase_bonus'),
+  1, 'F 의 first_purchase_bonus 원장은 한 줄');
+select is(
+  (select sum(amount)::int from public.heart_transactions where profile_id = '00000000-0000-0000-0000-00000000b0a6'),
+  (select heart_balance from public.entitlements where profile_id = '00000000-0000-0000-0000-00000000b0a6'),
+  'F 원장 합 = 잔액(50 + 200 + 50 + 100)');
+-- G: 50하트를 샀다가 환불 → 100하트는 여전히 첫 100하트 구매라 보너스 50(환불된 50하트는 자격을 없애지 않는다)
+select public.grant_store_purchase('00000000-0000-0000-0000-00000000b0a7', 'play_store', 'heart_50', repeat('8', 64),
+                                   'GPA.test-8', now(), false);
+select is(
+  public.refund_store_purchase('play_store', repeat('8', 64)) ->> 'result',
+  'refunded', 'G 의 50하트 구매를 환불한다');
+select is(
+  public.grant_store_purchase('00000000-0000-0000-0000-00000000b0a7', 'play_store', 'heart_100', repeat('9', 64),
+                              'GPA.test-9', now(), false) ->> 'bonus_hearts',
+  '50', '환불된 50하트는 자격을 없애지 않는다 — 100하트가 첫 100하트 구매라 보너스 50');
+select is(
+  (select bonus_hearts from public.purchases where token_hash = repeat('9', 64)),
+  50, 'G 구매 행에도 보너스 50 이 기록된다');
 
 -- 21. 원장 합 = 잔액(ERD §6) ------------------------------------------------------------------
 select is(
