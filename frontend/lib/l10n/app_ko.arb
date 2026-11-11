@@ -378,7 +378,7 @@
   "consentRowView": "보기",
   "consentRowViewLabel": "{label} 보기",
   "@consentRowViewLabel": {"placeholders": {"label": {"type": "String"}}},
-  "consentScreenBody": "필수 항목에 모두 동의하면 시작할 수 있어요.\n마케팅 알림은 선택이에요.",
+  "consentScreenBody": "필수 항목에 모두 동의하면 시작할 수 있어요.\n마케팅 활용 동의는 선택이에요.",
   "consentScreenBodyRenewal": "바뀐 내용을 확인하고 다시 동의해 주세요.",
   "consentScreenHeadline": "서비스 이용을 위해 동의해 주세요",
   "consentScreenHeadlineRenewal": "약관이 바뀌었어요",

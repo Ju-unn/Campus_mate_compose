@@ -35,7 +35,7 @@ import '../../profile/onboarding/model/repository/fake_onboarding_repository.dar
 import '../model/repository/fake_consent_repository.dart';
 
 const _title = '서비스 이용을 위해 동의해 주세요';
-const _description = '필수 항목에 모두 동의하면 시작할 수 있어요.\n마케팅 알림은 선택이에요.';
+const _description = '필수 항목에 모두 동의하면 시작할 수 있어요.\n마케팅 활용 동의는 선택이에요.';
 
 void main() {
   final l10n = AppLocalizationsKo();
