@@ -129,7 +129,7 @@ async def test_generate_prompt_draws_a_dot_and_line_face_without_the_old_waterco
     assert "Simplify only the face" not in prompt
 
 
-# 화풍 참고 그림 = frontend/assets/images/person-f1-blind-v1.png 를 1024x1280 JPEG(품질 90)로 줄인 파일.
+# 화풍 참고 그림 = person-f1-blind-v1.png(2026-11-11 앱 용량을 줄이려 저장소에서 뺐다) 를 1024x1280 JPEG(품질 90)로 줄인 파일.
 # 시험 4장이 이 파일로 돌았다 — 다른 그림으로 바꾸면 다시 시험해야 한다.
 _STYLE_REFERENCE_SHA256 = "2dd029c76b8c956114f2eb7163720f4355dde48d28e4dcbcf99d4601159cdf51"
 
