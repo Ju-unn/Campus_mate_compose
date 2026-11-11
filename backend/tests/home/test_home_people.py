@@ -69,7 +69,7 @@ def _person(i: int, **overrides) -> dict:
     profile_id = overrides.pop("id", _id(i))
     return {
         "id": profile_id, "nickname": f"숨은닉{i}", "gender": "female",
-        "universities": {"name": "숨은대학교"}, "status": "active", "auto_hidden_at": None,
+        "universities": {"name": "숨은대학교"}, "region_group": "seoul", "status": "active", "auto_hidden_at": None,
         "matching_paused": False, "last_active_at": (NOW - timedelta(minutes=i)).isoformat(),
         "profile_avatars": [_avatar(profile_id)],
         **overrides,
@@ -142,6 +142,8 @@ class _World:
             rows = [r for r in rows if r["auto_hidden_at"] is None]
         if params.get("matching_paused") == "is.false":
             rows = [r for r in rows if r["matching_paused"] is False]
+        if params.get("universities.region_group", "").startswith("neq."):
+            rows = [r for r in rows if r["region_group"] != params["universities.region_group"].removeprefix("neq.")]
         if params.get("gender", "").startswith("eq."):
             rows = [r for r in rows if r["gender"] == params["gender"].removeprefix("eq.")]
         if params.get("id", "").startswith("neq."):
@@ -274,7 +276,8 @@ def test_only_ids_and_avatar_rows_are_read(wire):
     _people_of(wire(world))
 
     [query] = world.people_queries
-    assert query["select"] == "id,profile_avatars(storage_path,status,is_fallback,created_at)"
+    # `universities!inner()` 는 시험 학교를 거르려고 학교 표를 끼우기만 한다 — 학교 칸은 읽지 않는다.
+    assert query["select"] == "id,profile_avatars(storage_path,status,is_fallback,created_at),universities!inner()"
 
 
 # 누가 레일에 나오나 --------------------------------------------------------------------------
@@ -289,6 +292,8 @@ FILLERS = 11
     # 매칭을 멈춘 사람은 지금 사람을 만나지 않겠다는 뜻이라 홈에도 얼굴을 내보내지 않는다(안전한 쪽).
     _person(99, matching_paused=True),
     _person(99, id=ME),
+    # 시험 학교(region_group e2e, 심사 · 시험 계정)는 누구의 레일에도 나오지 않는다(사용자 결정 2026-11-12).
+    _person(99, region_group="e2e"),
     _person(99, profile_avatars=[]),
     _person(99, profile_avatars=[_avatar(_id(99), status="pending")]),
     _person(99, profile_avatars=[_avatar(_id(99), status="failed")]),
@@ -296,7 +301,7 @@ FILLERS = 11
     # 지금 쓰는(가장 최근 ready) 아바타가 기본 그림이면 옛 아바타가 있어도 빠진다 — 이제 안 쓰는 얼굴을 꺼내지 않는다.
     _person(99, profile_avatars=[_avatar(_id(99), created_at="2026-09-01T00:00:00+00:00"),
                                  _avatar(_id(99), "fallback", is_fallback=True)]),
-], ids=["suspended", "withdrawn", "auto_hidden", "matching_paused", "me", "no_avatar", "only_pending",
+], ids=["suspended", "withdrawn", "auto_hidden", "matching_paused", "me", "test_school", "no_avatar", "only_pending",
         "only_failed", "fallback", "latest_ready_is_fallback"])
 def test_people_who_should_not_appear_are_left_out(wire, special):
     fillers = _people(FILLERS)
