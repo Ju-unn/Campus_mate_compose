@@ -19,7 +19,6 @@ import 'support.dart';
 /// 이 파일은 `flutter analyze` 만 돌렸고 기기에서는 아직 안 돌려 봤다.
 
 const _cohortLine = '첫 카드까지'; // cohort_wait_view.dart _Hero — "첫 카드까지 · D-5"
-const _recruitLabel = '현재 모집 인원'; // _RecruitPanel
 const _inviteLabel = '친구에게 초대 링크 보내기'; // _InviteButton
 const _networkDown = '네트워크 연결을 확인해 주세요'; // common/failure.dart NetworkFailure — 코드를 못 받았을 때 토스트 글
 const _todayTitle = '오늘의 카드'; // today_cards_screen.dart 앱바
@@ -74,7 +73,7 @@ Future<void> _press(WidgetTester tester) async {
 }
 
 final Map<String, Area1Case> area2EmuHomeCases = {
-  // 닫힌 학교의 메인 탭 = 대기 화면 — D-숫자 · 큰 날짜 · 모집 인원 · 초대 버튼이 PC 가 센 값과 같다.
+  // 닫힌 학교의 메인 탭 = 대기 화면 — D-숫자 · 큰 날짜 · 초대 버튼이 PC 가 센 값과 같다.
   'E-HOME-20': _session((tester, job) async {
     _requireSeoul();
     final today = DateTime.now();
@@ -83,12 +82,9 @@ final Map<String, Area1Case> area2EmuHomeCases = {
     await _waitScreen(tester);
     final line = '$_cohortLine · D-${job['days']}';
     final date = job['date'] as String;
-    final recruit = '${job['recruit']}명';
     final seen = tester.widgetList<Text>(find.textContaining(_cohortLine)).map((t) => t.data).toList();
     must(_count(find.text(line)) == 1, '"$line" ${_count(find.text(line))}개(기대 1) — 보인 글 $seen');
     must(_count(find.text(date)) == 1, '큰 날짜 "$date" ${_count(find.text(date))}개(기대 1)');
-    must(_count(find.text(_recruitLabel)) == 1, '"$_recruitLabel" ${_count(find.text(_recruitLabel))}개(기대 1)');
-    must(_count(find.text(recruit)) == 1, '모집 인원 "$recruit" ${_count(find.text(recruit))}개(기대 1)');
     must(_count(_invite) == 1, '"$_inviteLabel" ${_count(_invite)}개(기대 1)');
     return null;
   }),
@@ -103,12 +99,11 @@ final Map<String, Area1Case> area2EmuHomeCases = {
     must(_count(find.byType(DailyCardSummary)) == 0, '대기 화면인데 카드 ${_count(find.byType(DailyCardSummary))}장이 보임');
     return null;
   }),
-  // 모집 인원 = 같은 학교의 활성 계정 수. 앱을 켜 보고(PC 가 V 한 명을 탈퇴시킨 뒤) 다시 켜면 하나 줄어 있다 — 어느 쪽이든 PC 가 DB 에서 센 값을 준다.
+  // 모집 인원 판은 없다(사용자 결정 2026-11-11, pen `u7XsyB` 삭제) — 요약이 recruit_count 를 보내도 대기 화면에 그 글이 0개.
   'E-HOME-22': _session((tester, job) async {
     await _waitScreen(tester);
-    final recruit = '${job['recruit']}명';
-    final shown = tester.widgetList<Text>(find.textContaining(RegExp(r'^\d+명$'))).map((t) => t.data).toList();
-    must(_count(find.text(recruit)) == 1, '모집 인원 "$recruit" ${_count(find.text(recruit))}개(기대 1) — 보인 글 $shown');
+    const removed = '현재 모집 인원'; // 지운 모집 판의 글
+    must(_count(find.text(removed)) == 0, '"$removed" ${_count(find.text(removed))}개(기대 0) — 모집 인원 판이 남아 있다');
     return null;
   }),
   // 버튼 → 휴대폰 공유 창 → PC 가 창의 "복사" 를 누른다 → 앱이 읽은 클립보드가 초대 글이다(글은 PC 가 같은 코드로 짜서 맞춘다).

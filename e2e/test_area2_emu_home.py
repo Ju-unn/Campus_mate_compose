@@ -1,8 +1,8 @@
 """영역 2 에뮬 홈 가설 7개(area2_emu_home.py)의 PC 쪽 시험 — 에뮬 · 운영 없이 가짜 앱 · 가짜 서버 · 가짜 adb 로 돈다.
 저장소 루트에서 `python -m unittest e2e.test_area2_emu_home`.
 
-가짜 서버는 test_area2_time_device 의 [World](없는 열 · 표를 운영처럼 400 · 404 로 막는다)에 홈 요약(`/home/summary`)과
-시험대학 활성 인원(원래 있던 [KEPT] 명 + 이번 실행 계정 중 active)만 더한다. 가짜 에뮬은 화면 크기 · 밀도 · 글자 배율 · 공유 창 목록을 흉내 낸다."""
+가짜 서버는 test_area2_time_device 의 [World](없는 열 · 표를 운영처럼 400 · 404 로 막는다)에 홈 요약(`/home/summary`)만 더한다.
+가짜 에뮬은 화면 크기 · 밀도 · 글자 배율 · 공유 창 목록을 흉내 낸다."""
 
 import re
 import unittest
@@ -78,31 +78,22 @@ class PureTest(unittest.TestCase):
 
 
 class HomeWorld(tt.World):
-    """World + 홈 요약 + 시험대학 활성 인원. [skew] 는 요약 API 가 DB 와 다르게 세는 고장을 흉내 낸다."""
+    """World + 홈 요약. 서버는 `recruit_count` 를 계속 보내지만 앱은 쓰지 않는다(모집 인원 판 삭제, 사용자 결정 2026-11-11)."""
 
     KEPT = 5  # 시험대학에 원래 있던 활성 계정(KEEP 등)
 
     def __init__(self):
         super().__init__()
-        self.skew = 0
         self.on('GET', r'/home/summary', self.summary)
 
-    def active(self):
-        return self.KEPT + sum(1 for u in self.users if self.statuses.get(u['id'], 'active') == 'active')
-
     def _table(self, method, name, sent):
-        if name == 'profiles' and method == 'GET':
-            if sent['query'].get('select') == 'referral_code':  # 운영 profiles 에 있는 열 — 열 목록(World.COLUMNS)에는 없다
-                return Reply(200, [{'referral_code': CODE}])
-            if 'university_id' in sent['query']:
-                # status=eq.active 가 없거나 다르면 탈퇴한 계정까지 센다 — 질의에서 그 조건이 빠지는 고장을 잡는다
-                n = self.active() if sent['query'].get('status') == 'eq.active' else self.KEPT + len(self.users)
-                return Reply(200, [{'id': f'p{i}'} for i in range(n)])
+        if name == 'profiles' and method == 'GET' and sent['query'].get('select') == 'referral_code':
+            return Reply(200, [{'referral_code': CODE}])  # 운영 profiles 에 있는 열 — 열 목록(World.COLUMNS)에는 없다
         return super()._table(method, name, sent)
 
     def summary(self, sent):
         opens = self.tables['universities'][0]['card_opens_at']
-        cohort = {'first_card_at': opens, 'recruit_count': self.active() + self.skew} if opens else None
+        cohort = {'first_card_at': opens, 'recruit_count': self.KEPT + len(self.users)} if opens else None
         return Reply(200, {'cohort': cohort})
 
 
@@ -196,25 +187,19 @@ class Home20Test(EmuHomeBase):
         self.assertIn('시간대', result[1])
         self.assertEqual(phone.jobs, [])
 
-    def test_the_job_carries_the_days_the_date_and_the_headcount_the_screen_must_show_and_the_school_is_put_back(self):
+    def test_the_job_carries_the_days_and_the_date_the_screen_must_show_and_the_school_is_put_back(self):
         phone = self.emu_phone()
         result = self.go('E-HOME-20', phone)
         self.assertEqual(result[0], 'pass', result)
         job = phone.jobs[0]
         self.assertEqual((job['days'], job['date']), (5, '10월 12일'))  # 수요일 10-07 → 월요일 10-12
-        self.assertEqual(job['recruit'], HomeWorld.KEPT + 1)  # 이번 실행 계정 B 하나만 더 — 시험대학의 활성 수를 DB 에서 센 값
+        self.assertNotIn('recruit', job)  # 모집 인원 판은 화면에서 빠졌다(사용자 결정 2026-11-11) — 셀 값을 보내지 않는다
         self.assertEqual(job['today'], '2026-10-07')  # 기기 날짜가 PC 와 같은지 앱이 대조한다
         self.assertIn('token_hash', job)
         opens = datetime.fromisoformat(self.opens_patches()[0]).astimezone(SEOUL)
         self.assertEqual((opens.weekday(), opens.hour, opens.minute), (0, 7, 0))  # universities_card_opens_monday_0700 check
         self.assertGreater(opens, self.clock.now)
         self.assertIsNone(self.opens_patches()[-1])
-
-    def test_the_headcount_is_the_database_count_so_a_summary_api_that_counts_otherwise_is_a_fail(self):
-        self.world.skew = 1
-        result = self.go('E-HOME-20', self.emu_phone())
-        self.assertEqual(result[0], 'fail')
-        self.assertIn('요약 API', result[1])
 
     def test_an_app_that_shows_other_text_is_a_fail_and_the_school_is_still_put_back(self):
         self.assertEqual(self.go('E-HOME-20', self.emu_phone({'result': 'fail', 'note': '"D-5" 0개'}))[0], 'fail')
@@ -239,42 +224,27 @@ class Home21Test(EmuHomeBase):
 
 
 class Home22Test(EmuHomeBase):
-    def test_three_leavers_plus_b_then_one_withdraws_between_two_launches_and_the_count_drops_by_one(self):
+    """모집 인원 판은 없다(사용자 결정 2026-11-11, pen `u7XsyB` 삭제) — 닫힌 학교에서 앱을 한 번 켜 판이 없는지만 본다."""
+
+    def test_one_account_one_launch_no_headcount_and_the_school_is_put_back(self):
         phone = self.emu_phone()
         result = self.go('E-HOME-22', phone)
         self.assertEqual(result[0], 'pass', result)
-        first, second = phone.jobs
-        self.assertEqual(first['recruit'], HomeWorld.KEPT + 4)  # B + V 3명
-        self.assertEqual(second['recruit'], HomeWorld.KEPT + 3)
-        self.assertIn('token_hash', first)
-        self.assertIs(second['fresh'], False)  # 같은 세션으로 강제 종료 → 재시작
-        self.assertNotIn('token_hash', second)
-        self.assertEqual(self.world.statuses['id-2'], 'withdrawn')  # id-1 = B, id-2 = 첫 V
-        self.assertNotIn('withdrawn', [self.world.statuses.get(i) for i in ('id-1', 'id-3', 'id-4')])
+        self.assertEqual(len(phone.jobs), 1)
+        self.assertIn('token_hash', phone.jobs[0])
+        self.assertNotIn('recruit', phone.jobs[0])
+        self.assertEqual(len(self.world.users), 1)  # 탈퇴시킬 V 를 더 만들지 않는다
+        self.assertNotIn('withdrawn', self.world.statuses.values())
+        self.assertGreater(datetime.fromisoformat(self.opens_patches()[0]), self.clock.now)
         self.assertIsNone(self.opens_patches()[-1])
 
-    def test_the_accounts_are_made_before_the_school_is_closed(self):
-        self.world.on_link = lambda: self.assertEqual(self.opens_patches(), [])
-        self.assertEqual(self.go('E-HOME-22', self.emu_phone())[0], 'pass')
-
-    def test_the_case_gets_a_longer_limit_than_the_default_for_four_accounts_and_two_launches(self):
-        self.assertGreaterEqual(tools.CASE_LIMITS['E-HOME-22'], 600)
-
-    def test_a_withdrawal_that_did_not_lower_the_database_count_is_blocked_not_a_false_pass(self):
-        with mock.patch.object(eh, '_set_status'):
-            result = self.go('E-HOME-22', self.emu_phone())
-        self.assertEqual(result[0], 'blocked')
-        self.assertIn('N-1', result[1])
-        self.assertIsNone(self.opens_patches()[-1])
-
-    def test_a_summary_api_that_counts_wrongly_is_a_fail(self):
-        self.world.skew = 2
-        self.assertEqual(self.go('E-HOME-22', self.emu_phone())[0], 'fail')
-
-    def test_a_restart_that_still_shows_the_old_count_is_a_fail_and_the_school_is_put_back(self):
-        result = self.go('E-HOME-22', self.emu_phone({'result': 'pass'}, {'result': 'fail', 'note': '"8명" 0개'}))
+    def test_an_app_that_still_shows_the_panel_is_a_fail_and_the_school_is_put_back(self):
+        result = self.go('E-HOME-22', self.emu_phone({'result': 'fail', 'note': '"현재 모집 인원" 1개(기대 0)'}))
         self.assertEqual(result[0], 'fail')
         self.assertIsNone(self.opens_patches()[-1])
+
+    def test_the_case_runs_on_the_default_limit_now_that_it_makes_one_account(self):
+        self.assertNotIn('E-HOME-22', tools.CASE_LIMITS)
 
 
 class Home30Test(EmuHomeBase):
@@ -494,8 +464,9 @@ class RegistryTest(unittest.TestCase):
         dart = self.dart('area2_emu_home.dart')
         for case in CASES:
             self.assertRegex(dart, rf"(?m)^  '{case}':", case)
-        for key in ('days', 'date', 'recruit', 'today', 'font_scale', 'width_dp'):
+        for key in ('days', 'date', 'today', 'font_scale', 'width_dp'):
             self.assertIn(f"job['{key}']", dart, key)
+        self.assertNotIn("job['recruit']", dart)  # PC 가 더는 보내지 않는다
 
     def test_e2e_test_merges_the_app_cases(self):
         main = self.dart('e2e_test.dart')
@@ -504,10 +475,22 @@ class RegistryTest(unittest.TestCase):
 
     def test_the_app_side_changes_no_lib_code_and_uses_the_texts_of_the_screen(self):
         dart = self.dart('area2_emu_home.dart')
-        for text in ('첫 카드까지', '현재 모집 인원', '친구에게 초대 링크 보내기', '네트워크 연결을 확인해 주세요'):
+        for text in ('첫 카드까지', '친구에게 초대 링크 보내기', '네트워크 연결을 확인해 주세요'):
             self.assertIn(text, dart)
-            self.assertIn(text, (tools.ROOT / 'frontend' / 'lib').joinpath('home/view/cohort_wait_view.dart').read_text(encoding='utf-8')
-                          + tools.arb_literals())
+            self.assertIn(text, self.screen_texts())
+
+    def screen_texts(self):
+        return (tools.ROOT / 'frontend' / 'lib').joinpath('home/view/cohort_wait_view.dart').read_text(encoding='utf-8') + tools.arb_literals()
+
+    def test_the_headcount_panel_is_gone_from_the_screen_and_the_app_checks_it_stays_gone(self):
+        # 모집 인원 판(pen `u7XsyB`)은 사용자 결정 2026-11-11 로 지웠다 — 화면 코드 · 문구 파일 어디에도 그 글이 없고(주석 포함),
+        # 앱 쪽 E-HOME-22 는 그 글이 화면에 0개인지 본다.
+        self.assertNotIn('현재 모집 인원', self.screen_texts())
+        dart = self.dart('area2_emu_home.dart')
+        case = dart[dart.index("  'E-HOME-22':"):dart.index("  'E-HOME-30':")]
+        self.assertIn('현재 모집 인원', case)
+        self.assertIn('== 0', case)
+        self.assertNotIn('_recruitLabel', dart)
 
     def test_the_new_files_use_crlf_like_their_neighbours(self):
         for path in ('e2e/area2_emu_home.py', 'e2e/test_area2_emu_home.py', 'frontend/integration_test/area2_emu_home.dart'):
