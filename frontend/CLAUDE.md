@@ -114,7 +114,7 @@
 | `docs/DESIGN.md` | 디자인 시스템 전문. 색·타이포·컴포넌트·미결 항목 |
 | `docs/ANALYTICS_EVENTS.md` | 사용 통계 이벤트 · 앱이 버틴 오류(Crashlytics 비치명)의 단일 기준표. 이벤트를 더하거나 고치면 이 표도 같이 고친다 |
 | `run.md` | 실행 · AAB 빌드 · TestFlight · 아이콘 절차 |
-| `assets/images/` | DESIGN.md 기준 확정 채택된 UI용 PNG 자산 |
+| `assets/images/` | DESIGN.md 기준 확정 채택된 UI용 그림 자산(WebP, 한 장 300KB 이하 — §7.1) |
 | *(별도 저장소)* `datingApp.pen` · `preview/*.png` | Pencil 시안 원본과 화면 미리보기. OneDrive `datingApp` 저장소에 있음 (이 저장소에는 없음) |
 
 ---
@@ -282,7 +282,7 @@ if (status == statusPending) { ... }   // 대기 상태일 때만 처리
   | `app_theme.dart` | `AppTheme` | 위를 조립한 `ThemeData light()` |
 
 - **아이콘은 Lucide (`lucide_icons_flutter`)** 로 통일한다. 위젯에서 `LucideIcons.*` 를 직접 부르지 않고 `AppIcons` 상수를 거친다 (DESIGN.md §5.3)
-  - **예외: 하트 재화 글리프.** 잔액·번들·리워드·CTA·아바타 코스트·설정 보유하트 등 "재화" 의미의 하트는 Lucide 가 아니라 이미지 자산 `assets/images/heart-flat-vector-v3.png` 를 쓴다 (DESIGN.md §5.4·§8.10). 바텀 내비 오늘 탭·호감 하트·매칭 기록 등 비(非)재화 하트는 계속 Lucide `heart`. 재화 글리프는 다크 배경에서도 읽히는 렌더 + `@2x`/`@3x` 자산 + `Semantics(label: '하트')` 를 갖춘다
+  - **예외: 하트 재화 글리프.** 잔액·번들·리워드·CTA·아바타 코스트·설정 보유하트 등 "재화" 의미의 하트는 Lucide 가 아니라 이미지 자산 `assets/images/heart-flat-vector-v3.webp` 를 쓴다 (DESIGN.md §5.4·§8.10). 바텀 내비 오늘 탭·호감 하트·매칭 기록 등 비(非)재화 하트는 계속 Lucide `heart`. 재화 글리프는 다크 배경에서도 읽히는 렌더 + `@2x`/`@3x` 자산 + `Semantics(label: '하트')` 를 갖춘다
 - **버튼은 공용 `AppButton`(`common/widgets/app_button.dart`, pen Button `HE8FZ`)을 그대로 쓰고 라벨 크기를 화면에서 바꾸지 않는다.** 라벨은 16/700(`AppTypography.button`) — 채움 버튼은 높이 52 · 모서리 14, text 변형은 높이 48 · 16/600, 탈퇴 시트 `neutral` 만 18/700 이다(DESIGN.md §8.3). 10b · 받은 신청 프로필 보기의 아이콘 결정 버튼은 `AppTypography.label` 18/700 이다. `{colors.primary}` (#FF385C) 위 흰 글씨는 대비 3.52:1 이라 큰 글씨 예외(18.66px 이상 굵은 글씨)에 의존해야 하는데 16/700 은 그 예외에 들지 않는다 — 미결이다(DESIGN.md §2.1 · §8.3 · §13-151)
 - **`{colors.primary}` 는 채움 전용.** 흰 배경 위 텍스트에는 `{colors.primary-text}` (#C4224B) 를 쓴다
 - **사용자는 전 화면에서 닉네임으로만 표시한다. 실명(`real_name`)은 서버 응답에 담지 않는다** (DESIGN.md §8.7 · 설계 문서 §7.3, ERD.md §11-2). 실명은 받지도 보이지도 않는다 — 학생증 인증 제거(2026-10-17) 뒤 서버 `GET /account` 도 싣지 않고 앱도 읽지 않는다(옛 계정의 암호문이 `profile_private.real_name_enc` 에 남아 있어도 읽지 않는다). `김○○` 같은 마스킹 표시는 쓰지 않는다
@@ -291,6 +291,7 @@ if (status == statusPending) { ... }   // 대기 상태일 때만 처리
 - **색과 그림자는 `AppColors` · `AppElevation` 토큰으로만 정한다.** `lib/core/theme/` 밖에 `Color(0x…)` · `Color.fromARGB/fromRGBO` · `Colors.<이름>.withValues/withOpacity/withAlpha` 를 쓰지 않는다 — 파일 맨 위 상수로도 안 된다. 필요한 색이 없으면 값을 그대로 토큰으로 더하고 `docs/DESIGN.md` §2.9 표에 한 줄 적는다. `test/core/theme/color_tokens_test.dart` 가 잡는다(예외 목록은 비어 있다, 더하려면 시험 파일에 이유를 적는다). 간격은 값이 토큰(4 · 8 · 12 · 16 · 24 · 32 · 48 · card 20)과 같으면 `AppSpacing` 을 쓴다 — 다른 값은 지킴 시험이 없고 숫자 그대로 남아 있다(`docs/DESIGN.md` §4.1).
 - **안내 · 시트 · 구역 머리는 공통 부품을 쓴다.** 빈 화면 `EmptyNotice` · 큰 안내 화면 `FullScreenNotice` · 불러오기 실패 `RetryNotice`(작은 것은 `.inline`) · 시트 `SheetFrame` / `AlertSheet` / `SheetHandle` · 삭제 확인 `DeleteConfirmSheet` · 구역 머리 `SectionHeader` / `SettingsSectionHeader` · 사유 한 줄 `ReasonRadioRow`(`lib/common/widgets/`). 언제 쓰는지 · 인자는 `docs/DESIGN.md` §12.1. 문구는 부품이 아니라 쓰는 화면이 `context.l10n` · `context.errorText(...)` 로 만들어 넘긴다. 같은 모양을 화면 안에서 다시 만들지 않는다
 - **움직이는 그림(Lottie)은 `AppLottieView`(`lib/common/widgets/app_lottie_view.dart`) 한 곳으로만 부른다.** `package:lottie` 를 다른 파일에서 부르면 `test/common/widgets/app_lottie_view_test.dart` 가 실패한다. 장면은 `AppLottie` 표(`core/theme/app_lottie.dart`)에 한 줄 더하고 화면은 경로 글자를 직접 쓰지 않는다. 에셋은 `assets/lottie/<이름>.json` + 그림 `assets/lottie/images/<이름>/`(json 의 그림 폴더 `assets[].u` 가 `images/<이름>/` — 폴더 항목은 하위 폴더를 담지 않아 pubspec 에 그림 폴더를 따로 적는다). 크기 예산은 json 100KB · 장면 하나(그림 포함) 400KB. 색은 그림 속 색 그대로 둔다(앱 토큰으로 바꾸지 않는다). "동작 줄이기" 면 장면마다 정한 멈춤 프레임에 선다. 지킴 시험 `test/core/theme/app_lottie_test.dart`. DESIGN.md §7
+- **앱에 넣는 그림은 WebP 로 줄여 넣는다.** 앱 어디서든 그려지는 가장 큰 논리 크기의 3배(긴 변, 원본보다 키우지 않는다)로 줄여 품질 90 으로 저장하고, 한 장 300KB 를 넘기지 않는다 — 1024px 원본 PNG 를 그대로 넣으면 앱 내려받기 용량이 몇 배로 는다(2026-11-11 사용자 승인). 원본은 저장소 밖에 보관하고, 앱이 안 쓰는 그림은 넣지 않는다. 화면에서 그림 크기를 키우면 그 그림도 다시 맞춘다. 지킴 시험 `test/assets/asset_images_test.dart`
 - **눌림 효과(잉크)는 움직이는 쪽 안에 가둔다** — `InkWell` 등을 스크롤 · 페이지 · 애니메이션 안에 둘 때는 `Material(type: MaterialType.transparency)` 로 감싼다. 새 화면을 만들 때와 리뷰할 때마다 본다
 
 ### 7.2 화면 문구 · 에러 문구 (ARB)
@@ -342,6 +343,7 @@ if (status == statusPending) { ... }   // 대기 상태일 때만 처리
 | `test/core/theme/app_lottie_test.dart` | Lottie 장면 표 · 에셋 · pubspec 그림 폴더 · 크기 예산 |
 | `test/common/widgets/app_lottie_view_test.dart` | `package:lottie` 는 `AppLottieView` 한 곳에서만 |
 | `test/auth/social/view/start_view_test.dart` | 심사원 로그인 입구와 소셜 버튼이 겹치지 않음 |
+| `test/assets/asset_images_test.dart` | lib 이 부르는 `assets/images/…` 그림(동물상은 열거 값마다 펼쳐서)이 실제 파일이다, `assets/images` 그림은 한 장 300KB 이하 |
 
 ---
 
