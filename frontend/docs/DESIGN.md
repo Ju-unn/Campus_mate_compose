@@ -149,6 +149,29 @@ Airbnb 의 색 체계를 그대로 가져왔다. 캔버스는 **순백**, 잉크
 | `googleStroke` | `#747775` | 구글 버튼 안쪽 1px 획 |
 | `googleLabel` | `#1F1F1F` | 구글 레이블 |
 
+### 2.9 화면 하나에만 쓰던 값에 이름을 붙인 토큰 (신설 2026-11-11 — 앱 1.0.2 계획 B2, PR #701)
+
+위젯 파일에 흩어져 있던 `Color(0x…)` · `Colors.black.withValues(...)` 25줄을 `AppColors` 토큰 13개와 `AppElevation` 토큰 6개(§6)로 모았다. **화면에 보이는 값은 그대로다** — pen 값을 그대로 두고 이름만 붙였다. 아래 색은 §2.1 ~ 2.5 의 기준 팔레트가 아니라 한 화면 · 한 부품에서만 쓰는 값이라 이 절에 따로 둔다. 값은 `lib/core/theme/app_colors.dart` 가 기준이다(고정 시험 `test/core/theme/app_colors_test.dart`).
+
+| 토큰 (`AppColors`) | 값 | 쓰는 곳 |
+| --- | --- | --- |
+| `kakaoPanel` | `#0A0A0A` | 카카오톡 아이디 화면(`kakao_id_screen.dart`)이 흉내 낸 카카오톡 화면의 어두운 패널 |
+| `kakaoCheckMark` | `#2B2200` | 같은 화면의 체크 표시 |
+| `glassFill` | `#FFFFFFC7`(RGBA, 흰색 78%) | 하단 내비 유리 알약 채움(§8.8, 마스터 `AppBottomNavGlass` "알파 최소 78%") |
+| `glassVeil` | `#FFFFFF99` | 유리 알약 안쪽 1px 선 · 선택 방울 채움 |
+| `glassHighlight` | `#FFFFFFE6` | 선택 방울의 위쪽 1px 선 |
+| `pollAgree` | `#2D96DE` | 투표 찬성(O) 쪽 파랑 — 버튼 · 도넛 A 몫 · 막대(§8.11, pen `VhiAe`). 옛 이름 `pollAgreeBlue` |
+| `reportLabel` | `#6E5861` | 신고 버튼 글자 — 투표 카드(pen `Wwsmw`) · 지인 리뷰 카드(`o1niSD`) |
+| `reviewStripSurface` | `#FFF8EC` | 홈 리뷰 띠 바탕(§8.9, pen `L7wKi`) |
+| `profileNudgeTrackEdge` | `#D8C8D940`(RGBA, 알파 25%) | 홈 프로필 안내 진행 막대 테두리(pen `v8D23`) |
+| `profileEntryIconSurface` | `#F7F3FF` | 프로필 목록 행(`ProfileEntryRow`) 아이콘 동그라미 바탕 — `emphasis` 가 아닐 때 |
+| `lockOverlay` | 검정 25% | 잠금 카드 덮개(아바타 결과 화면). `{colors.scrim}`(50%)과 다르다 |
+| `photoRemoveBadge` | 검정 60%(pen `#00000099`) | 사진 칸 모서리의 x 동그라미 바탕(04-2 · 하트 과제 · 졸업생 사진 칸) |
+| `coachDim` | 검정 70%(RGBA `#000000B3`) | 앱 투어 코치 마크 덮개(§8.15, pen `tFIey`). `{colors.scrim}` 과 다르다 |
+
+- **새 색이 필요하면 위젯에 `Color(0x…)` 를 쓰지 않고 `lib/core/theme/` 에 토큰을 더한다.** 지킴 시험 `test/core/theme/color_tokens_test.dart` 가 `lib/core/theme/` · `lib/l10n/` 밖의 `Color(0x…)` · `Color.fromARGB/fromRGBO` · `Colors.<이름>.withValues/withOpacity/withAlpha` 를 잡는다. 예외 목록은 지금 비어 있다(예외를 더하려면 시험 파일에 이유를 적는다).
+- 이 토큰들은 앱 팔레트의 의미 토큰이 아니라 "이 자리에서 이 값" 이라는 이름 붙이기다. 같은 값이 두 곳 이상에서 필요해지면 이름이 뜻을 가지는지 먼저 본다(예: `reportLabel` 은 투표 카드와 지인 리뷰 카드가 같이 쓴다).
+
 ---
 
 ## 3. 타이포그래피
@@ -220,6 +243,7 @@ fontFamilyFallback: ['Apple SD Gothic Neo', 'Noto Sans KR', 'sans-serif']
 
 - 화면 좌우 여백은 전 화면 `{space.md}`(16) 로 고정한다. 화면마다 다르게 두지 않는다
 - 인접한 터치 타깃 사이는 최소 `{space.xs}`(8)
+- **2026-11-11 앱 1.0.2 B2(PR #701):** 화면 코드의 `EdgeInsets` · 빈칸 `SizedBox` 숫자 가운데 값이 토큰과 정확히 같은 `4 / 8 / 12 / 16 / 24 / 48` 49개를 `AppSpacing.xxs ~ xxl` 로 바꿨다(24파일, 화면은 그대로). **값이 토큰과 다른 숫자 273개(231줄)는 아직 토큰이 아니다** — 0(52) · 6(36) · 2(32) · 14(32) · 20(29) · 28(19) · 10(23) 등. 간격 숫자를 막는 지킴 시험은 아직 없다(색과 다르다). `20` 은 값이 `{space.card}` 와 같지만 이름이 "카드 안쪽 4면" 이라 일반 간격에 쓰면 읽는 사람이 헷갈려 그대로 뒀다 — 이름을 어떻게 할지는 결정 대기다. 남은 값의 파일:줄 목록은 사용자 폴더 `CampusMate_문서\기획·설계\B2_간격_남은값_11-11.md`
 
 ### 4.2 세이프 에어리어
 
@@ -425,14 +449,14 @@ fontFamilyFallback: ['Apple SD Gothic Neo', 'Noto Sans KR', 'sans-serif']
 | 등급 | 값 | 실제 적용처(코드 · pen) | 근거 |
 | --- | --- | --- | --- |
 | 카드(`AppElevation.card`) | 위 표 "카드" 두 겹 그대로 | 오늘 탭 요약 카드(`daily_card_summary.dart`) · 04-2 · 15-7 사진 칸을 **길게 눌러 끌 때만**(`photo_tiles.dart`, 끌린 칸이 떠 보여야 어디로 가는지 안다) · 화면 15 의 `ProfileEntryRow`(pen `fN0xc`, 흰 바탕 + 이 그림자 — 2026-09-28 사용자 결정, 리스트 행의 예외) · 15-5 기본 정보 카드(`N1dIuc`) | `app_elevation.dart` 주석 · 나 탭 계획서 N5 |
-| 커뮤니티 카드(리터럴) | `#00000014` (0,1) blur 8 한 겹 | `poll-card`(pen `RpRBi`) | `poll_card.dart` — 토큰과 값이 달라 파일 안 상수 |
-| 위로 뜨는 시트(리터럴) | `#00000026` (0,-2) blur 16 한 겹 | AlertSheet `D0TvG` 계열 시트 — 15d-2 삭제 확인 · 20e-2 지우기 확인 · 16i 친구 초대, 14d 지인 리뷰 전체(`FXNL4`) | `poll_sheets.dart` · `written_reviews_screen.dart` · `invite_friends_sheet.dart` · `partner_reviews_section.dart` |
-| 말풍선 신고 메뉴(리터럴) | `#00000033` (0,4) blur 16 한 겹 | 상대 말풍선 롱프레스 메뉴(pen `afUag`) | `bubble_report_menu.dart` |
+| 투표 카드(`AppElevation.pollCard`, 2026-11-11 B2 에서 토큰이 됨) | `#00000010` (0,1) blur 6 한 겹 | `poll-card`(pen `RpRBi`) | `poll_card.dart` — 종전에는 파일 안 상수였다. 이 표가 적던 `#00000014` blur 8 은 코드 값과 달랐고, 코드 값(`#00000010` blur 6)으로 고쳤다(pen 값은 이번에 다시 보지 않았다) |
+| 위로 뜨는 시트(`AppElevation.top`, 2026-10-17 토큰) | `#00000026` (0,-2) blur 16 한 겹 | AlertSheet `D0TvG` 계열 시트 — 15d-2 삭제 확인 · 20e-2 지우기 확인 · 16i 친구 초대, 14d 지인 리뷰 전체(`FXNL4`). 2026-11-11 B3 부터 공통 `SheetFrame` / `AlertSheet`(`common/widgets/alert_sheet.dart`, §12.1)가 이 그림자를 입힌다 | `alert_sheet.dart` · `poll_sheets.dart` · `written_reviews_screen.dart` · `invite_friends_sheet.dart` · `partner_reviews_section.dart` |
+| 말풍선 신고 메뉴(`AppElevation.popover`, 2026-10-01 토큰) | `#0000001F` (0,4) blur 12 한 겹 | 상대 말풍선 롱프레스 메뉴(pen `afUag`) | `bubble_report_menu.dart` — 이 표가 적던 `#00000033` blur 16 은 2026-10-01 에 한 겹 `popover` 로 바뀐 뒤에도 고쳐지지 않은 서술이었다 |
 | 없음 | — | 조각 6 안전 시트(`SafetySheet` — 14e · 16f 해제 · 16c · 16g), 20b 리뷰 쓰기 시트(`NHcsP`, pen 에 그림자 없음), 앱바 · 버튼 · 칩 · 입력 · 하단 내비 | pen 값 그대로 |
 
-- 리터럴 세 값은 **토큰으로 올리지 않았다**(2026-09-29 기준). 두 번 넘게 쓰이는 "위로 뜨는 시트" 값을 `AppElevation` 에 둘지는 §13-129 결정 대기다
+- ~~리터럴 세 값은 **토큰으로 올리지 않았다**(2026-09-29 기준). 두 번 넘게 쓰이는 "위로 뜨는 시트" 값을 `AppElevation` 에 둘지는 §13-129 결정 대기다~~ **2026-11-11 개정:** 위 세 값은 모두 `AppElevation` 토큰(`top` · `popover` · `pollCard`)이다. 지금은 `lib/core/theme/` 밖에 그림자 리터럴이 없다(색 지킴 시험 `color_tokens_test.dart`, §2.9)
 - 바텀시트 그림자는 세 갈래로 갈린다(위 표 "카드" 행) — 조각 6 안전 시트는 그림자 없음, `D0TvG` 계열은 위쪽 한 겹
-- **위 두 표의 "바텀 내비 · 하단 내비 = 그림자 없음" 은 5개 탭 화면에서는 적용하지 않는다.** 탭 첫 화면의 떠 있는 유리 알약(§8.8 `bottom-nav`)은 그림자 두 개를 쓴다 — 알약 `#1A16191F` (0,8) blur 24 · 선택 방울 `#1A161933` (0,5) blur 12, 둘 다 **모양 바깥에만** 그린다(반투명 채움 안으로 그림자가 비쳐 탁해지지 않게). 리터럴이라 토큰으로 올리지 않았다(`glass_bottom_nav.dart` 파일 안 상수, §12). 카드 상세 등 탭 밖 화면의 기존 바(`AppBottomNav`)는 그대로 그림자 없음이다
+- **위 두 표의 "바텀 내비 · 하단 내비 = 그림자 없음" 은 5개 탭 화면에서는 적용하지 않는다.** 탭 첫 화면의 떠 있는 유리 알약(§8.8 `bottom-nav`)은 그림자 두 개를 쓴다 — 알약 `#1A16191F` (0,8) blur 24 · 선택 방울 `#1A161933` (0,5) blur 12, 둘 다 **모양 바깥에만** 그린다(반투명 채움 안으로 그림자가 비쳐 탁해지지 않게). **2026-11-11 앱 1.0.2 B2 에서 토큰이 됐다** — 알약 `AppElevation.glassPill`, 선택 방울 `AppElevation.glassBubble`, 채움 · 선은 `AppColors.glassFill` · `glassVeil` · `glassHighlight`(§2.9). 종전에는 리터럴이라 `glass_bottom_nav.dart` 파일 안 상수였다. 카드 상세 등 탭 밖 화면의 기존 바(`AppBottomNav`)는 그대로 그림자 없음이다
 - **2026-10-16 사용자 결정으로 예외 추가 — 홈 6칸 그리드는 칸마다 입체 그림자를 쓴다**(사용자 "1번 A로 가자", pen HomeTileGrid v2 `R62HQ` 초안 A, 앱 PR #564). 위 "그림자는 요약 카드만" · "리스트 · 칸은 평면" 의 예외다. 토큰은 `app_elevation.dart` 에 셋을 더했다(값 고정 시험 `app_elevation_test.dart`):
 
   | 토큰 | 값 | 적용처(§8.9 6칸 그리드) |
@@ -442,6 +466,16 @@ fontFamilyFallback: ['Apple SD Gothic Neo', 'Noto Sans KR', 'sans-serif']
   | `AppElevation.homeTileInset` | `#0000000F` (0,1) blur 4 **안쪽** | 곧 열려요 칸(마스터 `BoTMl`) — 눌리지 않는 칸이라 들어가 보이게. Flutter `BoxShadow` 는 바깥에만 그리므로 `BoxDecoration` 에 넣지 않고 `home_grid.dart` 의 `_InsetShadowPainter` 가 안쪽에 그린다(새 의존성 없음) |
 
   - 참고(2026-10-17 문서 정리, 코드 기준): 위 2026-09-29 표 이후 `app_elevation.dart` 의 토큰 이름은 `card` · `cardSoft`(오늘 탭 요약 · 잠금 카드, 2026-10-01 옮김) · `popover` · `row`(`ProfileEntryRow`, 2026-10-01 옮김) · `trait` · `badge` · `homeTileLow` · `homeTileRaised` · `homeTileInset` · `top`(위로 뜨는 시트, 백로그 76)이다. 2026-09-29 표의 "오늘 탭 요약 카드 · `ProfileEntryRow` = `AppElevation.card`" 는 2026-10-01 개편 전 기록이다
+  - **2026-11-11 앱 1.0.2 B2(PR #701) 추가 토큰 6개 → `AppElevation` 은 모두 16종** (값 고정 시험 `app_elevation_test.dart`):
+
+    | 토큰 | 값 | 적용처 |
+    | --- | --- | --- |
+    | `glassPill` | `#1A16191F` (0,8) blur 24 (`BoxShadow` 하나) | 하단 내비 유리 알약(마스터 `AppBottomNavGlass`). 모양 바깥에만 그린다 |
+    | `glassBubble` | `#1A161933` (0,5) blur 12 (`BoxShadow` 하나) | 하단 내비 선택 방울 |
+    | `floatingButton` | `#1A16192E` (0,6) blur 16 | 커뮤니티 피드의 떠 있는 새 글 버튼 |
+    | `pollCard` | `#00000010` (0,1) blur 6 | 투표 카드 `PollCard` |
+    | `pollBadge` | `#00000026` (0,1) blur 4 | 피드 투표 카드의 동그란 배지 |
+    | `verifiedBadge` | `#34223A24` (0,2) blur 8 | 내 프로필 학교 인증 뱃지(pen `EQjrL`). `badge` 와 색 · 번짐이 달라 따로 둔다 |
 
 깊이는 그림자가 아니라 **표면 색 차이**로 만든다. `canvas` → `surface` → `surface-ink` 순서가 곧 층위다.
 
@@ -838,7 +872,7 @@ fontFamilyFallback: ['Apple SD Gothic Neo', 'Noto Sans KR', 'sans-serif']
   - **태그 최소 1 · 최대 3**(12종 고정, 서버가 목록을 검사). 한마디 선택 · 100자, 카운터 "n / 100"(코드포인트 기준)
   - **카드 모양**(`S0MR2b`): 흰 바탕 · 테두리 hairline · radius 14 · 그림자 없음. 학교 칸 36×36 r8 · 작성자 칸 36 원(바로 아래 줄), 닉네임 아래 관계 줄은 고정 "친구"(친구 코드로도 쓰므로 추천에 묶지 않는다. pen `iFxLX`), 태그 칩 `{colors.primary-wash}` pill 12/600, 한마디 14/400 말줄임 없음. 위 "대학 로고 20dp + 만화 아바타 32dp" · "가로 스크롤 레일" 은 적용하지 않는다
   - **학교 칸 · 작성자 칸(pen 마스터 `S0MR2b`, 2026-10-14 사용자 승인, 서버 · DB 변경 없음).** **학교 칸**(`NUNSp` 36 r8, 안쪽 hairline 1): 로고가 있으면 **흰 칸 가운데 학교 로고 28×28 contain**(`DHWAj`, 주소는 `universities.logo_path` → 공개 버킷, 학교 줄 `SchoolLabel` 과 같은 표). 로고가 없는 학교거나 못 불러오면, 그리고 로고 표를 아직 읽는 동안은 **검정(`{colors.surface-ink}`) 칸에 학교명 첫 글자**(12/700 흰색, §13-29 폴백). 주소를 안 뒤 그림이 오는 동안만 흰 빈칸이다. 학교가 없으면 칸 없이 아바타가 맨 앞. **작성자 칸**(`dTmnd` 36 원, `{colors.primary-wash}` 바탕): 서버 `avatar_url`(그 사람의 최신 완성 아바타 공개 주소 — 서비스가 만든 일러스트뿐, 실사진은 오지 않는다)을 **36 원에 cover 로 그린다**(기기 캐시 `CachedNetworkImage` — 채팅 목록 · 수락함 · 오늘 카드 · 차단 목록과 같다). 아바타가 없거나 못 불러오면 **닉네임 첫 글자 원**(`e1cLm` 14/700 `{colors.primary-text}`), 오는 동안은 연분홍 빈 원. 화면 읽기는 학교 칸을 학교 이름으로 읽고 아바타 · 첫 글자는 읽지 않는다(닉네임은 옆 글자가 읽는다). **20b 쓰기 시트 머리(`Tb6Fe`)는 pen 이 아직 이니셜이라 이니셜 그대로다**
-  - **신고**: 깃발 20 · 누름 48 은 **20c 받은 리뷰에만** 있다(받은 사람만 신고 — 14c · 14d 에는 없다). pen `S0MR2b/qRvp8` 대로 **3D 사이렌 22 + "신고하기" 9/600 #6E5861**(누름 48 이상, 낭독은 "신고하기" 하나). 9 는 접근성 최소 12 에 못 미치는 pen 값 그대로이고 #6E5861 은 토큰에 없는 리터럴이다(디자인 결정은 별도). 20e 휴지통은 그대로다. **리뷰 신고는 작성자를 차단하지 않는다**(P1 — 받은 사람에게만 리뷰가 사라져 신고 뜻과 반대가 된다). 성공 토스트 "신고했어요. 운영팀이 확인할게요". 신고된 리뷰는 운영자가 대시보드에서 가린다(자동 가림 없음). 위 "신고 누적 시 자동 블라인드" 는 적용하지 않는다
+  - **신고**: 깃발 20 · 누름 48 은 **20c 받은 리뷰에만** 있다(받은 사람만 신고 — 14c · 14d 에는 없다). pen `S0MR2b/qRvp8` 대로 **3D 사이렌 22 + "신고하기" 9/600 #6E5861**(누름 48 이상, 낭독은 "신고하기" 하나). 9 는 접근성 최소 12 에 못 미치는 pen 값 그대로이고 #6E5861 은 2026-11-11 앱 1.0.2 B2 에서 `AppColors.reportLabel` 토큰이 됐다(종전에는 토큰에 없는 리터럴이었다, §2.9). 20e 휴지통은 그대로다. **리뷰 신고는 작성자를 차단하지 않는다**(P1 — 받은 사람에게만 리뷰가 사라져 신고 뜻과 반대가 된다). 성공 토스트 "신고했어요. 운영팀이 확인할게요". 신고된 리뷰는 운영자가 대시보드에서 가린다(자동 가림 없음). 위 "신고 누적 시 자동 블라인드" 는 적용하지 않는다
   - **숨김**: 작성자가 active 가 아니거나(탈퇴 · 정지), 가려졌거나, 보는 사람과 작성자 사이에 차단이 있으면(어느 방향이든) 바로 안 보인다
   - **14c 섹션**: 이상형 메모 뒤 · 카카오 카드 앞, 헤더 "지인 리뷰" + 카드 최대 2장, "N개 모두 보기"는 **3개 이상일 때만**(누름 44). 0개면 섹션을 숨긴다. **14d**: hug 높이, 화면 90% 를 넘으면 스크롤, 위쪽 그림자(§6)
   - **20b 쓰기 시트**(`NHcsP`): 진입 두 곳 — ① 온보딩 20 코드 확인 직후(연결은 다음 PR, 지금은 20 → 20d) ② 추천인 푸시(홈 위 시트 `/home/friend-reviews/write/:id`). **③ 2026-10-13: 15 지인 리뷰 칸 "리뷰 쓰기" → 20f 친구 코드 → 20b(코드로 저장)** — 아래 "친구 코드로 리뷰 쓰기". 태그 2열 칩 160×40(누름 48), 가운데 스크롤 · 버튼 바닥 고정. 같은 사람에게 두 번이면 **열 때 409 토스트 "이미 리뷰를 남겼어요"** 로 시트 대신 알린다. 성공 토스트 "리뷰를 남겼어요"
@@ -946,7 +980,7 @@ fontFamilyFallback: ['Apple SD Gothic Neo', 'Noto Sans KR', 'sans-serif']
 
 **기준 미만이면 숨긴다 (2026-11-10 회의 결정, 서버 PR #686 — 운영 배포됨 `00102-46b`, `backend/DEPLOY.md` §4-25).** 서버 `GET /home/summary` 는 **가입 수(active)가 `HOME_STATS_MIN_SIGNUPS`(기본 300)보다 적으면 세 숫자를 모두 0 으로 내려 준다**(DB 값은 그대로). 앱은 0 인 칸을 숨기고 남은 칸이 폭을 나누며 셋이 다 0 이면 통계 행 전체가 빠진다(`home_grid.dart` `_minStatValue = 1`, 규칙 4 의 임계값을 서버가 정한다). 초반의 작은 숫자가 오히려 휑해 보인다는 이유다. 기준 300 은 11-10 회의 할 일 계획에서 대장이 기본값으로 정했고 사용자가 계획을 승인했다.
 
-**`review-strip`** — 가로 한 줄. 좌측 별점(`{type.title}`, 예: "4.8") + 별 아이콘 5개(채움/외곽 혼합) + "(143명 평가)" 캡션, 우측 `button-text` "리뷰 남기기" → 스토어 리뷰 페이지로 딥링크. 배경 `{colors.surface-soft}`, `{radius.md}` — **구현 기준으로 정정(2026-10-14 확인, pen `L7wKi`): 배경 `#FFF8EC`(토큰 밖), 높이 64 · 좌우 14, 별점 17/700 + 3D 별 15 다섯 개 + "(N명 평가)" 12/500 muted, "리뷰 남기기" 16/700 `{colors.primary-text}`(누름 48, `Pressable`). 평가 수가 10 미만이면 위 여백째 숨긴다**(10 은 이 문서에 값이 없어 정한 임시값 `_minReviewCount` — 결정 대기. 저장소가 채우는 출시 전 목값 1명 평가는 그 아래라 숨는다)
+**`review-strip`** — 가로 한 줄. 좌측 별점(`{type.title}`, 예: "4.8") + 별 아이콘 5개(채움/외곽 혼합) + "(143명 평가)" 캡션, 우측 `button-text` "리뷰 남기기" → 스토어 리뷰 페이지로 딥링크. 배경 `{colors.surface-soft}`, `{radius.md}` — **구현 기준으로 정정(2026-10-14 확인, pen `L7wKi`): 배경 `#FFF8EC`(2026-11-11 `AppColors.reviewStripSurface` 토큰, §2.9), 높이 64 · 좌우 14, 별점 17/700 + 3D 별 15 다섯 개 + "(N명 평가)" 12/500 muted, "리뷰 남기기" 16/700 `{colors.primary-text}`(누름 48, `Pressable`). 평가 수가 10 미만이면 위 여백째 숨긴다**(10 은 이 문서에 값이 없어 정한 임시값 `_minReviewCount` — 결정 대기. 저장소가 채우는 출시 전 목값 1명 평가는 그 아래라 숨는다)
 
 - **리뷰 띠(2026-10-16 사용자 결정, 서버 · 앱 PR #565 — 바로 위 "10 미만이면 숨긴다 · 출시 전 목값 1명" 은 적용하지 않는다).** 별점 · 평가 수는 **서버 `GET /home/summary` 의 `store_rating` · `store_rating_count`** 를 그대로 그린다 — 값은 사람이 Cloud Run 환경변수 `STORE_RATING` · `STORE_RATING_COUNT` 에 넣는다(`backend/DEPLOY.md` §4-13). **평가가 1명 이상이면 보이고 0명이면 위 여백째 숨긴다**(`_minReviewCount` 1). 환경변수가 비었거나 잘못 들어가면(숫자 아님 · 음수 · 5 초과 · 평가가 있는데 1 미만) 서버가 둘 다 0 으로 내려 띠가 숨는다 — 가짜 숫자를 보이지 않는다. 옛 서버는 칸이 없어 앱이 0 으로 읽어 숨는다. 사용자 결정(10-16): 지금은 **별점 5.0 · 1명**으로 둔다(pen `IQUAc` 도 5.0 · 1명) — 2026-10-17 서버 배포 때 환경변수로 넣었다(리비전 `00083-pwx`, `backend/DEPLOY.md` §4-13). 스토어에 실제 평점이 생기면 같은 두 값을 고친다. **운영은 `STORE_RATING_COUNT=0` 으로 내려 띠를 숨긴다**(리비전 `00091-rnc`, `backend/DEPLOY.md` §4-15) — 위 "별점 5.0 · 1명" 은 10-17 ~ 10-20 의 값이고, 앱 코드(`_minReviewCount` 1)와 이 절의 숨김 규칙은 그대로다
 - 데이터는 앱스토어·플레이스토어 리뷰 API 값을 그대로 쓴다. **숫자를 합성하거나 반올림 이상으로 꾸미지 않는다** (§8.9 지표 규칙과 동일 원칙)
@@ -1116,7 +1150,7 @@ fontFamilyFallback: ['Apple SD Gothic Neo', 'Noto Sans KR', 'sans-serif']
 
 - 상단: `verified-chip` 스타일의 익명 표시("익명") + 작성 시각(상대 시간, `{type.caption}`)
 - 중앙: 질문 텍스트(`{type.subtitle}`, 최대 2줄, 넘치면 말줄임)
-- **투표 전**: 좌우 2개 버튼. 라벨이 기본값("찬성"/"반대")이면 텍스트 없이 **O·X 아이콘 버튼만**(좌 O = 찬성 파랑 `#2D96DE` 채움, 우 X = 반대 `{colors.primary}` 채움, 흰 아이콘). 커스텀 라벨이면 라벨 텍스트를 담은 `button-secondary` 2개. 버튼 하나를 누르면 투표 확정 — **투표는 되돌릴 수 없다**(재투표로 결과를 조작하지 못하게)
+- **투표 전**: 좌우 2개 버튼. 라벨이 기본값("찬성"/"반대")이면 텍스트 없이 **O·X 아이콘 버튼만**(좌 O = 찬성 파랑 `#2D96DE`(`AppColors.pollAgree`, §2.9) 채움, 우 X = 반대 `{colors.primary}` 채움, 흰 아이콘). 커스텀 라벨이면 라벨 텍스트를 담은 `button-secondary` 2개. 버튼 하나를 누르면 투표 확정 — **투표는 되돌릴 수 없다**(재투표로 결과를 조작하지 못하게)
 - **투표 후 / 남의 투표 결과를 볼 때**: 버튼 자리가 **도넛 차트**(지름 96, 두께 12, 두 색은 `{colors.primary}` vs `{colors.surface-strong}`)로 바뀌고, 안쪽에 우세한 쪽의 퍼센트(`{type.title}`)를 표시. 도넛 아래 "찬성 62% · 반대 38%" 텍스트 한 줄과 "127명 참여" 캡션
 - 하단: `chevron-right`로 상세(전체 댓글·참여자 수) 진입 — 상세 화면은 이번 스코프에서는 **투표 비율 상세 + 참여자 수만** 보여주고 댓글은 만들지 않는다(모더레이션 부담, §13 신규 미결) — **2026-11-10 사용자 결정으로 개정: 댓글을 만들었다**(규칙은 이 절 끝 "O/X 글 댓글". 종전 서술은 그때의 결정이라 지우지 않는다)
 
@@ -1134,7 +1168,7 @@ fontFamilyFallback: ['Apple SD Gothic Neo', 'Noto Sans KR', 'sans-serif']
 - **하루 질문 10개**(결정 3, 한국 시간 자정 기준, 지운 글은 셈에서 빠진다) — 넘으면 17b 버튼 위 빨간 한 줄 "오늘은 질문을 더 올릴 수 없어요"
 - **선택지 라벨 1~6자**(사용자 답), 두 라벨이 같으면 올리지 못한다. 질문 80자. 글자 수는 DB · 서버 · 앱 모두 유니코드 코드 포인트로 센다
 - **투표 하트**: 하루 첫 투표 5하트, 한 주(한국 시간 월요일 0시 시작) 최대 15(2026-10-16 사용자 확정). 받으면 15d-3 토스트 "하트 5개를 받았어요"(§8.10)
-- **색**: 찬성(O) 버튼 `#2D96DE`(토큰 밖), 반대(X) `{colors.primary}`. **도넛의 찬성(A) 몫도 파랑 `#2D96DE`, 반대 몫은 분홍**(2026-09-27 사용자 결정 — 버튼 색과 뜻을 맞춤). 도넛 가운데 숫자는 **우세한 쪽 %**
+- **색**: 찬성(O) 버튼 `#2D96DE`(2026-11-11 `AppColors.pollAgree` 토큰, 옛 이름 `pollAgreeBlue`, §2.9), 반대(X) `{colors.primary}`. **도넛의 찬성(A) 몫도 파랑 `#2D96DE`, 반대 몫은 분홍**(2026-09-27 사용자 결정 — 버튼 색과 뜻을 맞춤). 도넛 가운데 숫자는 **우세한 쪽 %**
 - **pen 기준 값(위 문장을 대체)**: 도넛 지름 96 · 두께 약 18(안쪽 반지름 0.62, 위 "두께 12" 대신) · 끝 평평 · 틈 없음 / `poll-card` 흰 바탕 · 테두리 없음 · radius 14 · 안쪽 16 · 그림자 `#00000014` (0,1) 8(§6) / "익명" 칩 `{colors.surface-strong}` pill 11/600 / 질문 16/700 lh1.35(위 `{type.subtitle}` 대신), 목록 2줄 말줄임 · 상세 전체 / 작성 시각 · 참여자 수 12/500 / O·X 버튼 높이 72 · radius 8 · 아이콘 34, 직접 적은 선택지는 `button-secondary` 56 / 상세 진입 줄 "자세히 보기" 12/600 + chevron 14(누름 48)
 - **17c 투표 상세**: 카드는 피드와 **같은 크기**(위 "확대" 는 적용하지 않음 — pen), 투표 전이면 버튼을 그대로 보인다. 카드 아래 "댓글 기능은 아직 준비 중이에요" 12/500 muted — **2026-11-10 개정: 이 안내 줄을 지우고 댓글 영역을 넣었다**(이 절 끝 "O/X 글 댓글")
 - **17b 질문 작성**: 버튼이 본문 흐름 안(화면 아래 고정 아님), 안내 상자 radius 10(토큰 밖), 질문 칸은 Textarea 마스터 `Zhq9p`(최소 104, 카운터 상자 안 왼쪽 아래)
@@ -1299,7 +1333,7 @@ fontFamilyFallback: ['Apple SD Gothic Neo', 'Noto Sans KR', 'sans-serif']
 - **대상을 못 찾으면 그 단계를 건너뛰고 "n / 총" 을 다시 센다**(예: 완성도 100% 라 2단계 카드가 없으면 1단계는 "1 / 6", 다음 커뮤니티 단계부터 "2 / 5" — 건너뛴 뒤에 다시 센다). 찾기는 프레임마다 최대 60번, 앞 후보가 5프레임 안에 안 보이면 뒤 후보(대신 자리). 마지막 단계를 못 찾으면 그대로 끝낸다. 가리키던 대상이 사라지면(알림을 눌러 다른 화면으로 감 등) 빈 덮개를 남기지 않고 끝낸다
 
 **모양(pen `vfrto` 값표 · 앱 코드)**
-- **덮개**(`tFIey` CoachOverlay): 검정 70%(`#000000` 알파 B3 — `{colors.scrim}` 50% 와 다른 토큰 밖 값), 구멍 바로 바깥에 `{colors.primary}` 2px 테두리. 장식이라 스크린리더에 읽히지 않는다
+- **덮개**(`tFIey` CoachOverlay): 검정 70%(`#000000` 알파 B3 — `{colors.scrim}` 50% 와 다른 값 — 2026-11-11 `AppColors.coachDim` 토큰, §2.9), 구멍 바로 바깥에 `{colors.primary}` 2px 테두리. 장식이라 스크린리더에 읽히지 않는다
 - **말풍선**(`gfoSM` CoachBubble): 폭 312(좁으면 좌우 16 을 남기고 줄임) · 모서리 16 · 흰 바탕, 안쪽 위 16 · 좌우 16 · 아래 12, 사이 모두 8. 위에서부터 "n / 총"(12/600 muted, 화면 읽기 "총 N단계 중 n단계") → 제목 16/700 ink(머리글 · 바뀌면 읽어 줌) → 설명 14/400 ink → (5단계 항목 넷) → 버튼 줄 높이 48: 왼쪽 **"건너뛰기"**(76×48, 14/600 muted, 글자 왼쪽 12) · 오른쪽 **"다음"**(104×48 앱 공용 버튼, 글자를 키우면 같은 비율로 넓힘). 마지막 장은 "다음" → **"시작하기"**, "건너뛰기" 는 안 보이고 눌리지도 않지만 자리는 남는다. 구멍 위아래 중 넓은 쪽에 놓이고, 자리가 모자라면(글자 확대 · 가로 화면) 말풍선 안이 스크롤된다
 - **선**(`h1gWg` 점 위 · `c4jwKG` 점 아래 CoachLine): 흰색 선 1.5 + 구멍 쪽 끝 점 10, 길이 52(점 포함, 5단계 32 — 5단계는 구멍이 없어 선을 그리지 않는다). 선은 대상 가운데에 맞추되 말풍선 둥근 모서리는 피한다
 
@@ -1492,19 +1526,19 @@ fontFamilyFallback: ['Apple SD Gothic Neo', 'Noto Sans KR', 'sans-serif']
 
 | 파일 | 클래스 | 내용 |
 | --- | --- | --- |
-| `app_colors.dart` | `AppColors` | §2 의 모든 색 (`on-ink` · `primary-disabled` 포함) |
+| `app_colors.dart` | `AppColors` | §2 의 모든 색 (`on-ink` · `primary-disabled` 포함) + §2.9 화면 하나에만 쓰던 값 13종(2026-11-11 B2) |
 | `app_typography.dart` | `AppTypography` | §3.2 의 `TextStyle` 15종 (`nav-title` · `sub-nav-title` · `button` 포함, 2026-10-19 코드 기준) |
-| `app_spacing.dart` | `AppSpacing` | §4.1 간격 7종 + `card`(20) + `bottomCta`(`EdgeInsets`) |
+| `app_spacing.dart` | `AppSpacing` | §4.1 간격 7종 + `card`(20) + `bottomCta`(`EdgeInsets`). 화면 코드의 간격 숫자 가운데 값이 토큰과 같은 것만 토큰 이름으로 바꿨고(2026-11-11 B2), 다른 값 273개는 아직 숫자 그대로다 |
 | `app_radius.dart` | `AppRadius` | §5.1 라운드 9종(`button` · `input` · `card` · `social-button` 포함, 2026-10-19 코드 기준). `circle` 은 고정 dp 가 아니라 `BoxShape.circle` 로 쓴다 |
 | `app_motion.dart` | `AppMotion` | §7 시간·커브 3종 (`flip` 은 §13-80 으로 폐기) |
 | `app_lottie.dart` | `AppLottie` | §7 "Lottie 장면" 의 장면 표 4개(경로 · 멈춤 프레임), 2026-11-04 앱 PR #656 으로 추가 — 위 "일곱 개 파일" 뒤에 붙었다 |
-| `app_elevation.dart` | `AppElevation` | §6 그림자 10종(`card` · `cardSoft` · `popover` · `row` · `trait` · `badge` · `homeTileLow` · `homeTileRaised` · `homeTileInset` · `top`, 2026-10-19 코드 기준) |
+| `app_elevation.dart` | `AppElevation` | §6 그림자 16종(`card` · `cardSoft` · `popover` · `row` · `trait` · `badge` · `homeTileLow` · `homeTileRaised` · `homeTileInset` · `top` + 2026-11-11 B2 의 `glassPill` · `glassBubble` · `floatingButton` · `pollCard` · `pollBadge` · `verifiedBadge`, 코드 기준) |
 | `app_icons.dart` | `AppIcons` | §5.3 Lucide 이름 매핑. 아이콘을 쓰는 화면이 생기는 **첫 화면 조각에서 추가한다** |
 | `assets/mascot/` | — | §5.4 마스코트 원본. `mascot-male.png` · `mascot-female.png` · `mascot-male-waiting.png` · `mascot-female-reward.png` · `mascot-female-sad.png` 5종을 `pubspec.yaml` 에 등록 |
 | `assets/illust/` | — | §5.4 소프트 3D 자산. `heart-flat-vector-v3.png`(재화 글리프, §8.10) · `heart-value-scene.png` · `campus-trust-icon-v1.png` · `animal-face-*-2d-v1.png` 8종. 재화 글리프는 @2x·@3x 또는 충분히 큰 원본 필요, `Semantics(label: '하트')` |
 | `app_theme.dart` | `AppTheme` | 위를 조립한 `ThemeData light()` |
 
-**공용 위젯 대응표 (신설 2026-10-19 문서 점검 — `frontend/lib/common/widgets/` 23개 파일, 코드 첫 줄 설명 기준).** 화면 문서의 컴포넌트 이름과 코드 파일의 짝이다. 공용 위젯 · 테마 변경은 대장 허락이 필요한 공유 파일이다(`COMMON.md` §4-1).
+**공용 위젯 대응표 (신설 2026-10-19 문서 점검 — `frontend/lib/common/widgets/` 23개 파일, 코드 첫 줄 설명 기준 — 2026-11-11 기준 33개 파일로 늘었다, 새 것은 아래 표 끝과 §12.1).** 화면 문서의 컴포넌트 이름과 코드 파일의 짝이다. 공용 위젯 · 테마 변경은 대장 허락이 필요한 공유 파일이다(`COMMON.md` §4-1).
 
 | 파일 | 컴포넌트 (이 문서) |
 | --- | --- |
@@ -1513,6 +1547,7 @@ fontFamilyFallback: ['Apple SD Gothic Neo', 'Noto Sans KR', 'sans-serif']
 | `app_checkbox.dart` | 체크 칸 24 · 모서리 6, 켜짐 primary + 흰 체크 16 / 꺼짐 흰 채움 + outline 1.5 (02-c, 02-g 동의 줄) |
 | `app_lottie_view.dart` | Lottie 장면 보기 `AppLottieView` — 앱에서 `package:lottie` 를 부르는 유일한 자리(§7 "Lottie 장면", 2026-11-04 앱 PR #656 추가) |
 | `app_toast.dart` | 하단 버튼 위 토스트 띠(pen `Toast`) |
+| `app_tab_text.dart` | 하단 내비 탭 글자 `AppTabText`(두 내비가 같은 ARB 글자를 쓴다) — §8.8 |
 | `card_action_bar.dart` | `card-action-bar` — §8.2 |
 | `entrance.dart` · `pressable.dart` | 등장 · 눌림 공용 모션 — §7 |
 | `icon_3d.dart` | `AppIcon3d` 3D 그림 아이콘 — §5.3 |
@@ -1525,8 +1560,35 @@ fontFamilyFallback: ['Apple SD Gothic Neo', 'Noto Sans KR', 'sans-serif']
 | `photo_slider.dart` | 실사진 가로 슬라이더 + 점 인디케이터(화면 15 · 14c) — §5.2 |
 | `school_label.dart` | 학교 로고 + 학교 이름 — §8.1 |
 | `trait_slider.dart` · `trait_bar.dart` | 입력용 성향 5점 슬라이더 · 표시 전용 성향 바 — §8.5 · §8.1 |
+| `sheet_handle.dart` · `alert_sheet.dart` · `delete_confirm_sheet.dart` | 시트 손잡이 · 시트 틀 · 삭제 확인 시트(pen AlertSheet `D0TvG`) — §12.1 (2026-11-11 B3) |
+| `section_header.dart` | 구역 머리 `SectionHeader`(목록형 `Ymhdq`) · `SettingsSectionHeader`(설정형) — §12.1 |
+| `empty_notice.dart` · `full_screen_notice.dart` · `retry_notice.dart` | 빈 화면(pen Empty `TVc8b`) · 큰 안내 화면 틀 · 불러오기 실패 "다시 시도" 안내 — §12.1 |
+| `reason_radio_row.dart` | 사유 라디오 한 줄(pen RadioRow `M7E1k` / `SlAif`, 신고 시트 `yl8gX` · 문의 사유 시트 `Ywu44`) — 2026-11-11 PR #700 으로 `safety/view` 에서 옮겼다 |
 
 - **토큰에 없는 값은 그 위젯 파일 안 상수로 둔다**(위젯 안 `Color(0x…)` 직접 쓰기 금지 규칙은 그대로 — 파일 맨 위 이름 붙은 상수로만). 예: §6 리터럴 그림자 세 값, **2026-10-13 유리 하단 내비의 채움 #FFFFFFC7 · 선 #FFFFFF99 · 방울 #FFFFFF99 · 방울 위 선 #FFFFFFE6 · 그림자 두 값 · 방울 radius 27 · 블러 20**(`common/widgets/glass_bottom_nav.dart`, §8.8 — 두 번 넘게 쓰이게 되면 토큰으로 올릴지 정한다)
+  - **2026-11-11 개정(앱 1.0.2 B2):** 위에서 **색과 그림자는 모두 `AppColors` · `AppElevation` 토큰이 됐다**(§2.9 · §6). 지금은 `test/core/theme/color_tokens_test.dart` 가 `lib/core/theme/` 밖의 색 리터럴을 막으므로 "파일 맨 위 이름 붙은 상수" 로도 색을 둘 수 없다 — 없는 색은 토큰을 더한다. 색이 아닌 값(방울 radius 27 · 블러 시그마 20 같은 크기)은 여전히 위젯 파일 안 상수다
+
+
+### 12.1 공통 안내 · 시트 · 구역 머리 부품 (신설 2026-11-11 — 앱 1.0.2 계획 B3, PR #702 · #700)
+
+화면마다 따로 만들던 안내 · 시트 · 구역 머리를 `frontend/lib/common/widgets/` 의 부품 한 벌로 모았다(사용자가 추천안을 골랐다). **새 화면에서 아래에 해당하면 직접 만들지 않고 이 부품을 쓴다.** 문구는 부품이 들고 있지 않고 쓰는 화면이 `context.l10n` · `context.errorText(...)` 로 만들어 넘긴다. 시험은 `test/common/widgets/` 에 부품마다 하나씩 있다.
+
+| 부품 (파일) | 언제 쓰나 | 주요 인자 · 규칙 |
+| --- | --- | --- |
+| `SheetHandle` (`sheet_handle.dart`) | 아래에서 올라오는 시트 맨 위 손잡이 | 인자 없음. 36×4 `{colors.hairline}` 모서리 8(pen `L3Bec` 등). 위아래 여백은 주지 않는다 — 시트마다 달라 호출쪽이 정한다 |
+| `SheetFrame` (`alert_sheet.dart`) | 시트의 겉틀만 필요할 때(손잡이가 고정인 시트 · 같이 스크롤하는 시트) | `child`. 캔버스 · 위 모서리 24 · `AppElevation.top` · 폭 전체 · `SafeArea(top: false)`. 안쪽 내용과 스크롤은 쓰는 쪽 |
+| `AlertSheet` (`alert_sheet.dart`) | pen AlertSheet `D0TvG` 모양의 확인 · 안내 시트 | `children`. `SheetFrame` 안에 손잡이 칸(위아래 12) → 내용 [8,16,32,16](가로로 꽉 참). 글자를 키워 길어지면 통째로 스크롤. 요소 사이 간격은 `children` 안에 넣는다 |
+| `DeleteConfirmSheet` (`delete_confirm_sheet.dart`) | 글 · 댓글(15d-2) · 쓴 리뷰(20e-2) 삭제 확인 | `title` · `body` · `confirmLabel` · `onDelete`(`Future<void> Function()`). 제목 20/700 → 16 → 설명 14 muted → 16 → 확인(danger 52) → 8 → 취소(text 48). 지우는 중엔 확인 버튼만 꺼진 회색(도는 표시 없음), `onDelete` 가 끝나면 시트를 닫는다. 실패 알림 · 토스트는 `onDelete` 안에서 정한다 |
+| `SectionHeader` (`section_header.dart`) | 목록형 구역 머리(pen `Ymhdq`) | `title`(18/700 ink, 렌더 25) · `trailing`(선택, 오른쪽 14/400 muted — null 이면 글자를 그리지 않는다, pen `A8LX2` 꺼짐). 배경 · 최소 높이 · 좌우 여백은 쓰는 쪽. 글자를 키워 안 들어가면 오른쪽 글자가 줄을 바꾸고 제목은 밀리지 않는다 |
+| `SettingsSectionHeader` (`section_header.dart`) | 설정형 구역 머리(계정 16e · 알림 설정 16d, pen `GsxGU`) | `label` 하나. 14/700 muted, 줄높이 20/14. 아래 간격 8 은 쓰는 쪽이 둔다(머리 20 + 8 = pen 28) |
+| `EmptyNotice` (`empty_notice.dart`) | 빈 화면 · 큰 안내 화면의 안내(pen Empty `TVc8b`) | `image`(120×120 상자에 놓는다) · `title` · `description` 또는 `descriptionWidget`(여러 줄 + 링크) · `action`(+ `actionGap` 기본 32) · `align`(`center` = 칸 한가운데 + 넘치면 스크롤, `top` = 위에서부터 안쪽 여백만큼) · `padding`(기본 [세로 48, 가로 24]) · `scrollPadding` · `titleStyle`. 그림 → 24 → 제목 18/600 ink(렌더 25) → 8 → 설명 14 muted 1.55. 큰 안내 화면 3곳만 `EmptyNotice.largeTitleStyle`(20/700, 줄높이 1.5)을 넘긴다 |
+| `FullScreenNotice` (`full_screen_notice.dart`) | 큰 안내 화면의 본문 틀 — 알림 불러오기 실패 `vGd3l` · 인터넷 없음 `NWGuf` · 업데이트 필요 `zSzOG` | `notice`(보통 `EmptyNotice(align: top)`) · `button`(풀폭, 바닥에 붙는다 — 버튼 위 20) · `regionBuilder`(선택, 안내 칸을 한 겹 더 감싼다 — 업데이트 화면의 토스트 층). 안내는 위 120 + 20 에서 시작해 스크롤하고 버튼은 바닥에 남는다. Scaffold · 안전 영역은 화면이 정한다 |
+| `RetryNotice` / `RetryNotice.inline` (`retry_notice.dart`) | 불러오기 실패 작은 안내. 기본은 화면용(가운데 · 스크롤 · 사방 24), `.inline` 은 구역 · 시트 안에 끼울 때(하트 스토어 구역 · 친구 초대 시트) | `message` · `onRetry`. 문구 16 muted 가운데 → 12 → "다시 시도" 글자 버튼(48, 전체 폭). pen 에 없는 상태라 16f 차단 목록의 회색 문구 + 글자 버튼을 기준으로 삼았다. 문구는 화면이 `context.errorText(...)` / `context.appErrorText(...)` 로 만든다(공통 위젯이 에러 키를 읽지 않는다) |
+| `ReasonRadioRow` (`reason_radio_row.dart`) | 신고 시트(`yl8gX`)와 문의 사유 시트(`Ywu44`)의 사유 한 줄 | `label` · `isSelected` · `onTap`. 행 높이 48(최소, 글자를 키우면 커진다) · 라디오 24 · 16/500(선택 600). 눌림 효과는 행 안 `Material` 에 가둔다(COMMON §4-2). PR #700 이 기능 폴더 사이 import 를 없애려고 `safety/view` 에서 옮겼다 |
+
+- **B3 에서 합친 곳(PR #702):** 시트 손잡이 7 · 삭제 확인 3 · 섹션 제목 16 · 빈 화면 7 · 큰 안내 3 · 다시 시도 11.
+- **B3 로 값이 바뀐 화면(pen 기준 한 벌로 맞춘 결과):** 다시 시도 문구가 진회색에서 회색으로 + 버튼과 12 간격(계정 · 학교 정보 · 커뮤니티 피드 · 나 탭 · 카드 미리보기 · 프로필 관리 · 친구 초대 시트) / 인터넷 없음 제목 18/600 → 20/700 / 알림 실패 제목 29 → 30, 설명 줄높이 1.55 / 연락처 차단 빈 화면의 그림 아래 간격 16 → 24 / 대화 탭 빈 화면 굵기 600 · 간격 24/8 · 그림 120×120 · 설명 1.55 / 알림 빈 화면 설명 줄높이 1.55 / 대화 탭 섹션 제목 20/600 → 18/700 / 쓴 리뷰 지우는 중에 꺼진 회색 확인 버튼(pen 15d-2 삭제 중). 그 밖 화면은 그대로다.
+- **일부러 합치지 않은 것:** 채팅 빈 방 한 줄, 댓글 없음 한 줄, 질문 상세 목록 끝 오류 줄, 오늘의 카드 실패 · 그림 무대, 아바타 실패, 상대 프로필 지인 리뷰 머리, 비슷한 대기 화면 5개.
 
 ---
 
@@ -1534,6 +1596,7 @@ fontFamilyFallback: ['Apple SD Gothic Neo', 'Noto Sans KR', 'sans-serif']
 
 | # | 항목 | 상태 |
 | --- | --- | --- |
+| 160 | 해결(2026-11-11 문서 정리 — 앱 PR #700 · #701 · #702, 사용자가 B3 추천안을 골랐다고 PR #702 본문에 적혀 있다 — 원문은 이 문서 담당이 보지 못했다) — **앱 1.0.2 계획 B2 · B3: 화면 코드의 색 · 그림자 · 간격 숫자를 토큰으로, 안내 · 시트 · 구역 머리를 공통 부품으로.** 화면에 보이는 값은 B2 에서 그대로이고 B3 에서만 "B3 로 값이 바뀐 화면"(§12.1)만큼 pen 한 벌로 맞았다. ① **색 25줄 → `AppColors` 13종 + `AppElevation` 6종**(§2.9 · §6), 옛 이름 `pollAgreeBlue` → `pollAgree`. 지킴 시험 `color_tokens_test.dart` 가 `lib/core/theme/` 밖의 색 리터럴을 막는다(예외 0). 이 때문에 "토큰에 없는 값은 파일 안 상수로"(§12 끝 불릿)와 §6 의 "리터럴이라 토큰으로 올리지 않았다" 서술은 개정 표시로 이어 적었다(§13-129 "위로 뜨는 시트 값을 `AppElevation` 에 둘지" 는 `top` 으로 해결). ② **간격 49개 → `AppSpacing.xxs ~ xxl`**, 값이 토큰과 다른 273개는 숫자 그대로(§4.1). **미결:** `20` 을 일반 간격 토큰으로 어떻게 부를지(`card` 이름 문제) · 간격 지킴 시험을 만들지. ③ **공통 부품 7종**(`SheetHandle` · `SheetFrame`/`AlertSheet` · `DeleteConfirmSheet` · `SectionHeader`/`SettingsSectionHeader` · `EmptyNotice` · `FullScreenNotice` · `RetryNotice`)과 `ReasonRadioRow` 이동(PR #700) — 언제 쓰는지 · 인자는 §12.1. 서버 · DB · 배포 변경 없음, 앱만. |
 | 159 | 해결(2026-11-11 문서 정리 — 앱 PR #685 · #686 · #688 · #691 · #693 · #696 · 마케팅 칸 PR `feat/consent-marketing-link`, 서버 PR #686 ~ #689 · #694, DB 6개 운영 미적용 · 서버 미배포, 단 #686 홈 숫자 기준은 `00102-46b` 로 배포됨) — 11-08 회의 할 일 묶음에서 화면 규칙이 바뀐 것만 적는다. ① **문의하기 21a ~ 21c 신설**, FAQ 검색 결과 없음 링크가 문의 메일에서 문의하기로(§9 21-1 · 21a, 16 설정 줄). ② **O/X 글 댓글**(§8.11 "O/X 글 댓글") — 익명N + 글쓴이 배지 · 좋아요 없음 · 10개씩 · 하루 50개 · 신고 · 글쓴이 삭제 · 내 글의 새 댓글 푸시와 16d 토글. 종전 "댓글은 만들지 않는다 / 준비 중" 서술은 개정 표시로 이어 적었다. ③ **스크린샷 · 화면 녹화 방지**(앱 PR #685, 사용자 원문 「안드로이드 , 아이폰 스크린샷 녹화 전부다 막아줘 검은색화면으로」, 대장 전달) — 릴리스 빌드에서 안드로이드는 `FLAG_SECURE`(스크린샷 · 녹화 · 최근 앱 미리보기가 검게), 아이폰은 보안 입력칸의 보안 캔버스 안에 창 레이어를 넣어 스크린샷 · 녹화를 검게 하고 녹화 · 미러링 중에는 맨 위에 검은 덮개를 올린다(`SceneDelegate.swift`, iOS 버전마다 레이어 구조가 달라 못 찾으면 아무것도 바꾸지 않고 물러난다). **디버그 빌드는 개발 · 홍보 캡처용이라 제외한다.** `docs/decisions/2026-10-20-launch-day-decisions.md` 8번 "출시 후로" 를 개정했다. 아이폰 방식은 비공식 레이어 구조에 기대므로 실기기 확인은 받지 못했다. ④ **홈 숫자 기준 미만 숨김**(§8.9 "기준 미만이면 숨긴다"). ⑤ **친구 초대 16i 문구 50/25**. ⑥ **학교 인증 · 졸업생 신청 화면에 허위 정보 책임 한 줄**(§9 2 · 02-g). ⑦ **마케팅 칸 "마케팅 활용 동의" + 보기**(§9 02-c, §13-134). ⑧ **휴대폰 문자 인증**(서버 PR #694 · 앱 PR #696) — 04-1 에 번호 줄 + 인증번호 줄(pen 2c ①~⑬), [다음] 은 인증된 번호일 때만, 전화번호 도움말 삭제(§9 4). 운영 반영 상태는 모두 미배포 · 미적용이다(`backend/DEPLOY.md` §4-25). |
 | 158 | 해결(2026-11-04 밤 문서 2차 — 앱 PR #662 `c64a7df7`, 사용자 결정 2026-11-04 · 대장 전달) — **구글 심사원 로그인 입구 (앱 1.0.2, 안드로이드 전용).** 구글 Play 가 1.0.0(vc18)을 "기기 인증으로 제한된 로그인" 으로 반려해, 소셜 로그인 없이 아이디 · 비밀번호로 들어가는 길을 시작 화면(01) 로고 자리에 보이지 않게 달았다. 화면 규칙은 §9 **01-3** · §8.5(비밀번호 가림) 에 있다. 결정: ① **입구는 로고 7번 탭**(원문 「A로 해 로고 7번으로 하자」; 5초 안에 7번 — 실수로 열리지 않을 만큼 많고 심사 안내문에 적기에 부담 없는 횟수, 느린 손도 4.7초면 닿아 5초로 잡았다) ② **안드로이드 전용**(원문 「애플은 그러면 기존 방식으로 하면 될거같아 / 애플은 넣지말자 기록해도」 — 애플 가이드라인 2.3.1 "숨은 기능" 규칙, iOS · 웹에는 입구 자체가 없다) ③ **시트 문구는 영어 그대로**(심사원이 읽는다), 실패 문구는 일반 오류 문구라 한국어 ④ **가입 · 비밀번호 찾기 · 분석 `login` 이벤트 · 낭독기 노출 없음** ⑤ **서버 · DB 코드 변경 없음** — 기존 심사용 계정(id 앞 8자 `acdbb0fc`)에 운영 Auth 관리자 API 로 비밀번호를 붙였다(운영 쓰기, 사용자 승인; 값은 저장소에 적지 않는다, `backend/DEPLOY.md` §4-16). **심사 통과 뒤 비밀번호를 무작위로 바꿔 막는다.** 심사원이 탈퇴하면 되돌릴 수 없어 심사 안내문에 "탈퇴 금지" 를 적는다. **pen 시안은 없다**(코드가 먼저 — 시트 모양은 바닥 시트 `SafetySheet` 와 §8.5 입력칸 재사용). 앞 줄(§13-157)의 "아직 빌드 · 제출 전" 은 이 날 밤 바뀌었다 — 앱 1.0.2 는 TestFlight 27(main `9091964f`, 심사원 입구 없음 — 애플 제출은 광고 식별자 부품 2개를 뺀 28) · AAB vc20(main `c64a7df7`, 입구 있음)으로 빌드했고 두 스토어 제출 단계다(`frontend/CLAUDE.md` §2.3 심사원 로그인). **남은 확인**: 실기기에서 로고 7번이 소셜 버튼과 겹치지 않는지(입구 · 소셜 버튼 겹침 지킴 시험은 PR #663 `376216d6` 으로 들어갔다 — 위젯 시험까지이고 실기기 확인은 이 문서 담당이 못 했다) · 사용자가 플레이 내부 테스트 앱으로 카카오 · 구글 · 심사원 로그인을 확인했다(대장 전달) · pen 에 시안이 필요하면 사용자가 있을 때 따로 |
 | 157 | 해결(2026-11-04 문서 정리 — 앱 PR #649 · #650 · #651 · #652 · #654 · #655 · #656 · #657, 서버 PR #653, DB `20261104090000`, 서버 `00101-bc9`, 사용자 결정 2026-11-03 ~ 04 · 대장 전달) — **앱 1.0.2 의 화면 규칙.** 앞 줄(§13-156)이 1.0.1 까지였고 이 줄은 그 뒤, 1.0.1 빌드(`a793d122`) 뒤에 main 에 들어온 것이다 — **전부 앱 1.0.2 에 들어가고 아직 빌드 · 제출 전이다**(결정 기록 전문은 `docs/decisions/2026-11-04-v102-decisions.md`). 화면 규칙이 바뀐 것만 적는다. ① **06-1 "흡연하는 사람" 칸(§9 7 · §8.5 `smoke-toggle`)**: [싫어요] [상관없어요], 모두에게 보임, 처음 값 서버 값 > 내 흡연 여부 > 둘 다 안 고름(저장 때 키 생략); DB 칸 · 서버 규칙은 설계 §6.6a · `backend/DEPLOY.md` §4-23 ② **06-1 머리줄 "1~3개" 오른쪽 끝 · 제목 6개 모두 #3F3F3F**(사용자 결정 「1」) ③ **고르는 칸(`ChoiceCell`) 글자 16/600**(05-10 · 05-11 · 15-6 · 06-1, pen 기준 — 18/700 에서) ④ **첫 방문 0장 문구**(§9 11): "다음 카드를 준비하고 있어요"(사용자 승인 「1」, §13-154 ⓕ 끝) ⑤ **글자 크기 기준 48 · 32 · 24 · 20 · 18 · 16 · 14 · 12 · 10, 모두 짝수**(§3.2: badge 10 · subtitle 18, 화면 `fontSize:` 금지 + 지킴 시험, 예외 소셜 로그인 버튼 1파일) ⑥ **Lottie 4곳**(§7 "Lottie 장면": 01 스플래시 늘 크리스마스 + 문구 "인증된 사람과 소중한 인연" · 05-12 그림 그리는 토끼 · 12 매칭 성사(제목 32/700) · 06-2b 단계 스피너(간격 8)) ⑦ **투어 4단계 문구**(§8.15, PR #649): "다음 카드는 O요일 오전 7시에 열려요" ⑧ 화면 밖: 로그아웃 푸시 토큰 L1(PR #650, `backend/DEPLOY.md` §4-22) · e2e 단위 시험 정리 · iOS TestFlight 뒤 Crashlytics dSYM(PR #652, `frontend/run.md`). **남은 확인 · 일**: 실기기(안드로이드 · 아이폰)에서 Lottie 부드러움 · 발열, 10px 글자 읽기, 흡연 설명 줄 수 · 하트 번들 "첫 구매 +50" 배지 폭(71 → 66)과 pen 마스터 `mflMT` 대조 · pen 의 대기 화면 제목(`xpiH6`)과 투어 4단계 문구 교체(이 문서 담당이 pen 을 열지 않았다) · `ERD.pen` 의 `profiles.accepts_smoker` · 알려진 한계: 06-1 에서 뒤로 가 설문 흡연 답을 바꾸면 06-1 칸은 처음 값 그대로 |
