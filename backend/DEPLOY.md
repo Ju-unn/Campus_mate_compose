@@ -587,7 +587,7 @@ select public.grant_hearts('<profile_id>', -<지급한 하트>, 'admin_adjust', 
 
 | 경로 | 뜻 |
 | --- | --- |
-| `GET /billing/status` | 학생증 통과 가입자. `{account_token, first_purchase_bonus}` — `account_token` 은 결제 창의 `applicationUserName`(구글 `obfuscatedExternalAccountId`)에 싣는 계정 표시(sha256 방식), `first_purchase_bonus` 는 구매 이력이 없으면 `{hearts: 50, min_product_hearts: 100}`, 있으면 null(화면 배지용 — 실제 판정은 지급 때 DB 함수가 다시 한다) |
+| `GET /billing/status` | 학생증 통과 가입자. `{account_token, first_purchase_bonus}` — `account_token` 은 결제 창의 `applicationUserName`(구글 `obfuscatedExternalAccountId`)에 싣는 계정 표시(sha256 방식), `first_purchase_bonus` 는 100하트 이상 상품을 산 적이 없으면(환불된 것도 센다, 50하트만 산 사람은 자격이 남는다) `{hearts: 50, min_product_hearts: 100}`, 산 적이 있으면 null(화면 배지용 — 실제 판정은 지급 때 DB 함수가 다시 한다) |
 | `POST /billing/google/verify` | 본문 `{product_id, purchase_token}`(`heart_50` ~ `heart_800`, 토큰은 영문 · 숫자 · `. _ -` 만 1000자 이하). **200** `{result: granted \| already_granted, hearts, bonus_hearts, heart_balance}` · **202** `{result: pending}`(결제 대기 — 행을 만들지 않는다) · **409** `purchase_other_account`(다른 계정 표시 — 소비하지 않는다, 3일 안에 안 오면 구글이 환불) · **409** `purchase_token_used`(다른 사람이 이미 받은 영수증) · **422** `purchase_invalid`(결제됨이 아님 · 수량 1 아님 · 상품 불일치) · **503** `billing_unavailable`(구글 조회 실패 — 앱은 지연으로 보고 나중에 다시 보낸다). 지급 뒤 아직 소비 전이면 **서버가 소비(consume)** 한다(실패해도 다음 재전송 때 다시) — 앱은 소비하지 않는다 |
 | `POST /batch/billing-voided` | 배치 전용(카드 · 채팅 · 정리 배치와 같은 OIDC 문). 구글 Voided Purchases 를 **최근 7일** 조회해 `refund_store_purchase` 로 회수하고(멱등이라 겹쳐도 된다), 5년 지난 구매 행을 지운다. 응답 `{voided, …건수, purged}`. 구글이 답하지 못하면 503 이고 아무것도 바꾸지 않는다. 회수가 모자라면(이미 쓴 하트) 경고 로그만 — 번호와 숫자만 남긴다 |
 
