@@ -96,12 +96,19 @@ class CommunityRepository(PostgrestRepository):
         return response.json()
 
     async def add_comment(self, author: UUID, poll_id: UUID, body: str) -> dict:
-        """댓글 쓰기 + 익명 번호 부여 + 하루 50개 한도를 DB 한 트랜잭션에서. 새 댓글 한 줄(+ 푸시용 글쓴이 id · 질문)을 돌려준다."""
+        """댓글 쓰기 + 익명 번호 부여 + 하루 50개 한도 · 1분 5개 · 같은 내용 연달아 막기를 DB 한 트랜잭션에서. 새 댓글 한 줄(+ 푸시용 글쓴이 id · 질문)을 돌려준다."""
         response = await self._post("rpc/add_poll_comment", json={
             "p_author": str(author), "p_poll_id": str(poll_id), "p_body": body,
         })
-        if error_code(response) == "CM429":
-            raise HTTPException(status_code=429, detail=errors.POLL_COMMENT_DAILY_LIMIT)
+        match error_code(response):
+            case "CM429":
+                raise HTTPException(status_code=429, detail=errors.POLL_COMMENT_DAILY_LIMIT)
+            # 최근 1분 안 5개(마이그레이션 20261112090000). 하루 한도와 같은 429 지만 문구가 다르다.
+            case "CM42B":
+                raise HTTPException(status_code=429, detail=errors.POLL_COMMENT_TOO_FAST)
+            # 같은 글에서 내 바로 전 댓글과 같은 본문. 앱은 409 + 문자열 detail 을 서버 문구 그대로 보인다.
+            case "CM409":
+                raise HTTPException(status_code=409, detail=errors.POLL_COMMENT_SAME_AS_LAST)
         # CM404 = 쓰기 전 확인에서 없음. 23503 = 확인과 insert 사이에 글이 지워져 FK 가 깨짐 — 둘 다 "없는 글" 이다.
         if error_code(response) in ("CM404", "23503"):
             raise HTTPException(status_code=404, detail=errors.POLL_NOT_FOUND)

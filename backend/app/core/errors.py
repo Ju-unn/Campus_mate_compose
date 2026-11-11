@@ -156,6 +156,10 @@ POLL_ALREADY_VOTED = "이미 투표했어요"
 POLL_DAILY_LIMIT = "오늘은 질문을 더 올릴 수 없어요"
 POLL_COMMENT_NOT_FOUND = "댓글을 찾을 수 없어요"
 POLL_COMMENT_DAILY_LIMIT = "오늘은 댓글을 더 달 수 없어요"
+# 도배 막기(11-12 사용자 결정): 최근 1분 안 5개 넘으면 429, 같은 글에서 바로 전 댓글과 같은 본문이면 409.
+# 앱은 둘 다 detail 을 글자 그대로 입력칸 위 토스트로 보인다(앱 수정 없음).
+POLL_COMMENT_TOO_FAST = "댓글을 너무 빨리 달고 있어요. 잠시 후 다시 달아 주세요"
+POLL_COMMENT_SAME_AS_LAST = "방금 단 댓글과 같은 내용이에요"
 
 # 지인 리뷰
 FRIEND_REVIEW_NOT_FOUND = "리뷰를 찾을 수 없어요"
