@@ -133,6 +133,18 @@ def confirmed_temp_email(temp_user: dict, caller_id: str, temp_token: str) -> st
     return email
 
 
+def existing_social_account_provider(temp_user: dict, caller_id: str, temp_token: str) -> str | None:
+    """OTP 로 받은 토큰이 **호출한 사람과 다른, 이미 있던 소셜 계정**의 것이면 그 소셜(kakao · google · apple), 아니면 None.
+
+    앱이 학교 메일 칸에 다른 계정의 로그인 메일을 넣으면 GoTrue 는 임시 계정을 새로 만들지 않고 그 계정으로 OTP
+    로그인시킨다. OTP 를 받으려면 그 메일함이 있어야 하므로 이 응답은 메일 주인에게만 간다. 소셜 계정이 여럿이면
+    identities 에서 먼저 나온 소셜이다(이메일 identity 는 건너뛴다). 이 계정은 지우지도 바꾸지도 않는다."""
+    if not signed_in_by_otp(temp_token) or not temp_user.get("id") or str(temp_user["id"]) == caller_id:
+        return None
+    providers = (identity.get("provider") for identity in temp_user.get("identities") or [])
+    return next((name for name in providers if name in SOCIAL_PROVIDERS), None)
+
+
 def _created_just_now(user: dict, now: datetime) -> bool:
     """created_at 이 지금 − TEMP_ACCOUNT_MAX_AGE 안이면 True. 없거나 해석할 수 없으면 오래된 것으로 본다(False)."""
     try:
@@ -195,7 +207,7 @@ async def verify(
     authorization: str | None = Header(default=None),
     now: datetime = Depends(get_now),
 ) -> dict[str, bool]:
-    """정지 → 동의 → 이미 인증 → 소셜 계정만 → 임시 토큰 읽기 → 임시 계정 검사(로그인 방식 포함) → 도메인 → + 별칭
+    """정지 → 동의 → 이미 인증 → 소셜 계정만 → 임시 토큰 읽기 → 임시 계정 검사(로그인 방식 포함 · 다른 소셜 계정이 쓰는 메일이면 6-d 의 409) → 도메인 → + 별칭
     → 재가입 제한 → DB 함수.
 
     앞에서 걸리면 거기서 끝이다. 도메인 검사까지 와서 결과가 정해지면 임시 계정을 지운다(422 · 409 포함).
@@ -225,6 +237,9 @@ async def verify(
         return _auth_unavailable()
     email = confirmed_temp_email(temp_user, caller_id, body.temp_access_token)
     if email is None:  # 6 — 남의 계정일 수 있어 지우지 않는다
+        holder = existing_social_account_provider(temp_user, caller_id, body.temp_access_token)
+        if holder is not None:  # 6-d 다른 소셜 계정이 이미 쓰는 메일 — 다시 해도 같으니 409 로 바로 알린다
+            return _taken_response(holder)
         return _error(403, errors.SCHOOL_EMAIL_NOT_CONFIRMED, errors.CODE_SCHOOL_EMAIL_NOT_CONFIRMED)
     repo = SchoolEmailRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
     if not await _is_fresh_temp_account(repo, temp_user, now):  # 6-b — 실제 계정이다: RPC 도 삭제도 하지 않는다

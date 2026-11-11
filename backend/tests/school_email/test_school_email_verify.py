@@ -194,9 +194,8 @@ def test_the_callers_own_token_in_the_temp_slot_is_refused_and_not_deleted(clien
 
 
 @pytest.mark.parametrize("change", [
-    {"identities": [{"provider": "email"}, {"provider": "kakao"}]},
-    {"identities": [{"provider": "kakao"}]},
     {"identities": []},
+    {"identities": [{"provider": "phone"}]},                                 # 소셜도 이메일도 아닌 수단
     {"email_confirmed_at": None},
     {"email": ""},
     {"email": None},
