@@ -27,6 +27,12 @@ void main() {
     expect(AdminSection.ownerOf('/graduates/g1'), AdminSection.graduates);
   });
 
+  test('문의는 목록 "문의", 아래 주소(/inquiries/{id})는 "문의 상세"이고 그 메뉴 소속', () {
+    expect(AdminSection.inquiries.titleOf('/inquiries'), '문의');
+    expect(AdminSection.inquiries.titleOf('/inquiries/i1'), '문의 상세');
+    expect(AdminSection.ownerOf('/inquiries/i1'), AdminSection.inquiries);
+  });
+
   test('사용자 · 결제 아래 주소도 그 메뉴 소속', () {
     expect(AdminSection.ownerOf('/users/8f3a'), AdminSection.users);
     expect(AdminSection.ownerOf('/billing'), AdminSection.billing);

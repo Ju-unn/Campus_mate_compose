@@ -26,16 +26,26 @@ class SideNav extends StatelessWidget {
         children: [
           const _Logo(),
           const SizedBox(height: AdminSpacing.sideNavHeaderGap),
-          for (final section in AdminSection.values)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(AdminSpacing.md, 0, AdminSpacing.md, AdminSpacing.xxs),
-              child: _NavItem(
-                key: ValueKey('nav-${section.name}'),
-                section: section,
-                selected: section == selected,
-                onTap: () => onSelect(section),
+          // 메뉴가 10개가 되면서 가장 낮은 창(높이 560)에서는 로고 + 메뉴가 넘친다 — 메뉴만 스크롤한다(큰 창에서는 그대로).
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final section in AdminSection.values)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(AdminSpacing.md, 0, AdminSpacing.md, AdminSpacing.xxs),
+                      child: _NavItem(
+                        key: ValueKey('nav-${section.name}'),
+                        section: section,
+                        selected: section == selected,
+                        onTap: () => onSelect(section),
+                      ),
+                    ),
+                ],
               ),
             ),
+          ),
         ],
       ),
     );
