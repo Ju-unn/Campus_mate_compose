@@ -66,6 +66,10 @@ class InquiryWorld:
         self.insert_status = 201
         self.insert_code: str | None = None   # insert 가 실패할 때 PostgREST 가 싣는 Postgres 오류 코드
         self.action_insert_status = 201
+        # 문의 알림 메일이 읽는 쓴 사람의 닉네임 · 학교(profiles select=nickname,universities(name)).
+        self.nickname: str | None = "하늘"
+        self.school: str | None = "테스트대학교"
+        self.author_read_status = 200
         self._next = 0
 
     # ------------------------------------------------------------------
@@ -77,6 +81,8 @@ class InquiryWorld:
         path, params, method = request.url.path, request.url.params, request.method
         if path == "/auth/v1/user":
             return httpx.Response(self.auth_status, json={"id": self.caller})
+        if path == "/rest/v1/profiles" and method == "GET" and params.get("select") == "nickname,universities(name)":
+            return self._author(params)
         if path == "/rest/v1/profiles" and method == "GET":
             return httpx.Response(200, json=[{"status": self.status}] if self.caller in self.profile_ids else [])
         if path == "/rest/v1/admin_users" and method == "GET":
@@ -92,6 +98,14 @@ class InquiryWorld:
         raise AssertionError(f"문의 가짜가 모르는 요청 {method} {path}")
 
     # ------------------------------------------------------------------
+    def _author(self, params) -> httpx.Response:
+        if self.author_read_status >= 400:
+            return httpx.Response(self.author_read_status, json={})
+        if params["id"].removeprefix("eq.") not in self.profile_ids:
+            return httpx.Response(200, json=[])
+        university = {"name": self.school} if self.school is not None else None
+        return httpx.Response(200, json=[{"nickname": self.nickname, "universities": university}])
+
     def _embed(self, stored: dict) -> dict:
         """select 의 profile:profiles(id,nickname,universities(name)) 임베드. 프로필이 없으면 null."""
         shown = {k: v for k, v in stored.items() if k != "profile_id"}

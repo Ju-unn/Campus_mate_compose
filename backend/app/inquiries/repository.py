@@ -30,6 +30,15 @@ class InquiryRepository(PostgrestRepository):
         raise_for_status(response)
         return response.json()[0]["id"]
 
+    async def fetch_author(self, profile_id: UUID | str) -> tuple[str | None, str | None]:
+        """알림 메일에 쓸 (닉네임, 학교 이름). profiles 행이 없거나 아직 비어 있으면 None."""
+        response = await self._get("profiles", params={"id": f"eq.{profile_id}", "select": "nickname,universities(name)"})
+        raise_for_status(response)
+        rows = response.json()
+        if not rows:
+            return None, None
+        return rows[0]["nickname"], (rows[0]["universities"] or {}).get("name")
+
     async def list_page(self, status: str | None, before: tuple[str, str] | None, limit: int) -> list[dict]:
         """최근 순(created_at, id). before = (created_at, id) 커서 — 같은 시각에 들어온 줄을 건너뛰지 않으려 id 로도 가른다.
         limit 줄을 그대로 요청한다(부르는 쪽이 다음 쪽 여부를 알려고 한 줄 더 달라고 한다)."""
