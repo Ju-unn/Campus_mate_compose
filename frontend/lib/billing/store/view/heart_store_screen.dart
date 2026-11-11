@@ -16,9 +16,9 @@ import 'package:campus_mate/billing/store/viewmodel/heart_purchase_view_model.da
 import 'package:campus_mate/billing/task/view/heart_task_actions.dart';
 import 'package:campus_mate/billing/task/view/heart_task_row.dart';
 import 'package:campus_mate/billing/task/viewmodel/heart_tasks_view_model.dart';
-import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/common/widgets/retry_notice.dart';
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
@@ -341,7 +341,10 @@ class _FreeSection extends ConsumerWidget {
             child: Center(child: CircularProgressIndicator()),
           )
         else if (state.error case final error?)
-          _LoadError(message: context.errorText(error), onRetry: () => ref.invalidate(heartTasksViewModelProvider))
+          RetryNotice.inline(
+            message: context.errorText(error),
+            onRetry: () => ref.invalidate(heartTasksViewModelProvider),
+          )
         else
           for (final (index, task) in state.tasks.indexed) ...[
             if (index > 0) const SizedBox(height: AppSpacing.xxs),
@@ -352,24 +355,3 @@ class _FreeSection extends ConsumerWidget {
   }
 }
 
-class _LoadError extends StatelessWidget {
-  const _LoadError({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          message,
-          textAlign: TextAlign.center,
-          style: AppTypography.body.copyWith(color: AppColors.muted),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        AppButton(label: context.l10n.commonRetry, variant: AppButtonVariant.text, onPressed: onRetry),
-      ],
-    );
-  }
-}

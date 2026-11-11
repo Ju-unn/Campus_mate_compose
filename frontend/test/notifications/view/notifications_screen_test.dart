@@ -652,7 +652,8 @@ void main() {
       expect(title.style!.color, AppColors.ink);
       final description = tester.widget<Text>(find.text('카드가 도착하거나 대화 신청이 오면\n여기에 모여요'));
       expect(description.style!.fontSize, 14);
-      expect(description.style!.height, 1.5);
+      // B3: 공통 Empty 마스터(pen DFs55) 값 1.5 → 1.55.
+      expect(description.style!.height, 1.55);
       expect(description.style!.color, AppColors.muted);
       expect(description.textAlign, TextAlign.center);
     });
@@ -679,7 +680,10 @@ void main() {
       final title = tester.widget<Text>(find.text('알림을 불러오지 못했어요'));
       expect(title.style!.fontSize, 20);
       expect(title.style!.fontWeight, FontWeight.w700);
-      expect(tester.widget<Text>(find.text('잠시 후 다시 시도해 주세요')).style!.fontSize, 14);
+      // 큰 안내 제목 navTitle 줄높이 1.5(렌더 30), 설명은 Empty 마스터 14 muted 1.55.
+      expect(tester.getSize(find.text('알림을 불러오지 못했어요')).height, 30);
+      final description = tester.widget<Text>(find.text('잠시 후 다시 시도해 주세요')).style!;
+      expect((description.fontSize, description.height, description.color), (14, 1.55, AppColors.muted));
     });
 
     testWidgets('"다시 시도" 는 312×52, 본문 아래 여백 40 위(y688~740) — 인터넷 없음 화면(`NWGuf`)과 같은 패턴', (tester) async {

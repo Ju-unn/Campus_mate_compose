@@ -1,5 +1,5 @@
 import 'package:campus_mate/common/failure.dart';
-import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/retry_notice.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
@@ -69,8 +69,10 @@ class PartnerProfileScreen extends ConsumerWidget {
     if (state.isLoading || state.isGone) {
       return const Center(child: CircularProgressIndicator());
     }
-    return _LoadError(
-      failure: state.error,
+    final failure = state.error;
+    return RetryNotice(
+      // 읽기 실패 종류. 글자는 화면이 만든다(없으면 빈 글자).
+      message: failure == null ? '' : context.errorText(failure),
       onRetry: () => ref.invalidate(partnerProfileViewModelProvider(profileId)),
     );
   }
@@ -202,32 +204,3 @@ class _Footer extends StatelessWidget {
   }
 }
 
-/// 읽기 실패(404 말고). pen 에 없는 상태 — 10b 와 같은 회색 문구에 "다시 시도" 를 붙인다.
-class _LoadError extends StatelessWidget {
-  const _LoadError({required this.failure, required this.onRetry});
-
-  /// 읽기 실패 종류. 글자는 화면이 만든다(없으면 빈 글자).
-  final Failure? failure;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              failure == null ? '' : context.errorText(failure!),
-              textAlign: TextAlign.center,
-              style: AppTypography.body.copyWith(color: AppColors.muted),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            AppButton(label: context.l10n.commonRetry, variant: AppButtonVariant.text, onPressed: onRetry),
-          ],
-        ),
-      ),
-    );
-  }
-}

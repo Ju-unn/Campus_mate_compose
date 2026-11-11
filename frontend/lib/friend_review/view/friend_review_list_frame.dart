@@ -1,7 +1,6 @@
-import 'package:campus_mate/common/failure.dart';
-import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/empty_notice.dart';
+import 'package:campus_mate/common/widgets/retry_notice.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
-import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -86,7 +85,7 @@ class FriendReviewListFrame extends ConsumerWidget {
           if (header != null) ...[const SizedBox(height: AppSpacing.md), header],
           for (final review in state.reviews) ...[const SizedBox(height: AppSpacing.md), cardBuilder(context, review)],
           // 머리 칸이 길 수 있어 읽는 중 · 실패 · 빈 상태도 같이 스크롤한다(대장 ①).
-          if (state.reviews.isEmpty) ...[const SizedBox(height: AppSpacing.md), _placeholder(ref, state)],
+          if (state.reviews.isEmpty) ...[const SizedBox(height: AppSpacing.md), _placeholder(context, ref, state)],
         ],
       );
     }
@@ -98,17 +97,20 @@ class FriendReviewListFrame extends ConsumerWidget {
         children: [
           FriendReviewNotice(text: notice),
           const SizedBox(height: AppSpacing.md),
-          Expanded(child: _placeholder(ref, state)),
+          Expanded(child: _placeholder(context, ref, state)),
         ],
       ),
     );
   }
 
-  Widget _placeholder(WidgetRef ref, FriendReviewListUiState state) {
+  Widget _placeholder(BuildContext context, WidgetRef ref, FriendReviewListUiState state) {
     if (state.isLoading) return const Center(child: CircularProgressIndicator());
     final error = state.error;
     if (error != null) {
-      return _LoadError(failure: error, onRetry: () => ref.invalidate(friendReviewListViewModelProvider(_args)));
+      return RetryNotice(
+        message: context.errorText(error),
+        onRetry: () => ref.invalidate(friendReviewListViewModelProvider(_args)),
+      );
     }
     return empty;
   }
@@ -124,8 +126,8 @@ class FriendReviewListFrame extends ConsumerWidget {
   }
 }
 
-/// 빈 상태(Empty `TVc8b` 모양 — 16f `KLSeQ` · 20e-1 `QlDBt`): 마스코트 120 → 24 → 제목 18/600 → 8 → 설명, 가운데.
-/// 글자를 키워 칸을 넘치면 스크롤한다.
+/// 빈 상태(Empty `TVc8b` 모양 — 16f `KLSeQ` · 20e-1 `QlDBt`): 공통 [EmptyNotice] 에 마스코트 · 문구만 넘기는 얇은 껍데기다
+/// (화면이 이 이름으로 부른다).
 class FriendReviewEmpty extends StatelessWidget {
   const FriendReviewEmpty({required this.mascot, required this.title, this.description, super.key});
 
@@ -137,34 +139,7 @@ class FriendReviewEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final description = this.description;
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxl, horizontal: AppSpacing.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset(mascot, width: 120, height: 120),
-            const SizedBox(height: AppSpacing.lg),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              // pen `ZBzIg` 18/600, 줄높이 속성 없음 · 렌더 25.
-              style: AppTypography.subtitle.copyWith(color: AppColors.ink, height: 25 / 18),
-            ),
-            if (description != null) ...[
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                description,
-                textAlign: TextAlign.center,
-                // pen `DFs55` 14 / 보통 / muted / 1.55.
-                style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
+    return EmptyNotice(image: Image.asset(mascot), title: title, description: description);
   }
 }
 
@@ -191,31 +166,3 @@ class _RefreshOnEnterState extends ConsumerState<_RefreshOnEnter> {
   Widget build(BuildContext context) => widget.child;
 }
 
-/// 읽기 실패. pen 에 없는 상태 — 16f · 14c 와 같은 회색 문구에 "다시 시도" 를 붙인다.
-class _LoadError extends StatelessWidget {
-  const _LoadError({required this.failure, required this.onRetry});
-
-  final Failure failure;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              context.errorText(failure),
-              textAlign: TextAlign.center,
-              style: AppTypography.body.copyWith(color: AppColors.muted),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            AppButton(label: context.l10n.commonRetry, variant: AppButtonVariant.text, onPressed: onRetry),
-          ],
-        ),
-      ),
-    );
-  }
-}

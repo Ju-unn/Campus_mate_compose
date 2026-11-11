@@ -365,6 +365,9 @@ void main() {
   testWidgets('못 불러오면 다시 시도할 수 있다', (tester) async {
     final fake = await pump(tester, repository: (FakeAccountRepository()..accountResult = const FailureResult(NetworkFailure())));
     expect(find.text('잠시 후 다시 시도해 주세요'), findsOneWidget);
+    // B3: 공통 RetryNotice — 문구 body → muted, 문구와 버튼 사이 0 → 12.
+    expect(tester.widget<Text>(find.text('잠시 후 다시 시도해 주세요')).style!.color, AppColors.muted);
+    expect(tester.getRect(find.byType(ElevatedButton)).top - tester.getRect(find.text('잠시 후 다시 시도해 주세요')).bottom, 12);
 
     fake.accountResult = Success(sampleAccount);
     await tester.tap(find.text('다시 시도'));

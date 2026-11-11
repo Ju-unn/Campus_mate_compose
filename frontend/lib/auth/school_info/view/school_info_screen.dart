@@ -5,6 +5,7 @@ import 'package:campus_mate/auth/school_info/viewmodel/school_info_view_model.da
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/common/widgets/retry_notice.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
@@ -35,7 +36,7 @@ class SchoolInfoScreen extends ConsumerWidget {
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, 28),
-          child: _body(ref),
+          child: _body(context, ref),
         ),
       ),
     );
@@ -54,10 +55,13 @@ class SchoolInfoScreen extends ConsumerWidget {
   }
 
   /// 학교 확인 행이 폼 맨 위에 있어 학교명이 도착해야 폼 전체를 그릴 수 있다.
-  Widget _body(WidgetRef ref) {
+  Widget _body(BuildContext context, WidgetRef ref) {
     return ref.watch(schoolNameProvider).when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stackTrace) => _SchoolNameError(onRetry: () => ref.invalidate(schoolNameProvider)),
+          error: (error, stackTrace) => RetryNotice(
+            message: context.errorText(const UnknownFailure()),
+            onRetry: () => ref.invalidate(schoolNameProvider),
+          ),
           data: (schoolName) => _form(ref, schoolName),
         );
   }
@@ -67,30 +71,6 @@ class SchoolInfoScreen extends ConsumerWidget {
       schoolName: schoolName,
       state: ref.watch(schoolInfoViewModelProvider),
       viewModel: ref.read(schoolInfoViewModelProvider.notifier),
-    );
-  }
-}
-
-/// 학교명 조회 실패. 이 화면을 지나야 온보딩이 이어지므로 다시 불러올 길을 남긴다.
-/// 실패 사유를 그대로 보여줄 것이 없어 공통 안내 문구를 쓴다.
-class _SchoolNameError extends StatelessWidget {
-  const _SchoolNameError({required this.onRetry});
-
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            context.errorText(const UnknownFailure()),
-            style: AppTypography.body.copyWith(color: AppColors.body),
-          ),
-          AppButton(label: context.l10n.commonRetry, variant: AppButtonVariant.text, onPressed: onRetry),
-        ],
-      ),
     );
   }
 }

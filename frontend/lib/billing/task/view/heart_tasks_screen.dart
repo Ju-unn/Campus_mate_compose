@@ -2,7 +2,7 @@ import 'package:campus_mate/billing/task/view/heart_task_actions.dart';
 import 'package:campus_mate/billing/task/view/heart_task_row.dart';
 import 'package:campus_mate/billing/task/viewmodel/heart_tasks_ui_state.dart';
 import 'package:campus_mate/billing/task/viewmodel/heart_tasks_view_model.dart';
-import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/retry_notice.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -60,7 +60,7 @@ class HeartTasksScreen extends ConsumerWidget {
     }
     final error = state.error;
     if (error != null) {
-      return _LoadError(message: context.errorText(error), onRetry: () => ref.invalidate(heartTasksViewModelProvider));
+      return RetryNotice(message: context.errorText(error), onRetry: () => ref.invalidate(heartTasksViewModelProvider));
     }
     return ListView(
       padding: _listPadding,
@@ -77,27 +77,3 @@ class HeartTasksScreen extends ConsumerWidget {
   }
 }
 
-/// 읽기 실패. pen 에 없는 상태 — 16f 차단 목록과 같은 회색 문구에 "다시 시도" 를 붙인다.
-class _LoadError extends StatelessWidget {
-  const _LoadError({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(message, textAlign: TextAlign.center, style: AppTypography.body.copyWith(color: AppColors.muted)),
-            const SizedBox(height: AppSpacing.sm),
-            AppButton(label: context.l10n.commonRetry, variant: AppButtonVariant.text, onPressed: onRetry),
-          ],
-        ),
-      ),
-    );
-  }
-}
