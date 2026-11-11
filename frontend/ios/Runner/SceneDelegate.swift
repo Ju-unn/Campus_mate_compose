@@ -33,10 +33,11 @@ class SceneDelegate: FlutterSceneDelegate {
     field.isSecureTextEntry = true
     field.isUserInteractionEnabled = false
     field.isAccessibilityElement = false
-    field.translatesAutoresizingMaskIntoConstraints = false
+    // 입력칸은 창 왼쪽 위(0,0)에 크기 0 으로 둔다 — 창 레이어가 이 칸의 캔버스 안에서 그려지므로 칸이 옮겨지면 앱 화면 전체가
+    // 그만큼 밀린다(11-11 TestFlight 30: 가운데 정렬 제약 때문에 화면이 오른쪽 아래로 밀리고 나머지가 검게 나옴). 제약 · 자동 배치를 쓰지 않는다.
+    field.frame = .zero
+    field.autoresizingMask = []
     window.addSubview(field)
-    field.centerXAnchor.constraint(equalTo: window.centerXAnchor).isActive = true
-    field.centerYAnchor.constraint(equalTo: window.centerYAnchor).isActive = true
     guard let canvas = secureCanvasLayer(of: field) else {
       field.removeFromSuperview()
       return
