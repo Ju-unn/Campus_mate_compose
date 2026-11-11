@@ -70,6 +70,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     // DESIGN §8.13: 받지도 못하고 캐시도 없을 때만 숨긴다. 받는 중에는 보인다 — 늦게 튀어나와 아래 줄이 밀리지 않게.
     final faq = ref.watch(faqProvider);
     final showFaq = faq.isLoading || (faq.value?.isNotEmpty ?? false);
+    // 학교 오픈 전(코호트 대기)에는 라우터가 하트 스토어(18) · 18a 를 막는다(출시 전 막기, 사용자 결정 11-11) — 그리로 가는
+    // 블록 · 줄을 숨긴다(두면 누를 때 홈이 한 겹 더 쌓인다). 요약을 못 받았으면 열린 것으로 친다. pen 에 없는 상태다.
+    final showHearts = ref.watch(homeSummaryProvider).value?.cohort == null;
     final l10n = context.l10n;
     return Scaffold(
       appBar: AppBar(title: Text(l10n.matchingSettingsTitle, style: AppTypography.navTitle)),
@@ -79,8 +82,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
           children: [
             // pen `X4olk` — 맨 위, 다음 섹션과 사이 20(목록 gap).
-            _HeartBalanceBlock(onTap: _openHeartStore),
-            _sectionGap,
+            if (showHearts) ...[
+              _HeartBalanceBlock(onTap: _openHeartStore),
+              _sectionGap,
+            ],
             _Section(l10n.matchingSettingsSectionMatching, [
               SwitchListTile.adaptive(
                 // 꺼짐 = 일시중지다. 화면은 "활성화"를 묻고 서버에는 그 반대를 보낸다.
@@ -107,13 +112,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             _sectionGap,
             _Section(l10n.commonHeart, [
-              // pen `zlpeY` — 하트 카드 첫 줄. 아이콘은 3D 가 아니라 lucide plus 20 #3F3F3F.
-              _Row.plain(icon: AppIcons.plus, title: l10n.matchingSettingsHeartCharge, onTap: _openHeartStore),
-              _Row(
-                icon: AppIcon3d.gift,
-                title: l10n.matchingSettingsHeartTasks,
-                onTap: () => context.push(AppRoutes.heartTasks),
-              ),
+              if (showHearts) ...[
+                // pen `zlpeY` — 하트 카드 첫 줄. 아이콘은 3D 가 아니라 lucide plus 20 #3F3F3F.
+                _Row.plain(icon: AppIcons.plus, title: l10n.matchingSettingsHeartCharge, onTap: _openHeartStore),
+                _Row(
+                  icon: AppIcon3d.gift,
+                  title: l10n.matchingSettingsHeartTasks,
+                  onTap: () => context.push(AppRoutes.heartTasks),
+                ),
+              ],
               _Row(
                 icon: AppIcon3d.users,
                 title: l10n.matchingSettingsInviteFriends,

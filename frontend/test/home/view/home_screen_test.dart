@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:campus_mate/billing/store/view/heart_balance_chip.dart';
 import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
@@ -140,6 +141,7 @@ void main() {
       routes: [
         GoRoute(path: AppRoutes.home, builder: (context, state) => const HomeScreen()),
         GoRoute(path: AppRoutes.today, builder: (context, state) => const Text('오늘 탭')),
+        GoRoute(path: AppRoutes.settings, builder: (context, state) => const Text('16 설정')),
       ],
     );
     addTearDown(router.dispose);
@@ -1257,11 +1259,9 @@ void main() {
     expect(find.byType(CohortWaitView), findsNothing);
   });
 
+  // 출시 전 막기(사용자 결정 11-11 「대기 화면 + 설정만」) — pen `tUaGw` 는 하단 내비가 없고 앱바 `D4Q6U` 는 톱니만이다.
   group('19 코호트 — 메인 탭 안에서 바꿔 끼운다(계획서 결정 1)', () {
-    testWidgets('cohort 가 있으면 대기 화면이 있고 09b 는 없다. 앱바 · 하단 내비는 그대로', (tester) async {
-      await pump(
-        tester,
-        result: Success(HomeSummary(
+    HomeSummary waiting() => HomeSummary(
           deliveredCards: summary.deliveredCards,
           signups: summary.signups,
           conversationsStarted: summary.conversationsStarted,
@@ -1270,22 +1270,51 @@ void main() {
           campuses: summary.campuses,
           profileCompletionPercent: summary.profileCompletionPercent,
           cohort: CohortWait(firstCardAt: DateTime.now().add(const Duration(days: 3)), recruitCount: 5),
-        )),
-      );
+        );
+
+    testWidgets('cohort 가 있으면 대기 화면이 있고 09b 는 없다. 하단 내비 · 하트 칩 · 종은 없고 톱니만 있다', (tester) async {
+      // 잔액을 읽어도 칩이 없어야 한다 — 못 읽어서 숨은 것과 구별한다.
+      await pump(tester, result: Success(waiting()), me: Success(_me('새솔대')));
 
       expect(find.byType(CohortWaitView), findsOneWidget);
       expect(find.text('지금 확인하기'), findsNothing);
       expect(find.text('전달된 카드'), findsNothing);
       expect(find.text('CampusMate'), findsOneWidget);
-      expect(find.byType(NotifyIconButton), findsOneWidget);
-      expect(find.byType(GlassBottomNav), findsOneWidget);
+      expect(find.byType(GlassBottomNav), findsNothing);
+      expect(find.byType(HeartBalanceChip), findsNothing);
+      expect(find.byType(NotifyIconButton), findsNothing);
+      expect(find.byTooltip('설정'), findsOneWidget);
     });
 
-    testWidgets('cohort 가 null 이면 09b 그대로다', (tester) async {
-      await pump(tester);
+    testWidgets('톱니는 앱바 오른쪽 48×48(오른쪽 여백 8) 안 settings 22 #6A6A6A, 제목은 x20(pen D4Q6U padding [0,8,0,20])', (tester) async {
+      penFrame(tester);
+      await pump(tester, result: Success(waiting()));
+
+      final gear = find.byTooltip('설정');
+      expect(tester.getRect(gear), const Rect.fromLTWH(304, 4, 48, 48));
+      final icon = tester.widget<Icon>(find.byIcon(AppIcons.settings));
+      expect((icon.size, icon.color), (22.0, const Color(0xFF6A6A6A)));
+      expect(tester.getTopLeft(find.text('CampusMate')).dx, 20);
+    });
+
+    testWidgets('톱니를 누르면 설정(16)으로 간다', (tester) async {
+      await pump(tester, result: Success(waiting()));
+
+      await tester.tap(find.byTooltip('설정'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('16 설정'), findsOneWidget);
+    });
+
+    testWidgets('cohort 가 null 이면 09b 그대로다 — 하단 내비 · 하트 칩 · 종이 있고 톱니는 없다', (tester) async {
+      await pump(tester, me: Success(_me('새솔대')));
 
       expect(find.byType(CohortWaitView), findsNothing);
       expect(find.text('지금 확인하기'), findsOneWidget);
+      expect(find.byType(GlassBottomNav), findsOneWidget);
+      expect(find.byType(HeartBalanceChip), findsOneWidget);
+      expect(find.byType(NotifyIconButton), findsOneWidget);
+      expect(find.byTooltip('설정'), findsNothing);
     });
   });
 

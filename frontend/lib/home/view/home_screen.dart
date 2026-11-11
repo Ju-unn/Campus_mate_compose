@@ -184,16 +184,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
           child: Text('CampusMate', style: AppTypography.navTitle.copyWith(color: AppColors.primary)),
         ),
         actions: [
-          // 숫자 배지: 2026-09-26 에 알림함이 없어 숨겼다가(`count: 0` 고정) 알림함(09c)이 생겨 다시 켠다 — 0 이면 없고, 99 를 넘으면 "99+".
-          // pen `Trailing`(`ihX4y` 안) — 하트 칩(`sysyz` 인스턴스 "+" 켬, 높이 44) · gap 4 · 종. 칩은 잔액을 읽는 동안 · 못 읽으면 자리째 숨는다.
-          // "+" 는 하트 상점(18, `/hearts/store`)으로 간다.
-          HeartBalanceChip(showPlus: true, onPlus: _openHeartStore),
-          const SizedBox(width: AppSpacing.xxs),
-          NotifyIconButton(count: ref.watch(unreadCountProvider), onTap: _openNotifications),
+          // 학교 오픈 전(pen `tUaGw` 앱바 `D4Q6U`) — 하트 칩 · 종을 끄고 오른쪽 48 칸에 톱니(settings 22 #6A6A6A)만 둔다.
+          // 그때는 홈과 설정만 열리고(출시 전 막기, 사용자 결정 11-11) 설정이 로그아웃 · 탈퇴 · 문의로 가는 문이다.
+          if (cohort != null)
+            IconButton(
+              tooltip: context.l10n.meProfileSettingsTooltip,
+              constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+              icon: const Icon(AppIcons.settings, size: 22, color: AppColors.muted),
+              onPressed: () => context.push(AppRoutes.settings),
+            )
+          else ...[
+            // 숫자 배지: 2026-09-26 에 알림함이 없어 숨겼다가(`count: 0` 고정) 알림함(09c)이 생겨 다시 켠다 — 0 이면 없고, 99 를 넘으면 "99+".
+            // pen `Trailing`(`ihX4y` 안) — 하트 칩(`sysyz` 인스턴스 "+" 켬, 높이 44) · gap 4 · 종. 칩은 잔액을 읽는 동안 · 못 읽으면 자리째 숨는다.
+            // "+" 는 하트 상점(18, `/hearts/store`)으로 간다.
+            HeartBalanceChip(showPlus: true, onPlus: _openHeartStore),
+            const SizedBox(width: AppSpacing.xxs),
+            NotifyIconButton(count: ref.watch(unreadCountProvider), onTap: _openNotifications),
+          ],
           const SizedBox(width: AppSpacing.xs),
         ],
       ),
-      bottomNavigationBar: const GlassBottomNav(current: AppTab.main),
+      // 학교 오픈 전에는 하단 내비가 없다(pen `tUaGw`) — 탭이 가리키는 곳이 모두 막혀 있다.
+      bottomNavigationBar: cohort != null ? null : const GlassBottomNav(current: AppTab.main),
       // 우리 학교가 아직 첫 카드를 안 열었으면 본문만 19 대기 화면으로 바꿔 끼운다(코호트 계획서 결정 1).
       body: MeToastLayer(
         toast: timedToast,

@@ -41,7 +41,7 @@ String cohortDateLabel(AppLocalizations l10n, DateTime now, DateTime opensAt) {
       : l10n.homeCohortTodayAtMinute(meridiem: meridiem, hour: hour, minute: opensAt.minute);
 }
 
-/// 19 코호트 대기(pen `tUaGw`) 본문. 앱바 · 하단 내비는 부르는 화면 것을 그대로 쓴다(Q2 (가)).
+/// 19 코호트 대기(pen `tUaGw`) 본문. 앱바는 부르는 화면이 그린다 — 홈은 톱니만 두고 하단 내비를 뺀다(출시 전 막기 11-11).
 /// 초마다 돌지 않는다 — 다음 자정(D-숫자)과 여는 시각(요약 다시 읽기) 중 먼저 오는 쪽에 타이머 하나.
 class CohortWaitView extends ConsumerStatefulWidget {
   const CohortWaitView({required this.cohort, super.key});
@@ -147,11 +147,11 @@ class _CohortWaitViewState extends ConsumerState<CohortWaitView> {
         // 보통 글자에선 버튼이 아래에 붙고(pen), 글자를 키워 넘치면 같이 스크롤된다.
         SliverFillRemaining(
           hasScrollBody: false,
-          // pen `R1DPu` padding [8,16,24,16], gap 20. SliverPadding 으로 감싸면 채움 높이가 아래 24 를 빼지 않아
-          // 버튼이 내비에 붙는다 — 그래서 안쪽 Padding 이다. 본문이 유리 내비(pen `xtj0K`) 뒤까지 이어지므로
-          // 알약 자리(본문 MediaQuery padding.bottom)를 더해 버튼이 알약 위 24 에 선다.
+          // pen `R1DPu` padding [8,16,28,16], gap 20. SliverPadding 으로 감싸면 채움 높이가 아래 28 을 빼지 않아
+          // 버튼이 바닥에 붙는다 — 그래서 안쪽 Padding 이다. 아래 28 은 본문 MediaQuery padding.bottom 위다 —
+          // 홈(하단 내비 없음, 출시 전 막기 11-11)은 safe area, 오늘 탭(유리 내비 `xtj0K` 뒤로 이어짐)은 알약 자리.
           child: Padding(
-            padding: EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, 24 + MediaQuery.paddingOf(context).bottom),
+            padding: EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, 28 + MediaQuery.paddingOf(context).bottom),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

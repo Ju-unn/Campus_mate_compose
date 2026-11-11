@@ -878,4 +878,49 @@ void main() {
       await tester.pump(const Duration(seconds: 4));
     });
   });
+
+  // 출시 전 막기(사용자 결정 11-11 「대기 화면 + 설정만」) — 학교가 열리기 전에는 라우터가 하트 스토어(18) · 18a 를 막는다.
+  // 그 줄을 두면 누를 때 라우터가 홈을 한 겹 더 쌓으므로 줄째 숨긴다. pen 에 없는 상태다(보고 거리).
+  group('학교 오픈 전(코호트 대기) — 막힌 곳으로 가는 줄은 숨긴다', () {
+    CohortWait waiting() => CohortWait(firstCardAt: DateTime.now().add(const Duration(days: 3)), recruitCount: 5);
+
+    testWidgets('보유 하트 블록 · 하트 충전 · 무료로 하트 모으기가 없고, 매칭 섹션이 맨 위(앱바 아래 12)다', (tester) async {
+      await pump(tester, cohort: waiting());
+
+      expect(find.text('보유 하트'), findsNothing);
+      expect(find.text('하트 충전'), findsNothing);
+      expect(find.text('무료로 하트 모으기'), findsNothing);
+      expect(tester.getTopLeft(find.text('매칭')).dy, tester.getBottomLeft(find.byType(AppBar)).dy + 12);
+    });
+
+    testWidgets('설정 안에서 열리는 줄(친구 초대 · 계정 · 알림 · 차단 · FAQ · 문의 · 약관 · 로그아웃 · 탈퇴)은 그대로다', (tester) async {
+      await pump(tester, cohort: waiting());
+
+      for (final title in [
+        '매칭 활성화',
+        '친구 초대',
+        '계정',
+        '알림',
+        '차단 목록',
+        '연락처 차단',
+        '자주 묻는 질문',
+        '문의하기',
+        '가이드 다시 보기',
+        '이용약관',
+        '개인정보처리방침',
+        '로그아웃',
+        '탈퇴하기',
+      ]) {
+        expect(find.text(title), findsOneWidget, reason: title);
+      }
+    });
+
+    testWidgets('학교가 열렸으면(cohort 없음) 하트 블록과 두 줄이 그대로 있다', (tester) async {
+      await pump(tester);
+
+      expect(find.text('보유 하트'), findsOneWidget);
+      expect(find.text('하트 충전'), findsOneWidget);
+      expect(find.text('무료로 하트 모으기'), findsOneWidget);
+    });
+  });
 }

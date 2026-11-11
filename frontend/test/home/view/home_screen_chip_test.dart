@@ -27,7 +27,8 @@ import '../model/repository/fake_home_repository.dart';
 import '../../notifications/model/repository/fake_notifications_repository.dart';
 
 /// 홈 앱바의 하트 잔액 칩 — pen `Trailing`(홈 6곳: `k13Z5C` · `rCKcm` · `l1120` · `fATGt` · `U9fmK` · `BZ9WY`) = 칩(`sysyz` 인스턴스, "+" 켬, 높이 44) · gap 4 · 종.
-/// 앱바는 어느 상태에서나 같은 한 줄이다 — 요약 읽는 중 · 보통 · 숫자 0 빈 판 · 완성도 100 · 코호트 대기에서 자리가 같은지 본다(pen 은 6곳이 같은 값).
+/// 앱바는 학교가 열린 홈에서 같은 한 줄이다 — 요약 읽는 중 · 보통 · 숫자 0 빈 판 · 완성도 100 에서 자리가 같은지 본다.
+/// 코호트 대기(pen `tUaGw`)는 출시 전 막기(11-11)로 칩 · 종 없이 톱니만 둔다.
 MyProfile _profile(int hearts) => MyProfile(
   nickname: '여우',
   age: 23,
@@ -170,8 +171,18 @@ void main() {
       '보통': summary,
       '숫자가 모두 0 인 빈 판': withSummary(delivered: 0, signups: 0, conversations: 0),
       '완성도 100(카드 숨김)': withSummary(percent: 100),
-      '코호트 대기': withSummary(cohort: CohortWait(firstCardAt: DateTime.now().add(const Duration(days: 3)), recruitCount: 5)),
     };
+
+    // 출시 전 막기(사용자 결정 11-11) — pen `tUaGw` 앱바 `D4Q6U` 는 하트 칩을 끄고 톱니만 둔다(톱니 자리는 home_screen_test).
+    testWidgets('[코호트 대기] 칩 · 종이 없고 앱바 높이는 56 그대로다', (tester) async {
+      await pump(
+        tester,
+        data: withSummary(cohort: CohortWait(firstCardAt: DateTime.now().add(const Duration(days: 3)), recruitCount: 5)),
+      );
+      expect(chip, findsNothing);
+      expect(bell, findsNothing);
+      expect(tester.getSize(find.byType(AppBar)).height, 56);
+    });
     for (final entry in states.entries) {
       testWidgets('[${entry.key}] 칩 · 종이 같은 자리', (tester) async {
         await pump(tester, data: entry.value);
