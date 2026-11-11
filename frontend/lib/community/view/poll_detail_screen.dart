@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/section_header.dart';
 import 'package:campus_mate/community/model/data/poll.dart';
 import 'package:campus_mate/community/model/data/poll_comment.dart';
 import 'package:campus_mate/community/view/comment_input_bar.dart';
@@ -122,10 +123,7 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
               ),
               const SizedBox(height: AppSpacing.md),
               // pen Comments Header `Ymhdq` "댓글 N" 18/700 ink, 렌더 높이 25. 아래 간격 8(Comments Section gap).
-              Text(
-                context.l10n.communityCommentCount(count: poll.commentCount),
-                style: AppTypography.label.copyWith(color: AppColors.ink, height: 25 / 18),
-              ),
+              SectionHeader(title: context.l10n.communityCommentCount(count: poll.commentCount)),
               const SizedBox(height: AppSpacing.xs),
               ..._comments(context, state),
             ],
@@ -244,7 +242,7 @@ class _EmptyComments extends StatelessWidget {
   }
 }
 
-/// 읽기 실패: 이유 한 줄 + "다시 시도". 첫 쪽 · 이어 읽기 · 글 읽기가 같이 쓴다(피드의 `_LoadError` 와 같은 모양).
+/// 읽기 실패: 이유 한 줄 + "다시 시도". 첫 쪽 · 이어 읽기 · 글 읽기가 같이 쓴다(피드의 공통 RetryNotice 와 같은 모양, 글자만 14).
 class _InlineError extends StatelessWidget {
   const _InlineError({required this.failure, required this.onRetry});
 
