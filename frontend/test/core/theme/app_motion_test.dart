@@ -17,4 +17,9 @@ void main() {
     expect(AppMotion.emphasis, const Duration(milliseconds: 420));
     expect(AppMotion.emphasisCurve, Curves.easeOutBack);
   });
+
+  test('float 는 대기 화면 마스코트가 한 번 떠올랐다 내려오는 1600ms easeInOut 이다(pen `tUaGw` 움직임 메모)', () {
+    expect(AppMotion.float, const Duration(milliseconds: 1600));
+    expect(AppMotion.floatCurve, Curves.easeInOut);
+  });
 }

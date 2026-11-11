@@ -19,4 +19,10 @@ abstract final class AppMotion {
 
   /// 매칭 성사·카드 등장 커브
   static const Curve emphasisCurve = Curves.easeOutBack;
+
+  /// 19 코호트 대기 마스코트가 한 번 떠올랐다 내려오는 시간(오르기 + 내리기). 되풀이한다 — pen `tUaGw` 움직임 메모
+  static const Duration float = Duration(milliseconds: 1600);
+
+  /// 떠오름 커브(오르기 · 내리기 같은 곡선)
+  static const Curve floatCurve = Curves.easeInOut;
 }
