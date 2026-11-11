@@ -29,8 +29,8 @@ const double _barGap = 4;
 /// 17c 상세는 pen 이 그대로라 옛 [PollCard](`RpRBi`)를 쓴다.
 ///
 /// 회색 피드 위 흰 큰 카드(모서리 24): 익명 아바타 머리줄 → 질문 18/700 → 투표 전 O/X 알약 + VS · 투표 뒤 큰 퍼센트 + 쪼개짐
-/// 막대 → 구분선 → 참여자 수 · "자세히 보기". **방금 이 카드에서 투표했을 때만** 결과가 0 에서 차오른다(220ms).
-/// 댓글 수 · 댓글 버튼(`G4zmKC`)은 서버 기능이 없어 넣지 않았다(사용자 결정) — 그 자리에 17c 로 가는 "자세히 보기" 가 선다.
+/// 막대 → 구분선 → 참여자 수 · 말풍선 "댓글 N" · "자세히 보기". **방금 이 카드에서 투표했을 때만** 결과가 0 에서 차오른다(220ms).
+/// 말풍선 · "댓글 N" 과 "자세히 보기"(pen 댓글 버튼 `G4zmKC` 자리) 모두 17c 상세로 간다(사용자 11-11).
 class FeedPollCard extends StatefulWidget {
   const FeedPollCard({
     required this.poll,
@@ -444,7 +444,7 @@ class _SplitBar extends StatelessWidget {
 }
 
 /// 아래 줄(pen `OXJyX` · 18f `v9mXy`): 사람 16 → 6 → "N명 참여" 12/500 muted → 8 → 말풍선 16 → 4 → "댓글 N" 12/500 muted ……… "자세히 보기".
-/// 댓글 0 이어도 "댓글 0" 으로 보인다(사용자 11-10 「보여 줌」).
+/// 댓글 0 이어도 "댓글 0" 으로 보인다(사용자 11-10 「보여 줌」). 말풍선 · "댓글 N" 과 "자세히 보기" 둘 다 17c 로 간다.
 class _Footer extends StatelessWidget {
   const _Footer({required this.total, required this.commentCount, required this.onOpen});
 
@@ -469,28 +469,55 @@ class _Footer extends StatelessWidget {
             Flexible(child: Text(context.l10n.communityParticipants(count: total), style: caption.copyWith(height: 16 / 12))),
             // pen CommentCount `Qzv5q`: 앞 간격 8, 아이콘 16 + 4 + 글자.
             const SizedBox(width: AppSpacing.xs),
-            const Icon(AppIcons.messageCircle, size: 16, color: AppColors.muted),
-            const SizedBox(width: AppSpacing.xxs),
-            Flexible(child: Text(context.l10n.communityCommentCount(count: commentCount), style: caption.copyWith(height: 16 / 12))),
+            // 말풍선 · "댓글 N" 도 17c 로 간다(사용자 11-11). 누름 48, 가로는 그림 폭 그대로라 pen 자리가 안 바뀐다.
+            // 낭독은 "댓글 N" 버튼 하나 — "자세히 보기" 와 이름이 달라 같은 말을 두 번 읽지 않는다.
+            Flexible(
+              child: Semantics(
+                button: true,
+                child: InkWell(
+                  onTap: onOpen,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 48),
+                    child: Align(
+                      widthFactor: 1,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(AppIcons.messageCircle, size: 16, color: AppColors.muted),
+                          const SizedBox(width: AppSpacing.xxs),
+                          Flexible(
+                            child: Text(context.l10n.communityCommentCount(count: commentCount), style: caption.copyWith(height: 16 / 12)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
-        InkWell(
-          onTap: onOpen,
-          // 누르는 영역 48(대장), 좌우 안쪽 8 은 pen 댓글 버튼 `G4zmKC` padding [0,8].
-          // 가로는 글자 폭만 쓴다(widthFactor 1) — Container(alignment:) 는 줄 끝까지 늘어나 다음 줄로 밀린다.
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 48),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-              child: Align(
-                widthFactor: 1,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(context.l10n.commonViewMore, style: caption.copyWith(fontWeight: FontWeight.w600)),
-                    const SizedBox(width: 2),
-                    const Icon(AppIcons.chevronRight, size: 14, color: AppColors.muted),
-                  ],
+        // 낭독기는 "댓글 N" 처럼 버튼으로 읽는다(InkWell 은 버튼 표시를 스스로 달지 않는다).
+        Semantics(
+          button: true,
+          child: InkWell(
+            onTap: onOpen,
+            // 누르는 영역 48(대장), 좌우 안쪽 8 은 pen 댓글 버튼 `G4zmKC` padding [0,8].
+            // 가로는 글자 폭만 쓴다(widthFactor 1) — Container(alignment:) 는 줄 끝까지 늘어나 다음 줄로 밀린다.
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 48),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+                child: Align(
+                  widthFactor: 1,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(context.l10n.commonViewMore, style: caption.copyWith(fontWeight: FontWeight.w600)),
+                      const SizedBox(width: 2),
+                      const Icon(AppIcons.chevronRight, size: 14, color: AppColors.muted),
+                    ],
+                  ),
                 ),
               ),
             ),
