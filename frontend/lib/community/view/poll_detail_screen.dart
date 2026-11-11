@@ -109,24 +109,30 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
     return Column(
       children: [
         Expanded(
-          child: ListView(
-            controller: _scroll,
-            // pen `ZR52B` Body: 안쪽 16, 카드 · 댓글 영역 사이 16.
-            padding: const EdgeInsets.all(AppSpacing.md),
-            children: [
-              PollCard(
-                poll: poll,
-                now: ref.read(communityNowProvider)(),
-                isVoting: state.isVoting,
-                onVote: _vote,
-                onReport: poll.isMine ? null : () => reportPoll(context, poll.id, bottomInset: _inputHeight),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              // pen Comments Header `Ymhdq` "댓글 N" 18/700 ink, 렌더 높이 25. 아래 간격 8(Comments Section gap).
-              SectionHeader(title: context.l10n.communityCommentCount(count: poll.commentCount)),
-              const SizedBox(height: AppSpacing.xs),
-              ..._comments(context, state),
-            ],
+          // 아래로 당기면 글 · 댓글 첫 쪽을 다시 읽는다(사용자 11-11 「당기면 갱신」, 실시간은 보류). 피드와 같은 방식.
+          child: RefreshIndicator(
+            onRefresh: _viewModel.refresh,
+            child: ListView(
+              controller: _scroll,
+              // 댓글이 적어 화면을 못 채워도 당길 수 있게 — 기본 물리는 짧은 목록의 당김을 막는다.
+              physics: const AlwaysScrollableScrollPhysics(),
+              // pen `ZR52B` Body: 안쪽 16, 카드 · 댓글 영역 사이 16.
+              padding: const EdgeInsets.all(AppSpacing.md),
+              children: [
+                PollCard(
+                  poll: poll,
+                  now: ref.read(communityNowProvider)(),
+                  isVoting: state.isVoting,
+                  onVote: _vote,
+                  onReport: poll.isMine ? null : () => reportPoll(context, poll.id, bottomInset: _inputHeight),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                // pen Comments Header `Ymhdq` "댓글 N" 18/700 ink, 렌더 높이 25. 아래 간격 8(Comments Section gap).
+                SectionHeader(title: context.l10n.communityCommentCount(count: poll.commentCount)),
+                const SizedBox(height: AppSpacing.xs),
+                ..._comments(context, state),
+              ],
+            ),
           ),
         ),
         CommentInputBar(key: _inputKey, onSend: _send, isSending: state.isSending),
@@ -145,7 +151,8 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
   }
 
   List<Widget> _comments(BuildContext context, PollDetailUiState state) {
-    if (state.isLoadingComments) return [const _Spinner()];
+    // 새로 고침 중에는 보이던 목록을 그대로 둔다 — 당김 표시가 이미 돈다.
+    if (state.isLoadingComments && state.comments.isEmpty) return [const _Spinner()];
     final failure = state.commentsError;
     if (failure != null) return [_InlineError(failure: failure, onRetry: _viewModel.refresh)];
     if (state.comments.isEmpty) return [const _EmptyComments()];
