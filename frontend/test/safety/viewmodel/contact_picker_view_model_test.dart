@@ -160,6 +160,51 @@ void main() {
     expect(state().selectedCount, 1);
   });
 
+  test('toggleAllVisible selects every visible contact, a second call unselects them', () async {
+    await opened();
+    expect(state().allVisibleSelected, isFalse);
+
+    viewModel().toggleAllVisible();
+    expect(state().selectedIds, {momContact.id, siblingContact.id});
+    expect(state().allVisibleSelected, isTrue);
+
+    viewModel().toggleAllVisible();
+    expect(state().selectedIds, isEmpty);
+    expect(state().allVisibleSelected, isFalse);
+  });
+
+  test('toggleAllVisible while searching touches only the visible ones, keeps selections outside the search', () async {
+    await opened();
+    viewModel().toggle(siblingContact.id);
+    viewModel().search('엄');
+
+    viewModel().toggleAllVisible();
+    expect(state().selectedIds, {momContact.id, siblingContact.id});
+    expect(state().allVisibleSelected, isTrue);
+
+    viewModel().toggleAllVisible();
+    expect(state().selectedIds, {siblingContact.id});
+  });
+
+  test('one visible contact left unselected means not all selected — the next call selects the rest', () async {
+    await opened();
+    viewModel().toggle(momContact.id);
+    expect(state().allVisibleSelected, isFalse);
+
+    viewModel().toggleAllVisible();
+    expect(state().selectedIds, {momContact.id, siblingContact.id});
+  });
+
+  test('nothing visible: not all selected, toggleAllVisible changes nothing', () async {
+    await opened();
+    viewModel().toggle(momContact.id);
+    viewModel().search('없는 이름');
+
+    expect(state().allVisibleSelected, isFalse);
+    viewModel().toggleAllVisible();
+    expect(state().selectedIds, {momContact.id});
+  });
+
   test('submit sends every number of selected contacts and stores names by returned id', () async {
     repository.addResult = const Success(['b1', null, 'b3']);
     await opened();

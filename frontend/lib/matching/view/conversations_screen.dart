@@ -167,7 +167,8 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
 }
 
 /// 10b 신청 직후 토스트(pen `Q1322I`, Toast `I8UOWm`). 하단 내비 위 16 · 가로 가운데 — 15d 투표 토스트와 같은 자리다.
-void _showSentToast(ScaffoldMessengerState messenger, String label) {
+/// 기다리는 보낸 신청 줄을 누를 때도 같은 자리 · 같은 모양으로 띄운다([icon] 만 다르다).
+void _showSentToast(ScaffoldMessengerState messenger, String label, {IconData icon = AppIcons.check}) {
   messenger
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(
@@ -181,7 +182,7 @@ void _showSentToast(ScaffoldMessengerState messenger, String label) {
       duration: const Duration(seconds: 3),
       content: Center(
         child: AppToast(
-          leading: const Icon(AppIcons.check, size: 16, color: AppColors.onInk),
+          leading: Icon(icon, size: 16, color: AppColors.onInk),
           label: label,
         ),
       ),
@@ -276,6 +277,12 @@ class _Body extends ConsumerWidget {
             request: state.requests[index],
             // 대화 중 행과 같은 방 경로 — 나갔거나 닫힌 방은 채팅방 화면이 지금처럼 알린다.
             onOpenChat: (matchId) => context.push('${AppRoutes.chatRoom}/$matchId'),
+            // 사용자 요청(11-12) — 기다리는 줄은 방이 없어 열 곳이 없다. 아이콘은 그 줄 칩과 같은 타이머(pen 값 받기 전 임시).
+            onWaitingTap: () => _showSentToast(
+              ScaffoldMessenger.of(context),
+              context.l10n.matchingSentWaitingToast,
+              icon: AppIcons.timer,
+            ),
           ),
         ),
       ),

@@ -72,6 +72,15 @@ class ContactPickerViewModel extends Notifier<ContactPickerUiState> {
     state = state.copyWith(selectedIds: selected);
   }
 
+  /// 앱바 "전체 선택" · "전체 해제". 보이는(검색에 걸린) 사람만 고르거나 풀고, 검색 밖의 선택은 그대로 둔다.
+  void toggleAllVisible() {
+    final visibleIds = {for (final contact in state.visible) contact.id};
+    final selected = state.allVisibleSelected
+        ? state.selectedIds.difference(visibleIds)
+        : state.selectedIds.union(visibleIds);
+    state = state.copyWith(selectedIds: selected);
+  }
+
   /// 선택한 사람의 번호를 기기 순서대로 펴서 한 번에 보낸다. 한 사람에게 휴대전화가 둘이면 16b 에 두 줄이 된다.
   Future<void> submit() async {
     if (!state.canSubmit) return;

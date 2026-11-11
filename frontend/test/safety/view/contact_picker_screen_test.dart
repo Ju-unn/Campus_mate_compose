@@ -149,6 +149,123 @@ void main() {
     expect(find.text('선택 완료 (1명)'), findsOneWidget);
   });
 
+  // 사용자 「지인차단 전체선택 기능 넣기」 · 자리 「위 막대 오른쪽 글자 (추천)」. 모양은 10 "모두 읽음"(notifications_screen) 과 같다.
+  group('앱바 오른쪽 "전체 선택"', () {
+    Finder selectAll() => find.widgetWithText(TextButton, '전체 선택');
+    Finder deselectAll() => find.widgetWithText(TextButton, '전체 해제');
+
+    testWidgets('누르면 보이는 사람이 모두 골라지고 글자가 "전체 해제" 로, 다시 누르면 모두 풀린다', (tester) async {
+      await pump(tester);
+
+      await tester.tap(selectAll());
+      await tester.pump();
+
+      expect(find.text('선택 완료 (2명)'), findsOneWidget);
+      expect(selectAll(), findsNothing);
+      expect(deselectAll(), findsOneWidget);
+
+      await tester.tap(deselectAll());
+      await tester.pump();
+
+      expect(find.text('선택 완료 (0명)'), findsOneWidget);
+      expect(selectAll(), findsOneWidget);
+    });
+
+    testWidgets('하나씩 다 고르면 글자가 "전체 해제" 로 바뀐다', (tester) async {
+      await pump(tester);
+      await tester.tap(find.text('엄마'));
+      await tester.pump();
+      expect(selectAll(), findsOneWidget);
+
+      await tester.tap(find.text('동생'));
+      await tester.pump();
+
+      expect(deselectAll(), findsOneWidget);
+    });
+
+    testWidgets('검색 중이면 보이는 사람만 고르고 풀며, 검색 밖에서 골라 둔 사람은 그대로다', (tester) async {
+      await pump(tester);
+      await tester.tap(find.text('동생'));
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), '엄');
+      await tester.pump();
+
+      await tester.tap(selectAll());
+      await tester.pump();
+      expect(find.text('선택 완료 (2명)'), findsOneWidget);
+
+      await tester.tap(deselectAll());
+      await tester.pump();
+      expect(find.text('선택 완료 (1명)'), findsOneWidget);
+    });
+
+    testWidgets('보이는 사람이 0명이면 버튼이 없다 — 10 "모두 읽음" 처럼 누를 일이 없으면 숨긴다', (tester) async {
+      await pump(tester);
+
+      await tester.enterText(find.byType(TextField), '없는 이름');
+      await tester.pump();
+
+      expect(selectAll(), findsNothing);
+      expect(deselectAll(), findsNothing);
+    });
+
+    testWidgets('기기 연락처가 0명이어도 버튼이 없다', (tester) async {
+      source.contacts = const [];
+      await pump(tester);
+
+      expect(selectAll(), findsNothing);
+    });
+
+    testWidgets('pen bMZhK(xBtQ5 · dIzP1): 14/600/1.2 primary-text, 높이 48 · 좌우 12, 글자 끝이 화면 오른쪽 24, 제목과 4', (tester) async {
+      await pump(tester);
+
+      final button = selectAll();
+      final rect = tester.getRect(button);
+      expect(rect.height, 48);
+      final labelFinder = find.descendant(of: button, matching: find.text('전체 선택'));
+      final label = tester.widget<Text>(labelFinder);
+      expect(label.style?.fontSize, 14);
+      expect(label.style?.fontWeight, FontWeight.w600);
+      expect(label.style?.height, 1.2);
+      expect(label.style?.color, AppColors.primaryText);
+      final text = tester.getRect(labelFinder);
+      // 앱 바 lf95I 오른쪽 여백 12 + 버튼 안쪽 12 = 글자 끝 24(검색칸 · 목록 오른쪽 여백과 같다).
+      expect(360 - rect.right, 12);
+      expect(rect.right - text.right, 12);
+      expect(text.left - rect.left, 12);
+      expect(360 - text.right, 24);
+      // 제목과 버튼 사이 4 이상(제목 칸이 남는 폭을 다 써도 titleSpacing 4 가 남는다).
+      expect(rect.left - tester.getRect(find.text('차단할 연락처 선택')).right, greaterThanOrEqualTo(4));
+      expect(find.descendant(of: find.byType(AppBar), matching: button), findsOneWidget);
+    });
+
+    testWidgets('낭독기는 버튼으로 읽고, 글자가 바뀌면 이름도 바뀐다', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pump(tester);
+
+      expect(tester.getSemantics(selectAll()), isSemantics(label: '전체 선택', isButton: true, isEnabled: true, hasTapAction: true));
+
+      await tester.tap(selectAll());
+      await tester.pump();
+
+      expect(tester.getSemantics(deselectAll()), isSemantics(label: '전체 해제', isButton: true, isEnabled: true, hasTapAction: true));
+      handle.dispose();
+    });
+
+    testWidgets('연락처 1200명을 한 번에 고르면 1200명이 담긴다', (tester) async {
+      source.contacts = [
+        for (var i = 0; i < 1200; i++) DeviceContact(id: 'c$i', name: '친구$i', numbers: ['010-0000-${i.toString().padLeft(4, '0')}']),
+      ];
+      await pump(tester);
+
+      await tester.tap(selectAll());
+      await tester.pump();
+
+      expect(find.text('선택 완료 (1200명)'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   testWidgets('search field is 48 high under the app bar, list starts 12 below (pen y7Qlw · rpkaB)', (tester) async {
     await pump(tester);
 

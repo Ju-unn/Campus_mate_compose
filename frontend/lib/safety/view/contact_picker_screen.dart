@@ -60,7 +60,20 @@ class _ContactPickerScreenState extends ConsumerState<ContactPickerScreen> {
         leadingWidth: 56,
         titleSpacing: 4,
         leading: const Padding(padding: EdgeInsets.only(left: AppSpacing.xs), child: BackButton(color: AppColors.ink)),
-        title: Text(context.l10n.safetyContactPickerTitle, style: AppTypography.navTitle),
+        // 제목은 "전체 선택" 이 쓰고 남는 폭을 차지한다 — 글자를 키워 모자라면 줄이지 자르지 않는다(홈 · 나 탭 앱바와 같다).
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(context.l10n.safetyContactPickerTitle, style: AppTypography.navTitle),
+        ),
+        // 제목–버튼 4 는 titleSpacing 이 양쪽에 준다(pen 8d 앱 바 `lf95I` 간격 4).
+        actions: [
+          // 보이는 사람이 없으면 누를 일이 없어 숨긴다 — 10 "모두 읽음"(notifications_screen) 과 같다.
+          if (state.visible.isNotEmpty)
+            _SelectAllButton(allSelected: state.allVisibleSelected, onPressed: viewModel.toggleAllVisible),
+          // pen `lf95I` 오른쪽 여백 12 + 버튼 안쪽 12 = 글자 끝이 화면 오른쪽 24(목록 · 검색칸 여백과 같다).
+          const SizedBox(width: AppSpacing.sm),
+        ],
       ),
       body: Column(
         children: [
@@ -97,6 +110,34 @@ class _ContactPickerScreenState extends ConsumerState<ContactPickerScreen> {
   /// 한 사람에 번호가 여럿이어도 pen 줄은 번호 한 줄이다 — 기기가 준 첫 번호를 가려 보인다.
   static String _firstNumber(DeviceContact contact) =>
       contact.numbers.isEmpty ? '' : maskPhoneNumber(contact.numbers.first);
+}
+
+/// 앱바 오른쪽 "전체 선택" · "전체 해제"(pen 컴포넌트 `AppBar · TextAction` `bMZhK`, 8d 인스턴스 `xBtQ5`, 글자 `dIzP1`):
+/// 높이 48 · 좌우 12 · 폭은 글자에 맞춤, 14/600/1.2 primary-text. 10 "모두 읽음"(`q7PN8`) · 20d "건너뛰기"(`k8Mb37`)와 같은 값이고
+/// 둘 다 화면 안의 TextButton 이라 같은 모양으로 둔다. 낭독기 이름은 TextButton 이 글자를 그대로 읽는다(글자가 바뀌면 이름도 바뀐다).
+class _SelectAllButton extends StatelessWidget {
+  const _SelectAllButton({required this.allSelected, required this.onPressed});
+
+  final bool allSelected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return TextButton(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        foregroundColor: AppColors.primaryText,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+        minimumSize: const Size(48, 48),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      child: Text(
+        allSelected ? l10n.safetyContactPickerDeselectAll : l10n.safetyContactPickerSelectAll,
+        style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText),
+      ),
+    );
+  }
 }
 
 /// 검색칸(pen SearchField `y7Qlw` 인스턴스 `ARlR7`): 부모 여백 [0,24,12,24], 48 높이, surface-soft, 모서리 12, 테두리 없음,

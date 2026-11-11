@@ -543,6 +543,49 @@ void main() {
       expect(find.text('방 m-9'), findsOneWidget);
     });
 
+    // 사용자 「채팅목록 클릭하면 -> 상대방이 수락하면 열립니다 토스트」 · 문구 「"상대가 수락하면 대화가 열려요" (추천)」.
+    testWidgets('기다리는 줄을 누르면 "상대가 수락하면 대화가 열려요" 토스트가 신청 토스트와 같은 자리(내비 위 16 · 가운데)에 뜬다', (tester) async {
+      await pump(tester, FakeCardRepository()..sent = Success([_sent('s1')]));
+
+      await tester.tap(find.byType(SentRequestRow));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final toast = find.byType(AppToast);
+      expect(toast, findsOneWidget);
+      expect(tester.widget<AppToast>(toast).label, '상대가 수락하면 대화가 열려요');
+      final icon = tester.widget<Icon>(find.descendant(of: toast, matching: find.byType(Icon)));
+      // 줄의 "N일 남음" 칩과 같은 타이머 — 체크(보냈어요)와 달리 아직 기다리는 중이라는 뜻(pen 값 받기 전 임시).
+      expect(icon.icon, AppIcons.timer);
+      expect(icon.size, 16);
+      expect(tester.getBottomLeft(toast).dy, tester.getTopLeft(find.byType(GlassBottomNav)).dy - 16);
+      expect(tester.getCenter(toast).dx, 400);
+    });
+
+    testWidgets('기다리는 줄을 여러 번 눌러도 토스트는 하나다', (tester) async {
+      await pump(tester, FakeCardRepository()..sent = Success([_sent('s1')]));
+
+      for (var i = 0; i < 3; i++) {
+        await tester.tap(find.byType(SentRequestRow));
+        await tester.pump();
+      }
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.byType(AppToast), findsOneWidget);
+    });
+
+    for (final status in [SentRequestStatus.rejected, SentRequestStatus.expired]) {
+      testWidgets('${status.name} 줄은 눌러도 토스트가 없다', (tester) async {
+        await pump(tester, FakeCardRepository()..sent = Success([_sent('s1', status: status)]));
+
+        await tester.tap(find.byType(SentRequestRow), warnIfMissed: false);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(find.byType(AppToast), findsNothing);
+      });
+    }
+
     testWidgets('화면에 들어올 때 · 당겨서 새로고침할 때 보낸 신청도 다시 읽는다', (tester) async {
       final chat = FakeChatRepository()..conversations = Success([conversationFixture()]);
       final repository = FakeCardRepository();
