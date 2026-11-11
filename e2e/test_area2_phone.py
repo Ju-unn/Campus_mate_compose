@@ -30,7 +30,7 @@ def _neutral(**over):
     """모든 가설의 준비가 맞는 서버 — [over] 로 한 규칙씩 바꾼다(키 = 규칙 이름)."""
     rules = {
         'school': ('GET', 'universities?id=eq', lambda b, u: Reply(200, [{'card_opens_at': None, 'name': '테스트대학'}])),
-        'campuses': ('GET', 'universities?select=name', lambda b, u: Reply(200, [{'name': '가대학'}, {'name': '테스트대학'}])),
+        'campuses': ('GET', 'universities?select=name', lambda b, u: Reply(200, [{'name': '가대학'}, {'name': '나대학'}])),
         'cards': ('GET', 'daily_cards?', _counted(0)),
         'active': ('GET', 'profiles?select=id&status', _counted(0)),
         'talks': ('GET', 'messages.kind=eq.text', _counted(0)),
@@ -48,7 +48,7 @@ def _neutral(**over):
 # 가설마다 앱이 pass 와 함께 말하는 값(판정 재료) — 준비가 맞는 서버(_neutral)와 짝이 맞는다.
 APP_SAYS = {
     'E-HOME-02': {'empty': True},
-    'E-HOME-03': {'campuses': ['가대학', '테스트대학']},
+    'E-HOME-03': {'campuses': ['가대학', '나대학']},
     'E-HOME-12': {'rail': ['memory']},
     'E-REF-01': {'code': CODE},
     'E-REF-02': {'codes': [CODE, CODE]},
@@ -182,14 +182,25 @@ class HomeStatsTest(PhoneBase):
         fake = _neutral(cards=('GET', 'daily_cards?', lambda b, u: Reply(200, [])))
         self.assertEqual(self.attempt('E-HOME-02', FakePhone({'result': 'pass', 'empty': True}), fake)[0], 'blocked')
 
-    def test_home_03_campus_chips_follow_the_db_order_and_include_the_test_school(self):
-        self.assertEqual(self.attempt('E-HOME-03', FakePhone({'result': 'pass', 'campuses': ['가대학', '테스트대학']}))[0], 'pass')
-        result, note = self.attempt('E-HOME-03', FakePhone({'result': 'pass', 'campuses': ['테스트대학', '가대학']}))
+    def test_home_03_campus_chips_follow_the_db_order(self):
+        self.assertEqual(self.attempt('E-HOME-03', FakePhone({'result': 'pass', 'campuses': ['가대학', '나대학']}))[0], 'pass')
+        result, note = self.attempt('E-HOME-03', FakePhone({'result': 'pass', 'campuses': ['나대학', '가대학']}))
         self.assertEqual(result, 'fail')
 
-    def test_home_03_test_school_missing_from_db_list_fails(self):
-        fake = _neutral(campuses=('GET', 'universities?select=name', lambda b, u: Reply(200, [{'name': '가대학'}])))
-        result, note = self.attempt('E-HOME-03', FakePhone({'result': 'pass', 'campuses': ['가대학']}), fake)
+    def test_home_03_db_list_is_asked_without_the_test_school_region(self):
+        urls = []
+        fake = _neutral(campuses=('GET', 'universities?select=name', lambda b, u: (urls.append(u), Reply(200, [{'name': '가대학'}]))[1]))
+        self.attempt('E-HOME-03', FakePhone({'result': 'pass', 'campuses': ['가대학']}), fake)
+        self.assertTrue(any('region_group=neq.e2e' in u for u in urls))
+
+    def test_home_03_test_school_in_the_db_list_fails(self):
+        fake = _neutral(campuses=('GET', 'universities?select=name', lambda b, u: Reply(200, [{'name': '가대학'}, {'name': '테스트대학'}])))
+        result, note = self.attempt('E-HOME-03', FakePhone({'result': 'pass', 'campuses': ['가대학', '테스트대학']}), fake)
+        self.assertEqual(result, 'fail')
+        self.assertIn('테스트대학', note)
+
+    def test_home_03_test_school_chip_on_the_screen_fails_even_when_the_db_list_is_clean(self):
+        result, note = self.attempt('E-HOME-03', FakePhone({'result': 'pass', 'campuses': ['가대학', '나대학', '테스트대학']}))
         self.assertEqual(result, 'fail')
         self.assertIn('테스트대학', note)
 

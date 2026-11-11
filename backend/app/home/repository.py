@@ -52,13 +52,16 @@ class HomeRepository(PostgrestRepository):
         성별도 DB 가 걸러 풀(limit)이 그 성별 사람으로 채워진다 — 나중에 거르면 풀이 줄어 레일이 자주 빈다. gender 는
         'male' | 'female' 중 하나여야 한다(필터 문자열에 그대로 들어가므로 부른 쪽이 내 성별에서 뽑은 값만 넘긴다).
         매칭을 멈춘 사람은 지금 사람을 만나지 않겠다는 뜻이라 홈에도 얼굴을 내보내지 않는다(안전한 쪽, 2026-10-15 검토).
+        시험 학교(`universities.region_group = 'e2e'`, 심사 · 시험 계정)의 사람은 누구의 레일에도 내보내지 않는다(사용자 결정 2026-11-12,
+        숫자 · 대학 칩과 같은 규칙). `universities!inner()` 가 학교 표를 끼우기만 하고 칸은 읽지 않는다 — 학교 없는 프로필(학교 메일 인증 전 —
+        인증 칸은 학교가 있어야 채워진다)은 같이 빠지는데, 그 사람은 아직 앱 본문을 쓰지 못해 레일에 나올 사람이 아니다.
         id 와 아바타 행 말고는 읽지 않는다 — 응답에 실을 칸이 없다.
         ponytail: last_active_at 인덱스가 없어 profiles 를 훑고 상위 limit 개를 정렬한다. 가입자가 수만 명이 되면
         `(last_active_at desc) where status='active' and auto_hidden_at is null and not matching_paused` 부분 인덱스로."""
         response = await self._get("profiles", params={
             "status": "eq.active", "auto_hidden_at": "is.null", "matching_paused": "is.false",
-            "gender": f"eq.{gender}", "id": f"neq.{profile_id}",
-            "select": "id,profile_avatars(storage_path,status,is_fallback,created_at)",
+            "gender": f"eq.{gender}", "id": f"neq.{profile_id}", "universities.region_group": "neq.e2e",
+            "select": "id,profile_avatars(storage_path,status,is_fallback,created_at),universities!inner()",
             "order": "last_active_at.desc", "limit": limit,
         })
         raise_for_status(response)
