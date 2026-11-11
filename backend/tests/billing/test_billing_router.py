@@ -44,6 +44,15 @@ def _purchase(**changed) -> dict:
     return {**base, **changed}
 
 
+def _filtered(rows: list, params) -> list:
+    """PostgREST 가짜가 heart_amount=gte.N 조건을 실제로 적용한다 — 조건을 안 보내면 모든 행이 돌아와 시험이 잡는다."""
+    floor = params.get("heart_amount")
+    if floor is not None:
+        assert floor.startswith("gte."), floor
+        rows = [row for row in rows if row["heart_amount"] >= int(floor.removeprefix("gte."))]
+    return rows
+
+
 def _wire(google=None, rpc: dict | None = None, consume: int = 200, purchases: list | None = None):
     """google: 구매 조회 답(dict = 200 본문, int = 그 상태 코드, 예외 = 던짐). seen 에는 관문 밖 요청만 쌓인다."""
     seen: list[httpx.Request] = []
@@ -65,7 +74,7 @@ def _wire(google=None, rpc: dict | None = None, consume: int = 200, purchases: l
         if request.url.path == "/rest/v1/rpc/grant_store_purchase":
             return httpx.Response(200, json=rpc)
         if request.url.path == "/rest/v1/purchases" and request.method == "GET":
-            return httpx.Response(200, json=purchases or [])
+            return httpx.Response(200, json=_filtered(purchases or [], request.url.params))
         return httpx.Response(404, json={"message": f"unexpected {request.method}"})
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
@@ -302,12 +311,29 @@ def test_status_before_any_purchase_offers_the_first_purchase_bonus():
     assert lookup.url.params["profile_id"] == f"eq.{PROFILE_ID}"
 
 
-def test_status_after_a_purchase_has_no_bonus():
-    test_client, _ = _wire(purchases=[{"id": "p1"}])
+def test_status_after_a_100_hearts_or_more_purchase_has_no_bonus():
+    test_client, _ = _wire(purchases=[{"id": "p1", "heart_amount": 100}])
     body = test_client.get("/billing/status", headers=AUTH).json()
 
     assert body == {"account_token": account_token(PROFILE_ID), "apple_account_token": apple_account_token(PROFILE_ID),
                     "first_purchase_bonus": None}
+
+
+def test_status_after_only_a_50_hearts_purchase_still_offers_the_bonus():
+    # 사용자 결정 11-12: 50하트는 100하트가 아니다 — 100하트 이상을 산 적이 없으면 자격이 있다(DB 함수와 같은 규칙).
+    test_client, _ = _wire(purchases=[{"id": "p1", "heart_amount": 50}])
+    body = test_client.get("/billing/status", headers=AUTH).json()
+
+    assert body["first_purchase_bonus"] == {"hearts": 50, "min_product_hearts": 100}
+
+
+def test_status_counts_a_refunded_100_hearts_purchase_too():
+    # 환불된 것도 센다 — 서버는 status 를 거르지 않는다(DB 의 지급 판정과 같은 규칙).
+    test_client, seen = _wire(purchases=[{"id": "p1", "heart_amount": 100, "status": "refunded"}])
+
+    assert test_client.get("/billing/status", headers=AUTH).json()["first_purchase_bonus"] is None
+    (lookup,) = [r for r in seen if r.url.path == "/rest/v1/purchases"]
+    assert "status" not in lookup.url.params
 
 
 def test_status_needs_a_login():
