@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:campus_mate/billing/task/view/heart_task_row.dart';
 import 'package:campus_mate/billing/task/view/heart_task_submit_screen.dart';
@@ -358,11 +359,13 @@ Future<void> _toSubmit(WidgetTester tester, String title) async {
   await wait(tester, const Duration(milliseconds: 500)); // 넘김 애니메이션이 끝나게
 }
 
-/// 18b 의 업로더에 앱에 든 그림을 넣는다(갤러리 훅).
+/// 18b 의 업로더에 앱에 든 그림을 넣는다(갤러리 훅). 앱 그림은 WebP 라 풀어서 PNG 파일로 쓴다(올리는 파일 종류는 예전과 같다).
 Future<void> _attachProof(WidgetTester tester) async {
-  final data = await rootBundle.load('assets/images/mascot-male.png');
+  final data = await rootBundle.load('assets/images/mascot-male.webp');
+  final codec = await ui.instantiateImageCodec(data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes));
+  final png = await (await codec.getNextFrame()).image.toByteData(format: ui.ImageByteFormat.png);
   final file = File('${(await getTemporaryDirectory()).path}/e2e-proof.png');
-  await file.writeAsBytes(data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes));
+  await file.writeAsBytes(png!.buffer.asUint8List());
   final container = ProviderScope.containerOf(tester.element(find.byType(HeartTaskSubmitScreen)));
   container.read(heartTaskSubmitViewModelProvider.notifier).pickFromGallery = (remaining) async => [file];
   await tap(tester, find.text('사진 추가').first);
