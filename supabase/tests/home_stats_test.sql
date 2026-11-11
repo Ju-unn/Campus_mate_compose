@@ -5,28 +5,40 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(9);
+select plan(12);
 
 -- 준비 --------------------------------------------------------------------
+-- 시험 학교(region_group = 'e2e', 심사 · 시험 계정 소속)는 네 값 어디에도 세지 않는다(사용자 결정 2026-11-12).
+-- 이 파일의 기대값은 seoul 학교 셋의 것이고, 아래 e2e 학교의 데이터는 있어도 값이 그대로여야 한다.
+-- 로컬 region_group_settings 에는 'e2e' 가 없어 먼저 넣는다(운영에는 이미 있다).
+insert into public.region_group_settings (region_group) values ('e2e') on conflict (region_group) do nothing;
+
 -- 학교 셋. '나다' 를 '가나' 보다 먼저 넣는다 — 이름순 정렬을 빼면 5번이 깨진다.
 -- '마바' 에는 pending 한 명만 있다 — active 조건을 빼면 5번이 깨진다.
 insert into public.universities (id, name, region_group) values
   ('00000000-0000-0000-0000-00000000e001', '나다테스트대학교', 'seoul'),
   ('00000000-0000-0000-0000-00000000e002', '가나테스트대학교', 'seoul'),
-  ('00000000-0000-0000-0000-00000000e003', '마바테스트대학교', 'seoul');
+  ('00000000-0000-0000-0000-00000000e003', '마바테스트대학교', 'seoul'),
+  -- 이름이 가장 앞서는 e2e 학교 — 걸러지지 않으면 campuses 의 첫 칸에 나와 4 · 5번이 깨진다.
+  ('00000000-0000-0000-0000-00000000e004', '가가시험대학교', 'e2e');
 
 -- auth.users 트리거(handle_new_user_profile)가 pending 프로필을 만들고, 아래 update 가 이 도메인으로 학교를 채운다.
 insert into public.university_email_domains (domain, university_id) values
   ('nd.home-test.ac.kr', '00000000-0000-0000-0000-00000000e001'),
   ('gn.home-test.ac.kr', '00000000-0000-0000-0000-00000000e002'),
-  ('mb.home-test.ac.kr', '00000000-0000-0000-0000-00000000e003');
+  ('mb.home-test.ac.kr', '00000000-0000-0000-0000-00000000e003'),
+  ('ex.home-test.ac.kr', '00000000-0000-0000-0000-00000000e004');
 
--- A(나다, active) · B(가나, active) · C(가나, active) · D(마바, pending)
+-- A(나다, active) · B(가나, active) · C(가나, active) · D(마바, pending) · E1 · E2 · E3(가가시험, e2e, active)
+-- E3 의 id(a1)는 일부러 seoul 사람 B(b0)보다 작게 잡았다 — matches 는 profile_a < profile_b 라 "e2e 가 profile_a, seoul 이 profile_b" 매칭을 만들려면 필요하다.
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a0', 'hs-a@nd.home-test.ac.kr'),
   ('00000000-0000-0000-0000-0000000000b0', 'hs-b@gn.home-test.ac.kr'),
   ('00000000-0000-0000-0000-0000000000c0', 'hs-c@gn.home-test.ac.kr'),
-  ('00000000-0000-0000-0000-0000000000d0', 'hs-d@mb.home-test.ac.kr');
+  ('00000000-0000-0000-0000-0000000000d0', 'hs-d@mb.home-test.ac.kr'),
+  ('00000000-0000-0000-0000-0000000000e1', 'hs-e1@ex.home-test.ac.kr'),
+  ('00000000-0000-0000-0000-0000000000e2', 'hs-e2@ex.home-test.ac.kr'),
+  ('00000000-0000-0000-0000-0000000000a1', 'hs-e3@ex.home-test.ac.kr');
 
 -- 20261008010000(소셜 로그인)부터 트리거가 학교를 비워 둔다 — 옛 트리거처럼 메일 도메인으로 학교를 채운다.
 update public.profiles p set university_id = d.university_id
@@ -41,18 +53,37 @@ update public.profiles set nickname = '라마바', gender = 'female', birth_year
 where id = '00000000-0000-0000-0000-0000000000b0';
 update public.profiles set nickname = '사아자', gender = 'female', birth_year = 2003, height_cm = 160, status = 'active'
 where id = '00000000-0000-0000-0000-0000000000c0';
+update public.profiles set nickname = '시험일', gender = 'male', birth_year = 2002, height_cm = 175, status = 'active'
+where id = '00000000-0000-0000-0000-0000000000e1';
+update public.profiles set nickname = '시험이', gender = 'female', birth_year = 2002, height_cm = 163, status = 'active'
+where id = '00000000-0000-0000-0000-0000000000e2';
+update public.profiles set nickname = '시험삼', gender = 'male', birth_year = 2002, height_cm = 180, status = 'active'
+where id = '00000000-0000-0000-0000-0000000000a1';
 
 -- 카드 3장. 결정·만료와 상관없이 "나간 카드" 전부를 센다.
 insert into public.daily_cards (owner_id, target_id, source, expires_at) values
   ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000b0', 'daily', now() + interval '1 day'),
   ('00000000-0000-0000-0000-0000000000b0', '00000000-0000-0000-0000-0000000000a0', 'daily', now() - interval '1 day'),
   ('00000000-0000-0000-0000-0000000000c0', '00000000-0000-0000-0000-0000000000a0', 'purchased', null);
+-- 받은 사람(owner_id)이 e2e 인 카드 셋 — 세면 1번이 7 이 된다. 마지막 하나는 대상이 seoul 사람이다(owner 기준이지 target 기준이 아님).
+insert into public.daily_cards (owner_id, target_id, source, expires_at) values
+  ('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-0000000000e2', 'daily', now() + interval '1 day'),
+  ('00000000-0000-0000-0000-0000000000e2', '00000000-0000-0000-0000-0000000000e1', 'purchased', null),
+  ('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-0000000000b0', 'purchased', null);
+-- 받은 사람이 seoul 이고 대상만 e2e 인 카드 하나 — 센다(1번이 4 가 되는 이유).
+insert into public.daily_cards (owner_id, target_id, source, expires_at) values
+  ('00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000e1', 'purchased', null);
 
 -- 매칭 셋. profile_a < profile_b 라 uuid 가 작은 쪽이 앞이다.
 insert into public.matches (id, profile_a, profile_b) values
   ('00000000-0000-0000-0000-00000000e501', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000b0'),
   ('00000000-0000-0000-0000-00000000e502', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000c0'),
   ('00000000-0000-0000-0000-00000000e503', '00000000-0000-0000-0000-0000000000b0', '00000000-0000-0000-0000-0000000000c0');
+-- e2e 끼리 하나, 한쪽만 e2e 인 것 둘(profile_b 가 e2e · profile_a 가 e2e) — 셋 다 말풍선이 있어 세면 3번이 5 가 된다.
+insert into public.matches (id, profile_a, profile_b) values
+  ('00000000-0000-0000-0000-00000000e504', '00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-0000000000e2'),
+  ('00000000-0000-0000-0000-00000000e505', '00000000-0000-0000-0000-0000000000a0', '00000000-0000-0000-0000-0000000000e1'),
+  ('00000000-0000-0000-0000-00000000e506', '00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000b0');
 
 -- A↔B 는 말풍선 2건(매칭 하나로 세야 한다 — 메시지 수로 세면 3번이 3 이 된다).
 -- A↔C 는 시스템 줄만 있다(kind 조건을 빼면 3번이 3 이 된다). B↔C 는 말풍선 1건.
@@ -61,19 +92,22 @@ insert into public.messages (match_id, sender_id, kind, body) values
   ('00000000-0000-0000-0000-00000000e501', '00000000-0000-0000-0000-0000000000b0', 'text', '반가워요'),
   ('00000000-0000-0000-0000-00000000e502', '00000000-0000-0000-0000-0000000000a0', 'trust_accept', '카톡 공유를 수락했어요'),
   ('00000000-0000-0000-0000-00000000e502', '00000000-0000-0000-0000-0000000000c0', 'left', '사아자님이 채팅방을 나갔어요'),
-  ('00000000-0000-0000-0000-00000000e503', '00000000-0000-0000-0000-0000000000c0', 'text', '처음 뵙겠습니다');
+  ('00000000-0000-0000-0000-00000000e503', '00000000-0000-0000-0000-0000000000c0', 'text', '처음 뵙겠습니다'),
+  ('00000000-0000-0000-0000-00000000e504', '00000000-0000-0000-0000-0000000000e1', 'text', '시험 대화'),
+  ('00000000-0000-0000-0000-00000000e505', '00000000-0000-0000-0000-0000000000a0', 'text', '시험 계정에게 건 말'),
+  ('00000000-0000-0000-0000-00000000e506', '00000000-0000-0000-0000-0000000000a1', 'text', '시험 계정이 먼저 건 말');
 
 -- 1. 값 (service_role 로 부른다 — FastAPI 가 쓰는 역할) -------------------------
 set local role service_role;
 
-select is((select delivered_cards from public.home_stats()), 3::bigint,
-  '누적 카드 수는 daily_cards 전체 행 수다');
+select is((select delivered_cards from public.home_stats()), 4::bigint,
+  '누적 카드 수는 받은 사람(owner)이 e2e 학교가 아닌 daily_cards 행 수다(대상이 e2e 여도 센다)');
 
 select is((select signups from public.home_stats()), 3::bigint,
-  '가입자 수는 active 프로필만 센다(pending 제외)');
+  '가입자 수는 active 프로필만 센다(pending · e2e 학교 제외)');
 
 select is((select conversations_started from public.home_stats()), 2::bigint,
-  '대화 시작 수는 말풍선(text)이 한 건이라도 있는 매칭 수다');
+  '대화 시작 수는 말풍선(text)이 한 건이라도 있는 매칭 수다(e2e 사람이 낀 매칭 제외)');
 
 select is((select cardinality(campuses) from public.home_stats()), 2,
   '캠퍼스는 active 프로필이 있는 학교만 나온다');
@@ -81,8 +115,17 @@ select is((select cardinality(campuses) from public.home_stats()), 2,
 select is((select campuses from public.home_stats()), array['가나테스트대학교', '나다테스트대학교'],
   '캠퍼스 이름은 이름순이다');
 
+select ok(not ((select campuses from public.home_stats()) @> array['가가시험대학교']),
+  '시험 학교(region_group e2e)는 active 가입자가 있어도 캠퍼스에 나오지 않는다');
+
 select ok(has_function_privilege('service_role', 'public.home_stats()', 'execute'),
   'service_role 은 home_stats 를 부를 수 있다');
+
+select is((select proconfig from pg_proc where oid = 'public.home_stats()'::regprocedure),
+  array['search_path=""'], 'home_stats 의 search_path 는 빈 값');
+
+select ok(not (select prosecdef from pg_proc where oid = 'public.home_stats()'::regprocedure),
+  'home_stats 는 security invoker(SUPABASE.md §5)');
 
 reset role;
 
