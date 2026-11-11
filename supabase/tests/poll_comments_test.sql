@@ -195,6 +195,7 @@ select lives_ok(
   '어제(한국 시간) 쓴 댓글 60개는 오늘 한도에 들지 않는다'
 );
 -- 오늘(한국 시간 0시 이후) 댓글 48개를 더해 방금 단 것까지 49개로 맞춘다.
+-- shortcut: 한국 시간 00:00~00:01(UTC 15:00~15:01)에 돌리면 이 48줄이 1분 창(CM42B, 20261112090000)에 들어가 '오십 번째' · '쉰한 번째' 가 CM42B 로 떨어질 수 있다. 하루 약 61초, 자주 떨어지면 pgTAP skip 으로.
 insert into public.poll_comments (poll_id, author_id, body, created_at)
 select '00000000-0000-0000-0000-0000000000e5', '00000000-0000-0000-0000-0000000000a4', '오늘 ' || g,
        (date_trunc('day', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul') + interval '1 second'
