@@ -73,6 +73,7 @@ class ActionRow {
       'report' => '신고',
       'profile' => '사용자',
       'poll' => '투표',
+      'poll_comment' => '댓글',
       'friend_review' => '리뷰',
       'inquiry' => '문의',
       _ => type,

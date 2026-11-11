@@ -103,7 +103,11 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
     final summary = detail.summary;
     final target = summary.target;
     final name = target?.displayName ?? missingValue;
-    final contentName = summary.type == ReportTargetType.poll ? '투표 글' : '지인 리뷰';
+    final contentName = switch (summary.type) {
+      ReportTargetType.poll => '투표 글',
+      ReportTargetType.pollComment => '댓글',
+      _ => '지인 리뷰',
+    };
     final people = <Widget>[
       if (target != null && target.isSuspended)
         AdminButton(
@@ -378,7 +382,7 @@ class _InfoRow extends StatelessWidget {
 }
 
 /// 신고 당시 사본(b3uykT) — 맨 위 "신고 사유" 줄 + "기타" 메모(reason_note, 있을 때만 — 대장 지시 10-18, pen 도 같이 고침),
-/// 그 아래 종류마다(⑥): 메시지 글 · 프로필(닉네임 · 소개 · 썸네일) · 투표 글(질문 · 선택지 2) · 지인 리뷰(태그 · 한마디)
+/// 그 아래 종류마다(⑥): 메시지 글 · 프로필(닉네임 · 소개 · 썸네일) · 투표 글(질문 · 선택지 2) · 지인 리뷰(태그 · 한마디) · 댓글(본문)
 class _CopyCard extends StatelessWidget {
   const _CopyCard({required this.detail, required this.onOpenPhoto});
 
@@ -399,6 +403,7 @@ class _CopyCard extends StatelessWidget {
     ];
     final content = switch (type) {
       ReportTargetType.message => [Text('신고된 메시지: "${text('body')}"', style: _bodyText)],
+      ReportTargetType.pollComment => [Text('신고된 댓글: "${text('body')}"', style: _bodyText)],
       ReportTargetType.profile => _profile(snapshot),
       ReportTargetType.poll => [
         Text('질문: ${text('question')}', style: AdminTypography.smStrong.copyWith(height: AdminTypography.smBox, color: AdminColors.ink)),
@@ -521,7 +526,7 @@ class _Thumb extends StatelessWidget {
   }
 }
 
-/// 대상 요약(QLdLH): 닉네임(리뷰는 작성자) · 학교 · 상태(투표 · 리뷰는 글 상태 배지) · 받은 신고
+/// 대상 요약(QLdLH): 닉네임(리뷰는 작성자) · 학교 · 상태(투표 · 리뷰 · 댓글은 글 상태 배지) · 받은 신고
 class _TargetCard extends StatelessWidget {
   const _TargetCard({required this.detail});
 

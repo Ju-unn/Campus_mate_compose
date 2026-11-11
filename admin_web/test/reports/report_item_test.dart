@@ -52,6 +52,23 @@ void main() {
       expect(ReportSummary.fromJson({...reportRow('r', type: 'poll')}..remove('preview')).targetSummary, '닉네임B 의 투표 글');
     });
 
+    test('O/X 댓글(poll_comment): 칩 "댓글" · 상세 "댓글 신고" · 사본 "신고 당시 사본 · 댓글", 글 가림이 있는 종류', () {
+      final type = ReportTargetType.fromCode('poll_comment');
+
+      expect(type, ReportTargetType.pollComment);
+      expect((type!.listLabel, type.detailTitle, type.copyTitle), ('댓글', '댓글 신고', '신고 당시 사본 · 댓글'));
+      expect(type.isContent, isTrue);
+    });
+
+    test('댓글의 대상 요약은 본문 앞부분(preview)이 먼저, 없으면 "닉네임 의 댓글"', () {
+      String summary({String? preview}) =>
+          ReportSummary.fromJson(reportRow('r', type: 'poll_comment', preview: preview)).targetSummary;
+
+      expect(summary(preview: '저도 그렇게 생각해요…'), '저도 그렇게 생각해요…');
+      expect(summary(), '닉네임B 의 댓글');
+      expect(summary(preview: '  '), '닉네임B 의 댓글');
+    });
+
     test('사유 다섯 개는 앱 신고 시트와 같은 글자(pen yl8gX), 모르는 코드는 그대로', () {
       expect(
         ['abuse', 'sexual', 'spam', 'fake', 'other', 'new_code'].map(reportReasonLabel),

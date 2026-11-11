@@ -7,7 +7,8 @@ enum ReportTargetType {
   profile('profile', '프로필', '프로필 신고', '신고 당시 사본 · 프로필'),
   message('message', '메시지', '메시지 신고', '신고 당시 사본'),
   friendReview('friend_review', '친구 리뷰', '지인 리뷰 신고', '신고 당시 사본 · 지인 리뷰'),
-  poll('poll', '투표', '투표 글 신고', '신고 당시 사본 · 투표 글');
+  poll('poll', '투표', '투표 글 신고', '신고 당시 사본 · 투표 글'),
+  pollComment('poll_comment', '댓글', '댓글 신고', '신고 당시 사본 · 댓글');
 
   const ReportTargetType(this.code, this.listLabel, this.detailTitle, this.copyTitle);
 
@@ -16,8 +17,8 @@ enum ReportTargetType {
   final String detailTitle;
   final String copyTitle;
 
-  /// 투표 글 · 지인 리뷰 — 글 가림 / 해제가 있는 종류
-  bool get isContent => this == poll || this == friendReview;
+  /// 투표 글 · 지인 리뷰 · 댓글 — 글 가림 / 해제가 있는 종류
+  bool get isContent => this == poll || this == friendReview || this == pollComment;
 
   static ReportTargetType? fromCode(String code) {
     for (final type in values) {
@@ -47,7 +48,7 @@ enum ReportStatus {
   }
 }
 
-/// 투표 글 · 지인 리뷰의 지금 상태(content_status)
+/// 투표 글 · 지인 리뷰 · 댓글의 지금 상태(content_status)
 enum ContentStatus { visible, blinded }
 
 /// 사람 조치(POST /admin/profiles/{id}/{action})
@@ -124,7 +125,7 @@ class ReportTarget {
   }
 }
 
-/// 목록 한 줄(_summary). 사본 · 사진은 없다(신고자 수 · 투표 질문 앞부분은 있다) — 줄을 고르면 [ReportDetail].
+/// 목록 한 줄(_summary). 사본 · 사진은 없다(신고자 수 · 투표 질문 · 댓글 본문 앞부분은 있다) — 줄을 고르면 [ReportDetail].
 class ReportSummary {
   const ReportSummary({
     required this.id,
@@ -143,7 +144,7 @@ class ReportSummary {
   final String id;
   final ReportTargetType type;
 
-  /// 신고된 것(프로필 · 메시지 · 리뷰 · 투표 글)의 번호 — 글 가림 경로에 쓴다
+  /// 신고된 것(프로필 · 메시지 · 리뷰 · 투표 글 · 댓글)의 번호 — 글 가림 경로에 쓴다
   final String targetId;
   final String reason;
   final String? reasonNote;
@@ -155,15 +156,16 @@ class ReportSummary {
   /// 같은 대상의 열린 신고의 서로 다른 신고자 수(서버 open_reporters). 칸이 없는 옛 응답이면 null.
   final int? openReporters;
 
-  /// 투표 글 신고의 질문 앞부분(서버 preview). 다른 종류는 서버가 보내지 않는다.
+  /// 투표 글 신고의 질문 · 댓글 신고의 본문 앞부분(서버 preview). 다른 종류는 서버가 보내지 않는다.
   final String? preview;
 
   bool get isOpen => status == ReportStatus.open;
 
-  /// 표의 "대상 요약". 투표 글은 질문 앞부분(preview)이 먼저, 없으면 닉네임으로 쓴다.
+  /// 표의 "대상 요약". 투표 글 · 댓글은 앞부분(preview)이 먼저, 없으면 닉네임으로 쓴다.
   String get targetSummary {
     final preview = this.preview?.trim();
-    if (type == ReportTargetType.poll && preview != null && preview.isNotEmpty) return preview;
+    final hasPreview = type == ReportTargetType.poll || type == ReportTargetType.pollComment;
+    if (hasPreview && preview != null && preview.isNotEmpty) return preview;
     final target = this.target;
     if (target == null) return missingValue;
     final name = target.displayName;
@@ -172,6 +174,7 @@ class ReportSummary {
       ReportTargetType.message => '$name 의 메시지',
       ReportTargetType.friendReview => '$name 의 리뷰',
       ReportTargetType.poll => '$name 의 투표 글',
+      ReportTargetType.pollComment => '$name 의 댓글',
     };
   }
 
@@ -210,7 +213,7 @@ class ReportSummary {
 }
 
 /// 신고 당시 사본. 종류마다 칸이 달라(메시지 body · 프로필 nickname/bio/avatar_url/photo_urls · 투표 question/option_* ·
-/// 리뷰 tags/comment) 칸 이름으로 읽는다. 빠진 칸은 null — 화면이 "—" 로 그린다.
+/// 리뷰 tags/comment · 댓글 body) 칸 이름으로 읽는다. 빠진 칸은 null — 화면이 "—" 로 그린다.
 class ReportSnapshot {
   const ReportSnapshot(this.raw);
 
@@ -267,7 +270,7 @@ class ReportDetail {
   final ReportSummary summary;
   final ReportSnapshot snapshot;
 
-  /// 투표 글 · 리뷰 신고의 지금 글 상태. 글이 지워졌거나 글 신고가 아니면 null.
+  /// 투표 글 · 리뷰 · 댓글 신고의 지금 글 상태. 글이 지워졌거나 글 신고가 아니면 null.
   final ContentStatus? contentStatus;
 
   /// 같은 대상의 열린 신고의 서로 다른 신고자 수(자동 가림 기준 3)

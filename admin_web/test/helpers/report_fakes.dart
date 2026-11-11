@@ -77,6 +77,7 @@ Map<String, Object?> defaultSnapshot(String type) {
       'photo_urls': ['https://storage.test/sign/p1/1.jpg?token=t'],
     },
     'poll' => {'poll_id': 'c', 'question': '학식 어때요?', 'option_a_label': '맛있어요', 'option_b_label': '별로예요', 'created_at': '2026-10-17T13:15:00+00:00'},
+    'poll_comment' => {'comment_id': 'c', 'poll_id': 'poll', 'body': '이 자리에는 신고 당시 댓글이 그대로 보여요.', 'created_at': '2026-10-17T14:00:00+00:00'},
     'friend_review' => {'review_id': 'c', 'tags': ['친절해요', '시간 잘 지켜요'], 'comment': '이 자리에는 신고 당시 한마디가 그대로 보여요.', 'created_at': '2026-10-17T10:00:00+00:00'},
     _ => {'message_id': 'm6', 'match_id': 'room', 'body': '여기에 신고 당시 글자가 그대로 보여요.', 'created_at': '2026-10-18T02:00:00+00:00'},
   };
@@ -168,7 +169,7 @@ class FakeReportServer {
   Map<String, Object?> _detail(Map<String, Object?> row) {
     final id = row['id']! as String;
     final target = row['target_profile'] as Map<String, Object?>?;
-    final content = row['target_type'] == 'poll' || row['target_type'] == 'friend_review';
+    final content = const {'poll', 'friend_review', 'poll_comment'}.contains(row['target_type']);
     final contentId = row['target_id'];
     return {
       ...row,

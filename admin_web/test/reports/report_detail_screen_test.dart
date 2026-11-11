@@ -230,6 +230,31 @@ void main() {
       expect(inCard('copy', find.text('선택지 2 · 별로예요')), findsOneWidget);
     });
 
+    testWidgets('댓글 신고: [글 가림] · 채팅 없음, "글 상태" 보임 배지, 사본 "신고된 댓글" → 가림은 poll-comments 경로', (tester) async {
+      final server = FakeReportServer([reportRow('r1', type: 'poll_comment', targetId: 'cm1')]);
+      await openDetail(tester, server: server);
+
+      expect(find.text('댓글 신고 · 1명 신고'), findsOneWidget);
+      expect(actionButton('채팅 앞뒤 보기'), findsNothing);
+      final badge = tester.widget<StatusBadge>(inCard('target', find.byType(StatusBadge)));
+      expect((badge.label, badge.tone), ('보임', StatusTone.success));
+      expect(inCard('copy', find.text('신고 당시 사본 · 댓글')), findsOneWidget);
+      expect(inCard('copy', find.text('신고된 댓글: "이 자리에는 신고 당시 댓글이 그대로 보여요."')), findsOneWidget);
+
+      final dialog = find.byKey(const ValueKey('reason-dialog'));
+      await tester.tap(actionButton('글 가림'));
+      await tester.pumpAndSettle();
+      expect(find.descendant(of: dialog, matching: find.textContaining('이 댓글 을 앱에서 가려요')), findsOneWidget);
+      await tester.enterText(find.descendant(of: dialog, matching: find.byType(TextField)), '욕설');
+      await tester.pump();
+      await tester.tap(find.descendant(of: dialog, matching: button('글 가림')));
+      await tester.pumpAndSettle();
+
+      expect(server.actions, ['/admin/content/poll-comments/cm1/blind {"reason":"욕설"}']);
+      expect(actionButton('글 가림 해제'), findsOneWidget);
+      await letToastGo(tester);
+    });
+
     testWidgets('지인 리뷰 신고 · 가려진 글: [글 가림 해제], "작성자" · 가려짐 배지(web-danger), 태그 칩 · 한마디', (tester) async {
       final server = FakeReportServer([reportRow('r1', type: 'friend_review', targetId: 'rv1')])..contentStatus['rv1'] = 'blinded';
       await openDetail(tester, server: server);
