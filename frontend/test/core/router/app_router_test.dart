@@ -393,12 +393,16 @@ void main() {
       bool passedRoom = false,
       AccountStatus Function()? accountStatus,
       FakeAnalyticsService? analytics,
+      bool Function()? isCohortWaiting,
+      Listenable? refreshListenable,
     }) async {
       final router = AppRouter.create(
         isAuthenticated: () => true,
         verificationGate: _passedGate,
         onboardingStep: _passedStep,
         accountStatus: accountStatus ?? () => AccountStatus.active,
+        isCohortWaiting: isCohortWaiting ?? () => false,
+        refreshListenable: refreshListenable,
       );
       addTearDown(router.dispose);
       // 방이 열린 채 테스트가 끝나면 방의 dispose(읽음 → 목록 새로 읽기)가 컨테이너보다 늦게 돈다 —
@@ -676,6 +680,61 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(AccountSuspendedScreen), findsOneWidget);
+    });
+
+    // 출시 전 막기(사용자 결정 11-11) — 경로 표 전체는 auth_redirect_test. 여기서는 라우터에 실제로 걸렸는지 본다.
+    group('학교 오픈 전(코호트 대기) — 홈과 설정만', () {
+      const blocked = [AppRoutes.community, AppRoutes.myProfile, AppRoutes.heartStore, AppRoutes.notifications, AppRoutes.today];
+      const kept = [AppRoutes.settings, AppRoutes.account, AppRoutes.inquiry];
+
+      for (final path in blocked) {
+        testWidgets('대기 중이면 $path 로 가도 홈이다', (tester) async {
+          final router = await pumpRouter(tester, isCohortWaiting: () => true);
+
+          router.go(path);
+          await tester.pumpAndSettle();
+
+          expect(router.state.matchedLocation, AppRoutes.home);
+          expect(find.byType(HomeScreen), findsOneWidget);
+        });
+      }
+
+      for (final path in kept) {
+        testWidgets('대기 중이어도 $path 는 그대로 연다', (tester) async {
+          final router = await pumpRouter(tester, isCohortWaiting: () => true);
+
+          router.go(path);
+          await tester.pumpAndSettle();
+
+          expect(router.state.matchedLocation, path);
+        });
+      }
+
+      // `/me` 는 이 묶음의 가짜 저장소로 그릴 수 없어 뺐다 — 위 "나 탭" 시험이 그대로 연다.
+      for (final path in [...blocked.where((path) => path != AppRoutes.myProfile), ...kept]) {
+        testWidgets('대기가 아니면 $path 를 그대로 연다', (tester) async {
+          final router = await pumpRouter(tester, isCohortWaiting: () => false);
+
+          router.go(path);
+          await tester.pumpAndSettle();
+
+          expect(router.state.matchedLocation, path);
+        });
+      }
+
+      testWidgets('커뮤니티에 있다가 요약이 대기로 바뀌면 알림을 받아 홈으로 옮긴다', (tester) async {
+        final waiting = ValueNotifier(false);
+        addTearDown(waiting.dispose);
+        final router = await pumpRouter(tester, isCohortWaiting: () => waiting.value, refreshListenable: waiting);
+        router.go(AppRoutes.community);
+        await tester.pumpAndSettle();
+        expect(router.state.matchedLocation, AppRoutes.community);
+
+        waiting.value = true;
+        await tester.pumpAndSettle();
+
+        expect(router.state.matchedLocation, AppRoutes.home);
+      });
     });
   });
 

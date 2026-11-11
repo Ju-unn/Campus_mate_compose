@@ -84,6 +84,8 @@ abstract final class AppRouter {
     required OnboardingStep? Function() onboardingStep,
     bool Function() isSplashHeld = _splashNotHeld,
     AccountStatus Function() accountStatus = _active,
+    // 학교 오픈 전이면 홈과 설정만 연다([AuthRedirect]). 앱은 `cohortWaitListenableProvider` 를 넘긴다.
+    bool Function() isCohortWaiting = _notWaiting,
     Listenable? refreshListenable,
     // 화면 추적(`ScreenViewObserver`) 같은 내비게이터 관찰자. 시험은 주지 않는다.
     List<NavigatorObserver> observers = const [],
@@ -97,8 +99,13 @@ abstract final class AppRouter {
         if (isSplashHeld() && state.matchedLocation == AppRoutes.splash) {
           return null;
         }
-        return AuthRedirect(isAuthenticated(), verificationGate(), onboardingStep(), accountStatus: accountStatus())
-            .resolve(state.matchedLocation);
+        return AuthRedirect(
+          isAuthenticated(),
+          verificationGate(),
+          onboardingStep(),
+          accountStatus: accountStatus(),
+          isCohortWaiting: isCohortWaiting(),
+        ).resolve(state.matchedLocation);
       },
       routes: _routes(verificationGate, refreshListenable),
     );
@@ -109,6 +116,9 @@ abstract final class AppRouter {
 
   /// 계정 상태를 넘기지 않으면 정상 계정으로 본다 — 기존 테스트가 그대로 돈다.
   static AccountStatus _active() => AccountStatus.active;
+
+  /// 학교 오픈 전(코호트 대기)인지 넘기지 않으면 열린 학교로 본다 — 기존 테스트가 그대로 돈다.
+  static bool _notWaiting() => false;
 
   /// 3c 는 [AuthRedirect] 가 미인증·게이트 미충족을 이미 막아 화면 가드를 두지 않는다.
   static List<RouteBase> _routes(VerificationGate Function() verificationGate, Listenable? refreshListenable) {

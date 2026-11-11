@@ -426,6 +426,99 @@ void main() {
     }
   });
 
+  // 출시 전 막기(사용자 결정 11-11 「대기 화면 + 설정만」) — 학교가 열리기 전(홈 요약에 cohort)에는 홈(19 대기)과 설정만 연다.
+  // 푸시 · 링크로 바로 들어와도 홈으로 돌려보낸다. 가입 전 경로(관문 · 온보딩 · 정지 안내)는 지금 흐름 그대로다.
+  group('학교 오픈 전(코호트 대기)', () {
+    const waiting = AuthRedirect(true, VerificationGate.complete, OnboardingStep.complete, isCohortWaiting: true);
+    const open = AuthRedirect(true, VerificationGate.complete, OnboardingStep.complete);
+    const id = '11111111-1111-4111-8111-111111111111';
+
+    const mainAppPaths = [
+      AppRoutes.today,
+      AppRoutes.community,
+      AppRoutes.communityNew,
+      '${AppRoutes.communityPoll}/$id',
+      AppRoutes.conversations,
+      '${AppRoutes.chatRoom}/$id',
+      AppRoutes.matchMade,
+      '${AppRoutes.acceptanceDetail}/$id',
+      '${AppRoutes.cardDetail}/$id',
+      '${AppRoutes.partnerProfile}/$id',
+      AppRoutes.myProfile,
+      AppRoutes.myProfileEdit,
+      AppRoutes.myProfileManage,
+      AppRoutes.heartStore,
+      AppRoutes.heartTasks,
+      '${AppRoutes.heartTaskSubmit}/photo',
+      AppRoutes.heartTaskPending,
+      AppRoutes.notifications,
+      AppRoutes.events,
+      AppRoutes.friendReviews,
+      AppRoutes.friendReviewsWritten,
+      AppRoutes.friendReviewCode,
+      '${AppRoutes.friendReviewWrite}/$id',
+    ];
+    const settingsPaths = [
+      AppRoutes.settings,
+      AppRoutes.account,
+      AppRoutes.kakaoIdSettings,
+      AppRoutes.notificationSettings,
+      AppRoutes.blockList,
+      AppRoutes.contactBlocks,
+      AppRoutes.contactPicker,
+      AppRoutes.faq,
+      AppRoutes.inquiry,
+    ];
+
+    test('메인 앱 경로(오늘 · 커뮤니티 · 대화 · 채팅 · 나 · 하트 · 알림 · 이벤트 · 지인 리뷰 · 카드 · 상대 프로필)는 홈으로 보낸다', () {
+      for (final path in mainAppPaths) {
+        expect(waiting.resolve(path), AppRoutes.home, reason: path);
+      }
+    });
+
+    test('홈과 설정(/settings 와 그 아래 경로 전부)에는 머문다', () {
+      for (final path in [AppRoutes.home, ...settingsPaths]) {
+        expect(waiting.resolve(path), isNull, reason: path);
+      }
+    });
+
+    test('가입 끝의 앱 단계(아바타 확인 · 20 · 20d · 06-4 · 8d)는 지금 흐름 그대로 머문다', () {
+      for (final path in [
+        AppRoutes.onboardingAvatar,
+        AppRoutes.onboardingReferral,
+        AppRoutes.onboardingAcquisition,
+        AppRoutes.onboardingContactBlock,
+        AppRoutes.onboardingContactPicker,
+      ]) {
+        expect(waiting.resolve(path), isNull, reason: path);
+      }
+    });
+
+    test('홈 앞 화면(로그인 · 스플래시 · 관문 · 온보딩)은 지금처럼 홈으로 보낸다', () {
+      for (final path in [AppRoutes.splash, AppRoutes.login, AppRoutes.consent, AppRoutes.onboardingBasicInfo]) {
+        expect(waiting.resolve(path), AppRoutes.home, reason: path);
+      }
+    });
+
+    test('관문 · 온보딩 · 정지가 먼저다 — 대기 여부와 상관없이 지금 규칙 그대로', () {
+      const gated = AuthRedirect(true, VerificationGate.needsSchoolInfo, OnboardingStep.basicInfo, isCohortWaiting: true);
+      const onboarding = AuthRedirect(true, VerificationGate.complete, OnboardingStep.photos, isCohortWaiting: true);
+      const suspended = AuthRedirect(true, VerificationGate.complete, OnboardingStep.complete,
+          accountStatus: AccountStatus.suspended, isCohortWaiting: true);
+
+      expect(gated.resolve(AppRoutes.settings), AppRoutes.schoolInfo);
+      expect(onboarding.resolve(AppRoutes.settings), AppRoutes.onboardingPhotos);
+      expect(suspended.resolve(AppRoutes.home), AppRoutes.accountSuspended);
+      expect(suspended.resolve(AppRoutes.accountSuspended), isNull);
+    });
+
+    test('대기가 아니면(학교가 열렸거나 요약을 못 받음) 메인 앱 경로를 그대로 연다', () {
+      for (final path in [...mainAppPaths, AppRoutes.home, ...settingsPaths]) {
+        expect(open.resolve(path), isNull, reason: path);
+      }
+    });
+  });
+
   // 졸업생 인증(졸업증명서) 관문 — 동의 다음, 학교 메일 자리에 방법 고르기 · 신청 · 대기가 끼어든다.
   // 서버 플래그가 꺼져 있으면 이 관문은 하나도 나오지 않는다(VerificationGate.fromStatus).
   group('졸업생 인증 관문(방법 고르기 · 신청 · 대기)', () {

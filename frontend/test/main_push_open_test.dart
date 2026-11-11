@@ -22,9 +22,19 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
+import 'package:campus_mate/home/model/data/cohort_wait.dart';
+import 'package:campus_mate/home/model/data/home_summary.dart';
 import 'package:campus_mate/home/model/repository/home_repository_provider.dart';
+import 'package:campus_mate/home/view/cohort_wait_view.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
+import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
+import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/faq/model/repository/faq_cache.dart';
+import 'package:campus_mate/faq/model/repository/faq_repository.dart';
 import 'package:campus_mate/main.dart';
+import 'package:campus_mate/matching/view/settings_screen.dart';
+import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
+import 'package:go_router/go_router.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/profile/onboarding/model/repository/onboarding_repository_provider.dart';
 import 'package:campus_mate/notifications/model/repository/notifications_repository_provider.dart';
@@ -41,6 +51,8 @@ import 'chat/model/repository/fake_chat_repository.dart';
 import 'core/analytics/fake_analytics_service.dart';
 import 'core/push/fake_push_messaging.dart';
 import 'core/push/fake_system_notifications.dart';
+import 'faq/model/repository/fake_faq.dart';
+import 'me/model/repository/fake_me_repository.dart';
 import 'home/model/repository/fake_home_repository.dart';
 import 'matching/model/repository/fake_card_repository.dart';
 import 'profile/onboarding/model/repository/fake_onboarding_repository.dart';
@@ -135,6 +147,8 @@ void main() {
   late FakeSystemNotifications appSystemNotifications;
   // 사용 통계 push_open 을 보려는 가짜. pumpHome 이 채운다.
   late FakeAnalyticsService appAnalytics;
+  // 홈 요약 가짜 — 시험 도중 요약을 바꿔 다시 읽게 한다. pumpHome 이 채운다.
+  late FakeHomeRepository appHome;
 
   /// 관문이 아직 끝나지 않은 앱(학교 메일은 인증했고 학과 · 학번 3c 가 남았다).
   Future<void> pumpGatedApp(WidgetTester tester) async {
@@ -182,7 +196,11 @@ void main() {
 
   // 알림을 눌러 열면 화면만 옮기고 목록은 낡은 채로 남았다 — 대화 탭은 들어갈 때 다시 읽지 않는다.
   // [launch] 는 꺼진 앱을 앱이 직접 띄운 알림으로 켰다고 흉내 낸다.
-  Future<(FakeChatRepository, FakePushMessaging)> pumpHome(WidgetTester tester, {Map<String, dynamic>? launch}) async {
+  Future<(FakeChatRepository, FakePushMessaging)> pumpHome(
+    WidgetTester tester, {
+    Map<String, dynamic>? launch,
+    Result<HomeSummary> summary = const FailureResult(NetworkFailure()),
+  }) async {
     final chat = appChat = FakeChatRepository()..room = Success(roomFixture());
     appCards = FakeCardRepository();
     appNotifications = FakeNotificationsRepository(unreadCount: 3);
@@ -190,9 +208,14 @@ void main() {
     appEvents = FakeUserEventStream();
     appAnalytics = FakeAnalyticsService();
     final push = FakePushMessaging(token: 't', granted: false);
+    appHome = FakeHomeRepository(summary);
     final container = appContainer = ProviderContainer(
       overrides: [
         analyticsServiceProvider.overrideWithValue(appAnalytics),
+        // 설정(16)을 여는 시험이 내 프로필 · FAQ 를 읽는다 — 실제 서버 · 파일로 나가지 않게 막아 둔다.
+        meRepositoryProvider.overrideWithValue(FakeMeRepository(const FailureResult(NetworkFailure()))),
+        faqRepositoryProvider.overrideWithValue(FakeFaqRepository(const Success(faqFixture))),
+        faqCacheProvider.overrideWithValue(FakeFaqCache()),
         verificationGateRepositoryProvider.overrideWithValue(FakeVerificationGateRepository()),
         onboardingRepositoryProvider.overrideWithValue(FakeOnboardingRepository()),
         pushMessagingProvider.overrideWithValue(push),
@@ -202,7 +225,7 @@ void main() {
         chatRepositoryProvider.overrideWithValue(chat),
         messageStreamProvider.overrideWithValue(FakeMessageStream()),
         userEventStreamProvider.overrideWithValue(appEvents),
-        homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+        homeRepositoryProvider.overrideWithValue(appHome),
         notificationsRepositoryProvider.overrideWithValue(appNotifications),
         signOutProvider.overrideWithValue(() async {}),
       ],
@@ -397,6 +420,88 @@ void main() {
     await pumpHome(tester, launch: {'route': 'heart_tasks', 'task': 'everytime_post'});
 
     await expectBackGoesHome(tester);
+  });
+
+  // 출시 전 막기(사용자 결정 11-11 「대기 화면 + 설정만」) — 학교가 열리기 전에는 알림을 눌러도 홈(19 대기) 한 장에 선다.
+  group('학교 오픈 전(코호트 대기)', () {
+    final waiting = Success(HomeSummary(
+      deliveredCards: 0,
+      signups: 0,
+      conversationsStarted: 0,
+      reviewRating: 0,
+      reviewCount: 0,
+      campuses: const [],
+      profileCompletionPercent: 60,
+      cohort: CohortWait(firstCardAt: DateTime.now().add(const Duration(days: 3)), recruitCount: 5),
+    ));
+
+    /// 홈이 한 장만 있다 — 막힌 경로를 push 하면 라우터가 홈을 한 겹 더 쌓는다(가려진 페이지까지 센다).
+    void expectSingleWaitingHome(WidgetTester tester) {
+      expect(find.byType(HomeScreen, skipOffstage: false), findsOneWidget);
+      expect(find.byType(CohortWaitView), findsOneWidget);
+    }
+
+    testWidgets('떠 있는 앱에서 인증샷 승인 알림을 눌러도 18a 가 아니라 홈 한 장이다', (tester) async {
+      final (_, push) = await pumpHome(tester, summary: waiting);
+      expectSingleWaitingHome(tester);
+
+      push.emitOpened({'route': 'heart_tasks', 'task': 'everytime_post'});
+      await tester.pumpAndSettle();
+
+      expect(find.byType(HeartTasksScreen, skipOffstage: false), findsNothing);
+      expectSingleWaitingHome(tester);
+    });
+
+    testWidgets('떠 있는 앱에서 채팅 알림을 눌러도 방이 아니라 홈 한 장이다', (tester) async {
+      final (_, push) = await pumpHome(tester, summary: waiting);
+
+      push.emitOpened({'route': 'chat', 'match_id': _roomId});
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ChatRoomScreen, skipOffstage: false), findsNothing);
+      expectSingleWaitingHome(tester);
+    });
+
+    testWidgets('꺼진 앱을 알림으로 켜도 요약이 오면 홈 한 장에 선다', (tester) async {
+      await pumpHome(tester, summary: waiting, launch: {'route': 'heart_tasks', 'task': 'everytime_post'});
+
+      expect(find.byType(HeartTasksScreen, skipOffstage: false), findsNothing);
+      expectSingleWaitingHome(tester);
+    });
+
+    // 채팅 · 대화 목록 알림은 홈을 깔지 않고 바로 연다(PushRoute._staysAlone) — 그 화면은 홈 요약을 안 읽어
+    // 대기인지 끝까지 모른 채 잠금이 풀렸다(검토 FAIL 11-11). 알림을 여는 순간 요약 읽기를 시작해야 한다.
+    for (final (name, data) in [
+      ('채팅', {'route': 'chat', 'match_id': _roomId}),
+      ('받은 수락', {'route': 'acceptances'}),
+      ('매칭', {'route': 'match', 'match_id': _roomId}),
+    ]) {
+      testWidgets('꺼진 앱을 $name 알림으로 켜도 요약이 오면 홈 한 장에 선다', (tester) async {
+        await pumpHome(tester, summary: waiting, launch: data);
+
+        expect(find.byType(ChatRoomScreen, skipOffstage: false), findsNothing);
+        expect(find.byType(ConversationsScreen, skipOffstage: false), findsNothing);
+        expectSingleWaitingHome(tester);
+      });
+    }
+
+    // 막힌 탭 위에 설정(열린 곳)을 쌓은 채 대기로 바뀌면 맨 위만 보는 [_leaveBlockedScreen] 은 못 잡는다 —
+    // 라우터 새로 고침(refreshListenable 의 대기 신호)이 맨 아래 막힌 경로를 홈으로 바꿔야 한다.
+    testWidgets('대화 탭 위에 설정을 연 채 요약이 대기로 바뀌면 대화 탭이 밑에 남지 않는다', (tester) async {
+      final (_, push) = await pumpHome(tester);
+      push.emitOpened({'route': 'acceptances'});
+      await tester.pumpAndSettle();
+      expect(find.byType(ConversationsScreen), findsOneWidget);
+      unawaited(GoRouter.of(tester.element(find.byType(ConversationsScreen))).push(AppRoutes.settings));
+      await tester.pumpAndSettle();
+      expect(find.byType(SettingsScreen), findsOneWidget);
+
+      appHome.summary = waiting;
+      appContainer.invalidate(homeSummaryProvider);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ConversationsScreen, skipOffstage: false), findsNothing);
+    });
   });
 
   // iOS 는 FCM 표시 옵션이 시스템 배너를 띄운다 — 앱이 또 띄우면 같은 알림이 두 번 뜬다.
