@@ -1279,22 +1279,23 @@ void main() {
       expect(find.byType(CohortWaitView), findsOneWidget);
       expect(find.text('지금 확인하기'), findsNothing);
       expect(find.text('전달된 카드'), findsNothing);
-      expect(find.text('CampusMate'), findsOneWidget);
+      // 앱바 제목 `D4Q6U/PjvNd` 는 대기 화면에서 끈다(사용자 「campusmate 로고 없고」 11-11).
+      expect(find.text('CampusMate'), findsNothing);
       expect(find.byType(GlassBottomNav), findsNothing);
       expect(find.byType(HeartBalanceChip), findsNothing);
       expect(find.byType(NotifyIconButton), findsNothing);
       expect(find.byTooltip('설정'), findsOneWidget);
     });
 
-    testWidgets('톱니는 앱바 오른쪽 48×48(오른쪽 여백 8) 안 settings 22 #6A6A6A, 제목은 x20(pen D4Q6U padding [0,8,0,20])', (tester) async {
+    testWidgets('톱니는 제목 없이도 앱바 오른쪽 48×48(오른쪽 여백 8) 안 settings 22 #6A6A6A 다(pen D4Q6U padding [0,8,0,20])', (tester) async {
       penFrame(tester);
       await pump(tester, result: Success(waiting()));
 
+      expect(find.text('CampusMate'), findsNothing);
       final gear = find.byTooltip('설정');
       expect(tester.getRect(gear), const Rect.fromLTWH(304, 4, 48, 48));
       final icon = tester.widget<Icon>(find.byIcon(AppIcons.settings));
       expect((icon.size, icon.color), (22.0, const Color(0xFF6A6A6A)));
-      expect(tester.getTopLeft(find.text('CampusMate')).dx, 20);
     });
 
     testWidgets('톱니를 누르면 설정(16)으로 간다', (tester) async {
@@ -1306,10 +1307,11 @@ void main() {
       expect(find.text('16 설정'), findsOneWidget);
     });
 
-    testWidgets('cohort 가 null 이면 09b 그대로다 — 하단 내비 · 하트 칩 · 종이 있고 톱니는 없다', (tester) async {
+    testWidgets('cohort 가 null 이면 09b 그대로다 — 제목 "CampusMate" · 하단 내비 · 하트 칩 · 종이 있고 톱니는 없다', (tester) async {
       await pump(tester, me: Success(_me('새솔대')));
 
       expect(find.byType(CohortWaitView), findsNothing);
+      expect(find.text('CampusMate'), findsOneWidget);
       expect(find.text('지금 확인하기'), findsOneWidget);
       expect(find.byType(GlassBottomNav), findsOneWidget);
       expect(find.byType(HeartBalanceChip), findsOneWidget);

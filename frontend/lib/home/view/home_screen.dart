@@ -178,11 +178,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
       appBar: AppBar(
         titleSpacing: 20,
         // 제목은 칩 · 종이 쓰고 남는 폭을 차지한다(pen `Trailing` 옆 fill_container). 글자를 키워 모자라면 줄이지 자르지 않는다.
-        title: FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Text('CampusMate', style: AppTypography.navTitle.copyWith(color: AppColors.primary)),
-        ),
+        // 학교 오픈 전에는 제목이 없다(pen `D4Q6U/PjvNd` 끔, 사용자 「campusmate 로고 없고」 11-11) — 톱니는 actions 라 오른쪽 그대로.
+        title: cohort != null
+            ? null
+            : FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text('CampusMate', style: AppTypography.navTitle.copyWith(color: AppColors.primary)),
+              ),
         actions: [
           // 학교 오픈 전(pen `tUaGw` 앱바 `D4Q6U`) — 하트 칩 · 종을 끄고 오른쪽 48 칸에 톱니(settings 22 #6A6A6A)만 둔다.
           // 그때는 홈과 설정만 열리고(출시 전 막기, 사용자 결정 11-11) 설정이 로그아웃 · 탈퇴 · 문의로 가는 문이다.
