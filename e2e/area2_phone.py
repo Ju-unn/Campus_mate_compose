@@ -52,7 +52,9 @@ def _count(run, path):
 
 
 def _stats(run):
-    """home_stats 와 같은 뜻을 따로 센다 — 카드 전체 · active 프로필 · 사람이 쓴 말풍선(text)이 한 건이라도 있는 매칭."""
+    """home_stats 와 같은 뜻을 따로 센다 — 카드 전체 · active 프로필 · 사람이 쓴 말풍선(text)이 한 건이라도 있는 매칭.
+    shortcut: 시험 학교(region_group 'e2e')를 빼지 않고 전체로 센다(home_stats 는 2026-11-12 부터 뺀다). 가입 수가 HOME_STATS_MIN_SIGNUPS 를
+    넘으면 시험 계정 수만큼 서버 값과 어긋난다 — 그때 이 세 질의에 시험 학교 제외(profiles → universities region_group 조인)를 넣는다."""
     return (_count(run, 'daily_cards?select=id'),
             _count(run, 'profiles?select=id&status=eq.active'),
             _count(run, 'matches?select=id,messages!inner(id)&messages.kind=eq.text'))
@@ -89,12 +91,15 @@ def p_home_03(run, phone):
     check = Check()
     _, token = _signed_in(run, 'home')
     # home_stats 의 array_agg(... order by name) 와 같은 정렬 — 이름 비교는 DB 정렬 규칙(collation)에 맡긴다.
-    names = [r['name'] for r in _rows(run, 'universities?select=name,profiles!inner(id)&profiles.status=eq.active&order=name.asc')]
+    # 시험 학교(region_group 'e2e')는 목록에서 뺀다(사용자 결정 2026-11-12) — DB 질의도 같은 규칙으로 묻고, 시험대학이 어느 쪽에도 없어야 한다.
+    names = [r['name'] for r in _rows(run, 'universities?select=name,profiles!inner(id)&profiles.status=eq.active&region_group=neq.e2e&order=name.asc')]
     test_school = _school(run).get('name')
     said = _app(check, phone(token_hash=token))
-    check.that(test_school in names, f'참여 중인 대학 DB 목록에 시험대학 {test_school!r} 없음 {names}')
+    check.that(test_school not in names, f'참여 중인 대학 DB 목록에 시험대학 {test_school!r} 이 있다 {names}')
     if said.get('result') == 'pass':
-        check.that(said.get('campuses') == names, f'칩 순서 {said.get("campuses")} ≠ DB {names}')
+        shown = said.get('campuses') or []
+        check.that(test_school not in shown, f'참여 중인 대학 칩에 시험대학 {test_school!r} 이 있다 {shown}')
+        check.that(shown == names, f'칩 순서 {said.get("campuses")} ≠ DB {names}')
     return check.result()
 
 
