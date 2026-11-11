@@ -90,7 +90,7 @@ class _UpdateRequiredScreenState extends ConsumerState<UpdateRequiredScreen>
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxl),
               // 마스코트 `g1EMq7` = Mascot Male · Blue Scarf · Waiting `PKbwO` 120×120.
               image: Image.asset(
-                'assets/images/mascot-male-waiting.png',
+                'assets/images/mascot-male-waiting.webp',
                 fit: BoxFit.contain,
                 excludeFromSemantics: true,
               ),

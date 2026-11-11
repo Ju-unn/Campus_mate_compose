@@ -156,7 +156,7 @@ void main() {
           as BoxDecoration;
       expect((box.color, box.borderRadius), (const Color(0xFFFFF0F2), BorderRadius.circular(14)));
       final mascot = find.descendant(of: tile, matching: find.byType(Image));
-      expect((tester.widget<Image>(mascot).image as AssetImage).assetName, 'assets/images/mascot-male-waiting.png');
+      expect((tester.widget<Image>(mascot).image as AssetImage).assetName, 'assets/images/mascot-male-waiting.webp');
       expect(tester.getSize(mascot), const Size(88, 88));
       expect(tester.getCenter(mascot), tester.getCenter(tile));
       expect(find.descendant(of: tile, matching: find.byType(Text)), findsNothing);

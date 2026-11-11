@@ -216,7 +216,7 @@ class _WaitingPanel extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
-        Image.asset('assets/images/mascot-male-waiting.png', width: 88),
+        Image.asset('assets/images/mascot-male-waiting.webp', width: 88),
         // 띠는 부제가 "도착해요" 일 때만 — "찾아볼게요" 나 시각 미정이면 pen `k2fF9y` 처럼 마스코트 아래를 비운다(사용자 결정 11-02).
         if (isArrivingSoon(nextIssueAt, now)) ...const [SizedBox(height: 14), _NextBand()],
         if (paidCard != null) ...[
@@ -255,7 +255,7 @@ class _NextBand extends StatelessWidget {
               ImageFiltered(
                 imageFilter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
                 child: Image.asset(
-                  'assets/images/person-f4-blind-v1.png',
+                  'assets/images/person-f4-blind-v1.webp',
                   fit: BoxFit.cover,
                   cacheWidth: 720,
                   opacity: const AlwaysStoppedAnimation<double>(0.55),
@@ -370,13 +370,13 @@ class _EmptyStage extends StatelessWidget {
           Positioned(
             left: 34,
             top: 28,
-            child: Image.asset('assets/images/mascot-female-sad.png', width: 150),
+            child: Image.asset('assets/images/mascot-female-sad.webp', width: 150),
           ),
           // 기다리는 쪽이 앞에 선다 — 겹침 순서가 뒤집히면 둘 다 잘려 보인다.
           Positioned(
             left: 140,
             top: 88,
-            child: Image.asset('assets/images/mascot-male-waiting.png', width: 96),
+            child: Image.asset('assets/images/mascot-male-waiting.webp', width: 96),
           ),
           const Positioned(left: 18, top: 40, child: _FloatingHeart(size: 18, opacity: 0.35)),
           const Positioned(left: 196, top: 22, child: _FloatingHeart(size: 22, opacity: 0.6)),

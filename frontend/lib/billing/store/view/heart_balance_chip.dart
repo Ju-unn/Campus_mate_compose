@@ -10,7 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 재화 하트(DESIGN §5.4 — Lucide 가 아니라 이미지). pen `l4vdk`.
-const String _heartAsset = 'assets/images/heart-flat-vector-v3.png';
+const String _heartAsset = 'assets/images/heart-flat-vector-v3.webp';
 
 /// 내 하트 잔액 칩(pen 마스터 `sysyz` HeartBalanceChip). 잔액은 서버 값(`MyProfile.heartBalance`)을 읽는다 —
 /// 앱에 숫자를 두지 않는다. 읽는 중 · 실패에는 칩을 숨긴다(pen 에 없는 상태 — 대장 추천, 값이 오면 보인다).

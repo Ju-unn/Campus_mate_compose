@@ -151,7 +151,7 @@ class _FirstSheetHeader extends StatelessWidget {
       child: Row(
         children: [
           const Image(
-            image: AssetImage('assets/images/mascot-female-sad.png'),
+            image: AssetImage('assets/images/mascot-female-sad.webp'),
             width: 88,
             height: 88,
             fit: BoxFit.contain, // pen `x3aGgV` 88×88 contain
@@ -244,7 +244,7 @@ class _DeletedItems extends StatelessWidget {
     Icon3d(AppIcon3d.heart, size: _iconSize),
     Icon3d(AppIcon3d.chat, size: _iconSize),
     Image(
-      image: AssetImage('assets/images/heart-flat-vector-v3.png'),
+      image: AssetImage('assets/images/heart-flat-vector-v3.webp'),
       width: _iconSize,
       height: _iconSize,
       fit: BoxFit.contain,

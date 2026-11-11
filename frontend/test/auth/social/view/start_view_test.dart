@@ -89,7 +89,7 @@ void main() {
       expect(tester.widget<AppLottieView>(scene).fit, BoxFit.cover);
       expect(tester.getRect(scene), const Rect.fromLTWH(0, 0, 360, 780));
       expect(find.text('CampusMate'), findsNothing);
-      expect(find.image(const AssetImage('assets/images/mascot-female.png')), findsNothing);
+      expect(find.image(const AssetImage('assets/images/mascot-female.webp')), findsNothing);
       expect(find.byType(CircularProgressIndicator), findsNothing);
     });
 

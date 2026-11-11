@@ -245,7 +245,7 @@ void main() {
     await pump(tester);
     await searchNothing(tester);
 
-    final mascot = find.image(const AssetImage('assets/images/mascot-male.png'));
+    final mascot = find.image(const AssetImage('assets/images/mascot-male.webp'));
     expect(tester.getSize(mascot), const Size(120, 120));
     final title = find.text('찾는 질문이 없어요');
     expect(tester.getTopLeft(title).dy, tester.getBottomLeft(mascot).dy + 24);

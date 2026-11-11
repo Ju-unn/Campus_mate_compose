@@ -204,7 +204,7 @@ void main() {
       await pump(tester);
 
       final mascot = find.byWidgetPredicate(
-        (widget) => widget is Image && widget.image is AssetImage && (widget.image as AssetImage).assetName == 'assets/images/mascot-male-waiting.png',
+        (widget) => widget is Image && widget.image is AssetImage && (widget.image as AssetImage).assetName == 'assets/images/mascot-male-waiting.webp',
       );
       expect(find.textContaining('만날 사람들'), findsNothing);
       expect(find.byType(PaidCardLocked), findsOneWidget);

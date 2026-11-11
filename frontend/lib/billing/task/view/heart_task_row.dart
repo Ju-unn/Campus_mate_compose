@@ -13,7 +13,7 @@ import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 /// 재화 하트(DESIGN §5.4 — Lucide 가 아니라 이미지). pen `l4vdk` 18.
-const String _heartAsset = 'assets/images/heart-flat-vector-v3.png';
+const String _heartAsset = 'assets/images/heart-flat-vector-v3.webp';
 
 /// 반려 줄 사유 한 줄(pen ReasonRow `ydq0k`) — 테스트가 크기 · 위치를 재는 표식.
 const Key heartTaskRejectLineKey = ValueKey('heart-task-reject-line');

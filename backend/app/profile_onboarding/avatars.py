@@ -45,7 +45,7 @@ def avatar_regen_cost(ready_count: int) -> int:
 STALE_PENDING_AFTER = timedelta(minutes=10)
 
 # 화풍 참고 그림 1장을 같이 보낸다(2026-09-25 사용자 결정 B) — 지시문만으로는 원하는 화풍이 나오지 않았다(운영 00019).
-# 참고 그림은 frontend/assets/images/person-f1-blind-v1.png(목표 그림)를 1024x1280 JPEG(품질 90)로 줄인 것이다
+# 참고 그림은 person-f1-blind-v1.png(목표 그림, 앱 용량을 줄이려 2026-11-11 저장소에서 뺐다)를 1024x1280 JPEG(품질 90)로 줄인 것이다
 # (2.4MB → 약 326KB). 요청마다 같이 올라가는 파일이라 작을수록 낫다. 프롬프트 v2-8 시험이 이 파일로 돌았다.
 # 파일이 없으면 import 에서 바로 터진다 — 배포 이미지에 안 들어간 것을 요청마다 실패로 알아채는 것보다 낫다.
 _STYLE_REFERENCE_BYTES = (Path(__file__).parent / "avatar_style_reference.jpg").read_bytes()

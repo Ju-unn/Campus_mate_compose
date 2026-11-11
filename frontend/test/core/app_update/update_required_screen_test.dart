@@ -63,7 +63,7 @@ void main() {
       await pumpScreen(tester);
 
       final image = tester.widget<Image>(find.byType(Image));
-      expect((image.image as AssetImage).assetName, 'assets/images/mascot-male-waiting.png');
+      expect((image.image as AssetImage).assetName, 'assets/images/mascot-male-waiting.webp');
       expect(tester.getSize(find.byType(Image)), const Size(120, 120));
     });
 

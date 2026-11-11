@@ -64,7 +64,7 @@ void main() {
         (widget) =>
             widget is Image &&
             widget.image is AssetImage &&
-            (widget.image as AssetImage).assetName == 'assets/images/mascot-male-waiting.png',
+            (widget.image as AssetImage).assetName == 'assets/images/mascot-male-waiting.webp',
       );
   Finder button() => find.ancestor(of: find.text(_buttonLabel), matching: find.byType(ElevatedButton));
 

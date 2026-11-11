@@ -251,7 +251,7 @@ class _NoResults extends StatelessWidget {
       children: [
         Expanded(
           child: EmptyNotice(
-            image: Image.asset('assets/images/mascot-male.png'),
+            image: Image.asset('assets/images/mascot-male.webp'),
             title: context.l10n.faqNoResultsTitle,
             // 안쪽 [세로 24, 가로 40] = 본문 좌우 16 + 여백 24.
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md + AppSpacing.lg, vertical: AppSpacing.lg),

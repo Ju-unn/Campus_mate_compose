@@ -181,7 +181,7 @@ void main() {
       await pump(tester);
 
       final mascot = find.byWidgetPredicate(
-          (widget) => widget is Image && (widget.image as AssetImage).assetName == 'assets/images/mascot-female.png');
+          (widget) => widget is Image && (widget.image as AssetImage).assetName == 'assets/images/mascot-female.webp');
       expect(tester.getSize(mascot), const Size(120, 120));
       final title = tester.getRect(find.text('아직 차단한 상대가 없어요'));
       expect(title.top - tester.getRect(mascot).bottom, 24);

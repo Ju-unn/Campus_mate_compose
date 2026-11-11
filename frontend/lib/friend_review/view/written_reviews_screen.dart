@@ -51,7 +51,7 @@ class WrittenReviewsScreen extends ConsumerWidget {
           FriendReviewCard(review: review, onDelete: () => _confirmDelete(context, ref, review)),
       // 20e-1 `QlDBt`(Empty `TVc8b`) — 마스코트 `J2kzx`(마스터 그대로) = 파란 목도리, 버튼은 꺼짐.
       empty: FriendReviewEmpty(
-        mascot: 'assets/images/mascot-male.png',
+        mascot: 'assets/images/mascot-male.webp',
         title: context.l10n.friendReviewWrittenEmptyTitle,
         description: context.l10n.friendReviewWrittenEmptyDescription,
       ),

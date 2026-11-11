@@ -70,7 +70,7 @@ class _SuspendedMessage extends StatelessWidget {
         // 위 여백 사각형(`I24OnA`) 32 + 간격 20.
         const SizedBox(height: 32 + _gap),
         const Image(
-          image: AssetImage('assets/images/mascot-female-sad.png'),
+          image: AssetImage('assets/images/mascot-female-sad.webp'),
           width: 120,
           height: 120,
           excludeFromSemantics: true,

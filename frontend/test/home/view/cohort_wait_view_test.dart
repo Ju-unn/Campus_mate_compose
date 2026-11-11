@@ -208,8 +208,8 @@ void main() {
   Finder mascot(String asset) => find.byWidgetPredicate(
         (widget) => widget is Image && widget.image is AssetImage && (widget.image as AssetImage).assetName == asset,
       );
-  final male = mascot('assets/images/mascot-male.png');
-  final female = mascot('assets/images/mascot-female.png');
+  final male = mascot('assets/images/mascot-male.webp');
+  final female = mascot('assets/images/mascot-female.webp');
 
   /// 기기 "동작 줄이기" — 마스코트가 제자리(pen 자리)에 선다.
   void reduceMotion(WidgetTester tester) {

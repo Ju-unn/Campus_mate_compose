@@ -13,6 +13,6 @@ enum AcquisitionChannel { everytime, instagram, friend, community, other }
 
 /// 화면 글자(강아지상 · 아랍상 · 무교 …)는 view 의 `profile_enum_text.dart` 가 정한다(문구 파일 ARB).
 extension AnimalTypeIcon on AnimalType {
-  /// `animal-face-*-2d-v1.png` 일러스트 아이콘 경로(DESIGN.md §5.4).
-  String get iconAsset => 'assets/images/animal-face-$name-2d-v1.png';
+  /// `animal-face-*-2d-v1.webp` 일러스트 아이콘 경로(DESIGN.md §5.4).
+  String get iconAsset => 'assets/images/animal-face-$name-2d-v1.webp';
 }

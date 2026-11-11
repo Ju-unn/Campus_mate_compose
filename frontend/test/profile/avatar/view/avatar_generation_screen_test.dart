@@ -587,7 +587,7 @@ void main() {
       expect(tester.getRect(subtitle).top, closeTo(tester.getRect(title).bottom + 8, 0.01));
       expect(tester.getRect(subtitle).width, lessThanOrEqualTo(328));
 
-      expect(mascot('assets/images/mascot-male-waiting.png'), findsNothing);
+      expect(mascot('assets/images/mascot-male-waiting.webp'), findsNothing);
       expect(find.byType(CircularProgressIndicator), findsNothing);
       expect(find.byType(Image), findsNothing);
       expect(find.byType(AppButton), findsNothing);
@@ -653,7 +653,7 @@ void main() {
       expect(tester.widget<Text>(subtitle).style, subtitleStyle);
       expect(tester.getRect(subtitle).top, closeTo(tester.getRect(title).bottom + 8, 0.01));
 
-      final sad = mascot('assets/images/mascot-female-sad.png');
+      final sad = mascot('assets/images/mascot-female-sad.webp');
       expect(sad, findsOneWidget);
       final mascotRect = tester.getRect(sad);
       expect(mascotRect.size, const Size(220, 220));
@@ -729,7 +729,7 @@ void main() {
         await tester.pump(AppMotion.standard + const Duration(milliseconds: 1));
 
         expect(tester.getRect(find.text(failedSubtitle)).height, closeTo(16 * 1.6 * 2, 1));
-        expect(tester.getRect(mascot('assets/images/mascot-female-sad.png')).top, closeTo(233, 1));
+        expect(tester.getRect(mascot('assets/images/mascot-female-sad.webp')).top, closeTo(233, 1));
       });
     });
 

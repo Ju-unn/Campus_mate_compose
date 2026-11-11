@@ -328,7 +328,7 @@ class _HeartGlyph extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       label: context.l10n.commonHeart,
-      child: Image.asset('assets/images/heart-flat-vector-v3.png', width: 16, height: 16, excludeFromSemantics: true),
+      child: Image.asset('assets/images/heart-flat-vector-v3.webp', width: 16, height: 16, excludeFromSemantics: true),
     );
   }
 }

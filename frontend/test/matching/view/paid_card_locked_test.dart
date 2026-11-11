@@ -286,7 +286,7 @@ void main() {
       expect(style.color, const Color(0xFFFFFFFF));
       final heart = find.descendant(of: button, matching: find.byType(Image));
       expect(tester.getSize(heart), const Size(26, 26));
-      expect((tester.widget<Image>(heart).image as AssetImage).assetName, 'assets/images/heart-flat-vector-on-primary-v1.png');
+      expect((tester.widget<Image>(heart).image as AssetImage).assetName, 'assets/images/heart-flat-vector-on-primary-v1.webp');
       expect(tester.getRect(label).left - tester.getRect(heart).right, 8);
     });
 

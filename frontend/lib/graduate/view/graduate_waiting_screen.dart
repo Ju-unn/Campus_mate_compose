@@ -82,7 +82,7 @@ class _GraduateWaitingScreenState extends ConsumerState<GraduateWaitingScreen> w
                         children: [
                           // pen `re3kH` 88×88(`mascot-female`). 옆 글자가 뜻을 말하는 장식이라 낭독기에서 뺀다.
                           Image.asset(
-                            'assets/images/mascot-female.png',
+                            'assets/images/mascot-female.webp',
                             width: 88,
                             height: 88,
                             fit: BoxFit.contain,

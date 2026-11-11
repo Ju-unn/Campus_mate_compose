@@ -384,7 +384,7 @@ STAGES = ('new', 'consented', 'needs_school_email', 'gate_done', 'basic', 'kakao
 SIDE_STAGES = {'needs_school_email': ('consented',)}
 SIDE_STAGES['bio'] = tuple(s for s in STAGES[1:STAGES.index('bio')] if s not in SIDE_STAGES and s != 'avatar') + ('bio',)
 OLD_CONSENT_VERSION = '2026-09-01'  # 서버 상수(consents/policy.py)보다 옛 판 — 재동의 가설이 데이터로 흉내 낸다
-PHOTO = ROOT / 'frontend' / 'assets' / 'images' / 'mascot-male.png'  # 실제 사람 사진 대신 앱에 든 그림(SafeSearch 통과)
+PHOTO = ROOT / 'e2e' / 'fixtures' / 'mascot-male.png'  # 실제 사람 사진 대신 앱 마스코트 그림(SafeSearch 통과). 앱 안 그림은 WebP 로 줄여서 올릴 PNG 를 여기 따로 둔다
 REFERRAL_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'  # generate_referral_code() 와 같은 32글자(0 · O · 1 · I 뺌, 20260928010000)
 _CODE_TRIES = 5  # 그 함수도 다섯 번까지 다시 뽑는다
 PRIVATE_KEY_ENV = 'PHONE_ENCRYPTION_KEY'  # 실명 · 카톡 아이디 암호화 키(서버 설정과 같은 이름) — 환경 변수로만 받는다. e2e.env 는 앱 빌드에 들어가서 안 된다

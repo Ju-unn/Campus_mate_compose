@@ -536,7 +536,7 @@ class _RetryPrompt extends StatelessWidget {
       title: l10n.profileAvatarRetryTitle,
       subtitle: l10n.profileAvatarRetrySubtitle,
       visualTop: _mascotTop,
-      visual: Image.asset('assets/images/mascot-female-sad.png', width: 220, height: 220, fit: BoxFit.contain, excludeFromSemantics: true),
+      visual: Image.asset('assets/images/mascot-female-sad.webp', width: 220, height: 220, fit: BoxFit.contain, excludeFromSemantics: true),
       below: Text(
         // 힌트 숫자는 서버 규칙(`MAX_CONSECUTIVE_FAILURES` 5 — 연속 실패 5번까지 무료, 5번째에 기본 아바타 + 하트)과 같다.
         // 종전 pen 원문 "3번까지" 는 서버와 달라 사용자 결정(10-15 "추천")으로 고쳤다(pen 도 함께 정정).

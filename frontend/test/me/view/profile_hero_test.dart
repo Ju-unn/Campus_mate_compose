@@ -97,7 +97,7 @@ final _logo = find.descendant(
 );
 
 final _heart = find.byWidgetPredicate(
-  (w) => w is Image && w.image is AssetImage && (w.image as AssetImage).assetName == 'assets/images/heart-flat-vector-v3.png',
+  (w) => w is Image && w.image is AssetImage && (w.image as AssetImage).assetName == 'assets/images/heart-flat-vector-v3.webp',
 );
 
 void main() {

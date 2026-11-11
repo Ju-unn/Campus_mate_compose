@@ -294,7 +294,7 @@ class _Row extends StatelessWidget {
 }
 
 /// 재화 하트(DESIGN §5.4 — Lucide 가 아니라 이미지). pen `l4vdk`.
-const String _heartAsset = 'assets/images/heart-flat-vector-v3.png';
+const String _heartAsset = 'assets/images/heart-flat-vector-v3.webp';
 
 /// 보유 하트 블록(pen `X4olk`, `WQfXW` HeartBalanceCard 인스턴스): 폭 fill · 높이 64 · 안쪽 좌우 16 · gap 10 · #FFF0F2 · 모서리 12 ·
 /// 하트 그림 28 → 세로(보유 하트 14/600 #6A6A6A · 숫자 20/700 #222222, gap 2) → "충전" 14/700 #C4224B → chevron-right 20 #C4224B.
