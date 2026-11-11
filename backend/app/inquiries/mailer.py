@@ -19,25 +19,33 @@ logger = logging.getLogger(__name__)
 SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 465
 SMTP_TIMEOUT_SECONDS = 10
+UNKNOWN_NICKNAME = "알 수 없음"
 
 
 def build_message(settings: Settings, *, inquiry_id: str, reason: str, body: str, reply_email: str,
-                  account_id: str, received_at: datetime) -> EmailMessage:
-    """받는 사람(운영자)이 메일의 '답장'만 눌러도 사용자에게 가도록 Reply-To 를 사용자 메일로 한다."""
+                  account_id: str, received_at: datetime, nickname: str | None, school: str | None) -> EmailMessage:
+    """받는 사람(운영자)이 메일의 '답장'만 눌러도 사용자에게 가도록 Reply-To 를 사용자 메일로 한다.
+    메일 목록 · 미리보기에서 열지 않고 알아보게 카테고리 · 닉네임 · 내용을 제목과 본문 맨 위에 둔다."""
+    category = REASON_LABELS[reason]
+    # 줄바꿈이 제목 헤더에 들어가면 헤더가 깨지거나 다른 헤더가 끼어든다.
+    who = (nickname or UNKNOWN_NICKNAME).translate(str.maketrans("\r\n", "  "))
     message = EmailMessage()
-    message["Subject"] = f"[CampusMate 문의] {REASON_LABELS[reason]} · 문의 번호 {inquiry_id[:8]}"
+    message["Subject"] = f"[CampusMate 문의] {category} · {who} · {inquiry_id[:8]}"
     message["From"] = settings.inquiry_smtp_user
     message["To"] = settings.inquiry_notify_to
     message["Reply-To"] = reply_email
     message.set_content("\n".join([
-        f"사유: {REASON_LABELS[reason]}",
+        f"카테고리: {category}",
+        f"닉네임: {who} ({school})" if nickname and school else f"닉네임: {who}",
+        "",
+        "내용:",
+        body,
+        "",
+        "----",
         f"답장 메일: {reply_email}",
         f"문의 번호: {inquiry_id}",
         f"접수 시각: {received_at.astimezone(SEOUL):%Y-%m-%d %H:%M} (한국 시간)",
         f"계정 번호: {account_id}",
-        "",
-        "내용:",
-        body,
     ]))
     return message
 

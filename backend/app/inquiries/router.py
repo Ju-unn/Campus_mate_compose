@@ -15,12 +15,15 @@ from app.core.deps import Caller, get_caller, get_now
 from app.inquiries import mailer
 from app.inquiries.reasons import BODY_MAX, DAILY_INQUIRY_LIMIT, EMAIL_MAX, REPLY_EMAIL, Reason
 from app.inquiries.repository import InquiryRepository
+from app.settings import Settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # 메일을 기다리는 최대 시간. smtplib 의 접속 제한(10초)은 접속 뒤 단계를 못 막아 응답이 오래 걸릴 수 있다.
 MAIL_WAIT_SECONDS = 15
+# 그 안에서 쓴 사람 닉네임 읽기를 기다리는 최대 시간. 늦으면 '알 수 없음' 으로 보내 메일 보낼 시간을 남긴다.
+AUTHOR_WAIT_SECONDS = 3
 
 
 class InquiryRequest(BaseModel):
@@ -63,11 +66,22 @@ async def create_inquiry(
 
     inquiry_id = await repo.insert(account_id, body.reason, body.body, body.reply_email)
     try:
-        await asyncio.wait_for(
-            mailer.notify(settings, inquiry_id=inquiry_id, reason=body.reason, body=body.body,
-                          reply_email=body.reply_email, account_id=str(account_id), received_at=now),
-            MAIL_WAIT_SECONDS)
+        # 닉네임 읽기까지 합쳐 MAIL_WAIT_SECONDS 하나 안에서 끝낸다.
+        await asyncio.wait_for(_notify(settings, repo, inquiry_id, body, str(account_id), now), MAIL_WAIT_SECONDS)
     except TimeoutError as exc:
         # 메일은 덤이다 — 문의는 이미 저장됐으니 오래 기다리지 않고 201 을 준다. 로그는 문의 번호 + 예외 이름만.
         logger.warning("문의 메일 보내기 실패 inquiry=%s %s", inquiry_id, type(exc).__name__)
     return {"ok": True, "id": inquiry_id}
+
+
+async def _notify(settings: Settings, repo: InquiryRepository, inquiry_id: str, body: InquiryRequest, account_id: str,
+                  now: datetime) -> None:
+    """쓴 사람의 닉네임 · 학교를 한 번 읽어 메일에 싣는다. 읽기가 실패하거나 늦으면 '알 수 없음' 으로 그대로 보낸다."""
+    try:
+        nickname, school = await asyncio.wait_for(repo.fetch_author(account_id), AUTHOR_WAIT_SECONDS)
+    except Exception as exc:
+        logger.warning("문의 작성자 읽기 실패 inquiry=%s %s", inquiry_id, type(exc).__name__)
+        nickname = school = None
+    await mailer.notify(settings, inquiry_id=inquiry_id, reason=body.reason, body=body.body,
+                        reply_email=body.reply_email, account_id=account_id, received_at=now,
+                        nickname=nickname, school=school)
