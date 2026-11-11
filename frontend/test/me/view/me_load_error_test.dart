@@ -14,17 +14,19 @@ void main() {
     return tester.pumpWidget(MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, home: Scaffold(body: MeLoadError(onRetry: onRetry))));
   }
 
-  testWidgets('가운데 "잠시 후 다시 시도해 주세요"(16/400 body) 와 "다시 시도" 글자 버튼 — 공통 오류 문구가 아니다', (tester) async {
+  testWidgets('가운데 "잠시 후 다시 시도해 주세요"(16/400 muted) 와 12 아래 "다시 시도" 글자 버튼 — 공통 오류 문구가 아니다', (tester) async {
     await pump(tester, () {});
 
     final message = find.text('잠시 후 다시 시도해 주세요');
     expect(message, findsOneWidget);
     final style = tester.widget<Text>(message).style!;
-    expect((style.fontSize, style.fontWeight, style.color), (16, FontWeight.w400, AppColors.body));
+    expect((style.fontSize, style.fontWeight, style.color), (16, FontWeight.w400, AppColors.muted));
     expect(find.text(failureText(AppLocalizationsKo(), const UnknownFailure())), findsNothing);
     final retry = tester.widget<AppButton>(find.byType(AppButton));
     expect((retry.label, retry.variant), ('다시 시도', AppButtonVariant.text));
     expect(tester.getCenter(message).dx, 400);
+    // B3: 공통 RetryNotice — 문구 색 body → muted, 문구와 버튼 사이 0 → 12.
+    expect(tester.getRect(find.byType(AppButton)).top - tester.getRect(message).bottom, 12);
   });
 
   testWidgets('"다시 시도" 를 누르면 onRetry 가 불린다', (tester) async {

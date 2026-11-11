@@ -4,6 +4,7 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/sheet_handle.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -12,7 +13,6 @@ import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/referral/model/repository/invite_share.dart';
 import 'package:campus_mate/referral/model/repository/referral_repository_provider.dart';
 import 'package:campus_mate/referral/view/invite_friends_sheet.dart';
-import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -204,6 +204,8 @@ void main() {
     repository.nextMyCode = const FailureResult(NetworkFailure());
     await pump(tester);
     expect(find.text(failureText(AppLocalizationsKo(), const NetworkFailure())), findsOneWidget);
+    // B3: 공통 RetryNotice(끼워 넣기용) — 문구 body → muted.
+    expect(tester.widget<Text>(find.text(failureText(AppLocalizationsKo(), const NetworkFailure()))).style!.color, AppColors.muted);
     expect(find.text('복사'), findsNothing);
     expect(find.text('카카오톡으로 보내기'), findsNothing);
     expect(find.text('다른 앱으로 보내기'), findsNothing);

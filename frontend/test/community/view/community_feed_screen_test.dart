@@ -446,6 +446,9 @@ void main() {
     await pump(tester);
     expect(find.text('잠시 후 다시 시도해 주세요'), findsOneWidget);
     expect(find.text('아직 질문이 없어요'), findsNothing);
+    // B3: 공통 RetryNotice — 문구 body → muted, 문구와 버튼 사이 0 → 12.
+    expect(tester.widget<Text>(find.text('잠시 후 다시 시도해 주세요')).style!.color, AppColors.muted);
+    expect(tester.getRect(find.byType(ElevatedButton)).top - tester.getRect(find.text('잠시 후 다시 시도해 주세요')).bottom, 12);
 
     repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));
     await tester.tap(find.text('다시 시도'));

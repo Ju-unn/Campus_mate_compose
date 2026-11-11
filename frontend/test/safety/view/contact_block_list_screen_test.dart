@@ -198,7 +198,8 @@ void main() {
     );
     expect(tester.getSize(mascot), const Size(120, 120));
     final title = tester.getRect(find.text('아직 차단한 연락처가 없어요'));
-    expect(title.top - tester.getRect(mascot).bottom, 16);
+    // B3: 공통 Empty 마스터(pen TVc8b)와 같이 그림 아래 16 → 24.
+    expect(title.top - tester.getRect(mascot).bottom, 24);
     expect(tester.getRect(find.text('추가한 연락처 속 지인과는 서로의 카드에 나타나지 않아요.')).top - title.bottom, 8);
   });
 

@@ -120,6 +120,26 @@ void main() {
       final pillTop = tester.getRect(find.byType(GlassBottomNav)).top;
       expect(tester.getCenter(empty).dy, closeTo((56 + pillTop) / 2, 0.5));
     });
+
+    testWidgets('B3: 빈 상태는 공통 Empty 마스터 값 — 마스코트 120×120 → 24 → 제목 18/600 → 8 → 설명', (tester) async {
+      penFrame(tester);
+      await pump(tester, FakeCardRepository());
+      await tester.pumpAndSettle();
+
+      final mascot = find.byWidgetPredicate(
+        (widget) => widget is Image && (widget.image as AssetImage).assetName == 'assets/images/mascot-female.png',
+      );
+      final title = find.text('아직 시작된 대화가 없어요');
+      final body = find.byWidgetPredicate((widget) => widget is Text && (widget.data ?? '').contains('신청을 수락하면'));
+      expect(tester.getSize(mascot), const Size(120, 120));
+      final style = tester.widget<Text>(title).style!;
+      expect((style.fontSize, style.fontWeight), (18, FontWeight.w600));
+      expect(tester.getRect(title).top - tester.getRect(mascot).bottom, 24);
+      expect(tester.getRect(body).top - tester.getRect(title).bottom, 8);
+      // 설명은 Empty 마스터 값 14 muted 1.55(옛 1.5).
+      final description = tester.widget<Text>(body).style!;
+      expect((description.fontSize, description.height, description.color), (14, 1.55, AppColors.muted));
+    });
   });
 
   testWidgets('받은 신청 섹션에 사람 수와 행을 보여준다', (tester) async {
@@ -129,6 +149,11 @@ void main() {
 
     expect(find.text('받은 신청'), findsOneWidget);
     expect(find.text('1명'), findsOneWidget);
+    // B3: 섹션 머리는 공통 목록형(pen Ymhdq) — 제목 18/700 ink, 오른쪽 "N명" 14/400 muted.
+    final sectionTitle = tester.widget<Text>(find.text('받은 신청')).style!;
+    expect((sectionTitle.fontSize, sectionTitle.fontWeight, sectionTitle.color), (18, FontWeight.w700, AppColors.ink));
+    final sectionCount = tester.widget<Text>(find.text('1명')).style!;
+    expect((sectionCount.fontSize, sectionCount.fontWeight, sectionCount.color), (14, FontWeight.w400, AppColors.muted));
     expect(find.text('초코라떼, 25'), findsOneWidget);
     // 결정은 프로필을 본 뒤에 한다(사용자 결정 10-16, pen `wwfFX`) — 행에는 "프로필 보기" 하나뿐이다.
     expect(find.text('프로필 보기'), findsOneWidget);

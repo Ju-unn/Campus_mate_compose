@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/failure.dart';
-import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/empty_notice.dart';
+import 'package:campus_mate/common/widgets/retry_notice.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -71,8 +72,8 @@ class ContactBlockListBody extends ConsumerWidget {
     if (state.isLoading) return const Center(child: CircularProgressIndicator());
     // 읽기 실패는 줄이 하나도 없을 때뿐이다 — 줄이 있는데 문구가 있으면 해제 실패다.
     if (state.rows.isEmpty && state.error != null) {
-      return _LoadError(
-        failure: state.error!,
+      return RetryNotice(
+        message: context.errorText(state.error!),
         onRetry: () => ref.read(contactBlockListViewModelProvider.notifier).load(),
       );
     }
@@ -152,45 +153,17 @@ class _AddButton extends StatelessWidget {
   }
 }
 
-/// 빈 상태(pen `Gp5my` → Empty `TVc8b` 인스턴스 `I1Mz6`): 여백 [48,24], 가운데. 마스코트 120 → 16 → 제목 → 8 → 설명.
+/// 빈 상태(pen `Gp5my` → Empty `TVc8b` 인스턴스 `I1Mz6`): 여백 [48,24], 가운데. 마스코트 120 → 24 → 제목 → 8 → 설명(공통 EmptyNotice, B3 에서 16 → 24 로 pen 값에 맞췄다).
 class _Empty extends StatelessWidget {
   const _Empty();
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) => SingleChildScrollView(
-        child: ConstrainedBox(
-          // 목록 칸 높이만큼 채워 가운데에 둔다. 글자를 키워 넘치면 스크롤한다.
-          constraints: BoxConstraints(minHeight: constraints.maxHeight),
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxl, horizontal: AppSpacing.lg),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Image.asset('assets/images/mascot-female.png', width: 120, height: 120),
-                  // pen 간격 8 + 빈 사각형 8(`Wz22b`).
-                  const SizedBox(height: AppSpacing.md),
-                  Text(
-                    context.l10n.safetyContactBlockEmptyTitle,
-                    textAlign: TextAlign.center,
-                    // pen `ZBzIg` 18/600 ink.
-                    style: AppTypography.subtitle.copyWith(color: AppColors.ink),
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    context.l10n.safetyContactBlockEmptyDescription,
-                    textAlign: TextAlign.center,
-                    // pen `DFs55` 14 / 보통 / muted / 1.55.
-                    style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
+    final l10n = context.l10n;
+    return EmptyNotice(
+      image: Image.asset('assets/images/mascot-female.png'),
+      title: l10n.safetyContactBlockEmptyTitle,
+      description: l10n.safetyContactBlockEmptyDescription,
     );
   }
 }
@@ -214,27 +187,3 @@ class _RemoveError extends StatelessWidget {
   }
 }
 
-/// 읽기 실패. pen 에 없는 상태 — 16f 와 같은 회색 문구에 "다시 시도" 를 붙인다.
-class _LoadError extends StatelessWidget {
-  const _LoadError({required this.failure, required this.onRetry});
-
-  final Failure failure;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(context.errorText(failure), textAlign: TextAlign.center, style: AppTypography.body.copyWith(color: AppColors.muted)),
-            const SizedBox(height: AppSpacing.sm),
-            AppButton(label: context.l10n.commonRetry, variant: AppButtonVariant.text, onPressed: onRetry),
-          ],
-        ),
-      ),
-    );
-  }
-}

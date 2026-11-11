@@ -1,5 +1,6 @@
 import 'package:campus_mate/chat/view/chat_input_bar.dart';
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/widgets/sheet_handle.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -133,7 +134,7 @@ class _FriendReviewComposeSheetState extends ConsumerState<FriendReviewComposeSh
                 children: [
                   // pen 여백 위 12 → 손잡이 줄 4 → 간격 16(스크롤 칸 위 여백).
                   const SizedBox(height: AppSpacing.sm),
-                  const Center(child: _Handle()),
+                  const Center(child: SheetHandle(key: friendReviewComposeHandleKey)),
                   Expanded(
                     // pen 에 없는 상태(대장 4) — 대상을 읽는 동안은 가운데 도는 표시만.
                     child: nickname == null
@@ -203,21 +204,6 @@ class _FriendReviewComposeSheetState extends ConsumerState<FriendReviewComposeSh
     if (submitError != null && previous?.submitError == null) {
       showSafetyToast(_sheetMessenger.currentState!, context.errorText(submitError), icon: AppIcons.circleAlert);
     }
-  }
-}
-
-/// 손잡이(pen `vH016`): 36×4 hairline r999. 조각 6 시트 · 14d 와 모서리 값이 다르다.
-class _Handle extends StatelessWidget {
-  const _Handle();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      key: friendReviewComposeHandleKey,
-      width: 36,
-      height: 4,
-      decoration: BoxDecoration(color: AppColors.hairline, borderRadius: BorderRadius.circular(AppRadius.pill)),
-    );
   }
 }
 

@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/common/widgets/section_header.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
@@ -141,7 +142,7 @@ class _NotificationSettingsScreenState
               const SizedBox(height: _gap),
             ],
             for (final section in _sections(context.l10n)) ...[
-              _SectionHeader(section.title),
+              SettingsSectionHeader(section.title),
               const SizedBox(height: AppSpacing.xs),
               // 카드 `kX4oK` · `LvHyT` · `URYwe` · `YAt0F` — #F7F7F7, 테두리 #DDDDDD, 모서리 12.
               _SectionCard(
@@ -239,25 +240,6 @@ const double _titleGap = 12;
 
 /// 스위치 색 — 켜짐 #FF385C · 꺼짐 #DDDDDD · 손잡이 흰색(pen 스위치 48×28 · 손잡이 20).
 const Color _trackOff = AppColors.hairline;
-
-/// 섹션 머리 — 14/700 muted, 줄 높이 20(계정 16e 의 머리와 같다). 아래 간격 8 은 쓰는 쪽이 둔다(머리 20 + 8 = pen 28).
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader(this.title);
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: AppTypography.bodySmall.copyWith(
-        fontWeight: FontWeight.w700,
-        color: AppColors.muted,
-        height: 20 / 14,
-      ),
-    );
-  }
-}
 
 /// 카드 틀 — 계정 16e `_InfoCard` 와 같은 모양(#F7F7F7 · 테두리 #DDDDDD · 모서리 12).
 class _SectionCard extends StatelessWidget {

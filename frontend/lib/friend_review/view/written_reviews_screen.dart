@@ -1,15 +1,13 @@
 import 'dart:async';
 
 import 'package:campus_mate/common/failure.dart';
-import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/delete_confirm_sheet.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
-import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
-import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/friend_review/model/data/friend_review.dart';
@@ -69,7 +67,13 @@ class WrittenReviewsScreen extends ConsumerWidget {
     Future<Failure?>? deleting;
     await showSafetySheet<void>(
       context,
-      (_) => _DeleteConfirmSheet(nickname: review.nickname, onDelete: () => deleting = viewModel.delete(review.id)),
+      // 20e-2 확인(pen `N701NC`, AlertSheet `D0TvG` 인스턴스 `UClUE`) — 15d-2 투표 삭제와 같은 공통 시트. 닉네임은 받은 사람(pen O7tR3q).
+      (_) => DeleteConfirmSheet(
+        title: l10n.friendReviewWrittenDeleteTitle,
+        body: l10n.friendReviewWrittenDeleteBody(nickname: review.nickname),
+        confirmLabel: l10n.friendReviewWrittenDeleteConfirm,
+        onDelete: () => deleting = viewModel.delete(review.id),
+      ),
     );
     if (deleting == null) return; // "지우기" 를 누르지 않고 닫았다.
     final error = await deleting;
@@ -109,96 +113,6 @@ class WrittenReviewsScreen extends ConsumerWidget {
           ),
         ),
       ));
-  }
-}
-
-/// 20e-2 확인(pen `N701NC`, AlertSheet `D0TvG` 인스턴스 `UClUE`). 15d-2 투표 삭제(poll_sheets)와 같은 마스터 —
-/// 위 모서리 24 · 그림자 #00000026 (0,-2) blur 16 · 손잡이 영역 위아래 12 · 내용 [8,16,32,16] 간격 16 ·
-/// 버튼 사이 8(button-danger `ECxPJ` 56 · button-text `HKdWX` 48). 공통 승격은 백로그 39.
-/// 지우는 중엔 "지우기" 안에 도는 표시(AppButton isLoading)만 두고, "취소" · 바깥 탭은 그대로 닫는다.
-class _DeleteConfirmSheet extends StatefulWidget {
-  const _DeleteConfirmSheet({required this.nickname, required this.onDelete});
-
-  final String nickname;
-  final Future<Failure?> Function() onDelete;
-
-  @override
-  State<_DeleteConfirmSheet> createState() => _DeleteConfirmSheetState();
-}
-
-class _DeleteConfirmSheetState extends State<_DeleteConfirmSheet> {
-  bool _deleting = false;
-
-  Future<void> _delete() async {
-    setState(() => _deleting = true);
-    await widget.onDelete();
-    // "취소" · 바깥 탭으로 이미 닫히는 중이면(애니메이션 동안 State 는 살아 있다) 또 닫지 않는다 — 밑의 20e 가
-    // 닫힌다(PR 3 검토 필수 1, 20b · poll_sheets 와 같은 방어).
-    if (mounted && (ModalRoute.isCurrentOf(context) ?? false)) Navigator.of(context).pop();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        color: AppColors.canvas,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
-        // pen D0TvG 그림자 — 토큰(AppElevation.card)과 방향이 달라 리터럴(poll_sheets · invite_friends_sheet 와 같다).
-        boxShadow: AppElevation.top,
-      ),
-      child: SafeArea(
-        top: false,
-        // 글자를 키운 기기에서 시트가 화면보다 길어지면 스크롤한다.
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // 손잡이 n6pxDs 36×4 #DDDDDD — 모서리는 값표에 없어 같은 마스터 15d-2 와 같은 SheetHandle(r8).
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
-                child: Center(child: SheetHandle()),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, AppSpacing.xl),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // pen xd8je 20/700, 줄높이 속성 없음 · 렌더 29.
-                    Text(
-                      context.l10n.friendReviewWrittenDeleteTitle,
-                      style: AppTypography.navTitle.copyWith(color: AppColors.ink, height: 29 / 20),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    Text(
-                      context.l10n.friendReviewWrittenDeleteBody(nickname: widget.nickname),
-                      // pen O7tR3q 14 / 보통 / muted / 1.55.
-                      style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    // pen ECxPJ(HE8FZ) #E5E5E5 · 18/700 #C13515 = AppButton danger.
-                    AppButton(
-                      label: context.l10n.friendReviewWrittenDeleteConfirm,
-                      variant: AppButtonVariant.danger,
-                      isLoading: _deleting,
-                      onPressed: _delete,
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    // pen HKdWX · wICaR 48, 14/600 #C4224B = AppButton text.
-                    AppButton(
-                      label: context.l10n.commonCancel,
-                      variant: AppButtonVariant.text,
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
 

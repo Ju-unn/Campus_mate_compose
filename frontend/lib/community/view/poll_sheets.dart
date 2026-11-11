@@ -1,11 +1,11 @@
 import 'package:campus_mate/common/failure.dart';
-import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/delete_confirm_sheet.dart';
+import 'package:campus_mate/common/widgets/sheet_handle.dart';
 import 'package:campus_mate/community/view/poll_toast.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
-import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -16,7 +16,7 @@ import 'package:campus_mate/safety/view/safety_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// 두 시트는 채팅탭 `ChatRoomMenuSheet`(Menu · Chat `RzZT8`) · 차단 확인과 같은 마스터다(결정 D4) — 공통 승격은 백로그 39.
+// 메뉴 시트는 채팅탭 `ChatRoomMenuSheet`(Menu · Chat `RzZT8`) · 차단 확인과 같은 마스터다(결정 D4).
 
 /// 남의 글 신고(A16 · 신고 버튼 `uPUf3`). 받은 리뷰 신고(20c)와 같은 흐름 — 글쓴이는 익명이라 차단할 상대가 없어
 /// `reportThenLeave` 를 쓰지 않고, 어느 결과든 카드는 그대로 남는다(가림은 운영자가 한다, 서버 #191).
@@ -84,6 +84,7 @@ Future<PollToast?> confirmAndDelete(
     DeleteConfirmSheet(
       title: title,
       body: body,
+      confirmLabel: context.l10n.communityDelete,
       onDelete: () async {
         await (deleting = delete());
       },
@@ -109,20 +110,6 @@ Future<T?> showPollSheet<T>(BuildContext context, Widget sheet) {
     barrierColor: AppColors.scrim,
     builder: (_) => sheet,
   );
-}
-
-/// 손잡이 36×4 · 모서리 8 · hairline(두 시트 공통).
-class SheetHandle extends StatelessWidget {
-  const SheetHandle({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 36,
-      height: 4,
-      decoration: BoxDecoration(color: AppColors.hairline, borderRadius: BorderRadius.circular(AppRadius.sm)),
-    );
-  }
 }
 
 /// 누르는 행. ListTile 은 쓰지 않는다 — 가장 가까운 Material 이 시트 밖이면 눌림 효과가 떠 있다(COMMON §4-2).
@@ -217,88 +204,6 @@ class SheetActionRow<T> extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 15d-2 확인(AlertSheet `D0TvG` 인스턴스 `CCdBk`): 위 radius 24 · 그림자 #00000026 (0,-2) blur 16 ·
-/// 손잡이 영역 위아래 12 · 내용 [8,16,32,16] 간격 16 · 제목 20/700 · 본문 14/400 lh1.55 muted ·
-/// 버튼 세로 간격 8(button-danger 56 · button-text 48). 지우는 중(`EIEFb`)엔 "삭제하기" 만 꺼진 모양
-/// (AppButton 비활성 = 채움 primaryDisabled · 글자 disabled, 스피너 없음), "취소" 는 그대로 닫는다.
-class DeleteConfirmSheet extends StatefulWidget {
-  const DeleteConfirmSheet({required this.title, required this.body, required this.onDelete, super.key});
-
-  final String title;
-  final String body;
-  final Future<void> Function() onDelete;
-
-  @override
-  State<DeleteConfirmSheet> createState() => _DeleteConfirmSheetState();
-}
-
-class _DeleteConfirmSheetState extends State<DeleteConfirmSheet> {
-  bool _deleting = false;
-
-  Future<void> _delete() async {
-    setState(() => _deleting = true);
-    await widget.onDelete();
-    // "취소" · 바깥 탭으로 이미 닫히는 중이면(애니메이션 동안 State 는 살아 있다) 또 닫지 않는다 — 아래 화면이 닫힌다.
-    if (mounted && ModalRoute.of(context)!.isCurrent) Navigator.of(context).pop();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        color: AppColors.canvas,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
-        boxShadow: AppElevation.top,
-      ),
-      child: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
-                child: Center(child: SheetHandle()),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, AppSpacing.xl),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      widget.title,
-                      style: AppTypography.navTitle.copyWith(color: AppColors.ink),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    Text(
-                      widget.body,
-                      style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    AppButton(
-                      label: context.l10n.communityDelete,
-                      variant: AppButtonVariant.danger,
-                      onPressed: _deleting ? null : _delete,
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    AppButton(
-                      label: context.l10n.commonCancel,
-                      variant: AppButtonVariant.text,
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

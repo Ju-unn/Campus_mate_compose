@@ -213,7 +213,7 @@ void main() {
       expect(find.descendant(of: sheet(), matching: find.byIcon(AppIcons.info)), findsOneWidget);
     });
 
-    testWidgets('시트 — 위 모서리 24 · 손잡이 36×4 hairline r2 · 그림자 (0,-2) 16', (tester) async {
+    testWidgets('시트 — 위 모서리 24 · 손잡이 36×4 hairline r8 · 그림자 (0,-2) 16', (tester) async {
       await pump(tester);
       await open(tester);
 
@@ -226,8 +226,9 @@ void main() {
       final handle = find.byKey(partnerReviewsSheetHandleKey);
       expect(tester.getSize(handle), const Size(36, 4));
       expect(tester.getRect(handle).top - tester.getRect(sheet()).top, 12);
-      final handleDecoration = tester.widget<Container>(handle).decoration! as BoxDecoration;
-      expect((handleDecoration.color, handleDecoration.borderRadius), (AppColors.hairline, BorderRadius.circular(2)));
+      // B3: 손잡이 공통 위젯(모서리 8 — 4px 높이라 옛 2 와 같은 모양).
+      final handleDecoration = tester.widget<Container>(find.descendant(of: handle, matching: find.byType(Container))).decoration! as BoxDecoration;
+      expect((handleDecoration.color, handleDecoration.borderRadius), (AppColors.hairline, BorderRadius.circular(8)));
     });
 
     testWidgets('리뷰가 10개여도 화면 90% 까지만 크고 넘치지 않는다(스크롤)', (tester) async {
