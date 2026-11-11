@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/common/widgets/sheet_handle.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -58,7 +59,11 @@ class PaidCardInfoSheet extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const _Handle(),
+              // `NB9LG` 손잡이 칸 360×28 — 손잡이 `EOSt5` 36×4 가 위에서 12.
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                child: Center(child: SheetHandle(key: ValueKey('paid-card-info-handle'))),
+              ),
               Padding(
                 // pen `sXtnP` padding [8,16,32,16].
                 padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, AppSpacing.xl),
@@ -98,19 +103,6 @@ class PaidCardInfoSheet extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// `NB9LG` 손잡이 칸 360×28 — 손잡이 `EOSt5` 36×4 가 위에서 12.
-class _Handle extends StatelessWidget {
-  const _Handle();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
-      child: Center(child: SheetHandle(key: ValueKey('paid-card-info-handle'))),
     );
   }
 }

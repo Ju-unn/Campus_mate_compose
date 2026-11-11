@@ -3,6 +3,7 @@ import 'dart:ui' show ImageFilter, TileMode;
 
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_lottie_view.dart';
+import 'package:campus_mate/common/widgets/sheet_handle.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
@@ -495,16 +496,7 @@ class _CompensationSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.hairline,
-                  borderRadius: BorderRadius.circular(AppRadius.sm),
-                ),
-              ),
-            ),
+            const Center(child: SheetHandle()),
             const SizedBox(height: AppSpacing.md),
             Text(
               context.l10n.profileAvatarCompensationTitle,

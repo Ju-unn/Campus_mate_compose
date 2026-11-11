@@ -383,8 +383,8 @@ void main() {
       final title = find.text(_sheetTitle);
       final titleStyle = tester.widget<Text>(title).style!;
       expect((titleStyle.fontSize, titleStyle.fontWeight, titleStyle.color), (20, FontWeight.w700, AppColors.ink));
-      // pen xd8je 줄높이 속성 없음 · 렌더 29.
-      expect(tester.getSize(title).height, 29);
+      // B3: 삭제 확인 공통 시트 — 제목 줄높이는 토큰(navTitle 1.5, pen 렌더 30).
+      expect(tester.getSize(title).height, 30);
       final bodyStyle = tester.widget<Text>(find.text(_sheetBody)).style!;
       expect((bodyStyle.fontSize, bodyStyle.color, bodyStyle.height), (14, AppColors.muted, 1.55));
       final delete = tester.widget<AppButton>(deleteButton());
@@ -423,15 +423,16 @@ void main() {
       expect((rect.center.dx, rect.bottom, rect.height), (180, 780 - 24, 40));
     });
 
-    testWidgets('지우는 중엔 버튼 안에 도는 표시 — 다시 눌러도, 시트를 닫고 다시 열어 눌러도 요청은 한 번', (tester) async {
+    testWidgets('지우는 중엔 "지우기" 가 꺼진 회색(도는 표시 없음, pen EIEFb) — 다시 눌러도, 시트를 닫고 다시 열어 눌러도 요청은 한 번', (tester) async {
       reviews.holdDelete = Completer<void>();
       await pump(tester);
       await openSheet(tester);
 
       await tester.tap(deleteButton());
       await tester.pump();
-      expect(find.descendant(of: find.byType(AppButton).first, matching: find.byType(CircularProgressIndicator)),
-          findsOneWidget);
+      // B3: 쓴 리뷰 지우는 중도 글 · 댓글 삭제와 같이 꺼진 버튼 — 도는 표시는 없다.
+      expect(tester.widget<AppButton>(deleteButton()).onPressed, isNull);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
       await tester.tap(find.byType(AppButton).first, warnIfMissed: false);
       await tester.pump();
       // 닫고(취소) 같은 카드를 다시 지워도 이미 가는 요청을 기다린다.
