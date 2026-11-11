@@ -200,6 +200,28 @@ def test_post_over_the_daily_limit_is_429():
     assert response.json()["detail"] == errors.POLL_COMMENT_DAILY_LIMIT
 
 
+def test_post_too_fast_is_429_with_the_slow_down_message():
+    """최근 1분 안 5개(DB CM42B). 하루 한도(CM429)와 문구가 다르다 — 앱이 detail 을 그대로 토스트에 보인다."""
+    response = _post(_wire(_rpc("add_poll_comment", _db_error("CM42B"))))
+    assert response.status_code == 429
+    assert response.json()["detail"] == errors.POLL_COMMENT_TOO_FAST
+    assert errors.POLL_COMMENT_TOO_FAST == "댓글을 너무 빨리 달고 있어요. 잠시 후 다시 달아 주세요"
+    assert errors.POLL_COMMENT_TOO_FAST != errors.POLL_COMMENT_DAILY_LIMIT
+
+
+def test_post_same_as_the_last_comment_is_409_with_the_same_body_message():
+    """같은 글에서 내 바로 전 댓글과 본문이 같다(DB CM409). 409 + string detail 이라 앱은 ServerRejectedFailure 로 문구를 그대로 보인다."""
+    response = _post(_wire(_rpc("add_poll_comment", _db_error("CM409"))))
+    assert response.status_code == 409
+    assert response.json() == {"detail": errors.POLL_COMMENT_SAME_AS_LAST}
+    assert errors.POLL_COMMENT_SAME_AS_LAST == "방금 단 댓글과 같은 내용이에요"
+
+
+def test_post_daily_limit_message_is_unchanged_next_to_the_new_ones():
+    response = _post(_wire(_rpc("add_poll_comment", _db_error("CM429"))))
+    assert (response.status_code, response.json()["detail"]) == (429, "오늘은 댓글을 더 달 수 없어요")
+
+
 @pytest.mark.parametrize("code", ["CM404", "23503"])
 def test_post_to_a_missing_blinded_or_just_deleted_poll_is_404(code):
     response = _post(_wire(_rpc("add_poll_comment", _db_error(code, 404 if code == "CM404" else 409))))
