@@ -242,6 +242,36 @@ void main() {
       expect(opened, 1);
     });
 
+    testWidgets('낭독기는 "자세히 보기" 를 버튼으로 읽는다 — "댓글 N" 과 같은 표시', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pumpCard(tester, pollFixture());
+      expect(tester.getSemantics(find.text('자세히 보기')), isSemantics(label: '자세히 보기', isButton: true, hasTapAction: true));
+      semantics.dispose();
+    });
+
+    testWidgets('말풍선 · "댓글 N" 을 눌러도 17c(onOpen) — 누름 48 · 눌림 효과는 카드 안 · 낭독은 버튼 "댓글 N" 따로 한 번', (tester) async {
+      final semantics = tester.ensureSemantics();
+      var opened = 0;
+      await pumpCard(tester, pollFixture(aCount: 1, bCount: 0, commentCount: 12), onOpen: () => opened++);
+      await tester.tap(find.byIcon(AppIcons.messageCircle));
+      await tester.tap(find.text('댓글 12'));
+      expect(opened, 2);
+
+      final ink = find.ancestor(of: find.text('댓글 12'), matching: find.byType(InkWell)).first;
+      expect(tester.getSize(ink).height, greaterThanOrEqualTo(48));
+      expect(find.descendant(of: ink, matching: find.byIcon(AppIcons.messageCircle)), findsOneWidget);
+      // "N명 참여" 는 누름 영역 밖 — 말풍선 묶음만 눌린다.
+      expect(find.descendant(of: ink, matching: find.text('1명 참여')), findsNothing);
+      final material = find.ancestor(of: ink, matching: find.byType(Material)).first;
+      expect(tester.getSize(material), tester.getSize(find.byType(FeedPollCard)));
+
+      expect(tester.getSemantics(find.text('댓글 12')), isSemantics(label: '댓글 12', isButton: true, hasTapAction: true));
+      // "자세히 보기" 와 한 덩어리로 섞여 읽히지 않는다 — 둘 다 제 이름으로 한 번씩.
+      expect(find.bySemanticsLabel('댓글 12'), findsOneWidget);
+      expect(find.bySemanticsLabel('자세히 보기'), findsOneWidget);
+      semantics.dispose();
+    });
+
     testWidgets('눌림 효과는 카드 안에 그려진다(COMMON §4-2)', (tester) async {
       await pumpCard(tester, pollFixture());
       final ink = find.ancestor(of: find.text('자세히 보기'), matching: find.byType(InkWell)).first;

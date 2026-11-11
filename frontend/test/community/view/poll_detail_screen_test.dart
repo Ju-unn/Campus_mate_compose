@@ -297,6 +297,72 @@ void main() {
     });
   });
 
+  group('새로 읽기(사용자 11-11 「당기면 갱신 · 나갔다가 다시 들어가면 갱신」, 실시간은 보류)', () {
+    int firstPageRequests() => repository.commentRequests.where((r) => r.after == null).length;
+
+    testWidgets('아래로 당기면 글과 댓글 첫 쪽을 다시 읽는다 — 받는 동안 보이던 댓글 · 쓰던 글은 그대로', (tester) async {
+      givenPoll(pollFixture(commentCount: 1));
+      givenComments([commentFixture(id: 'c1', body: '처음 댓글')]);
+      await pumpDetail(tester, 'p1');
+      await tester.enterText(inputField(), '쓰는 중');
+      final polls = repository.fetchedPollIds.length;
+      final firstPages = firstPageRequests();
+
+      givenPoll(pollFixture(commentCount: 2));
+      givenComments([commentFixture(id: 'c1', body: '처음 댓글'), commentFixture(id: 'c2', body: '새 댓글')]);
+      final hold = repository.holdFirstComments = Completer<void>();
+      await tester.fling(find.byType(ListView), const Offset(0, 500), 1500);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      // 받는 동안: 보이던 댓글이 작은 스피너로 바뀌지 않는다(당김 표시만 돈다).
+      expect(find.text('처음 댓글'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+
+      repository.holdFirstComments = null;
+      hold.complete();
+      await tester.pumpAndSettle();
+
+      expect(repository.fetchedPollIds.length, polls + 1);
+      expect(firstPageRequests(), firstPages + 1);
+      expect(find.text('새 댓글'), findsOneWidget);
+      expect(find.text('댓글 2'), findsOneWidget);
+      expect(tester.widget<TextField>(inputField()).controller!.text, '쓰는 중');
+    });
+
+    testWidgets('댓글이 한두 개라 화면을 못 채워도 당길 수 있다', (tester) async {
+      givenPoll(pollFixture());
+      await pumpDetail(tester, 'p1');
+      final firstPages = firstPageRequests();
+
+      await tester.fling(find.byType(ListView), const Offset(0, 500), 1500);
+      await tester.pumpAndSettle();
+
+      expect(firstPageRequests(), firstPages + 1);
+    });
+
+    testWidgets('나갔다가 다시 들어가면 글과 댓글을 서버에서 다시 읽는다 — 지난 목록을 들고 있지 않는다', (tester) async {
+      givenPoll(pollFixture(commentCount: 1));
+      givenComments([commentFixture(id: 'c1', body: '처음 댓글')]);
+      await pumpDetail(tester, 'p1');
+      final polls = repository.fetchedPollIds.length;
+      final firstPages = firstPageRequests();
+
+      await tester.tap(find.byTooltip('뒤로'));
+      await tester.pumpAndSettle();
+      expect(find.byType(PollDetailScreen), findsNothing);
+
+      givenPoll(pollFixture(commentCount: 2));
+      givenComments([commentFixture(id: 'c1', body: '처음 댓글'), commentFixture(id: 'c2', body: '나간 사이 달린 댓글')]);
+      unawaited(GoRouter.of(tester.element(find.text('피드'))).push('/community/polls/p1'));
+      await tester.pumpAndSettle();
+
+      expect(repository.fetchedPollIds.length, polls + 1);
+      expect(firstPageRequests(), firstPages + 1);
+      expect(find.text('나간 사이 달린 댓글'), findsOneWidget);
+      expect(find.text('댓글 2'), findsOneWidget);
+    });
+  });
+
   group('이어 읽기(인스타처럼 — "댓글 더 보기" 버튼 없이 끝 가까이 내리면 다음 10개)', () {
     List<PollComment> page(int from, int count) => [
           for (var i = from; i < from + count; i++)

@@ -42,12 +42,10 @@ class PollDetailViewModel extends Notifier<PollDetailUiState> {
     return ref.read(communityFeedViewModelProvider).polls.where((poll) => poll.id == _pollId).firstOrNull;
   }
 
-  /// 오류 화면의 "다시 시도". 못 읽은 것만 다시 읽는다.
+  /// 아래로 당겨 새로 고침 · 오류 화면의 "다시 시도". 글과 댓글 첫 쪽을 늘 다시 읽는다(사용자 11-11 「당기면 갱신」).
+  /// 보이던 글 · 댓글은 받는 동안 그대로 두고, 실패해도 이미 보이는 것은 지우지 않는다(피드 새로 고침과 같다).
   Future<void> refresh() async {
-    await (
-      state.poll == null ? _loadPoll() : Future<void>.value(),
-      state.commentsError != null ? _loadComments() : Future<void>.value(),
-    ).wait;
+    await (_loadPoll(), _loadComments()).wait;
   }
 
   /// 내 글에 새 댓글이 달렸다는 푸시를 받았을 때(상세가 열려 있다). **화면 상태를 비우지 않는다** — 글 값 · 이미 읽은 댓글 ·
@@ -99,16 +97,28 @@ class PollDetailViewModel extends Notifier<PollDetailUiState> {
     await _appendNewComments();
   }
 
+  /// 첫 쪽을 읽어 목록을 갈아 끼운다. 새로 고침이면 보이던 목록을 읽는 동안 그대로 둔다(화면은 목록이 비었을 때만 스피너).
   Future<void> _loadComments() async {
+    final before = state.comments;
     state = state.copyWith(isLoadingComments: true, commentsError: null);
     final result = await ref.read(communityRepositoryProvider).fetchComments(_pollId);
     if (!ref.mounted) return;
     state = result.when(
       onSuccess: (page) {
         _lastFetched = page.comments.lastOrNull;
-        return state.copyWith(isLoadingComments: false, comments: page.comments, hasMoreComments: page.hasMore);
+        // 읽는 사이 붙은 댓글(방금 보낸 것 · 이어 읽은 쪽)은 받은 첫 쪽에 없어도 남긴다 — 커서는 받은 첫 쪽 끝이라 이어 읽기가 맞춘다.
+        final addedMeanwhile = state.comments.where((comment) => !before.contains(comment));
+        return state.copyWith(
+          isLoadingComments: false,
+          comments: _merge(page.comments, addedMeanwhile.toList()),
+          hasMoreComments: page.hasMore,
+          moreError: null,
+        );
       },
-      onFailure: (failure) => state.copyWith(isLoadingComments: false, commentsError: failure),
+      // 이미 보이는 목록이 있으면 조용히 둔다 — 글 다시 읽기 실패와 같다.
+      onFailure: (failure) => state.comments.isEmpty
+          ? state.copyWith(isLoadingComments: false, commentsError: failure)
+          : state.copyWith(isLoadingComments: false),
     );
     await _runPendingAppend();
   }

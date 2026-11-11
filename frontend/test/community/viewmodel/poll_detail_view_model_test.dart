@@ -454,5 +454,92 @@ void main() {
     expect(s.commentsError, isNull);
     expect(s.comments, hasLength(1));
   });
+
+  group('아래로 당겨 새로 고침 — refresh', () {
+    Future<ProviderContainer> openWith(List<PollComment> comments, {int commentCount = 1}) {
+      repository
+        ..poll = Success(pollFixture(commentCount: commentCount))
+        ..commentPage = Success(PollCommentPage(comments: comments, hasMore: false));
+      return open();
+    }
+
+    int firstPageRequests() => repository.commentRequests.where((r) => r.after == null).length;
+
+    test('실패한 게 없어도 글과 댓글 첫 쪽을 다시 읽어 갈아 끼운다', () async {
+      final container = await openWith([commentFixture(id: 'c1')]);
+      repository
+        ..poll = Success(pollFixture(commentCount: 2))
+        ..commentPage = Success(PollCommentPage(comments: [commentFixture(id: 'c1'), commentFixture(id: 'c2')], hasMore: true));
+
+      await viewModel(container).refresh();
+
+      expect(repository.fetchedPollIds, ['p1', 'p1']);
+      expect(firstPageRequests(), 2);
+      final s = container.read(pollDetailViewModelProvider('p1'));
+      expect(s.poll?.commentCount, 2);
+      expect(s.comments.map((c) => c.id), ['c1', 'c2']);
+      expect(s.hasMoreComments, isTrue);
+      expect(s.isLoadingComments, isFalse);
+    });
+
+    test('읽는 동안 보이던 댓글을 비우지 않는다', () async {
+      final container = await openWith([commentFixture(id: 'c1')]);
+      final hold = repository.holdFirstComments = Completer<void>();
+
+      final refreshing = viewModel(container).refresh();
+      await Future<void>.delayed(Duration.zero);
+      expect(container.read(pollDetailViewModelProvider('p1')).comments.map((c) => c.id), ['c1']);
+
+      hold.complete();
+      await refreshing;
+    });
+
+    test('실패하면 보이던 댓글은 그대로 두고 오류를 띄우지 않는다 — 글 다시 읽기 실패와 같다', () async {
+      final container = await openWith([commentFixture(id: 'c1')]);
+      repository
+        ..poll = const FailureResult(NetworkFailure())
+        ..commentPage = const FailureResult(NetworkFailure());
+
+      await viewModel(container).refresh();
+
+      expect(firstPageRequests(), 2);
+      final s = container.read(pollDetailViewModelProvider('p1'));
+      expect(s.comments.map((c) => c.id), ['c1']);
+      expect(s.poll?.commentCount, 1);
+      expect((s.commentsError, s.moreError, s.pollError), (null, null, null));
+      expect(s.isLoadingComments, isFalse);
+    });
+
+    test('읽는 사이 보낸 댓글은 받은 첫 쪽에 아직 없어도 목록에 남는다', () async {
+      final container = await openWith([commentFixture(id: 'c1')]);
+      final hold = repository.holdFirstComments = Completer<void>();
+      final refreshing = viewModel(container).refresh();
+
+      repository.addCommentResult = Success(commentFixture(id: 'c9', createdAt: DateTime(2026, 9, 27, 13, 30), isMine: true));
+      expect(await viewModel(container).send('방금 쓴 댓글'), isNull);
+      hold.complete();
+      await refreshing;
+
+      final s = container.read(pollDetailViewModelProvider('p1'));
+      expect(s.comments.map((c) => c.id), ['c1', 'c9']);
+      expect(s.isSending, isFalse);
+    });
+
+    test('끝의 이어 읽기 오류가 떠 있었어도 새로 고침이 되면 지운다 — 첫 쪽부터 다시 이어 읽는다', () async {
+      repository
+        ..poll = Success(pollFixture(commentCount: 12))
+        ..commentPage = Success(PollCommentPage(comments: [commentFixture(id: 'c1')], hasMore: true))
+        ..nextCommentPage = const FailureResult(NetworkFailure());
+      final container = await open();
+      await viewModel(container).loadMore();
+      expect(container.read(pollDetailViewModelProvider('p1')).moreError, isA<NetworkFailure>());
+
+      await viewModel(container).refresh();
+
+      final s = container.read(pollDetailViewModelProvider('p1'));
+      expect(s.moreError, isNull);
+      expect(s.hasMoreComments, isTrue);
+    });
+  });
 }
 
