@@ -30,8 +30,12 @@ SentRequest _request(
 
 void main() {
   final opened = <String>[];
+  var waitingTaps = 0;
 
-  setUp(opened.clear);
+  setUp(() {
+    opened.clear();
+    waitingTaps = 0;
+  });
 
   Future<void> pump(WidgetTester tester, SentRequest request, {double width = 328}) async {
     await tester.pumpWidget(
@@ -43,7 +47,10 @@ void main() {
           home: Scaffold(
             body: Align(
               alignment: Alignment.topLeft,
-              child: SizedBox(width: width, child: SentRequestRow(request: request, onOpenChat: opened.add)),
+              child: SizedBox(
+                width: width,
+                child: SentRequestRow(request: request, onOpenChat: opened.add, onWaitingTap: () => waitingTaps++),
+              ),
             ),
           ),
         ),
@@ -187,7 +194,7 @@ void main() {
     expect(find.text('응답이 없었어요'), findsNothing);
   });
 
-  group('눌림 — 매칭됨이고 방이 있을 때만', () {
+  group('눌림 — 매칭됨 + 방은 방을 열고, 기다리는 줄은 안내를 부른다', () {
     testWidgets('매칭됨 + 방: 칩 오른쪽 4 에 chevron 20 primaryText, 누르면 그 방을 연다', (tester) async {
       await pump(tester, _request(SentRequestStatus.matched, matchId: 'm-1'));
 
@@ -200,31 +207,59 @@ void main() {
 
       await tester.tap(find.byType(SentRequestRow));
       expect(opened, ['m-1']);
+      expect(waitingTaps, 0);
     });
 
-    testWidgets('눌림 효과는 행 안의 투명 Material 이 그린다 — 화면 전체가 아니다(COMMON §4-2)', (tester) async {
-      await pump(tester, _request(SentRequestStatus.matched, matchId: 'm-1'));
+    // 사용자 「상대방이 수락하면 열립니다 토스트 메세지 띄워주기」 — 토스트는 대화 탭이 띄운다(행은 알리기만).
+    testWidgets('기다리는 줄: 누르면 안내를 한 번 부르고 방은 열지 않는다, chevron 은 없다', (tester) async {
+      await pump(tester, _request(SentRequestStatus.waiting, daysLeft: 3));
 
-      final inkWell = find.byType(InkWell);
-      final material = find.ancestor(of: inkWell, matching: find.byType(Material)).first;
-      expect(tester.getSize(material), tester.getSize(inkWell));
-      expect(tester.widget<Material>(material).type, MaterialType.transparency);
-      expect(tester.getSize(inkWell), tester.getSize(find.byType(SentRequestRow)));
+      await tester.tap(find.byType(SentRequestRow));
+
+      expect(waitingTaps, 1);
+      expect(opened, isEmpty);
+      expect(find.byIcon(AppIcons.chevronRight), findsNothing);
     });
 
     for (final request in [
-      _request(SentRequestStatus.matched),
+      _request(SentRequestStatus.matched, matchId: 'm-1'),
       _request(SentRequestStatus.waiting, daysLeft: 3),
+    ]) {
+      testWidgets('${request.status.name}: 눌림 효과는 행 안의 투명 Material 이 그린다 — 화면 전체가 아니다(COMMON §4-2)', (tester) async {
+        await pump(tester, request);
+
+        final inkWell = find.byType(InkWell);
+        final material = find.ancestor(of: inkWell, matching: find.byType(Material)).first;
+        expect(tester.getSize(material), tester.getSize(inkWell));
+        expect(tester.widget<Material>(material).type, MaterialType.transparency);
+        expect(tester.getSize(inkWell), tester.getSize(find.byType(SentRequestRow)));
+      });
+
+      testWidgets('${request.status.name}: 낭독기는 누를 수 있는 버튼으로 읽는다', (tester) async {
+        final handle = tester.ensureSemantics();
+        await pump(tester, request);
+
+        expect(tester.getSemantics(find.byType(InkWell)), isSemantics(isButton: true, hasTapAction: true));
+        handle.dispose();
+      });
+    }
+
+    for (final request in [
+      _request(SentRequestStatus.matched),
       _request(SentRequestStatus.rejected),
       _request(SentRequestStatus.expired),
     ]) {
-      testWidgets('${request.status.name}${request.matchId == null ? '(방 없음)' : ''}: InkWell 도 chevron 도 없다', (tester) async {
+      testWidgets('${request.status.name}${request.matchId == null ? '(방 없음)' : ''}: InkWell 도 chevron 도 없고 눌러도 아무 일 없다', (tester) async {
+        final handle = tester.ensureSemantics();
         await pump(tester, request);
 
         expect(find.descendant(of: find.byType(SentRequestRow), matching: find.byType(InkWell)), findsNothing);
         expect(find.byIcon(AppIcons.chevronRight), findsNothing);
+        expect(tester.getSemantics(find.byType(SentRequestRow)), isSemantics(isButton: false, hasTapAction: false));
         await tester.tap(find.byType(SentRequestRow), warnIfMissed: false);
         expect(opened, isEmpty);
+        expect(waitingTaps, 0);
+        handle.dispose();
       });
     }
   });

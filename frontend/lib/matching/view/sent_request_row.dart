@@ -13,14 +13,18 @@ import 'package:flutter/material.dart';
 /// 보낸 신청 한 줄(pen 마스터 `SentRequestRow` d6otzp, 화면 `ULllO` · `wOZst` — 값은 대장이 pen 에서 읽어 준 것).
 /// 행 높이 72 · 세로 가운데 · 아바타–정보 12 · 정보(fill)–상태 12 · 정보 세로 3 · 상태 칸 세로 4 · 오른쪽 맞춤.
 /// 바탕 · 좌우 여백이 없다(본문 여백 16 은 목록이 준다). 행 사이 선도 목록이 긋는다.
-/// 누를 수 있는 것은 **매칭됐고 방이 있는 줄뿐**이다 — 나머지 줄에는 눌림 자체를 달지 않는다.
+/// 누를 수 있는 것은 **매칭됐고 방이 있는 줄**(방을 연다)과 **기다리는 줄**(안내 토스트, 사용자 요청 11-12)뿐이다 —
+/// 거절 · 만료 줄에는 눌림 자체를 달지 않는다.
 class SentRequestRow extends StatelessWidget {
-  const SentRequestRow({required this.request, required this.onOpenChat, super.key});
+  const SentRequestRow({required this.request, required this.onOpenChat, required this.onWaitingTap, super.key});
 
   final SentRequest request;
 
   /// 매칭된 방을 연다. [SentRequest.opensChat] 인 줄만 부른다.
   final ValueChanged<String> onOpenChat;
+
+  /// 기다리는 줄을 눌렀다 — 대화 탭이 "상대가 수락하면 대화가 열려요" 를 띄운다.
+  final VoidCallback onWaitingTap;
 
   @override
   Widget build(BuildContext context) {
@@ -38,15 +42,27 @@ class SentRequestRow extends StatelessWidget {
         ],
       ),
     );
-    final matchId = request.matchId;
-    if (!request.opensChat || matchId == null) {
+    final onTap = _onTap();
+    if (onTap == null) {
       return content;
     }
     // 눌림 효과를 행 안의 투명 Material 이 그려야 목록과 함께 움직인다(COMMON §4-2). 투명도는 낮추지 않는다.
-    return Material(
-      type: MaterialType.transparency,
-      child: InkWell(onTap: () => onOpenChat(matchId), child: content),
+    // InkWell 만으로는 낭독기가 버튼으로 읽지 않아 button 을 단다.
+    return Semantics(
+      button: true,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(onTap: onTap, child: content),
+      ),
     );
+  }
+
+  /// 매칭됨 + 방 → 방 열기, 기다림 → 안내, 나머지 → 눌리지 않음(null).
+  VoidCallback? _onTap() {
+    final matchId = request.matchId;
+    if (request.opensChat && matchId != null) return () => onOpenChat(matchId);
+    if (request.status == SentRequestStatus.waiting) return onWaitingTap;
+    return null;
   }
 }
 
