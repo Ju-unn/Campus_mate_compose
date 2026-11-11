@@ -36,6 +36,12 @@ class ContactPickerUiState {
     return [for (final contact in contacts) if (contact.name.contains(keyword)) contact];
   }
 
+  /// 보이는 사람이 있고 모두 골라졌다 — 앱바 글자가 "전체 해제" 가 된다. 아무도 안 보이면 false.
+  bool get allVisibleSelected {
+    final shown = visible;
+    return shown.isNotEmpty && shown.every((contact) => selectedIds.contains(contact.id));
+  }
+
   int get selectedCount => selectedIds.length;
 
   bool get canSubmit => selectedIds.isNotEmpty && !isSubmitting;
