@@ -116,7 +116,7 @@ class _TagSection extends StatelessWidget {
                   // 태그 칩은 pen 마스터 `WzXvK` 값이다 — 높이 36(여백 8×2 + 줄 20), 좌우 12.
                   // `SelectChip` 기본값 35 는 04-1 Chip 값이라 그대로 둔다.
                   height: 36,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
                   isSelected: state.selected.contains(tag),
                   onTap: () => onToggle(tag),
                 ),

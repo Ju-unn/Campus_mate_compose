@@ -21,7 +21,7 @@ import time
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from e2e import tools
+from e2e import phone_sms, tools
 from e2e.tools import Blocked
 
 SEOUL = timezone(timedelta(hours=9))  # 서버 나이 계산(core/time.py)과 같은 날짜
@@ -452,12 +452,37 @@ def _signed_in(run, stage):
     return account, run.link(account['email'])
 
 
-def _on_phone(stage, **job):
-    """계정 하나를 [stage] 로 만들어 앱에서 돌린다 — 판정은 앱이 다 한다."""
+def _plain(phone, **job):
+    return phone(**job)
+
+
+def _texting_setup(run):
+    """문자 인증을 거치는 가설의 준비 → (시험 번호, 서버 로그 읽개). 계정을 만들기 전에 부른다.
+    운영이면 [Blocked](인증번호 받기를 누르지 않는다) · 시험 번호나 서버 로그 파일을 모르면 [Blocked] · 로컬 DB 의 인증 줄 · 묶임을 비운다."""
+    phone_sms.require_local(run.cfg)
+    number = _phone_number()
+    log = phone_sms.CodeLog(phone_sms.server_log(run.cfg), number[-4:])
+    phone_sms.reset(run)
+    return number, log
+
+
+def _texting(run):
+    """[_texting_setup] 을 하고 앱을 켜는 함수 `launch(phone, **job)` 를 돌려준다. launch 는 일감에 시험 번호를 싣고,
+    앱이 `code` 에서 멈추면 서버 로그에서 읽은 인증번호를 건넨다(e2e/phone_sms.py)."""
+    number, log = _texting_setup(run)
+
+    def launch(phone, **job):
+        return phone(midway=lambda said: {'code': log.next_code()}, phone=number, **job)
+    return launch
+
+
+def _on_phone(stage, texting=False, **job):
+    """계정 하나를 [stage] 로 만들어 앱에서 돌린다 — 판정은 앱이 다 한다. [texting] 이면 앱이 시험 번호로 문자 인증을 거친다."""
     def case(run, phone):
         check = Check()
+        launch = _texting(run) if texting else _plain
         _, token = _signed_in(run, stage)
-        _app(check, phone(token_hash=token, **job))
+        _app(check, launch(phone, token_hash=token, **job))
         return check.result()
     return case
 
@@ -468,7 +493,9 @@ def _nickname():
 
 
 def _phone_number():
-    return f'010-{random.randint(1000, 9999)}-{random.randint(1000, 9999)}'
+    """문자가 나갈 수 있는 곳에 쓰는 번호 — 시험 번호 하나뿐이다(무작위 번호는 남의 폰에 문자가 간다). 읽는 곳: e2e/phone_sms.py.
+    무작위 번호가 남은 자리는 문자가 안 나가는 곳뿐이다 — 계정 공장의 API 저장(tools.basic_info) · 04-1 에 치기만 하고 받기는 안 누르는 가설."""
+    return phone_sms.test_phone()
 
 
 def _basic(run, account, **override):
@@ -667,23 +694,24 @@ def p_onb_04(run, phone):
 
 
 def p_onb_06(run, phone):
-    return _on_phone('gate_done', year=datetime.now(SEOUL).year - 19)(run, phone)
+    return _on_phone('gate_done', texting=True, year=datetime.now(SEOUL).year - 19)(run, phone)
 
 
 def _phone_stored(run, account_id, number, check):
-    """번호는 암호문으로 저장된다(사용자 결정 8) — 평문이 안 보이고 암호문 · 지인 대조 해시가 채워졌는지만 본다."""
+    """번호는 암호문으로 저장된다(사용자 결정 8) — 평문이 안 보이고 암호문 · 지인 대조 해시가 채워졌는지만 본다.
+    판정 문구에 저장된 값을 적지 않는다 — 평문이면 시험 번호가 결과 파일에 남는다."""
     row = _one(run, f'profile_private?profile_id=eq.{account_id}&select=phone_number,phone_hmac')
     digits = number.replace('-', '')[1:]  # 010… → 10…(+82 뒤 모양)
-    check.that(row.get('phone_number') and digits not in str(row['phone_number']), f"phone_number {row.get('phone_number')!r}")
+    check.that(row.get('phone_number') and digits not in str(row['phone_number']), 'phone_number 가 비었거나 암호화되지 않은 채 저장됨')
     check.that(bool(row.get('phone_hmac')), 'phone_hmac 비어 있음')
 
 
 def p_onb_11(run, phone):
     check = Check()
+    launch = _texting(run)
     account, token = _signed_in(run, 'gate_done')
-    number = _phone_number()
-    _app(check, phone(token_hash=token, phone=number))
-    _phone_stored(run, account['id'], number, check)
+    _app(check, launch(phone, token_hash=token))
+    _phone_stored(run, account['id'], _phone_number(), check)
     return check.result()
 
 
@@ -702,8 +730,9 @@ def p_onb_13(run, phone):
 
 def _mbti_empty(run, phone):
     check = Check()
+    launch = _texting(run)  # E-ONB-16 · 17 은 둘 다 문자 인증을 거쳐 "다음" 을 누른다
     account, token = _signed_in(run, 'gate_done')
-    _app(check, phone(token_hash=token))
+    _app(check, launch(phone, token_hash=token))
     saved = _one(run, f"profiles?id=eq.{account['id']}&select=mbti")
     check.that(saved.get('mbti') is None, f'mbti {saved}')
     return check.result()
@@ -725,7 +754,7 @@ PHONE = {
     'E-GATE-13': p_gate_13, 'E-GATE-14': _on_phone('new'), 'E-GATE-52': p_gate_52,  # E-GATE-30~32(3b 실명 칸)는 10-17 에 뺐다
     'E-GATE-53': _on_phone('consented'), 'E-GATE-54': p_gate_54, 'E-GATE-56': p_gate_56,
     'E-ONB-01': _on_phone('gate_done'), 'E-ONB-02': _on_phone('gate_done'), 'E-ONB-03': p_onb_03, 'E-ONB-04': p_onb_04,
-    'E-ONB-06': p_onb_06, 'E-ONB-07': _on_phone('gate_done'), 'E-ONB-10': _on_phone('gate_done'), 'E-ONB-11': p_onb_11,
+    'E-ONB-06': p_onb_06, 'E-ONB-07': _on_phone('gate_done', texting=True), 'E-ONB-10': _on_phone('gate_done', texting=True), 'E-ONB-11': p_onb_11,
     'E-ONB-12': _on_phone('gate_done'), 'E-ONB-13': p_onb_13, 'E-ONB-15': _on_phone('gate_done'), 'E-ONB-16': _mbti_empty,
     'E-ONB-17': _mbti_empty, 'E-ONB-18': p_onb_18,
     # 소셜 로그인 전환으로 더한 가설 — 동의 화면에서 로그아웃하면 시작 화면 · 소셜 버튼(카카오 → 구글, 애플 없음). 판정은 앱이 다 한다.

@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/widgets/sheet_handle.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -18,23 +19,6 @@ Future<T?> showSafetySheet<T>(BuildContext context, WidgetBuilder builder) {
       child: builder(sheetContext),
     ),
   );
-}
-
-/// 시트 맨 위 손잡이(pen `L3Bec` · `Y1P837` · `k8GZO` · `R5hkR` — 모두 36×4, 모서리 8, hairline).
-class SheetHandle extends StatelessWidget {
-  const SheetHandle({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 36,
-      height: 4,
-      decoration: BoxDecoration(
-        color: AppColors.hairline,
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-      ),
-    );
-  }
 }
 
 /// 신고 시트(pen `yl8gX`) · 14e 차단 확인(`aCTy1`) · 16f 해제 확인(`FzXZ4`)이 같이 쓰는 틀.

@@ -1,11 +1,11 @@
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/community/model/data/poll.dart';
 import 'package:campus_mate/community/view/poll_card.dart';
-import 'package:campus_mate/community/view/poll_donut.dart';
 import 'package:campus_mate/community/view/poll_time.dart';
 import 'package:campus_mate/community/view/vote_option.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -13,11 +13,7 @@ import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 
-/// 카드 그림자(pen `IFUWA` #00000014 (0,1) 8). AppElevation 에 같은 값이 없어 여기 둔다.
-const List<BoxShadow> _cardShadow = [BoxShadow(color: Color(0x14000000), offset: Offset(0, 1), blurRadius: 8)];
-
-/// VS 배지 그림자(pen `UMCB0` #00000026 (0,1) 4). 이 배지에만 있는 값이다.
-const List<BoxShadow> _badgeShadow = [BoxShadow(color: Color(0x26000000), offset: Offset(0, 1), blurRadius: 4)];
+// 카드 그림자(pen `IFUWA`)는 AppElevation.homeTileLow(#00000014 (0,1) 8), VS 배지 그림자(pen `UMCB0`)는 AppElevation.pollBadge 다.
 
 /// pen 머리줄 간격 10(`yKSd4` gap) — 간격 토큰 xs(8) · sm(12) 사이 값이라 토큰으로 갈음하지 않는다.
 const double _headerGap = 10;
@@ -94,7 +90,7 @@ class _FeedPollCardState extends State<FeedPollCard> {
     final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg));
     // 색 · 그림자는 바깥 DecoratedBox, 눌림 효과는 안쪽 투명 Material 이 받는다(COMMON §4-2).
     return DecoratedBox(
-      decoration: ShapeDecoration(color: AppColors.canvas, shape: shape, shadows: _cardShadow),
+      decoration: ShapeDecoration(color: AppColors.canvas, shape: shape, shadows: AppElevation.homeTileLow),
       child: Material(
         type: MaterialType.transparency,
         shape: shape,
@@ -127,7 +123,7 @@ class _FeedPollCardState extends State<FeedPollCard> {
                 child: SizedBox(height: 1),
               ),
               const SizedBox(height: AppSpacing.sm),
-              _Footer(total: poll.total, onOpen: widget.onOpen),
+              _Footer(total: poll.total, commentCount: poll.commentCount, onOpen: widget.onOpen),
             ],
           ),
         ),
@@ -253,7 +249,7 @@ class _VsBadge extends StatelessWidget {
       height: 32,
       padding: const EdgeInsets.all(AppSpacing.xxs),
       alignment: Alignment.center,
-      decoration: const BoxDecoration(color: AppColors.canvas, shape: BoxShape.circle, boxShadow: _badgeShadow),
+      decoration: const BoxDecoration(color: AppColors.canvas, shape: BoxShape.circle, boxShadow: AppElevation.pollBadge),
       child: FittedBox(
         fit: BoxFit.scaleDown,
         child: Text(
@@ -292,7 +288,7 @@ class _Result extends StatelessWidget {
                 child: _ScoreSide(
                   label: poll.optionA,
                   percent: poll.aPercent,
-                  color: pollAgreeBlue,
+                  color: AppColors.pollAgree,
                   leads: poll.aPercent >= poll.bPercent,
                   mine: poll.myChoice == PollChoice.a,
                   alignEnd: false,
@@ -432,7 +428,7 @@ class _SplitBar extends StatelessWidget {
           height: _barHeight,
           child: Stack(
             children: [
-              Positioned(left: 0, top: 0, bottom: 0, width: span * aPercent, child: _bar(FeedPollCard.agreeBarKey, pollAgreeBlue)),
+              Positioned(left: 0, top: 0, bottom: 0, width: span * aPercent, child: _bar(FeedPollCard.agreeBarKey, AppColors.pollAgree)),
               Positioned(right: 0, top: 0, bottom: 0, width: span * bPercent, child: _bar(FeedPollCard.disagreeBarKey, AppColors.primary)),
             ],
           ),
@@ -447,11 +443,13 @@ class _SplitBar extends StatelessWidget {
       );
 }
 
-/// 아래 줄(pen `OXJyX`): 사람 16 → 6 → "N명 참여" 12/500 muted ……… "자세히 보기"(댓글 버튼 `G4zmKC` 자리).
+/// 아래 줄(pen `OXJyX` · 18f `v9mXy`): 사람 16 → 6 → "N명 참여" 12/500 muted → 8 → 말풍선 16 → 4 → "댓글 N" 12/500 muted ……… "자세히 보기".
+/// 댓글 0 이어도 "댓글 0" 으로 보인다(사용자 11-10 「보여 줌」).
 class _Footer extends StatelessWidget {
-  const _Footer({required this.total, required this.onOpen});
+  const _Footer({required this.total, required this.commentCount, required this.onOpen});
 
   final int total;
+  final int commentCount;
   final VoidCallback onOpen;
 
   @override
@@ -469,6 +467,11 @@ class _Footer extends StatelessWidget {
             const SizedBox(width: _smallGap),
             // pen `YfHDO` 줄높이 속성 없음, 렌더 16.
             Flexible(child: Text(context.l10n.communityParticipants(count: total), style: caption.copyWith(height: 16 / 12))),
+            // pen CommentCount `Qzv5q`: 앞 간격 8, 아이콘 16 + 4 + 글자.
+            const SizedBox(width: AppSpacing.xs),
+            const Icon(AppIcons.messageCircle, size: 16, color: AppColors.muted),
+            const SizedBox(width: AppSpacing.xxs),
+            Flexible(child: Text(context.l10n.communityCommentCount(count: commentCount), style: caption.copyWith(height: 16 / 12))),
           ],
         ),
         InkWell(

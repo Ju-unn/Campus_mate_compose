@@ -1,6 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:campus_mate/common/failure.dart';
-import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/empty_notice.dart';
+import 'package:campus_mate/common/widgets/retry_notice.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -35,7 +35,7 @@ class BlockListScreen extends ConsumerWidget {
         leadingWidth: 56,
         titleSpacing: 4,
         leading: Navigator.of(context).canPop()
-            ? const Padding(padding: EdgeInsets.only(left: 8), child: BackButton(color: AppColors.ink))
+            ? const Padding(padding: EdgeInsets.only(left: AppSpacing.xs), child: BackButton(color: AppColors.ink))
             : null,
         title: Text(context.l10n.safetyBlockListTitle, style: AppTypography.navTitle),
       ),
@@ -49,8 +49,8 @@ class BlockListScreen extends ConsumerWidget {
     }
     // 읽기 실패는 줄이 하나도 없을 때뿐이다 — 줄이 있는데 문구가 있으면 해제 실패다.
     if (state.blocks.isEmpty && state.error != null) {
-      return _LoadError(
-        failure: state.error!,
+      return RetryNotice(
+        message: context.errorText(state.error!),
         onRetry: () => ref.invalidate(blockListViewModelProvider),
       );
     }
@@ -288,69 +288,14 @@ class _Empty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) => SingleChildScrollView(
-        padding: _listPadding,
-        child: ConstrainedBox(
-          // 목록 칸 높이만큼 채워 가운데에 둔다. 글자를 키워 넘치면 스크롤한다.
-          constraints: BoxConstraints(minHeight: constraints.maxHeight - _listPadding.vertical),
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 48, horizontal: AppSpacing.lg),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Image.asset('assets/images/mascot-female.png', width: 120, height: 120),
-                  // pen 간격 8 + 빈 사각형 8 + 간격 8.
-                  const SizedBox(height: AppSpacing.lg),
-                  Text(
-                    context.l10n.safetyBlockListEmptyTitle,
-                    textAlign: TextAlign.center,
-                    // pen `ZBzIg` 18/600, 줄높이 속성 없음 · 렌더 25.
-                    style: AppTypography.subtitle.copyWith(color: AppColors.ink, height: 25 / 18),
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    context.l10n.safetyBlockListEmptyDescription,
-                    textAlign: TextAlign.center,
-                    // pen `DFs55` 14 / 보통 / muted / 1.55.
-                    style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
+    final l10n = context.l10n;
+    return EmptyNotice(
+      image: Image.asset('assets/images/mascot-female.png'),
+      title: l10n.safetyBlockListEmptyTitle,
+      description: l10n.safetyBlockListEmptyDescription,
+      // 목록 여백 안에서 가운데에 둔다(목록과 같은 스크롤 칸).
+      scrollPadding: _listPadding,
     );
   }
 }
 
-/// 읽기 실패. pen 에 없는 상태 — 14c 와 같은 회색 문구에 "다시 시도" 를 붙인다.
-class _LoadError extends StatelessWidget {
-  const _LoadError({required this.failure, required this.onRetry});
-
-  final Failure failure;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              context.errorText(failure),
-              textAlign: TextAlign.center,
-              style: AppTypography.body.copyWith(color: AppColors.muted),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            AppButton(label: context.l10n.commonRetry, variant: AppButtonVariant.text, onPressed: onRetry),
-          ],
-        ),
-      ),
-    );
-  }
-}

@@ -19,6 +19,8 @@ void main() {
   test('앱이 부르는 고정 길 낱말(목록에 든 것)은 남긴다', () {
     expect(patternOf('https://api.test/profile-onboarding/next-step'), '/profile-onboarding/next-step');
     expect(patternOf('https://api.test/cards/today'), '/cards/today');
+    expect(patternOf('https://api.test/phone-verification/send'), '/phone-verification/send');
+    expect(patternOf('https://api.test/phone-verification/verify'), '/phone-verification/verify');
   });
 
   test('채팅방 id 가 가운데에 있어도 바뀐다', () {

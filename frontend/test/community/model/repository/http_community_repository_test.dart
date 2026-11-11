@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/community/model/data/poll.dart';
 import 'package:campus_mate/community/model/data/poll_feed.dart';
 import 'package:campus_mate/community/model/repository/http_community_repository.dart';
@@ -99,5 +100,68 @@ void main() {
     final result = await repository.deletePoll('p1');
 
     expect(result, isA<Success<void>>());
+  });
+  group('댓글', () {
+    Map<String, dynamic> commentJson(String id) => {
+          'id': id, 'body': '안녕', 'created_at': '2026-11-10T05:00:00+00:00',
+          'alias_no': 1, 'is_post_author': false, 'is_mine': false, 'can_delete': false,
+        };
+
+    test('첫 쪽은 쿼리 없이, 더 보기는 마지막 댓글의 시각(UTC)과 id 를 after · after_id 로 보낸다', () async {
+      final urls = <Uri>[];
+      final repository = buildRepository(MockClient((request) async {
+        urls.add(request.url);
+        return jsonResponse({'items': [commentJson('c1')], 'has_more': true});
+      }));
+
+      final first = await repository.fetchComments('p1');
+      await repository.fetchComments('p1', after: DateTime.utc(2026, 11, 10, 5), afterId: 'c9');
+
+      expect(urls[0].toString(), 'https://api.test/community/polls/p1/comments');
+      expect(urls[1].queryParameters, {'after': '2026-11-10T05:00:00.000Z', 'after_id': 'c9'});
+      first.when(
+        onSuccess: (page) {
+          expect(page.comments.single.id, 'c1');
+          expect(page.hasMore, isTrue);
+        },
+        onFailure: (failure) => fail('$failure'),
+      );
+    });
+
+    test('쓰기는 body 를 POST 하고 201 한 줄을 읽는다', () async {
+      final repository = buildRepository(MockClient((request) async {
+        expect(request.method, 'POST');
+        expect(request.url.path, '/community/polls/p1/comments');
+        expect(jsonDecode(request.body), {'body': '안녕'});
+        return jsonResponse(commentJson('c7'), 201);
+      }));
+
+      final result = await repository.addComment('p1', '안녕');
+
+      result.when(onSuccess: (comment) => expect(comment.id, 'c7'), onFailure: (failure) => fail('$failure'));
+    });
+
+    test('하루 50개를 넘으면 429 와 서버 문구를 실패로 돌려준다', () async {
+      final repository = buildRepository(MockClient(
+        (request) async => jsonResponse({'detail': '오늘은 댓글을 더 달 수 없어요'}, 429),
+      ));
+
+      final result = await repository.addComment('p1', '안녕');
+
+      result.when(
+        onSuccess: (_) => fail('성공하면 안 된다'),
+        onFailure: (failure) => expect((failure as RateLimitedFailure).serverMessage, '오늘은 댓글을 더 달 수 없어요'),
+      );
+    });
+
+    test('삭제는 DELETE /community/comments/{id}, 204 빈 본문도 성공이다', () async {
+      final repository = buildRepository(MockClient((request) async {
+        expect(request.method, 'DELETE');
+        expect(request.url.path, '/community/comments/c1');
+        return http.Response('', 204);
+      }));
+
+      expect(await repository.deleteComment('c1'), isA<Success<void>>());
+    });
   });
 }

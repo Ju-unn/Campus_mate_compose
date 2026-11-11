@@ -3,6 +3,7 @@ import 'dart:ui' show ImageFilter, TileMode;
 
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_lottie_view.dart';
+import 'package:campus_mate/common/widgets/sheet_handle.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
@@ -392,8 +393,8 @@ class _LockedPhoto extends StatelessWidget {
                     ),
                   ),
                 // 잠금 덮개 140×175(모서리 24 는 위 ClipRRect 가 자른다) — 검정 25% 로 밝은 사진 위에서도 흰 자물쇠가 보이게
-                // (대장 전달 pen 값 10-17 `#000000` 25%). 맞는 색 토큰이 없어 값을 둔다(scrim 은 50%).
-                const ColoredBox(color: Color(0x40000000)),
+                // (대장 전달 pen 값 10-17 `#000000` 25%). scrim 은 50% 라 [AppColors.lockOverlay] 를 쓴다.
+                const ColoredBox(color: AppColors.lockOverlay),
                 const Center(child: Icon(AppIcons.lock, size: 28, color: AppColors.onInk)),
               ],
             ),
@@ -495,16 +496,7 @@ class _CompensationSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.hairline,
-                  borderRadius: BorderRadius.circular(AppRadius.sm),
-                ),
-              ),
-            ),
+            const Center(child: SheetHandle()),
             const SizedBox(height: AppSpacing.md),
             Text(
               context.l10n.profileAvatarCompensationTitle,

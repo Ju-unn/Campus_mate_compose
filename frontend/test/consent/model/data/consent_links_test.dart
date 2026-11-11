@@ -8,6 +8,7 @@ void main() {
     'paidServiceTermsLink': paidServiceTermsLink,
     'privacyPolicyLink': privacyPolicyLink,
     'privacyItemsLink': privacyItemsLink,
+    'marketingConsentLink': marketingConsentLink,
   };
 
   test('모든 링크는 노션 공개 주소(notion.site)다 — app.notion.com 은 기기 브라우저에서 로그인을 요구할 수 있다', () {
@@ -28,5 +29,9 @@ void main() {
     expect(paidServiceTermsLink, termsLink);
     expect(privacyItemsLink, privacyPolicyLink);
     expect(privacyPolicyLink, isNot(termsLink));
+  });
+
+  test('마케팅 활용 동의서는 따로 공개된 페이지다 — 11-11 공개(reader) 확인한 주소', () {
+    expect(marketingConsentLink.toString(), 'https://golden-leech-197.notion.site/414d998f0dee804580e1f3ec50ff4362');
   });
 }

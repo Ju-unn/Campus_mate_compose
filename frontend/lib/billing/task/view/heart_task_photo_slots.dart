@@ -184,7 +184,7 @@ class _RemoveButton extends StatelessWidget {
           child: SizedBox.square(
             dimension: 28,
             child: DecoratedBox(
-              decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), shape: BoxShape.circle),
+              decoration: BoxDecoration(color: AppColors.photoRemoveBadge, shape: BoxShape.circle),
               child: const Icon(AppIcons.x, size: 14, color: AppColors.onInk),
             ),
           ),

@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/widgets/empty_notice.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
@@ -32,7 +33,7 @@ class FaqScreen extends ConsumerWidget {
         leadingWidth: 56,
         titleSpacing: 4,
         leading: Padding(
-          padding: const EdgeInsets.only(left: 8),
+          padding: const EdgeInsets.only(left: AppSpacing.xs),
           child: IconButton(
             onPressed: () => Navigator.of(context).maybePop(),
             icon: const Icon(AppIcons.arrowLeft, size: 22, color: AppColors.ink),
@@ -249,55 +250,38 @@ class _NoResults extends StatelessWidget {
     return Column(
       children: [
         Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) => SingleChildScrollView(
-              child: ConstrainedBox(
-                // 본문 칸 높이만큼 채워 가운데에 둔다. 글자를 키워 넘치면 스크롤한다.
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md + AppSpacing.lg, vertical: AppSpacing.lg),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Image.asset('assets/images/mascot-male.png', width: 120, height: 120),
-                        // pen 간격 8 + 빈 사각형 8(`Wz22b`) + 간격 8.
-                        const SizedBox(height: AppSpacing.lg),
-                        Text(
-                          context.l10n.faqNoResultsTitle,
-                          textAlign: TextAlign.center,
-                          // pen `ZBzIg` 18/600, 줄높이 속성 없음 · 렌더 25.
-                          style: AppTypography.subtitle.copyWith(color: AppColors.ink, height: 25 / 18),
-                        ),
-                        const SizedBox(height: AppSpacing.xs),
-                        // pen `ksubx` 줄마다 14/400 lh1.55 muted(마스터 설명 `DFs55` 값).
-                        Text(context.l10n.faqNoResultsLine1, textAlign: TextAlign.center, style: description),
-                        // pen `CvTKu` 가로 · 링크 "문의하기"(`o0LQI0`)와 조사 "로"(`PTHrQ`) 사이 간격 0. 글자를 키워 폭이 모자라면 "로" 가 다음 줄로 간다.
-                        Wrap(
-                          alignment: WrapAlignment.center,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            // 모양은 pen 그대로, 누름 칸만 위아래로 늘려 48(대장 09-29 · 03 "메일 다시 받기" 와 같은 방식).
-                            TextButton(
-                              onPressed: () => context.push(AppRoutes.inquiry),
-                              style: TextButton.styleFrom(
-                                minimumSize: const Size(0, 48),
-                                padding: EdgeInsets.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                foregroundColor: AppColors.primaryText,
-                                textStyle: AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w600),
-                              ),
-                              child: Text(context.l10n.faqNoResultsLink, textAlign: TextAlign.center),
-                            ),
-                            Text(context.l10n.faqNoResultsLine2, style: description),
-                          ],
-                        ),
-                        Text(context.l10n.faqNoResultsLine3, textAlign: TextAlign.center, style: description),
-                      ],
+          child: EmptyNotice(
+            image: Image.asset('assets/images/mascot-male.png'),
+            title: context.l10n.faqNoResultsTitle,
+            // 안쪽 [세로 24, 가로 40] = 본문 좌우 16 + 여백 24.
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md + AppSpacing.lg, vertical: AppSpacing.lg),
+            // pen `ksubx` 줄마다 14/400 lh1.55 muted(마스터 설명 `DFs55` 값).
+            descriptionWidget: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(context.l10n.faqNoResultsLine1, textAlign: TextAlign.center, style: description),
+                // pen `CvTKu` 가로 · 링크 "문의하기"(`o0LQI0`)와 조사 "로"(`PTHrQ`) 사이 간격 0. 글자를 키워 폭이 모자라면 "로" 가 다음 줄로 간다.
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    // 모양은 pen 그대로, 누름 칸만 위아래로 늘려 48(대장 09-29 · 03 "메일 다시 받기" 와 같은 방식).
+                    TextButton(
+                      onPressed: () => context.push(AppRoutes.inquiry),
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(0, 48),
+                        padding: EdgeInsets.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        foregroundColor: AppColors.primaryText,
+                        textStyle: AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      child: Text(context.l10n.faqNoResultsLink, textAlign: TextAlign.center),
                     ),
-                  ),
+                    Text(context.l10n.faqNoResultsLine2, style: description),
+                  ],
                 ),
-              ),
+                Text(context.l10n.faqNoResultsLine3, textAlign: TextAlign.center, style: description),
+              ],
             ),
           ),
         ),

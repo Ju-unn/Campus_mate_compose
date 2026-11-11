@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/photo_slider.dart';
+import 'package:campus_mate/common/widgets/section_header.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -92,39 +93,6 @@ class _ManageContent extends StatelessWidget {
   }
 }
 
-/// 섹션 헤더 제목 18/700 ink — 줄높이 속성 없음 · 렌더 25(subtitle 토큰 18/600 에 굵기만 700).
-final _headerTitleStyle =
-    AppTypography.subtitle.copyWith(fontWeight: FontWeight.w700, height: 25 / 18, color: AppColors.ink);
-
-/// 섹션 헤더 오른쪽 글자 14/400 muted — 줄높이 속성 없음 · 렌더 20.
-final _headerNoteStyle = AppTypography.bodySmall.copyWith(height: 20 / 14, color: AppColors.muted);
-
-/// SectionHeader `Ymhdq` — 제목 왼쪽, 오른쪽 글자(`A8LX2`) 오른쪽 끝(space_between), 세로 가운데.
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, this.note});
-
-  final String title;
-
-  /// 오른쪽 회색 글자. null 이면 제목만(pen `A8LX2` 꺼짐).
-  final String? note;
-
-  @override
-  Widget build(BuildContext context) {
-    final trailing = note;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(title, style: _headerTitleStyle),
-        if (trailing != null) ...[
-          const SizedBox(width: AppSpacing.xs),
-          // 글자를 키워 한 줄에 안 들어가면 제목을 밀지 않고 오른쪽 글자가 줄을 바꾼다.
-          Flexible(child: Text(trailing, textAlign: TextAlign.end, style: _headerNoteStyle)),
-        ],
-      ],
-    );
-  }
-}
-
 /// 실제 사진 `Rn3AC` — 헤더 → 12 → 슬라이더(`c9Co2`) → 12 → 점(`RaYKc`) → 12 → "실제 사진 교체"(`E7Cv2`).
 /// 섹션이 gap 12 한 벌이라 사진 ↔ 점도 12 다(공용 [PhotoSlider] 기본 8 은 화면 15 · 14c 값).
 class _RealPhotoSection extends StatelessWidget {
@@ -138,7 +106,7 @@ class _RealPhotoSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SectionHeader(title: context.l10n.meManageRealPhotoTitle, note: context.l10n.meManageRealPhotoNote),
+        SectionHeader(title: context.l10n.meManageRealPhotoTitle, trailing: context.l10n.meManageRealPhotoNote),
         const SizedBox(height: AppSpacing.sm),
         PhotoSlider(
           photos: [for (final url in photoUrls) NetworkImage(url)],
@@ -229,7 +197,7 @@ class _BasicInfoSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // 헤더 한 줄 높이(배율 1.0 에서 25). 이 줄 가운데에 누름 칸을 맞춘다 — 글자를 키워도 "수정 ›" 이 제목과 나란하다.
-    final lineHeight = MediaQuery.textScalerOf(context).scale(_headerTitleStyle.fontSize!) * _headerTitleStyle.height!;
+    final lineHeight = MediaQuery.textScalerOf(context).scale(SectionHeader.titleStyle.fontSize!) * SectionHeader.titleStyle.height!;
     final linkHeight = math.max(lineHeight, _tapTarget);
     return Stack(
       children: [
@@ -238,7 +206,7 @@ class _BasicInfoSection extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _SectionHeader(title: context.l10n.meManageBasicTitle),
+              SectionHeader(title: context.l10n.meManageBasicTitle),
               const SizedBox(height: AppSpacing.sm),
               _ProfileFacts(profile: profile),
             ],
@@ -275,7 +243,7 @@ class _EditLink extends StatelessWidget {
             alignment: Alignment.centerRight,
             widthFactor: 1,
             heightFactor: 1,
-            child: Text(context.l10n.meManageEditLink, style: _headerNoteStyle),
+            child: Text(context.l10n.meManageEditLink, style: SectionHeader.trailingStyle),
           ),
         ),
       ),
@@ -364,7 +332,7 @@ class _PreferenceSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SectionHeader(title: context.l10n.meManagePreferenceTitle),
+        SectionHeader(title: context.l10n.meManagePreferenceTitle),
         const SizedBox(height: AppSpacing.sm),
         ProfileEntryRow(
           icon: AppIcon3d.heart, // pen `l3oDHo` 하트 `zxXQG`
@@ -426,7 +394,7 @@ class _BioSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SectionHeader(title: context.l10n.meBioLabel),
+        SectionHeader(title: context.l10n.meBioLabel),
         const SizedBox(height: AppSpacing.sm),
         if (text.isNotEmpty) ...[
           Text(text, style: AppTypography.body.copyWith(color: AppColors.body)),

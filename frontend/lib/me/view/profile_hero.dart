@@ -2,6 +2,7 @@ import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -151,8 +152,7 @@ class _PillBadge extends StatelessWidget {
 class _VerifiedBadge extends StatelessWidget {
   const _VerifiedBadge();
 
-  /// pen `EQjrL` 그림자 #34223A24 (0,2) blur 8. 그림자 토큰과 값이 달라(AppElevation.badge 는 #6F40551A blur 10) 리터럴로 둔다.
-  static const List<BoxShadow> _shadow = [BoxShadow(color: Color(0x2434223A), offset: Offset(0, 2), blurRadius: 8)];
+  /// pen `EQjrL` 그림자 — [AppElevation.verifiedBadge].
 
   @override
   Widget build(BuildContext context) {
@@ -160,7 +160,7 @@ class _VerifiedBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.canvas,
         borderRadius: BorderRadius.circular(AppRadius.pill),
-        boxShadow: _shadow,
+        boxShadow: AppElevation.verifiedBadge,
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),

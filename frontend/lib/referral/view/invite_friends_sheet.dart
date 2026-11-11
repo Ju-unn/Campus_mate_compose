@@ -1,12 +1,13 @@
 import 'dart:async';
 
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/widgets/alert_sheet.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/retry_notice.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
-import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -24,7 +25,7 @@ Future<void> showInviteFriendsSheet(BuildContext context) =>
 
 /// 16i(pen `eoJOg`, AlertSheet `D0TvG` 인스턴스 `vBZjk`). 내 추천 코드를 크게 보여 주고 복사 · 공유한다.
 /// 위 모서리 24 · 그림자 #00000026 (0,-2) blur 16 · 손잡이 영역 위아래 12 · 내용 [8,16,32,16] 간격 16 —
-/// 15d-2 삭제 확인(poll_sheets)과 같은 마스터다(공통 승격은 백로그 39). [SafetySheet] 는 여백이 달라 쓰지 않는다.
+/// 15d-2 삭제 확인과 같은 마스터라 공통 틀 [AlertSheet] 를 쓴다. [SafetySheet] 는 여백이 달라 쓰지 않는다.
 class InviteFriendsSheet extends ConsumerStatefulWidget {
   const InviteFriendsSheet({super.key});
 
@@ -108,79 +109,48 @@ class _InviteFriendsSheetState extends ConsumerState<InviteFriendsSheet> {
           const SizedBox(height: AppSpacing.md),
         ],
         Flexible(
-          child: Container(
-            width: double.infinity,
-            decoration: const BoxDecoration(
-              color: AppColors.canvas,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
-              boxShadow: AppElevation.top,
-            ),
-            child: SafeArea(
-              top: false,
-              // 글자를 키운 기기에서는 시트가 화면보다 길어진다 — 넘치는 만큼 스크롤한다.
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
-                      child: Center(child: SheetHandle()),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, AppSpacing.xl),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // pen `xd8je` 20/700, 줄높이 속성 없음 · 렌더 29.
-                          Text(context.l10n.referralInviteTitle, style: AppTypography.navTitle.copyWith(color: AppColors.ink, height: 29 / 20)),
-                          const SizedBox(height: AppSpacing.md),
-                          // pen `LEq3I` 14/400/1.55 #6A6A6A.
-                          // 50 은 redeem_referral 이 양쪽에 주는 하트(20260928010000_create_referrals.sql)와 같아야 한다.
-                          Text(context.l10n.referralInviteDescription, style: AppTypography.bodySmall.copyWith(color: AppColors.muted)),
-                          const SizedBox(height: AppSpacing.md),
-                          ...myCode.when(
-                            loading: () => const [Center(child: CircularProgressIndicator())],
-                            error: (_, _) => _loadError(context.errorText(const UnknownFailure()), retry),
-                            data: (result) => result.when(
-                              onSuccess: (code) => [_CodeBox(code: code, onCopy: () => _copy(code))],
-                              onFailure: (failure) => _loadError(context.errorText(failure), retry),
-                            ),
-                          ),
-                          // 버튼 묶음 `KMbP4` 간격 8 — pen 변형 `wNqk2` 는 원본과 글자만 다르다. 닫기 단추가 없어
-                          // 시트는 바깥 누름 · 뒤로 가기로 닫는다. 코드가 없으면 보낼 것도 없다 — 두 단추를 뺀다.
-                          if (code != null) ...[
-                            const SizedBox(height: AppSpacing.md),
-                            AppButton(
-                              label: context.l10n.referralInviteSendKakao,
-                              isLoading: _sendingToKakao,
-                              onPressed: () => _shareToKakao(code),
-                            ),
-                            const SizedBox(height: AppSpacing.xs),
-                            AppButton(
-                              label: context.l10n.referralInviteSendOther,
-                              variant: AppButtonVariant.text,
-                              onPressed: () => _shareToOtherApps(code),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
+          child: AlertSheet(
+            children: [
+              // pen `xd8je` 20/700, 줄높이 속성 없음 · 렌더 29.
+              Text(context.l10n.referralInviteTitle, style: AppTypography.navTitle.copyWith(color: AppColors.ink, height: 29 / 20)),
+              const SizedBox(height: AppSpacing.md),
+              // pen `LEq3I` 14/400/1.55 #6A6A6A.
+              // 50 은 redeem_referral 이 양쪽에 주는 하트(20260928010000_create_referrals.sql)와 같아야 한다.
+              Text(context.l10n.referralInviteDescription, style: AppTypography.bodySmall.copyWith(color: AppColors.muted)),
+              const SizedBox(height: AppSpacing.md),
+              ...myCode.when(
+                loading: () => const [Center(child: CircularProgressIndicator())],
+                error: (_, _) => _loadError(context.errorText(const UnknownFailure()), retry),
+                data: (result) => result.when(
+                  onSuccess: (code) => [_CodeBox(code: code, onCopy: () => _copy(code))],
+                  onFailure: (failure) => _loadError(context.errorText(failure), retry),
                 ),
               ),
-            ),
+              // 버튼 묶음 `KMbP4` 간격 8 — pen 변형 `wNqk2` 는 원본과 글자만 다르다. 닫기 단추가 없어
+              // 시트는 바깥 누름 · 뒤로 가기로 닫는다. 코드가 없으면 보낼 것도 없다 — 두 단추를 뺀다.
+              if (code != null) ...[
+                const SizedBox(height: AppSpacing.md),
+                AppButton(
+                  label: context.l10n.referralInviteSendKakao,
+                  isLoading: _sendingToKakao,
+                  onPressed: () => _shareToKakao(code),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                AppButton(
+                  label: context.l10n.referralInviteSendOther,
+                  variant: AppButtonVariant.text,
+                  onPressed: () => _shareToOtherApps(code),
+                ),
+              ],
+            ],
           ),
         ),
       ],
     );
   }
 
-  /// pen 에 없는 상태(계획서 편차) — 16e `_LoadError` 와 같은 회색 문구 + 다시 시도.
-  List<Widget> _loadError(String message, VoidCallback onRetry) => [
-        Text(message, textAlign: TextAlign.center, style: AppTypography.body.copyWith(color: AppColors.body)),
-        AppButton(label: context.l10n.commonRetry, variant: AppButtonVariant.text, onPressed: onRetry),
-      ];
+  /// pen 에 없는 상태(계획서 편차) — 공통 [RetryNotice] 의 끼워 넣기용(회색 문구 + 12 + 다시 시도).
+  List<Widget> _loadError(String message, VoidCallback onRetry) => [RetryNotice.inline(message: message, onRetry: onRetry)];
 }
 
 /// 코드 상자(pen `e3n2P`). surface-soft · 모서리 14 · 여백 [12,12,12,16] · 가로 간격 12.

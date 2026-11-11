@@ -7,7 +7,6 @@ import 'package:campus_mate/community/model/repository/community_repository_prov
 import 'package:campus_mate/community/view/poll_composer_screen.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
-import 'package:campus_mate/community/view/poll_donut.dart';
 import 'package:campus_mate/community/view/poll_feed_tabs.dart';
 import 'package:campus_mate/community/view/vote_option.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -191,7 +190,7 @@ void main() {
     final red = tester.getRect(options.at(1));
     expect((blue.size, red.size), (const Size(158, 72), const Size(158, 72)));
     expect(red.left - blue.right, 12);
-    expect(fillOf(tester, options.at(0)), pollAgreeBlue);
+    expect(fillOf(tester, options.at(0)), AppColors.pollAgree);
     expect(fillOf(tester, options.at(1)), AppColors.primary);
     expect(find.text(oxGuide), findsOneWidget);
     expect(find.text(customGuide), findsNothing);
@@ -211,7 +210,7 @@ void main() {
     expect(find.text(customGuide), findsOneWidget);
     expect(find.text(oxGuide), findsNothing);
     expect(find.text('선택지 A'), findsNothing);
-    expect(fillOf(tester, options.at(0)), pollAgreeBlue);
+    expect(fillOf(tester, options.at(0)), AppColors.pollAgree);
     expect(fillOf(tester, options.at(1)), AppColors.primary);
     expect(tester.getSize(options.at(0)), const Size(158, 72));
   });

@@ -30,6 +30,13 @@ const _thisYear = 2026;
 
 Matcher _kind(AppError error) => isA<AppErrorFailure>().having((failure) => failure.error, 'error', error);
 
+/// 휴대폰 문자 인증까지 마친다(가짜 저장소는 받기 · 확인 모두 성공) — "다음" 은 인증된 번호에서만 켜진다(대장 결정 11-10).
+/// 인증되면 1초 시계가 멈춰 testWidgets 끝에 남는 타이머가 없다.
+Future<void> _verifyPhone(BasicInfoViewModel vm) async {
+  await vm.sendCode();
+  await vm.changeCode('123456');
+}
+
 void main() {
   late FakeBasicInfoRepository repository;
   late FakeOnboardingRepository onboardingRepository;
@@ -133,6 +140,7 @@ void main() {
     vm.changeHeight('175');
     vm.changePhoneNumber('01001352468');
     vm.changeGender('male');
+    await _verifyPhone(vm);
 
     final state = container.read(basicInfoViewModelProvider);
     expect(state.nicknameCheck, isNot(NicknameCheck.checking));
@@ -199,6 +207,7 @@ void main() {
     vm.changeHeight('175');
     vm.changePhoneNumber('01001352468');
     vm.changeGender('male');
+    await _verifyPhone(vm);
 
     vm.changeBirthYear('${_thisYear - 19}');
     expect(container.read(basicInfoViewModelProvider).canSubmit, isTrue);
@@ -241,6 +250,7 @@ void main() {
     vm.changeHeight('175');
     vm.changePhoneNumber('01001352468');
     vm.changeGender('male');
+    await _verifyPhone(vm);
 
     final state = container.read(basicInfoViewModelProvider);
     expect(state.canSubmit, isTrue);
@@ -255,6 +265,7 @@ void main() {
     vm.changeHeight('175');
     vm.changePhoneNumber('010-0135-2468');
     vm.changeGender('male');
+    await _verifyPhone(vm);
 
     await vm.submit();
 
@@ -274,6 +285,7 @@ void main() {
     expect(container.read(basicInfoViewModelProvider).canSubmit, isFalse);
 
     vm.changePhoneNumber('010-0135-2468');
+    await _verifyPhone(vm);
     expect(container.read(basicInfoViewModelProvider).canSubmit, isTrue);
   });
 
@@ -318,6 +330,7 @@ void main() {
       vm.changeHeight('175');
       vm.changePhoneNumber('010-0135-2468');
       vm.changeGender('male');
+      await _verifyPhone(vm);
       await vm.submit();
       return vm;
     }
@@ -335,6 +348,7 @@ void main() {
       final vm = await submitRejected(tester);
 
       vm.changePhoneNumber('010-5932-8406');
+      await _verifyPhone(vm);
 
       final state = container.read(basicInfoViewModelProvider);
       expect(state.phoneNumberError, isNull);
@@ -350,6 +364,7 @@ void main() {
       vm.changeHeight('175');
       vm.changePhoneNumber('010-0135-2468');
       vm.changeGender('male');
+      await _verifyPhone(vm);
 
       await vm.submit();
 
@@ -367,6 +382,7 @@ void main() {
     vm.changeHeight('175');
     vm.changePhoneNumber('01001352468');
     vm.changeGender('male');
+    await _verifyPhone(vm);
 
     await vm.submit();
 
@@ -386,6 +402,7 @@ void main() {
     vm.changeHeight('175');
     vm.changePhoneNumber('01001352468');
     vm.changeGender('male');
+    await _verifyPhone(vm);
 
     await vm.submit();
 
@@ -401,6 +418,7 @@ void main() {
     vm.changeHeight('175');
     vm.changePhoneNumber('01001352468');
     vm.changeGender('male');
+    await _verifyPhone(vm);
     await vm.submit();
     await revisit(container, onboardingRepository, server: OnboardingStep.photos, visiting: OnboardingStep.basicInfo);
     repository.nextSubmitResult = const FailureResult(NetworkFailure());
@@ -622,6 +640,7 @@ void main() {
     test('"다음" 이 성공하면 이 화면 값을 지운다', () async {
       final vm = open().read(basicInfoViewModelProvider.notifier);
       fillAll(vm);
+      await _verifyPhone(vm);
 
       await vm.submit();
 
@@ -633,6 +652,7 @@ void main() {
       repository.nextSubmitResult = const FailureResult(NetworkFailure());
       final vm = open().read(basicInfoViewModelProvider.notifier);
       fillAll(vm);
+      await _verifyPhone(vm);
 
       await vm.submit();
 
@@ -688,6 +708,7 @@ void main() {
     vm.changeHeight('175');
     vm.changePhoneNumber('01001352468');
     vm.changeGender('male');
+    await _verifyPhone(vm);
 
     await vm.submit();
 

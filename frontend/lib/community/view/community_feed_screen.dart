@@ -1,7 +1,8 @@
-import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/empty_notice.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
+import 'package:campus_mate/common/widgets/retry_notice.dart';
 import 'package:campus_mate/community/model/data/poll.dart';
 import 'package:campus_mate/community/model/data/poll_feed.dart';
 import 'package:campus_mate/community/view/feed_poll_card.dart';
@@ -15,6 +16,7 @@ import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -152,7 +154,7 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
     Widget aboveNav(Widget child) => Padding(padding: EdgeInsets.only(bottom: navInset), child: child);
     if (state.isLoading) return aboveNav(const Center(child: CircularProgressIndicator()));
     if (state.polls.isEmpty && state.error != null) {
-      return aboveNav(_LoadError(failure: state.error!, onRetry: viewModel.refresh));
+      return aboveNav(RetryNotice(message: context.errorText(state.error!), onRetry: viewModel.refresh));
     }
     if (state.polls.isEmpty) return aboveNav(_EmptyFeed(tab: state.tab));
     final now = ref.read(communityNowProvider)();
@@ -216,8 +218,7 @@ class _AskButton extends StatelessWidget {
   final bool hidden;
   final VoidCallback onPressed;
 
-  /// 떠 있는 것에만 그림자를 준다(DESIGN §6). 이 버튼에만 있는 값이라 AppElevation 에 올리지 않는다.
-  static const List<BoxShadow> _shadow = [BoxShadow(color: Color(0x2E1A1619), offset: Offset(0, 6), blurRadius: 16)];
+  /// 떠 있는 것에만 그림자를 준다(DESIGN §6).
 
   @override
   Widget build(BuildContext context) {
@@ -241,7 +242,7 @@ class _AskButton extends StatelessWidget {
           duration: duration,
           curve: AppMotion.standardCurve,
           child: DecoratedBox(
-            decoration: const ShapeDecoration(shape: StadiumBorder(), shadows: _shadow),
+            decoration: const ShapeDecoration(shape: StadiumBorder(), shadows: AppElevation.floatingButton),
             child: FilledButton(
               key: CommunityFeedScreen.askButtonKey,
               onPressed: onPressed,
@@ -314,30 +315,11 @@ class _EmptyFeed extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (title, description) = _copy(context.l10n);
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.xxl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset('assets/images/mascot-male.png', width: 120, height: 120),
-            const SizedBox(height: AppSpacing.lg),
-            Text(title, textAlign: TextAlign.center, style: AppTypography.subtitle.copyWith(color: AppColors.ink)),
-            if (description != null) ...[
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                description,
-                textAlign: TextAlign.center,
-                style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
-              ),
-            ],
-            if (offersAsk(tab)) ...[
-              const SizedBox(height: AppSpacing.xl),
-              _askButton(context),
-            ],
-          ],
-        ),
-      ),
+    return EmptyNotice(
+      image: Image.asset('assets/images/mascot-male.png'),
+      title: title,
+      description: description,
+      action: offersAsk(tab) ? _askButton(context) : null,
     );
   }
 
@@ -353,27 +335,3 @@ class _EmptyFeed extends StatelessWidget {
       );
 }
 
-/// 첫 쪽을 못 불러왔을 때. 문구는 `Failure` 종류별 문구 그대로(502/503 → "잠시 후 다시 시도해 주세요" 등),
-/// 모양은 `school_info_screen` 의 `_SchoolNameError` 와 같다. 실패인데 "질문이 없어요" 를 보이면 거짓말이다.
-class _LoadError extends StatelessWidget {
-  const _LoadError({required this.failure, required this.onRetry});
-
-  final Failure failure;
-  final Future<void> Function() onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(context.errorText(failure), textAlign: TextAlign.center, style: AppTypography.body.copyWith(color: AppColors.body)),
-            AppButton(label: context.l10n.commonRetry, variant: AppButtonVariant.text, onPressed: onRetry),
-          ],
-        ),
-      ),
-    );
-  }
-}

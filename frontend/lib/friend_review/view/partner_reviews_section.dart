@@ -1,8 +1,8 @@
+import 'package:campus_mate/common/widgets/alert_sheet.dart';
+import 'package:campus_mate/common/widgets/sheet_handle.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
-import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
-import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/friend_review/model/data/friend_review.dart';
@@ -173,51 +173,25 @@ class PartnerReviewsSheet extends ConsumerWidget {
     final reviews = ref.watch(friendReviewListViewModelProvider(_list).select((state) => state.reviews));
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * _sheetMaxHeightFactor),
-      child: Container(
-        width: double.infinity,
-        decoration: const BoxDecoration(
-          color: AppColors.canvas,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
-          // pen 그림자 #00000026 (0,-2) 16 — 그림자 토큰(AppElevation.card, 아래로 두 겹)과 다른 위쪽 한 겹이라 리터럴.
-          boxShadow: AppElevation.top,
-        ),
-        child: SafeArea(
-          top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const _SheetHandle(),
-              Flexible(
-                child: SingleChildScrollView(
-                  // pen xWNQE 여백 [8,16,28,16]. 아래 28 은 간격 토큰(lg 24 · xl 32) 사이 값이다.
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, 28),
-                  child: _SheetContent(nickname: nickname, reviews: reviews),
-                ),
+      // 틀은 공통 [SheetFrame](AlertSheet `D0TvG`). 손잡이는 고정, 내용만 스크롤한다.
+      child: SheetFrame(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 손잡이 영역 pen `WV87g` 위아래 12.
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+              child: Center(child: SheetHandle(key: partnerReviewsSheetHandleKey)),
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                // pen xWNQE 여백 [8,16,28,16]. 아래 28 은 간격 토큰(lg 24 · xl 32) 사이 값이다.
+                padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, 28),
+                child: _SheetContent(nickname: nickname, reviews: reviews),
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 손잡이 영역(pen `WV87g` 위아래 12) · 손잡이 36×4 hairline r2(`w8UdMw` — 20b · 조각 6 시트와 모서리가 다르다).
-class _SheetHandle extends StatelessWidget {
-  const _SheetHandle();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-      child: Center(
-        child: Container(
-          key: partnerReviewsSheetHandleKey,
-          width: 36,
-          height: 4,
-          // pen 모서리 2 는 라운드 토큰(sm 8)보다 작은 값이다.
-          decoration: BoxDecoration(color: AppColors.hairline, borderRadius: BorderRadius.circular(2)),
+            ),
+          ],
         ),
       ),
     );

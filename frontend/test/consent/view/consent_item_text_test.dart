@@ -10,7 +10,7 @@ void main() {
     expect([for (final item in ConsentItem.values) item.label(l10n)], [
       '이용약관',
       '개인정보 수집·이용',
-      '마케팅 알림 받기',
+      '마케팅 활용 동의',
     ]);
   });
 }

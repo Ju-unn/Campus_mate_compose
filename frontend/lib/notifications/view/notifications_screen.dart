@@ -1,5 +1,7 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/empty_notice.dart';
+import 'package:campus_mate/common/widgets/full_screen_notice.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
@@ -47,7 +49,7 @@ class NotificationsScreen extends ConsumerWidget {
         titleSpacing: AppSpacing.xxs,
         centerTitle: false,
         leading: Padding(
-          padding: const EdgeInsets.only(left: 12),
+          padding: const EdgeInsets.only(left: AppSpacing.sm),
           // leading 칸은 높이가 56 으로 고정이라 Align 으로 느슨하게 풀어야 화살표 칸이 48×48 로 나온다.
           child: Align(
             alignment: Alignment.centerLeft,
@@ -96,7 +98,7 @@ class NotificationsScreen extends ConsumerWidget {
     final path = PushRoute.resolve(item.data);
     viewModel.markRead(item.id);
     if (path == null) return;
-    refreshForPush(ref.read, item.data, invalidate: ref.invalidate);
+    refreshForPush(ref.read, item.data, invalidate: ref.invalidate, exists: ref.exists);
     if (_replacesInbox(path)) {
       context.go(path);
     } else {
@@ -178,31 +180,12 @@ class _Empty extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, 40),
       child: SingleChildScrollView(
         padding: const EdgeInsets.only(top: 120),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxl, horizontal: AppSpacing.lg),
-          child: SizedBox(
-            width: double.infinity,
-            child: Column(
-              children: [
-                // `mH9oC` = 3D 알림 `WyOg1` 120.
-                const Icon3d(AppIcon3d.bell, size: 120, key: notificationEmptyIconKey),
-                const SizedBox(height: AppSpacing.lg),
-                Text(
-                  context.l10n.notificationsEmptyTitle,
-                  textAlign: TextAlign.center,
-                  // `ZBzIg` 18/600, 줄높이 속성 없음 · 렌더 25.
-                  style: AppTypography.subtitle.copyWith(color: AppColors.ink, height: 25 / 18),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  context.l10n.notificationsEmptyBody,
-                  textAlign: TextAlign.center,
-                  // `DFs55` 14 / 보통 / muted / 1.5.
-                  style: AppTypography.bodySmall.copyWith(color: AppColors.muted, height: 1.5),
-                ),
-              ],
-            ),
-          ),
+        child: EmptyNotice(
+          align: EmptyNoticeAlign.top,
+          // `mH9oC` = 3D 알림 `WyOg1` 120.
+          image: const Icon3d(AppIcon3d.bell, size: 120, key: notificationEmptyIconKey),
+          title: context.l10n.notificationsEmptyTitle,
+          description: context.l10n.notificationsEmptyBody,
         ),
       ),
     );
@@ -217,47 +200,17 @@ class _Failed extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      // pen 본문 `h4DyZ4` padding [0,24,40,24] — 버튼 `TMLwr` 가 맨 아래(y688~740), 01-1 `offline_screen.dart` 와 같은 패턴.
-      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, 40),
-      child: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              // 위 여백 `MfW5m` 120 + 요소 사이 간격 20 → 안내(아이콘 y244).
-              padding: const EdgeInsets.only(top: 120 + 20),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxl, horizontal: AppSpacing.lg),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: Column(
-                    children: [
-                      // `AeOMJ` = 3D 안내 `s3b4k` 120.
-                      const Icon3d(AppIcon3d.infoBlue, size: 120, key: notificationErrorIconKey),
-                      const SizedBox(height: AppSpacing.lg),
-                      Text(
-                        context.appErrorText(AppError.notificationsLoad),
-                        textAlign: TextAlign.center,
-                        // 이 화면 제목은 20/700(`ZBzIg`), 렌더 29.
-                        style: AppTypography.title.copyWith(fontWeight: FontWeight.w700, color: AppColors.ink, height: 29 / 20),
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        context.appErrorText(AppError.tryLater),
-                        textAlign: TextAlign.center,
-                        // `DFs55` 14 / 보통 — 줄높이 속성 없음 · 렌더 23.
-                        style: AppTypography.bodySmall.copyWith(color: AppColors.muted, height: 23 / 14),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          AppButton(label: context.l10n.commonRetry, onPressed: onRetry),
-        ],
+    return FullScreenNotice(
+      notice: EmptyNotice(
+        align: EmptyNoticeAlign.top,
+        // `AeOMJ` = 3D 안내 `s3b4k` 120.
+        image: const Icon3d(AppIcon3d.infoBlue, size: 120, key: notificationErrorIconKey),
+        title: context.appErrorText(AppError.notificationsLoad),
+        description: context.appErrorText(AppError.tryLater),
+        // 큰 안내 제목 20/700 줄높이 1.5(렌더 30, pen `vGd3l`). 설명은 Empty 마스터 값 그대로.
+        titleStyle: EmptyNotice.largeTitleStyle,
       ),
+      button: AppButton(label: context.l10n.commonRetry, onPressed: onRetry),
     );
   }
 }

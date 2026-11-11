@@ -7,6 +7,7 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/offline/offline_screen.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
+import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/profile/onboarding/model/data/onboarding_step.dart';
@@ -64,6 +65,14 @@ void main() {
     expect(find.text('인터넷 연결을 확인해 주세요'), findsOneWidget);
     expect(find.text('연결되면 하던 곳으로 돌아갈게요'), findsOneWidget);
     expect(find.text('다시 시도'), findsOneWidget);
+  });
+
+  testWidgets('제목은 큰 안내 화면 값 navTitle 20/700 ink, 렌더 30(알림 불러오기 실패 · 업데이트와 같다)', (tester) async {
+    await pumpScreen(tester);
+
+    final title = tester.widget<Text>(find.text('인터넷 연결을 확인해 주세요'));
+    expect((title.style!.fontSize, title.style!.fontWeight, title.style!.color, title.style!.height), (20, FontWeight.w700, AppColors.ink, 1.5));
+    expect(tester.getSize(find.text('인터넷 연결을 확인해 주세요')).height, 30);
   });
 
   testWidgets('안내 위에 3D 파란 느낌표(pen s3b4k)를 120 으로 둔다', (tester) async {

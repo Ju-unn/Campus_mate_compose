@@ -7,6 +7,7 @@ class NotificationPreferences {
     this.newMessage = true,
     this.trustReminder = true,
     this.newFriendReview = true,
+    this.pollComment = true,
     this.marketing = false,
     this.quietHours = false,
   });
@@ -17,6 +18,9 @@ class NotificationPreferences {
   final bool newMessage;
   final bool trustReminder;
   final bool newFriendReview;
+
+  /// 내 O/X 글에 새 댓글이 달렸을 때(서버 키 `poll_comment`, 2026-11-10).
+  final bool pollComment;
   final bool marketing;
   final bool quietHours;
 
@@ -29,6 +33,7 @@ class NotificationPreferences {
       newMessage: read('new_message'),
       trustReminder: read('trust_reminder'),
       newFriendReview: read('new_friend_review'),
+      pollComment: read('poll_comment'),
       marketing: read('marketing', fallback: false),
       quietHours: read('quiet_hours', fallback: false),
     );
@@ -42,6 +47,7 @@ class NotificationPreferences {
       newMessage: key == 'new_message' ? value : newMessage,
       trustReminder: key == 'trust_reminder' ? value : trustReminder,
       newFriendReview: key == 'new_friend_review' ? value : newFriendReview,
+      pollComment: key == 'poll_comment' ? value : pollComment,
       marketing: key == 'marketing' ? value : marketing,
       quietHours: key == 'quiet_hours' ? value : quietHours,
     );
@@ -54,6 +60,7 @@ class NotificationPreferences {
         'new_message' => newMessage,
         'trust_reminder' => trustReminder,
         'new_friend_review' => newFriendReview,
+        'poll_comment' => pollComment,
         'marketing' => marketing,
         _ => quietHours,
       };

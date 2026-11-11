@@ -107,6 +107,7 @@ void main() {
         GoRoute(path: AppRoutes.conversations, builder: (context, state) => const Scaffold(body: Text('대화 화면'))),
         GoRoute(path: '${AppRoutes.chatRoom}/:matchId', builder: (context, state) => Text('방 ${state.pathParameters['matchId']}')),
         GoRoute(path: AppRoutes.heartTasks, builder: (context, state) => const Scaffold(body: Text('무료로 하트 모으기 화면'))),
+        GoRoute(path: '${AppRoutes.communityPoll}/:pollId', builder: (context, state) => Scaffold(body: Text('글 상세 ${state.pathParameters['pollId']}'))),
         GoRoute(
           path: '${AppRoutes.heartTaskSubmit}/:task',
           builder: (context, state) =>
@@ -324,6 +325,21 @@ void main() {
       expect(assetOf('6'), 'assets/icons/ui-3d-bell.webp'); // WyOg1
     });
 
+    testWidgets('새 댓글 줄은 3D 대화 그림이다(설정의 "내 글의 새 댓글" 줄과 같다)', (tester) async {
+      await pump(
+        tester,
+        repository: FakeNotificationsRepository(pages: [
+          NotificationsPage(items: [
+            fakeNotification('c', kind: NotificationKind.pollComment, title: '내 질문에 새 댓글이 달렸어요', body: '깻잎을 먼저 집으면 안 되는…'),
+          ], unreadCount: 1),
+        ]),
+      );
+
+      final image = tester.widget<Image>(find.descendant(of: row('c'), matching: find.byType(Image)));
+      expect((((image.image) as ResizeImage).imageProvider as AssetImage).assetName, 'assets/icons/feature-icon-chat-3d-tight.webp');
+      expect(find.text('깻잎을 먼저 집으면 안 되는…'), findsOneWidget);
+    });
+
     // 10-18 인증샷 결과 알림. pen `알림함_인증_결과_행.png`: 승인 = 분홍 하트 `zxXQG`, 반려 = 금지 표시 `eUCJv`(값 확정).
     testWidgets('인증샷 승인 줄은 heart · 반려 줄은 ban 그림이고, 모르는 종류는 종(bell)이다', (tester) async {
       await pump(
@@ -449,6 +465,17 @@ void main() {
     testWidgets('인증샷 승인 줄을 누르면 18a 가 알림함 위에 열리고 뒤로가기가 알림함으로 돌아온다', (tester) async {
       await tapOnly(tester, {'route': 'heart_tasks', 'task': 'everytime_post'});
       expect(find.text('무료로 하트 모으기 화면'), findsOneWidget);
+
+      router.pop();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NotificationsScreen), findsOneWidget);
+    });
+
+    // 11-10 내 글의 새 댓글: 푸시와 같은 data(route poll + poll_id)가 알림함에도 남는다 — 눌러서 그 글의 상세가 알림함 위에 열린다.
+    testWidgets('새 댓글 줄을 누르면 그 글의 상세가 알림함 위에 열리고 뒤로가기가 알림함으로 돌아온다', (tester) async {
+      await tapOnly(tester, {'route': 'poll', 'poll_id': 'p7'});
+      expect(find.text('글 상세 p7'), findsOneWidget);
 
       router.pop();
       await tester.pumpAndSettle();
@@ -625,7 +652,8 @@ void main() {
       expect(title.style!.color, AppColors.ink);
       final description = tester.widget<Text>(find.text('카드가 도착하거나 대화 신청이 오면\n여기에 모여요'));
       expect(description.style!.fontSize, 14);
-      expect(description.style!.height, 1.5);
+      // B3: 공통 Empty 마스터(pen DFs55) 값 1.5 → 1.55.
+      expect(description.style!.height, 1.55);
       expect(description.style!.color, AppColors.muted);
       expect(description.textAlign, TextAlign.center);
     });
@@ -652,7 +680,10 @@ void main() {
       final title = tester.widget<Text>(find.text('알림을 불러오지 못했어요'));
       expect(title.style!.fontSize, 20);
       expect(title.style!.fontWeight, FontWeight.w700);
-      expect(tester.widget<Text>(find.text('잠시 후 다시 시도해 주세요')).style!.fontSize, 14);
+      // 큰 안내 제목 navTitle 줄높이 1.5(렌더 30), 설명은 Empty 마스터 14 muted 1.55.
+      expect(tester.getSize(find.text('알림을 불러오지 못했어요')).height, 30);
+      final description = tester.widget<Text>(find.text('잠시 후 다시 시도해 주세요')).style!;
+      expect((description.fontSize, description.height, description.color), (14, 1.55, AppColors.muted));
     });
 
     testWidgets('"다시 시도" 는 312×52, 본문 아래 여백 40 위(y688~740) — 인터넷 없음 화면(`NWGuf`)과 같은 패턴', (tester) async {

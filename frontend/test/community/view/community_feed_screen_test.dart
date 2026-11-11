@@ -446,6 +446,9 @@ void main() {
     await pump(tester);
     expect(find.text('잠시 후 다시 시도해 주세요'), findsOneWidget);
     expect(find.text('아직 질문이 없어요'), findsNothing);
+    // B3: 공통 RetryNotice — 문구 body → muted, 문구와 버튼 사이 0 → 12.
+    expect(tester.widget<Text>(find.text('잠시 후 다시 시도해 주세요')).style!.color, AppColors.muted);
+    expect(tester.getRect(find.byType(ElevatedButton)).top - tester.getRect(find.text('잠시 후 다시 시도해 주세요')).bottom, 12);
 
     repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));
     await tester.tap(find.text('다시 시도'));
@@ -501,7 +504,7 @@ void main() {
     expect(tester.widget<FilledButton>(buttonFinder).style!.padding!.resolve({}), const EdgeInsets.symmetric(horizontal: 16));
     // 회색(#E5E5E5) 이 아니라 O/X 와 같은 파랑 · 빨강, 글자는 흰 20/700.
     Color? fill(Finder finder) => tester.widget<FilledButton>(finder).style!.backgroundColor!.resolve({});
-    expect(fill(buttonFinder), pollAgreeBlue);
+    expect(fill(buttonFinder), AppColors.pollAgree);
     expect(fill(find.widgetWithText(FilledButton, '짬뽕')), AppColors.primary);
     final style = tester.widget<Text>(find.text('가나다라마바')).style!;
     expect((style.fontSize, style.fontWeight, style.color), (20.0, FontWeight.w700, AppColors.onPrimary));
@@ -513,7 +516,7 @@ void main() {
     final blue = find.widgetWithIcon(FilledButton, AppIcons.circle);
     final red = find.widgetWithIcon(FilledButton, AppIcons.x);
     expect(tester.getSize(blue).height, 56);
-    expect(tester.widget<FilledButton>(blue).style!.backgroundColor!.resolve({}), pollAgreeBlue);
+    expect(tester.widget<FilledButton>(blue).style!.backgroundColor!.resolve({}), AppColors.pollAgree);
     expect(tester.widget<FilledButton>(red).style!.backgroundColor!.resolve({}), AppColors.primary);
   });
 

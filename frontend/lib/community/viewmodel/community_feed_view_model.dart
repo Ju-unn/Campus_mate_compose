@@ -137,6 +137,11 @@ class CommunityFeedViewModel extends Notifier<CommunityFeedUiState> {
     );
   }
 
+  /// 상세에서 댓글을 쓰거나 지운 뒤 피드 카드의 "댓글 N" 을 맞춘다. 피드에 없는 글이면 아무 일도 없다.
+  void updateCommentCount(String pollId, int count) => state = state.copyWith(
+        polls: [for (final poll in state.polls) poll.id == pollId ? poll.withCommentCount(count) : poll],
+      );
+
   void _replace(Poll poll) =>
       state = state.copyWith(polls: [for (final p in state.polls) p.id == poll.id ? poll : p]);
 

@@ -9,7 +9,9 @@ import 'package:campus_mate/chat/viewmodel/user_channel.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/empty_notice.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
+import 'package:campus_mate/common/widgets/section_header.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
@@ -358,14 +360,10 @@ class _SectionHeader extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 44),
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       alignment: Alignment.centerLeft,
-      child: Row(
-        children: [
-          Expanded(child: Text(title, style: AppTypography.title.copyWith(color: AppColors.ink))),
-          Text(
-            context.l10n.matchingConversationsSectionCount(count: count),
-            style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
-          ),
-        ],
+      // B3: 공통 목록형 머리 — 제목 18/700 ink · 오른쪽 "N명" 14 muted(옛 20/600 에서 pen Ymhdq 값으로).
+      child: SectionHeader(
+        title: title,
+        trailing: context.l10n.matchingConversationsSectionCount(count: count),
       ),
     );
   }
@@ -378,34 +376,14 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // pen `LD7Kb` — 마스코트 120, 줄 사이는 전부 12 다.
-            Image.asset('assets/images/mascot-female.png', width: 120),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              context.l10n.matchingConversationsEmptyTitle,
-              textAlign: TextAlign.center,
-              style: AppTypography.subtitle
-                  .copyWith(color: AppColors.ink, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              context.l10n.matchingConversationsEmptyBody,
-              textAlign: TextAlign.center,
-              style: AppTypography.bodySmall.copyWith(color: AppColors.muted, height: 1.5),
-            ),
-            if (error != null) ...[
-              const SizedBox(height: AppSpacing.md),
-              _ErrorLine(failure: error!),
-            ],
-          ],
-        ),
-      ),
+    final failure = error;
+    // pen `LD7Kb` = Empty `TVc8b`: 마스코트 120 → 24 → 제목 → 8 → 설명. 실패하면 설명 아래 16 에 한 줄이 붙는다.
+    return EmptyNotice(
+      image: Image.asset('assets/images/mascot-female.png'),
+      title: context.l10n.matchingConversationsEmptyTitle,
+      description: context.l10n.matchingConversationsEmptyBody,
+      action: failure == null ? null : _ErrorLine(failure: failure),
+      actionGap: AppSpacing.md,
     );
   }
 }

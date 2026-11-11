@@ -1,3 +1,5 @@
+from urllib.parse import urlparse
+
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 
@@ -92,6 +94,23 @@ class Settings(BaseSettings):
     inquiry_notify_to: str = "appmailerl4538@gmail.com"
     inquiry_smtp_user: str = "appmailerl4538@gmail.com"
     inquiry_smtp_password: str = ""
+    # 휴대폰 문자 인증(phone_verification/, 계획서 문자인증_솔라피_계획_11-10). solapi 가 아니면 전부 가짜 발송이다 —
+    # 가짜는 로컬 스택(runs_locally)에서만 쓰고 운영 주소면 503(문자 · 인증 줄 없이). 글자로 받아 틀린 값이 부팅을 막지 않는다.
+    sms_provider: str = "fake"
+    # 솔라피 API 키 · 시크릿(Secret Manager) · 등록한 발신번호(숫자만). 하나라도 비면 solapi 여도 보내지 않는다(503).
+    solapi_api_key: str = ""
+    solapi_api_secret: str = ""
+    solapi_sender: str = ""
+    # 하루(한국 시간) 전체 발송 상한 — 요금 폭탄의 마지막 방어선. 솔라피 하루 한도(개인 50 · 사업자 1,000)보다 낮게 둔다.
+    sms_daily_global_limit: int = 300
+    # true 면 기본 정보 저장이 인증한 번호만 받는다. 기본 false — 인증 없이 번호를 보내는 옛 앱(심사 중)이 막히지 않게,
+    # 인증하는 새 앱이 나간 뒤에 켠다(서버 먼저 배포 규칙).
+    phone_verification_required: bool = False
+
+    @property
+    def runs_locally(self) -> bool:
+        """로컬 Supabase 스택(127.0.0.1 · localhost)을 보는 서버인가. 운영 DB 에 가짜 인증 줄이 생기지 않게 하는 기준이다."""
+        return urlparse(self.supabase_url).hostname in {"127.0.0.1", "localhost", "::1"}
 
     @property
     def postgrest_url(self) -> str:

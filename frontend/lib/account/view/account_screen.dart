@@ -1,9 +1,10 @@
 import 'package:campus_mate/account/model/data/account_info.dart';
 import 'package:campus_mate/account/viewmodel/account_info_provider.dart';
 import 'package:campus_mate/common/failure.dart';
-import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/common/widgets/retry_notice.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
+import 'package:campus_mate/common/widgets/section_header.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
@@ -32,7 +33,10 @@ class AccountScreen extends ConsumerWidget {
       body: SafeArea(
         child: ref.watch(accountInfoProvider).when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stackTrace) => _LoadError(onRetry: () => ref.invalidate(accountInfoProvider)),
+              error: (error, stackTrace) => RetryNotice(
+                message: context.appErrorText(AppError.accountLoad),
+                onRetry: () => ref.invalidate(accountInfoProvider),
+              ),
               data: (result) => result.when(
                 onSuccess: (info) => _AccountContent(
                   info: info,
@@ -42,29 +46,12 @@ class AccountScreen extends ConsumerWidget {
                     if (saved == true && context.mounted) ref.invalidate(accountInfoProvider);
                   },
                 ),
-                onFailure: (_) => _LoadError(onRetry: () => ref.invalidate(accountInfoProvider)),
+                onFailure: (_) => RetryNotice(
+                  message: context.appErrorText(AppError.accountLoad),
+                  onRetry: () => ref.invalidate(accountInfoProvider),
+                ),
               ),
             ),
-      ),
-    );
-  }
-}
-
-/// 불러오기 실패. pen 에 없는 상태라 화면 15(`my_profile_screen.dart` `_LoadError`)와 같은 모양을 쓴다.
-class _LoadError extends StatelessWidget {
-  const _LoadError({required this.onRetry});
-
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(context.appErrorText(AppError.accountLoad), style: AppTypography.body.copyWith(color: AppColors.body)),
-          AppButton(label: context.l10n.commonRetry, variant: AppButtonVariant.text, onPressed: onRetry),
-        ],
       ),
     );
   }
@@ -96,7 +83,7 @@ class _AccountContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _SectionHeader(l10n.accountSectionLogin),
+          SettingsSectionHeader(l10n.accountSectionLogin),
           const SizedBox(height: AppSpacing.xs),
           _InfoCard(rows: [
             // 소셜 로그인 뒤라 이메일 대신 로그인 수단을 보인다. 모르면 줄 자체를 뺀다(빈 줄이 남지 않게).
@@ -117,7 +104,7 @@ class _AccountContent extends StatelessWidget {
             ),
           ]),
           const SizedBox(height: _sectionGap),
-          _SectionHeader(l10n.accountSectionIdentity),
+          SettingsSectionHeader(l10n.accountSectionIdentity),
           const SizedBox(height: AppSpacing.xs),
           _InfoCard(rows: [
             _InfoRow(
@@ -130,7 +117,7 @@ class _AccountContent extends StatelessWidget {
           const SizedBox(height: _sectionGap),
           const _PrivacyNote(),
           const SizedBox(height: _sectionGap),
-          _SectionHeader(l10n.accountSectionContact),
+          SettingsSectionHeader(l10n.accountSectionContact),
           const SizedBox(height: AppSpacing.xs),
           _InfoCard(rows: [
             _InfoRow(
@@ -141,7 +128,7 @@ class _AccountContent extends StatelessWidget {
             ),
           ]),
           const SizedBox(height: _sectionGap),
-          _SectionHeader(l10n.accountSectionJoin),
+          SettingsSectionHeader(l10n.accountSectionJoin),
           const SizedBox(height: AppSpacing.xs),
           _InfoCard(rows: [
             _InfoRow(icon: AppIcon3d.calendarCheck, label: l10n.accountRowJoinedAt, value: _joinedAtLabel(info.joinedAt)),
@@ -164,21 +151,6 @@ class _AccountContent extends StatelessWidget {
     final kst = joinedAt.toUtc().add(const Duration(hours: 9));
     String twoDigits(int value) => value.toString().padLeft(2, '0');
     return '${kst.year}.${twoDigits(kst.month)}.${twoDigits(kst.day)}';
-  }
-}
-
-/// 구역 머리(pen `GsxGU` 등) — 14/700 muted, 줄높이 속성 없음이라 20/14 로 맞춘다.
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader(this.label);
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w700, color: AppColors.muted, height: 20 / 14),
-    );
   }
 }
 

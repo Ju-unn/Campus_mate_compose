@@ -3,6 +3,7 @@ import 'package:campus_mate/community/view/poll_time.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/notifications/model/data/app_notification.dart';
 import 'package:flutter/material.dart';
@@ -15,6 +16,7 @@ const Key notificationUnreadDotKey = ValueKey('notification-unread-dot');
 /// 종류별 3D 그림(pen 마스터 `70. Item · Notification` 의 3D Icon `OaDey` 를 종류마다 Replace).
 /// 카드 도착 `wAQtn` · 대화 신청 `Lua1H` · 매칭 `zxXQG` · 지인 리뷰 `dAIki` · 학생증 결과 `Trtii` · 밤사이 묶음 `WyOg1`.
 /// 인증샷 결과(2026-10-18): 승인은 하트 `zxXQG`, 반려는 금지 `eUCJv`(값 확정 — pen `알림함_인증_결과_행.png`).
+/// 새 댓글(2026-11-10)은 알림 설정의 "내 글의 새 댓글" 줄(`KjGQd`)과 같은 3D 대화 그림이다 — 알림함 줄 pen 이 없어 정한 값.
 /// 모르는 종류는 밤사이 묶음과 같은 알림 종이다.
 AppIcon3d notificationIcon(NotificationKind kind) => switch (kind) {
       NotificationKind.cardArrived => AppIcon3d.layers,
@@ -24,6 +26,7 @@ AppIcon3d notificationIcon(NotificationKind kind) => switch (kind) {
       NotificationKind.verificationResult => AppIcon3d.badgeCheck,
       NotificationKind.heartTaskApproved => AppIcon3d.heart,
       NotificationKind.heartTaskRejected => AppIcon3d.ban,
+      NotificationKind.pollComment => AppIcon3d.chat,
       NotificationKind.nightDigest || NotificationKind.other => AppIcon3d.bell,
     };
 
@@ -84,22 +87,22 @@ class NotificationRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _IconCircle(kind: item.kind),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(item.title, style: _titleStyle),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: AppSpacing.xxs),
                         Text(item.body, style: _bodyStyle, maxLines: 2, overflow: TextOverflow.ellipsis),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: AppSpacing.xxs),
                         Text(time, style: _timeStyle),
                       ],
                     ),
                   ),
                   // pen `z548M` Unread Slot(폭 8). 읽음 변형 `iVIkt` 도 슬롯 `FOB6f` 와 앞 간격 12 를 그대로 두고
                   // 점 `OYASd` 만 숨긴다 — 읽음 · 안 읽음 글 칸이 같은 224.
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppSpacing.sm),
                   SizedBox(width: 8, child: item.read ? null : const _UnreadDot()),
                 ],
               ),

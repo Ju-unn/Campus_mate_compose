@@ -1,6 +1,7 @@
 import 'package:campus_mate/chat/view/chat_input_bar.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/line_break_limit_formatter.dart';
+import 'package:campus_mate/common/widgets/reason_radio_row.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -9,7 +10,6 @@ import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/safety/model/data/report_reason.dart';
 import 'package:campus_mate/safety/model/data/report_target.dart';
-import 'package:campus_mate/safety/view/reason_radio_row.dart';
 import 'package:campus_mate/safety/view/report_reason_text.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:campus_mate/safety/viewmodel/report_ui_state.dart';

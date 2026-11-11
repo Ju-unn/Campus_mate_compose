@@ -3,6 +3,7 @@ import 'package:campus_mate/common/phone_number_formatter.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/profile/basic/model/data/mbti_poles.dart';
 import 'package:campus_mate/profile/basic/model/data/signup_phone_number.dart';
+import 'package:campus_mate/profile/basic/viewmodel/phone_verify_ui_state.dart';
 
 /// 닉네임 한 줄 안내의 상태(DESIGN.md §8.5 `nickname-field` "인라인 중복확인 상태").
 /// 입력이 바뀌면 [none] 으로 돌아가고, 디바운스가 끝난 뒤 형식·중복 확인 결과로 채워진다.
@@ -18,6 +19,7 @@ class BasicInfoUiState {
     this.heightInput = '',
     this.phoneNumberInput = '',
     this.rejectedPhoneDigits,
+    this.phoneVerify = const PhoneVerifyUiState(),
     this.gender,
     this.mbtiPoles = const {},
     this.isMbtiUnknown = false,
@@ -45,6 +47,9 @@ class BasicInfoUiState {
   /// 서버가 422 `phone_number_invalid` 로 거절한 번호(숫자만). 앱 규칙을 지났어도 서버가 막은 번호라 같은 번호로는
   /// 다시 내지 않는다 — 번호를 고치면 저절로 걷힌다. 폰에 남기지 않는다([toDraft] 에 없다).
   final String? rejectedPhoneDigits;
+
+  /// 휴대폰 문자 인증(pen 04-1 2c). 폰에 남기지 않는다([toDraft] 에 없다) — 다시 열면 번호부터 다시 인증한다.
+  final PhoneVerifyUiState phoneVerify;
   final String? gender;
   /// 축마다 고른 극(E/I · N/S · T/F · J/P). 네 축을 다 골라야 서버로 보낼 값이 된다.
   final Set<String> mbtiPoles;
@@ -101,6 +106,23 @@ class BasicInfoUiState {
   }
 
   bool get _isPhoneAcceptable => SignupPhoneNumber.accepts(phoneDigits) && phoneDigits != rejectedPhoneDigits;
+
+  /// 번호 줄 아래 상태 줄의 오류 — 서버가 막은 이유(⑦ ⑫ 잠시 후 · 010)가 먼저, 없으면 앱 규칙에 걸린 번호.
+  Failure? get phoneStatusError => phoneVerify.error ?? phoneNumberError;
+
+  /// 지금 칸의 번호가 인증된 번호인가(⑥). "다음" 은 이것이 참일 때만 켜진다(대장 결정 11-10).
+  bool get isPhoneVerified =>
+      phoneVerify.step == PhoneVerifyStep.verified && phoneVerify.verifiedDigits == phoneDigits;
+
+  /// 인증번호 받기 · 다시 받기를 보낼 수 있는가. 받기 버튼(①②⑦)과 다시 받기 글자(③④⑤⑬)가 같이 쓴다.
+  bool get canSendCode =>
+      !isSubmitting &&
+      _isPhoneAcceptable &&
+      !phoneVerify.isSending &&
+      !phoneVerify.isVerifying &&
+      phoneVerify.step != PhoneVerifyStep.verified &&
+      !phoneVerify.isDailyLimited &&
+      phoneVerify.resendSecondsLeft == 0;
 
   /// 출생연도는 **나이가 모자랄 때만** 오류를 띄운다(사용자 결정 2026-09-29). 치는 도중(3자리 이하)은 값이 작아
   /// 걸리지 않는다. 문구는 서버 422(schemas.py)와 같다 — 해가 바뀌면 연도도 따라 바뀐다. 1950 이전은 꺼지기만 한다.
@@ -168,6 +190,7 @@ class BasicInfoUiState {
         heightCm != null &&
         // 반만 친 번호 · 가짜 모양 번호로 넘어가면 서버가 400 을 돌려주고 04-1 에 다시 갇힌다.
         _isPhoneAcceptable &&
+        isPhoneVerified &&
         gender != null;
   }
 }

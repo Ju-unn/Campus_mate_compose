@@ -95,6 +95,10 @@ const _nicknameBad = '한글 또는 영문 2~5자로 입력해 주세요';
 const _nicknameTaken = '이미 있는 닉네임이에요';
 const _heightBad = '120~230 사이로 입력해 주세요';
 const _consentCta = '동의하고 계속하기';
+// 04-1 휴대폰 문자 인증(phone_verify_field.dart) — 받기 버튼 · 인증번호 칸 힌트 · 인증 뒤 상태 줄.
+const _sendCode = '인증번호 받기';
+const _codePlaceholder = '6자리 숫자';
+const _phoneVerified = '인증됐어요';
 
 Finder screen(String name) => switch (name) {
       '05-12' => find.byType(AvatarGenerationScreen),
@@ -244,6 +248,38 @@ String _englishNickname() => String.fromCharCodes(List.generate(5, (_) => 97 + _
 
 String _koreanNickname() => String.fromCharCodes(List.generate(3, (_) => 0xAC00 + _random.nextInt(11172)));
 
+/// 04-1 "다음" 은 문자 인증한 번호에서만 켜진다(휴대폰 인증, 대장 결정 11-10). 번호를 치고 인증번호 받기 → PC 가 로컬 서버의 가짜 발송기 로그에서
+/// 읽어 준 6자리 입력 → "인증됐어요" 까지 간다. **받기는 PC 가 일감에 실어 준 시험 번호([job] 의 `phone`)로만 누른다** — 칸에 친 번호가 그 번호가
+/// 아니면(무작위 번호 등) 누르기 전에 멈춘다. 무작위 번호로 받기를 누르면 남의 폰에 문자가 간다(사용자 11-11).
+/// [waitForTurn] 이면 받기 전에 PC 에 `send` 로 멈춰 차례를 기다린다 — 두 기기가 같은 번호로 차례로 받아야 하는 가설(서버: 같은 번호 60초에 1번).
+Future<void> _verifyPhone(WidgetTester tester, Map<String, dynamic> job, {bool waitForTurn = false}) async {
+  final phone = job['phone'] as String?;
+  must(phone != null, '일감에 시험 번호(phone)가 없음 — 무작위 번호로는 인증번호를 받지 않는다');
+  final typed = fieldText(tester, input('010-0000-0000')).replaceAll(RegExp(r'\D'), '');
+  must(typed == phone!.replaceAll('-', ''), '입력칸의 번호가 시험 번호가 아님 — 인증번호 받기를 누르지 않는다');
+  if (waitForTurn) await step('send');
+  must(enabled(tester, _sendCode), '시험 번호를 쳤는데 $_sendCode 가 꺼져 있음');
+  await tap(tester, button(_sendCode));
+  await pumpUntil(tester, input(_codePlaceholder), timeout: const Duration(seconds: 15)); // 인증번호 줄이 열림 = 서버가 문자를 보냄
+  final said = await step('code'); // PC 가 서버 로그에서 인증번호를 읽어 go 에 실어 준다
+  final code = said['code'] as String?;
+  must(code != null && code.length == 6, 'PC 가 인증번호를 주지 않음');
+  await type(tester, input(_codePlaceholder), code!); // 6자리가 차면 앱이 바로 확인한다
+  await pumpUntil(tester, find.text(_phoneVerified), timeout: const Duration(seconds: 15));
+}
+
+/// [_fillBasics] 에 시험 번호를 넣고 문자 인증까지 끝낸다 — "다음" 이 켜져야 하는 가설용.
+Future<void> _fillVerifiedBasics(
+  WidgetTester tester,
+  Map<String, dynamic> job, {
+  String? nickname,
+  String year = '2000',
+  bool waitForTurn = false,
+}) async {
+  await _fillBasics(tester, nickname: nickname, year: year, phone: job['phone'] as String?);
+  await _verifyPhone(tester, job, waitForTurn: waitForTurn);
+}
+
 Future<void> _nickname(WidgetTester tester, String nickname, String message) async {
   await type(tester, labeled(_nicknameLabel), nickname);
   await pumpUntil(tester, find.text(message), timeout: const Duration(seconds: 5));
@@ -373,7 +409,7 @@ final Map<String, Area1Case> area1Cases = {
     await _consentRow(tester, '전체 동의');
     must(_checkedBoxes(tester) == 0, '두 번 누른 뒤 켜진 칸 ${_checkedBoxes(tester)}');
     await _consentRow(tester, '전체 동의');
-    await _consentRow(tester, '마케팅 알림 받기');
+    await _consentRow(tester, '마케팅 활용 동의');
     must(!_allAgreeChecked(tester), '마케팅을 껐는데 전체 동의가 켜져 있음');
     must(enabled(tester, _consentCta), '필수가 다 켜졌는데 버튼이 꺼짐');
     return null;
@@ -381,8 +417,8 @@ final Map<String, Area1Case> area1Cases = {
   'E-GATE-11': _session((tester, job) async {
     await arrive(tester, 'consent');
     Finder view(String label) => find.byWidgetPredicate((w) => w is Semantics && w.properties.label == '$label 보기');
-    must(find.text('보기').evaluate().length == 2, '"보기" ${find.text('보기').evaluate().length}개');
-    must(view('마케팅 알림 받기').evaluate().isEmpty, '마케팅 줄에 보기가 있음');
+    must(find.text('보기').evaluate().length == 3, '"보기" ${find.text('보기').evaluate().length}개');
+    must(view('마케팅 활용 동의').evaluate().isNotEmpty, '마케팅 줄에 보기가 없음');
     // 누르고 바로 끝낸다 — 브라우저가 뜨면 앱이 멈춤(paused) 상태가 돼 pump 가 끝나지 않는다.
     // 브라우저가 맨 위인지는 PC 가 본다(e2e/area1.py p_gate_11).
     await tester.ensureVisible(view('이용약관'));
@@ -497,7 +533,7 @@ final Map<String, Area1Case> area1Cases = {
   'E-ONB-06': _session((tester, job) async {
     await arrive(tester, '04-1');
     final youngest = job['year'] as int;
-    await _fillBasics(tester, year: '$youngest');
+    await _fillVerifiedBasics(tester, job, year: '$youngest');
     must(find.text('$youngest년생부터 가입할 수 있어요').evaluate().isEmpty, '$youngest 에 문구가 보임');
     must(enabled(tester, '다음'), '$youngest 에 다음이 꺼짐');
     await type(tester, input('예: 2003'), '${youngest + 1}');
@@ -507,7 +543,7 @@ final Map<String, Area1Case> area1Cases = {
   }),
   'E-ONB-07': _session((tester, job) async {
     await arrive(tester, '04-1');
-    await _fillBasics(tester, year: '1950');
+    await _fillVerifiedBasics(tester, job, year: '1950');
     must(enabled(tester, '다음'), '1950 에 다음이 꺼짐');
     await type(tester, input('예: 2003'), '1949');
     must(!enabled(tester, '다음'), '1949 에 다음이 켜짐');
@@ -516,7 +552,7 @@ final Map<String, Area1Case> area1Cases = {
   }),
   'E-ONB-10': _session((tester, job) async {
     await arrive(tester, '04-1');
-    await _fillBasics(tester);
+    await _fillVerifiedBasics(tester, job);
     for (final (height, ok) in [('120', true), ('230', true), ('119', false), ('231', false)]) {
       await type(tester, input('예: 170'), height);
       must(find.text(_heightBad).evaluate().isEmpty == ok, '키 $height 문구가 ${ok ? '보임' : '없음'}');
@@ -527,7 +563,7 @@ final Map<String, Area1Case> area1Cases = {
   'E-ONB-11': _session((tester, job) async {
     await arrive(tester, '04-1');
     final phone = job['phone'] as String;
-    await _fillBasics(tester, phone: phone);
+    await _fillVerifiedBasics(tester, job);
     await tap(tester, button('다음'));
     await arrive(tester, '04-1b', timeout: const Duration(seconds: 10));
     final digits = phone.replaceAll('-', '');
@@ -538,6 +574,8 @@ final Map<String, Area1Case> area1Cases = {
   'E-ONB-12': _session((tester, job) async {
     await arrive(tester, '04-1');
     await _fillBasics(tester, phone: '0101234567');
+    // "다음" 은 인증 전이라 번호와 상관없이 꺼져 있다 — 짧은 번호는 "인증번호 받기" 부터 꺼진다.
+    must(!enabled(tester, '인증번호 받기'), '10자리 번호에 인증번호 받기가 켜짐');
     must(!enabled(tester, '다음'), '10자리 번호에 다음이 켜짐');
     return null;
   }),
@@ -545,6 +583,7 @@ final Map<String, Area1Case> area1Cases = {
   'E-ONB-13': _session((tester, job) async {
     await arrive(tester, '04-1');
     await _fillBasics(tester, phone: '0111234567');
+    must(!enabled(tester, '인증번호 받기'), '011 10자리에 인증번호 받기가 켜짐');
     must(!enabled(tester, '다음'), '011 10자리에 다음이 켜짐');
     return null;
   }),
@@ -556,7 +595,7 @@ final Map<String, Area1Case> area1Cases = {
   }),
   'E-ONB-16': _session((tester, job) async {
     await arrive(tester, '04-1');
-    await _fillBasics(tester);
+    await _fillVerifiedBasics(tester, job);
     await tap(tester, find.widgetWithText(SelectChip, '모름'));
     await tap(tester, button('다음'));
     await arrive(tester, '04-1b', timeout: const Duration(seconds: 10));
@@ -564,7 +603,7 @@ final Map<String, Area1Case> area1Cases = {
   }),
   'E-ONB-17': _session((tester, job) async {
     await arrive(tester, '04-1');
-    await _fillBasics(tester);
+    await _fillVerifiedBasics(tester, job);
     for (final pole in ['E', 'N', 'T']) {
       await tap(tester, find.widgetWithText(SelectChip, pole));
     }

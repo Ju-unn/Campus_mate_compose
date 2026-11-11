@@ -2,13 +2,15 @@
 저장소 루트에서 `python -m unittest e2e.test_area1_b6`."""
 
 import subprocess
+import threading
 import unittest
 from types import SimpleNamespace
 from unittest import mock
 
 from e2e import area1, area1_b6
-from e2e.test_area1 import Base
+from e2e.test_area1 import CFG, Base
 from e2e.test_area1_phone import FakePhone
+from e2e.test_phone_sms import FAKE_PHONE, LOCAL_DB, PROD, PROD_API, FakeHub, Texting, environment, forbid_requests
 from e2e.tools import Reply
 
 PHONE = ['E-ONB-74', 'E-ONB-05']
@@ -38,7 +40,7 @@ class Base6(Base):
     def phone(self, *answers, serial='emulator-5554', **kw):
         phone = FakePhone(*answers, **kw)
         phone.serial = serial
-        phone.hub = SimpleNamespace(port=8766)
+        phone.hub = FakeHub('code', 'typed')  # 첫 멈춤(send) 뒤에 앱이 말할 멈춤들
         return phone
 
 
@@ -150,16 +152,17 @@ class OtherPhoneTest(Base6):
         self.assertEqual(self.hubs, [])  # 우편함을 열기 전에 막는다
 
 
-class Onb05Test(Base6):
+class Onb05Test(Base6, Texting):
     FIRST = Reply(200, [{'id': 'id-1'}])  # 첫 기기의 계정이 닉네임을 가졌다
     SECOND = Reply(200, [{'id': 'id-2'}])
 
     def setUp(self):
         super().setUp()
+        self.start_texting(self, '111111')  # 앞서 나간 옛 문자 - 건너뛰어야 한다
         patcher = mock.patch.object(area1_b6.notify, 'grant_notifications')
         patcher.start()
         self.addCleanup(patcher.stop)
-        wait = mock.patch.object(area1_b6, 'RELEASE_WAIT', 0.3)
+        wait = mock.patch.object(area1_b6, 'RELEASE_WAIT', 1.5)
         wait.start()
         self.addCleanup(wait.stop)
 
@@ -169,19 +172,83 @@ class Onb05Test(Base6):
         patcher.start()
         self.addCleanup(patcher.stop)
         self.fake = self.serve({PROFILES: self.FIRST, **(routes or {})})
+        for delay, code in ((0.05, '333333'), (0.2, '444444')):  # 두 기기가 차례로 받기를 누르면 서버가 로그에 남기는 것
+            threading.Timer(delay, self.sent, args=(code,)).start()
         return area1.attempt_phone(self.run, 'E-ONB-05', mine)
 
     def pair(self, mine_said, other_said):
-        return (self.phone(mine_said, serial='R58M', midway_step={'step': 'typed'}),
-                self.phone(other_said, serial='emulator-5554', midway_step={'step': 'typed'}))
+        return (self.phone(mine_said, serial='R58M', midway_step={'step': 'send'}),
+                self.phone(other_said, serial='emulator-5554', midway_step={'step': 'send'}))
 
     def test_two_accounts_get_the_same_new_nickname_and_exactly_one_is_saved(self):
         mine, other = self.pair(SAVED, TAKEN)
         self.assertEqual(self.go(mine, other)[0], 'pass')
         self.assertEqual(mine.jobs[0]['nickname'], other.jobs[0]['nickname'])
         self.assertEqual(len(self.fake.users), 2)  # 기기마다 따로 만든 계정
-        self.assertEqual((mine.acted, other.acted), (['typed'], ['typed']))
+        self.assertEqual((mine.acted, other.acted), (['send'], ['send']))
         self.hub.close.assert_called_once()
+
+    def test_both_devices_get_the_test_number_and_their_own_code_one_after_the_other(self):
+        mine, other = self.pair(SAVED, TAKEN)
+        self.assertEqual(self.go(mine, other)[0], 'pass')
+        self.assertEqual((mine.jobs[0]['phone'], other.jobs[0]['phone']), (FAKE_PHONE, FAKE_PHONE))
+        # go 에 실린 값: 첫 멈춤(send) 뒤엔 없고, 둘째 멈춤(code) 뒤엔 인증번호. 마지막 멈춤(typed) 뒤 go 는 Run.phone 이 보낸다
+        self.assertEqual([hub.went[0] for hub in (mine.hub, other.hub)], [None, None])
+        codes = [hub.went[1]['code'] for hub in (mine.hub, other.hub)]
+        self.assertEqual(sorted(codes), ['333333', '444444'])  # 서로 다른 문자 - 옛 111111 은 아니다
+
+    def test_the_second_device_may_ask_again_because_the_first_ones_one_minute_gap_is_lifted(self):
+        mine, other = self.pair(SAVED, TAKEN)
+        self.go(mine, other)
+        lifted = [u for m, u in self.fake.urls if m == 'PATCH' and 'phone_verifications' in u]
+        self.assertEqual(len(lifted), 2)  # 기기마다 차례를 받을 때 한 번씩
+
+    def test_the_limits_are_cleared_before_the_accounts_are_made(self):
+        mine, other = self.pair(SAVED, TAKEN)
+        self.go(mine, other)
+        calls = [(m, p) for m, p, _ in self.fake.calls]
+        self.assertLess(calls.index(('DELETE', '/rest/v1/phone_verifications')), calls.index(('POST', '/auth/v1/admin/users')))
+
+    def test_a_production_target_is_blocked_before_the_second_device_or_any_account(self):
+        mine, other = self.pair(SAVED, TAKEN)
+        self.run.cfg = PROD
+        attempts = forbid_requests(self)
+        with mock.patch.object(area1_b6, '_other_phone') as second:
+            result, note = area1.attempt_phone(self.run, 'E-ONB-05', mine)
+        self.run.cfg = CFG
+        self.assertEqual(result, 'blocked')
+        self.assertIn('운영', note)
+        self.assertEqual(attempts, [])
+        second.assert_not_called()
+
+    def test_a_production_api_address_alone_blocks_it_before_the_second_device_or_any_account(self):
+        mine, other = self.pair(SAVED, TAKEN)
+        self.run.cfg = {**CFG, 'SUPABASE_URL': LOCAL_DB, 'API_BASE_URL': PROD_API}
+        attempts = forbid_requests(self)
+        with mock.patch.object(area1_b6, '_other_phone') as second:
+            result, note = area1.attempt_phone(self.run, 'E-ONB-05', mine)
+        self.run.cfg = CFG
+        self.assertEqual(result, 'blocked')
+        self.assertIn('API', note)
+        self.assertEqual(attempts, [])
+        second.assert_not_called()
+
+    def test_without_the_test_number_the_case_is_blocked_before_any_account(self):
+        mine, other = self.pair(SAVED, TAKEN)
+        fake = self.serve()
+        with environment(E2E_SERVER_LOG=str(self.log)), mock.patch.object(area1_b6, '_other_phone') as second:
+            result, note = area1.attempt_phone(self.run, 'E-ONB-05', mine)
+        self.assertEqual(result, 'blocked')
+        self.assertIn('시험 번호', note)
+        self.assertEqual(fake.users, [])
+        second.assert_not_called()
+
+    def test_a_device_that_stops_talking_while_holding_the_turn_does_not_leave_the_other_waiting(self):
+        mine, other = self.pair(SAVED, TAKEN)
+        mine.hub = FakeHub()  # 첫 멈춤 뒤 앱이 더 말하지 않고 끝남 -> 둘째 멈춤 전에 막힘
+        result, note = self.go(mine, other)
+        self.assertEqual(result, 'blocked')
+        self.assertIn('멈춤', note)
 
     def test_the_other_way_round_also_passes(self):
         mine, other = self.pair(TAKEN, SAVED)
@@ -204,10 +271,10 @@ class Onb05Test(Base6):
                 barrier_seen.append(len(order))  # 풀려난 때 두 앱이 모두 멈춰 있었어야 한다
                 return super().__call__(**job)
 
-        mine, other = Slow(SAVED), Slow(TAKEN)
+        mine, other = Slow(SAVED, midway_step={'step': 'send'}), Slow(TAKEN, midway_step={'step': 'send'})
         for phone, serial in ((mine, 'R58M'), (other, 'emulator-5554')):
             phone.serial = serial
-            phone.hub = SimpleNamespace(port=1)
+            phone.hub = FakeHub('code', 'typed')
         self.assertEqual(self.go(mine, other)[0], 'pass')
         self.assertEqual(barrier_seen, [2, 2])
 
@@ -227,7 +294,7 @@ class Onb05Test(Base6):
     def test_an_app_that_ends_before_stopping_does_not_hang_the_other_and_its_note_is_kept(self):
         mine = self.phone({'result': 'fail', 'note': '04-1 에 못 감'}, serial='R58M')
         mine.__class__ = type('Early', (FakePhone,), {'__call__': lambda this, midway=None, **job: this.answers[0]})
-        other = self.phone(SAVED, serial='emulator-5554', midway_step={'step': 'typed'})
+        other = self.phone(SAVED, serial='emulator-5554', midway_step={'step': 'send'})
         result, note = self.go(mine, other)
         self.assertEqual(result, 'fail')
         self.assertIn('04-1 에 못 감', note)

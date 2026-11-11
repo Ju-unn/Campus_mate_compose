@@ -274,7 +274,7 @@ class _PhotoTile extends StatelessWidget {
                     width: 28,
                     height: 28,
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.6),
+                      color: AppColors.photoRemoveBadge,
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(AppIcons.x, size: 14, color: AppColors.onInk),

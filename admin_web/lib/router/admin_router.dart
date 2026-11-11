@@ -5,6 +5,9 @@ import 'package:campus_mate_admin/gate/gate_stage.dart';
 import 'package:campus_mate_admin/graduate/graduate_review_screen.dart';
 import 'package:campus_mate_admin/heart_tasks/heart_task_review_screen.dart';
 import 'package:campus_mate_admin/home/home_screen.dart';
+import 'package:campus_mate_admin/inquiries/inquiry_detail_screen.dart';
+import 'package:campus_mate_admin/inquiries/inquiry_item.dart';
+import 'package:campus_mate_admin/inquiries/inquiry_list_screen.dart';
 import 'package:campus_mate_admin/matching/matching_screen.dart';
 import 'package:campus_mate_admin/reports/report_detail_screen.dart';
 import 'package:campus_mate_admin/reports/report_item.dart';
@@ -167,7 +170,7 @@ List<GoRoute> _sectionRoutes(AdminSection section) {
   return [route(section.path), if (section != AdminSection.home) route('${section.path}/:id')];
 }
 
-/// 메뉴마다 화면(아홉 메뉴 모두 실제 화면 — W4 에서 자리 표시가 없어졌다).
+/// 메뉴마다 화면(열 메뉴 모두 실제 화면 — W4 에서 자리 표시가 없어졌다).
 /// 신고는 목록과 상세가 다른 화면이다(pen A4 — 상세는 목록 옆이 아니라 따로). [extra] 는 목록에서 고른 줄(머리줄을 먼저 그린다).
 Widget _sectionScreen(AdminSection section, String? id, Object? extra) {
   return switch (section) {
@@ -176,6 +179,9 @@ Widget _sectionScreen(AdminSection section, String? id, Object? extra) {
     AdminSection.graduates => GraduateReviewScreen(initialId: id),
     AdminSection.reports when id == null => const ReportListScreen(),
     AdminSection.reports => ReportDetailScreen(id: id!, summary: extra is ReportSummary && extra.id == id ? extra : null),
+    // 문의도 신고처럼 목록과 상세가 다른 화면. 서버에 한 건 조회가 없어 상세는 목록에서 고른 줄(extra)로만 열린다 — 주소로 바로 열면 안내 화면.
+    AdminSection.inquiries when id == null => const InquiryListScreen(),
+    AdminSection.inquiries => InquiryDetailScreen(id: id!, item: extra is InquiryItem && extra.id == id ? extra : null),
     // 사용자는 목록(찾기)과 상세가 다른 화면이다(pen A5). 주소에는 사람 번호뿐 — 학교 메일 · 검색어는 주소 · extra 에 싣지 않는다.
     AdminSection.users when id == null => const UserListScreen(),
     AdminSection.users => UserDetailScreen(id: id!),

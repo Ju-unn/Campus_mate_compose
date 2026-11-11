@@ -13,6 +13,7 @@ from app.core import errors
 from app.core.deps import Caller, get_now, get_settings, get_verified_caller, get_vision_client
 from app.matching.repository import MatchingRepository
 from app.matching.vectors import refresh_vectors
+from app.phone_verification.repository import PhoneVerificationRepository
 from app.profile_onboarding.avatar_tasks import AvatarTaskQueue
 from app.profile_onboarding.avatars import (
     FALLBACK_COMPENSATION_HEARTS,
@@ -43,6 +44,7 @@ from app.profile_onboarding.schemas import (
 from app.profile_onboarding.storage import AvatarStorage, ProfilePhotoStorage
 from app.profile_onboarding.tags import IDEAL_TRAITS, INTEREST_TAGS, MY_TRAITS, validate_tag_selection
 from app.settings import Settings
+from app.signup_policy import hash_phone
 from app.student_verification.image_validation import MAX_IMAGE_BYTES, student_id_content_type
 
 router = APIRouter()
@@ -84,6 +86,33 @@ async def check_nickname_availability(
     return NicknameAvailabilityResponse(available=available)
 
 
+def _phone_refusal(outcome: str) -> JSONResponse | None:
+    """번호 저장 DB 함수의 결과(ok · saved · not_verified · in_use) 중 거절만 응답으로 바꾼다."""
+    if outcome == "not_verified":
+        return JSONResponse(
+            status_code=422, content={"detail": errors.PHONE_NOT_VERIFIED, "code": errors.CODE_PHONE_NOT_VERIFIED}
+        )
+    if outcome == "in_use":
+        return JSONResponse(
+            status_code=409, content={"detail": errors.PHONE_NUMBER_IN_USE, "code": errors.CODE_PHONE_NUMBER_IN_USE}
+        )
+    return None
+
+
+async def _save_if_verified(
+    phones: PhoneVerificationRepository, profile_id: UUID, phone_number: str, encryption_key: str, phone_hmac: bytes,
+) -> bool:
+    """플래그가 꺼진 동안(옛 앱 · 새 앱이 섞인 때): 이 계정 · 이 번호에 쓸 수 있는 문자 인증이 있으면 인증한 번호로 저장해 표시를 단다.
+    아니면 False — 부르는 쪽이 옛 길(set_phone_number)로 저장한다. 옛 앱은 인증 줄을 만들지 않아 늘 옛 길이고, in_use 도 막지 않는다.
+    미리 보기 · 저장 호출이 실패해도(서버가 마이그레이션보다 먼저 나감 등) 옛 길로 저장한다 — 옛 앱의 가입을 멈추지 않는다."""
+    try:
+        return (await phones.check_verified_phone(profile_id, phone_hmac) == "ok"
+                and await phones.save_verified_phone(profile_id, phone_number, encryption_key, phone_hmac) == "saved")
+    except (httpx.HTTPError, HTTPException) as exc:
+        _logger.warning("인증 번호 저장을 건너뛰고 옛 길로 저장 profile=%s %s", profile_id, type(exc).__name__)
+        return False
+
+
 @router.post("/profile-onboarding/basic-info", response_model=None)
 async def submit_basic_info(
     body: BasicInfoRequest,
@@ -100,6 +129,14 @@ async def submit_basic_info(
             status_code=422, content={"detail": errors.PHONE_NUMBER_INVALID, "code": errors.CODE_PHONE_NUMBER_INVALID}
         )
 
+    # 30분 안에 문자 인증한 번호만, 그 인증으로 한 번만(PHONE_VERIFICATION_REQUIRED). 프로필을 고치기 전에 먼저 본다 —
+    # 422 · 409 면 닉네임 · 성별 · 출생연도도 저장하지 않는다.
+    phones = PhoneVerificationRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
+    phone_hmac = hash_phone(settings.identity_hmac_key, phone_number)
+    if settings.phone_verification_required:
+        if (refused := _phone_refusal(await phones.check_verified_phone(profile_id, phone_hmac))) is not None:
+            return refused
+
     # 닉네임 중복(23505)은 repository 의 공통 변환이 409 로 바꿔 준다. 가입을 마친 사람(pending 아님)도 409 — 15-6 으로 고친다.
     if not await repo.update_basic_info(
         profile_id, body.nickname, body.birth_year, body.height_cm, body.gender, body.mbti
@@ -107,11 +144,19 @@ async def submit_basic_info(
         raise HTTPException(status_code=409, detail=errors.BASIC_INFO_LOCKED)
 
     await repo.ensure_private_row(profile_id)
-    await set_encrypted_phone_number(
-        settings.postgrest_url, settings.supabase_service_role_key, client,
-        profile_id, phone_number, settings.phone_encryption_key,
-        identity_key=settings.identity_hmac_key,
-    )
+    if settings.phone_verification_required:
+        # 저장 함수가 번호 잠금 안에서 다시 본다. 미리 보기 뒤 그사이 다른 계정이 먼저 인증해 저장했으면(드묾) 여기서 막힌다 —
+        # 프로필 칸은 이미 고쳐졌지만 가입 중(pending)이라 다시 저장하면 그대로 덮인다.
+        if (refused := _phone_refusal(await phones.save_verified_phone(
+                profile_id, phone_number, settings.phone_encryption_key, phone_hmac))) is not None:
+            return refused
+    elif not await _save_if_verified(phones, profile_id, phone_number, settings.phone_encryption_key, phone_hmac):
+        # 인증 없이 번호를 보내는 옛 앱(PHONE_VERIFICATION_REQUIRED 기본 false) — 지금까지와 같다.
+        await set_encrypted_phone_number(
+            settings.postgrest_url, settings.supabase_service_role_key, client,
+            profile_id, phone_number, settings.phone_encryption_key,
+            identity_key=settings.identity_hmac_key,
+        )
     await _refresh_vectors(settings, client, openai_client, profile_id)
     return {"ok": True}
 

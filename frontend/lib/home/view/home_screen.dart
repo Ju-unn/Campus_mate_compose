@@ -556,7 +556,7 @@ class _ReviewStrip extends StatelessWidget {
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF8EC), // pen L7wKi 값, 토큰표 밖
+        color: AppColors.reviewStripSurface,
         borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: Row(
@@ -652,7 +652,7 @@ class _ProfileNudge extends StatelessWidget {
                       ),
                       // 테두리는 채움 위에 그린다 — decoration 테두리는 Container 가 안쪽 여백으로 더해 채움이 4 로 준다.
                       foregroundDecoration: BoxDecoration(
-                        border: Border.all(color: const Color(0x40D8C8D9)), // pen v8D23 값, 토큰표 밖
+                        border: Border.all(color: AppColors.profileNudgeTrackEdge),
                         borderRadius: BorderRadius.circular(AppRadius.pill),
                       ),
                       child: FractionallySizedBox(

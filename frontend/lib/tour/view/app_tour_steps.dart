@@ -1,4 +1,5 @@
 import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/matching/view/daily_card_summary.dart';
 import 'package:campus_mate/tour/view/tour_precision_points.dart';
@@ -147,7 +148,7 @@ const List<TourStep> appTourSteps = [
   TourStep(
     location: AppRoutes.community,
     targets: [TourTargetId.communityTabs],
-    holePadding: EdgeInsets.fromLTRB(8, 4, 8, 6),
+    holePadding: EdgeInsets.fromLTRB(AppSpacing.xs, AppSpacing.xxs, AppSpacing.xs, 6),
     copy: TourCopy.community,
   ),
   TourStep(
@@ -169,7 +170,7 @@ const List<TourStep> appTourSteps = [
     location: AppRoutes.heartStore,
     push: true,
     targets: [TourTargetId.heartStoreFree],
-    holePadding: EdgeInsets.all(4),
+    holePadding: EdgeInsets.all(AppSpacing.xxs),
     scrollAnchor: TourTargetId.heartStoreTop,
     // pen(campus-pen 10-16, 360×780): 무료로 모으기를 앱바 아래 12 로 올린 모습 — 구멍 x12 · y68 · 336×306, 말풍선 x24 · y426.
     alignTop: 12,

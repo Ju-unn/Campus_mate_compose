@@ -212,6 +212,26 @@ void main() {
       expect(box.height, closeTo(16 + 48 + 12 + question + 12 + 56 + 12 + 1 + 12 + 48 + 12, 0.01));
     });
 
+    testWidgets('"N명 참여" 옆에 말풍선 16 + "댓글 N" 12/500 muted — 앞 간격 8, 말풍선과 글자 사이 4 (Qzv5q · lsvu8 · uNX9X)', (tester) async {
+      await pumpCard(tester, pollFixture(aCount: 1, bCount: 0, commentCount: 12));
+      final participants = tester.getRect(find.text('1명 참여'));
+      final bubble = tester.getRect(find.byIcon(AppIcons.messageCircle));
+      final count = tester.getRect(find.text('댓글 12'));
+      expect(bubble.size, const Size(16, 16));
+      expect(tester.widget<Icon>(find.byIcon(AppIcons.messageCircle)).color, AppColors.muted);
+      expect(bubble.left - participants.right, 8);
+      expect(count.left - bubble.right, 4);
+      expect(count.height, 16);
+      expect(count.center.dy, closeTo(participants.center.dy, 0.5));
+      final style = tester.widget<Text>(find.text('댓글 12')).style!;
+      expect((style.fontSize, style.fontWeight, style.color), (12, FontWeight.w500, AppColors.muted));
+    });
+
+    testWidgets('댓글이 없어도 "댓글 0" 으로 보인다(사용자 11-10 「보여 줌」)', (tester) async {
+      await pumpCard(tester, pollFixture());
+      expect(find.text('댓글 0'), findsOneWidget);
+    });
+
     testWidgets('"자세히 보기" 는 오른쪽 끝(안쪽 8) · 누름 48 → 17c(onOpen)', (tester) async {
       var opened = 0;
       await pumpCard(tester, pollFixture(), onOpen: () => opened++);
@@ -263,7 +283,7 @@ void main() {
       Finder dot(Color color) => find.byWidgetPredicate((w) =>
           w is Container && w.decoration is BoxDecoration && (w.decoration! as BoxDecoration).shape == BoxShape.circle &&
           (w.decoration! as BoxDecoration).color == color);
-      expect(tester.getSize(dot(pollAgreeBlue)), const Size(8, 8));
+      expect(tester.getSize(dot(AppColors.pollAgree)), const Size(8, 8));
       expect(tester.getSize(dot(AppColors.primary)), const Size(8, 8));
       final label = tester.widget<Text>(find.text('찬성')).style!;
       expect((label.fontSize, label.fontWeight, label.color), (14, FontWeight.w600, AppColors.ink));
@@ -295,7 +315,7 @@ void main() {
       expect(a.top - tester.getRect(find.text('63%')).bottom, 12);
       final aBox = tester.widget<DecoratedBox>(find.byKey(FeedPollCard.agreeBarKey)).decoration as BoxDecoration;
       final bBox = tester.widget<DecoratedBox>(find.byKey(FeedPollCard.disagreeBarKey)).decoration as BoxDecoration;
-      expect((aBox.color, aBox.borderRadius), (pollAgreeBlue, BorderRadius.circular(8)));
+      expect((aBox.color, aBox.borderRadius), (AppColors.pollAgree, BorderRadius.circular(8)));
       expect(bBox.color, AppColors.primary);
       expect(tester.getRect(find.byKey(FeedPollCard.separatorKey)).top - a.bottom, 12);
     });

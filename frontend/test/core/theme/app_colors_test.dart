@@ -56,4 +56,21 @@ void main() {
     expect(AppColors.googleStroke, const Color(0xFF747775));
     expect(AppColors.googleLabel, const Color(0xFF1F1F1F));
   });
+
+  // 1.0.2 계획 B2 — 화면 안에 있던 색을 값 그대로 토큰으로 옮겼다. 값이 바뀌면 화면이 바뀐다.
+  test('화면 하나에만 쓰던 pen 색은 옮기기 전 값 그대로다', () {
+    expect(AppColors.glassFill, const Color(0xC7FFFFFF));
+    expect(AppColors.glassVeil, const Color(0x99FFFFFF));
+    expect(AppColors.glassHighlight, const Color(0xE6FFFFFF));
+    expect(AppColors.pollAgree, const Color(0xFF2D96DE));
+    expect(AppColors.reportLabel, const Color(0xFF6E5861));
+    expect(AppColors.reviewStripSurface, const Color(0xFFFFF8EC));
+    expect(AppColors.profileNudgeTrackEdge, const Color(0x40D8C8D9));
+    expect(AppColors.profileEntryIconSurface, const Color(0xFFF7F3FF));
+    expect(AppColors.lockOverlay, const Color(0x40000000));
+    expect(AppColors.photoRemoveBadge, Colors.black.withValues(alpha: 0.6));
+    expect(AppColors.coachDim, const Color(0xB3000000));
+    expect(AppColors.kakaoPanel, const Color(0xFF0A0A0A));
+    expect(AppColors.kakaoCheckMark, const Color(0xFF2B2200));
+  });
 }

@@ -35,6 +35,7 @@ void main() {
       expect(row('profile_private_view').actionLabel, '전화·카톡 열람');
       expect(row('account_close').actionLabel, '탈퇴 대행');
       expect(row('account_close_cleanup').actionLabel, '탈퇴 뒤 정리');
+      expect(row('inquiry_update', after: {'status': 'answered', 'memo_changed': false}).actionLabel, '문의 처리');
     });
 
     test('하트 조정은 부호 있는 수 — pen "하트 조정 +50"', () {
@@ -59,6 +60,7 @@ void main() {
       expect(row('profile_note', type: 'profile', id: 'abcdef12-0000-4000-8000-000000000001').targetLabel, '사용자 abcdef12…');
       // 댓글 가림(admin_set_content_status 가 target_type 에 report_target 값을 남긴다)
       expect(row('content_blind', type: 'poll_comment', id: 'c0ffee12-0000-4000-8000-000000000001').targetLabel, '댓글 c0ffee12…');
+      expect(row('inquiry_update', type: 'inquiry', id: '00000000-0000-4000-8000-00000000000a').targetLabel, '문의 00000000…');
     });
 
     test('대상이 없으면 "-"', () {

@@ -77,6 +77,58 @@ void main() {
     expect(failureText(AppLocalizationsKo(), failure!), '너무 많이 시도했어요. 잠시 후 다시 시도해 주세요');
   });
 
+  // POST /phone-verification/send 429 — 몸통의 retry_after_seconds 로 다시 받기까지 남은 초를 센다(서버 phone_verification/router.py).
+  test('429 에 retry_after_seconds 가 있으면 RateLimitedFailure 가 그 초를 들고 있다', () async {
+    final client = MockClient(
+      (request) async => http.Response(
+        jsonEncode({'detail': '인증번호를 너무 많이 요청했어요', 'code': 'phone_verification_rate_limited', 'retry_after_seconds': 42}),
+        429,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      ),
+    );
+
+    final result = await sendHttpRequest(client, buildRequest());
+
+    final failure = result.when(onSuccess: (_) => null, onFailure: (f) => f)! as RateLimitedFailure;
+    expect(failure.retryAfterSeconds, 42);
+  });
+
+  test('429 에 retry_after_seconds 가 없거나 숫자가 아니면 null', () async {
+    for (final body in [jsonEncode({'detail': 'later'}), jsonEncode({'retry_after_seconds': '42'}), '<html></html>']) {
+      final client = MockClient((request) async => http.Response(body, 429));
+
+      final result = await sendHttpRequest(client, buildRequest());
+
+      expect((result.when(onSuccess: (_) => null, onFailure: (f) => f)! as RateLimitedFailure).retryAfterSeconds, isNull,
+          reason: body);
+    }
+  });
+
+  // POST /phone-verification/verify 400 phone_code_mismatch — 남은 기회를 remaining_attempts 로 준다.
+  test('4xx 에 remaining_attempts 가 있으면 ServerRejectedFailure 가 그 수를 들고 있다', () async {
+    final client = MockClient(
+      (request) async => http.Response(
+        jsonEncode({'detail': '인증번호가 맞지 않아요', 'code': 'phone_code_mismatch', 'remaining_attempts': 4}),
+        400,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      ),
+    );
+
+    final result = await sendHttpRequest(client, buildRequest());
+
+    final failure = result.when(onSuccess: (_) => null, onFailure: (f) => f)! as ServerRejectedFailure;
+    expect(failure.hasCode('phone_code_mismatch'), isTrue);
+    expect(failure.remainingAttempts, 4);
+  });
+
+  test('remaining_attempts 가 없으면 null', () async {
+    final client = MockClient((request) async => http.Response(jsonEncode({'detail': 'no', 'code': 'x'}), 400));
+
+    final result = await sendHttpRequest(client, buildRequest());
+
+    expect((result.when(onSuccess: (_) => null, onFailure: (f) => f)! as ServerRejectedFailure).remainingAttempts, isNull);
+  });
+
   test('4xx 에 detail 이 있으면 ServerRejectedFailure 에 서버 메시지를 담는다', () async {
     final client = MockClient((request) async {
       return http.Response(

@@ -8,6 +8,7 @@ import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_checkbox.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/consent/model/data/consent_item.dart';
+import 'package:campus_mate/consent/model/data/consent_links.dart';
 import 'package:campus_mate/consent/model/repository/consent_repository_provider.dart';
 import 'package:campus_mate/consent/model/repository/open_url.dart';
 import 'package:campus_mate/consent/view/consent_item_text.dart';
@@ -34,7 +35,7 @@ import '../../profile/onboarding/model/repository/fake_onboarding_repository.dar
 import '../model/repository/fake_consent_repository.dart';
 
 const _title = '서비스 이용을 위해 동의해 주세요';
-const _description = '필수 항목에 모두 동의하면 시작할 수 있어요.\n마케팅 알림은 선택이에요.';
+const _description = '필수 항목에 모두 동의하면 시작할 수 있어요.\n마케팅 활용 동의는 선택이에요.';
 
 void main() {
   final l10n = AppLocalizationsKo();
@@ -118,7 +119,7 @@ void main() {
     }
     expect(find.text('필수'), findsNWidgets(2));
     expect(find.text('선택'), findsOneWidget);
-    expect(find.text('보기'), findsNWidgets(2));
+    expect(find.text('보기'), findsNWidgets(3));
     expect(find.text('동의하고 계속하기'), findsOneWidget);
     // 09-29 최종 4칸 — 종교 · 국외 이전은 줄도, 개인정보 줄 아래 설명도 없다(10-15 안 B 설명은 10-16 에 뺐다).
     expect(find.textContaining('종교'), findsNothing);
@@ -133,7 +134,7 @@ void main() {
     expect(find.text('바뀐 내용을 확인하고 다시 동의해 주세요.'), findsOneWidget);
     expect(find.text(_title), findsNothing);
     expect(find.text('약관 동의'), findsOneWidget);
-    expect(find.text('보기'), findsNWidgets(2));
+    expect(find.text('보기'), findsNWidgets(3));
   });
 
   testWidgets('통합 시험(area1)처럼 개인정보 줄 한가운데를 누르면 그 줄이 켜진다', (tester) async {
@@ -175,6 +176,15 @@ void main() {
     expect(ConsentItem.values.where((item) => checkedIn(itemRow(item))), isEmpty);
   });
 
+  testWidgets('마케팅 줄에도 보기가 있다 — 누르면 마케팅 활용 동의서를 연다', (tester) async {
+    await pump(tester);
+
+    await tester.tap(viewIn(itemRow(ConsentItem.marketing)));
+    await tester.pump();
+
+    expect(opened, [marketingConsentLink]);
+  });
+
   testWidgets('보기는 그 줄의 노션 항을 한 번 연다 — 체크는 바뀌지 않는다', (tester) async {
     await pump(tester);
 
@@ -185,7 +195,6 @@ void main() {
 
     expect(opened, [for (final item in ConsentItem.values) ?item.link]);
     expect(ConsentItem.values.where((item) => checkedIn(itemRow(item))), isEmpty);
-    expect(viewIn(itemRow(ConsentItem.marketing)), findsNothing);
   });
 
   testWidgets('여는 중에 "보기"를 또 눌러도 한 번만 연다 — 끝나면 다시 열 수 있다', (tester) async {

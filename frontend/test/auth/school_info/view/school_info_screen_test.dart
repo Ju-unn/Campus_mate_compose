@@ -112,6 +112,8 @@ void main() {
       expect(find.text(failureText(AppLocalizationsKo(), const UnknownFailure())), findsOneWidget);
       expect(find.text('다시 시도'), findsOneWidget);
       expect(find.byType(TextField), findsNothing);
+      // B3: 공통 RetryNotice — 문구 body → muted.
+      expect(tester.widget<Text>(find.text(failureText(AppLocalizationsKo(), const UnknownFailure()))).style!.color, AppColors.muted);
     });
 
     testWidgets('DESIGN.md 화면 3c 확정 카피를 보여준다', (tester) async {

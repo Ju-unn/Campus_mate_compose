@@ -7,6 +7,7 @@ import 'package:campus_mate_admin/billing/billing_item.dart';
 import 'package:campus_mate_admin/graduate/graduate_item.dart';
 import 'package:campus_mate_admin/heart_tasks/heart_task_item.dart';
 import 'package:campus_mate_admin/home/home_item.dart';
+import 'package:campus_mate_admin/inquiries/inquiry_item.dart';
 import 'package:campus_mate_admin/matching/matching_item.dart';
 import 'package:campus_mate_admin/reports/report_item.dart';
 import 'package:campus_mate_admin/unknown_domains/unknown_domain_item.dart';
@@ -301,6 +302,33 @@ class AdminApi {
   Future<CursorPage<ActionRow>> listActions({String? target, String? before}) {
     final query = {'target': ?target, 'before': ?before};
     return _read(send('GET', '/admin/actions', query: query), (body) => CursorPage.fromJson(body, ActionRow.fromJson, '작업 기록'));
+  }
+
+  // 문의 관리 — 서버 계약은 backend/app/admin/inquiry_review.py. 답장은 서버가 보내지 않는다(운영자가 메일함에서 회신).
+
+  /// 최근 순 · 쪽당 50(서버 기본). 서버 쪽 나누기는 `{items, has_more}` + (created_at, id) 커서라, 다음 쪽 열쇠
+  /// [CursorPage.nextBefore] 를 "마지막 줄의 created_at 원문|id" 로 만들어 돌려주고 [before] 로 받아 `before` · `before_id` 로 가른다.
+  Future<CursorPage<InquiryItem>> listInquiries({InquiryStatus? status, String? before}) {
+    final split = before?.lastIndexOf('|');
+    final query = {
+      'status': ?status?.code,
+      if (before != null && split != null) ...{'before': before.substring(0, split), 'before_id': before.substring(split + 1)},
+    };
+    return _read(send('GET', '/admin/inquiries', query: query), (body) {
+      if (body case {'items': final List<Object?> rows, 'has_more': final bool hasMore}) {
+        final items = [for (final row in rows) InquiryItem.fromJson(row)];
+        final next = hasMore && items.isNotEmpty ? '${items.last.createdAtRaw}|${items.last.id}' : null;
+        return CursorPage(items: items, nextBefore: next);
+      }
+      throw const FormatException('문의 목록의 모양이 아니에요');
+    });
+  }
+
+  /// 바꿀 칸만 보낸다. [memo] 는 앞뒤 공백을 떼고 보내며, 빈 글이면 서버가 메모를 지운다. 응답은 바뀐 한 줄.
+  /// 같은 값을 다시 보내도 결과가 같아(멱등) 본문 모양이 틀려 실패로 보인 뒤 다시 눌러도 안전하다.
+  Future<InquiryItem> updateInquiry(String id, {InquiryStatus? status, String? memo}) async {
+    final body = {'status': ?status?.code, 'admin_memo': ?memo?.trim()};
+    return _read(send('PATCH', _idPath('/admin/inquiries', id), body: body), InquiryItem.fromJson);
   }
 
   /// 경로에 넣는 번호로 받는 글자: 영숫자와 하이픈(서버 번호는 UUID). 주소창 링크의 `..%2Fme` 를 go_router 가 `../me` 로

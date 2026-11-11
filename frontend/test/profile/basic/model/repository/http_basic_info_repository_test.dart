@@ -67,4 +67,75 @@ void main() {
     expect((failure! as ServerRejectedFailure).hasCode('phone_number_invalid'), isTrue);
     expect(failureText(AppLocalizationsKo(), failure), '올바른 휴대폰 번호를 입력해 주세요');
   });
+
+  // 서버 계약(PR #694 backend/app/phone_verification/router.py): POST /phone-verification/send · /verify.
+  group('휴대폰 문자 인증', () {
+    test('인증번호 받기는 번호를 숫자만 phone_number 칸에 실어 보낸다', () async {
+      nextResponse = () => http.Response(
+            jsonEncode({'resend_after_seconds': 60, 'expires_in_seconds': 180, 'already_sent': false}),
+            200,
+          );
+
+      await repository.sendPhoneCode('01001352468');
+
+      expect(requests.single.method, 'POST');
+      expect(requests.single.url.path, '/phone-verification/send');
+      expect(jsonDecode(requests.single.body), {'phone_number': '01001352468'});
+    });
+
+    test('받기 응답의 초 두 개와 already_sent 를 읽는다', () async {
+      nextResponse = () => http.Response(
+            jsonEncode({'resend_after_seconds': 37, 'expires_in_seconds': 157, 'already_sent': true}),
+            200,
+          );
+
+      final sent = (await repository.sendPhoneCode('01001352468')).when(onSuccess: (s) => s, onFailure: (_) => null)!;
+
+      expect(sent.resendAfter, const Duration(seconds: 37));
+      expect(sent.expiresIn, const Duration(seconds: 157));
+      expect(sent.alreadySent, isTrue);
+    });
+
+    test('받기 응답의 모양이 다르면 UnknownFailure 다', () async {
+      nextResponse = () => http.Response(jsonEncode({'resend_after_seconds': '60'}), 200);
+
+      final failure = (await repository.sendPhoneCode('01001352468')).when(onSuccess: (_) => null, onFailure: (f) => f);
+
+      expect(failure, isA<UnknownFailure>());
+    });
+
+    test('받기 429 는 retry_after_seconds 를 든 RateLimitedFailure 다', () async {
+      nextResponse = () => http.Response(
+            jsonEncode({'detail': 'limited', 'code': 'phone_verification_rate_limited', 'retry_after_seconds': 3600}),
+            429,
+          );
+
+      final failure = (await repository.sendPhoneCode('01001352468')).when(onSuccess: (_) => null, onFailure: (f) => f);
+
+      expect(failure, isA<RateLimitedFailure>().having((f) => f.retryAfterSeconds, 'retryAfterSeconds', 3600));
+    });
+
+    test('확인은 번호와 인증번호를 실어 보내고 200 이면 성공이다', () async {
+      nextResponse = () => http.Response(jsonEncode({'verified': true}), 200);
+
+      final result = await repository.verifyPhoneCode('01001352468', '482915');
+
+      expect(requests.single.url.path, '/phone-verification/verify');
+      expect(jsonDecode(requests.single.body), {'phone_number': '01001352468', 'code': '482915'});
+      expect(result.when(onSuccess: (_) => true, onFailure: (_) => false), isTrue);
+    });
+
+    test('확인 400 phone_code_mismatch 는 남은 기회를 든 ServerRejectedFailure 다', () async {
+      nextResponse = () => http.Response(
+            jsonEncode({'detail': 'mismatch', 'code': 'phone_code_mismatch', 'remaining_attempts': 3}),
+            400,
+          );
+
+      final failure = (await repository.verifyPhoneCode('01001352468', '000000'))
+          .when(onSuccess: (_) => null, onFailure: (f) => f)! as ServerRejectedFailure;
+
+      expect(failure.hasCode('phone_code_mismatch'), isTrue);
+      expect(failure.remainingAttempts, 3);
+    });
+  });
 }

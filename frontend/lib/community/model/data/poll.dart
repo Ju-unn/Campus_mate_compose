@@ -22,6 +22,7 @@ class Poll {
     required this.bCount,
     this.myChoice,
     this.isMine = false,
+    this.commentCount = 0,
   });
 
   final String id;
@@ -34,6 +35,9 @@ class Poll {
   final PollChoice? myChoice;
   final bool isMine;
 
+  /// 피드 · 상세 응답의 `comment_count`. 이 칸이 없는 옛 서버 응답은 0 이다.
+  final int commentCount;
+
   int get total => aCount + bCount;
 
   /// 반올림한 A 쪽 %. B 쪽은 100 에서 빼서 두 수의 합이 늘 100 이다("찬성 62% · 반대 38%").
@@ -41,6 +45,20 @@ class Poll {
   int get bPercent => total == 0 ? 0 : 100 - aPercent;
 
   bool get usesDefaultLabels => optionA == defaultOptionA && optionB == defaultOptionB;
+
+  /// 댓글을 쓰거나 지운 뒤 숫자만 맞춘 사본.
+  Poll withCommentCount(int count) => Poll(
+        id: id,
+        question: question,
+        optionA: optionA,
+        optionB: optionB,
+        createdAt: createdAt,
+        aCount: aCount,
+        bCount: bCount,
+        myChoice: myChoice,
+        isMine: isMine,
+        commentCount: count,
+      );
 
   factory Poll.fromJson(Map<String, dynamic> json) {
     return Poll(
@@ -57,6 +75,7 @@ class Poll {
         _ => null,
       },
       isMine: json['is_mine'] as bool,
+      commentCount: json['comment_count'] as int? ?? 0,
     );
   }
 }

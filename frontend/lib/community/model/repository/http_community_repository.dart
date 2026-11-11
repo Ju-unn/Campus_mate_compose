@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/community/model/data/poll.dart';
+import 'package:campus_mate/community/model/data/poll_comment.dart';
 import 'package:campus_mate/community/model/data/poll_feed.dart';
 import 'package:campus_mate/community/model/repository/community_repository.dart';
 import 'package:campus_mate/core/http/api_client.dart';
@@ -58,4 +59,25 @@ class HttpCommunityRepository implements CommunityRepository {
   @override
   Future<Result<void>> deletePoll(String pollId) =>
       _api.send('DELETE', '/community/polls/$pollId', (_) {});
+
+  @override
+  Future<Result<PollCommentPage>> fetchComments(String pollId, {DateTime? after, String? afterId}) => _api.send(
+        'GET',
+        '/community/polls/$pollId/comments',
+        (body) => PollCommentPage.fromJson(body as Map<String, dynamic>),
+        // 첫 쪽에는 쿼리가 없다 — 빈 맵을 주면 URL 끝에 '?' 가 붙는다.
+        query: after == null ? null : {'after': after.toUtc().toIso8601String(), 'after_id': ?afterId},
+      );
+
+  @override
+  Future<Result<PollComment>> addComment(String pollId, String body) => _api.send(
+        'POST',
+        '/community/polls/$pollId/comments',
+        (json) => PollComment.fromJson(json as Map<String, dynamic>),
+        body: {'body': body},
+      );
+
+  @override
+  Future<Result<void>> deleteComment(String commentId) =>
+      _api.send('DELETE', '/community/comments/$commentId', (_) {});
 }

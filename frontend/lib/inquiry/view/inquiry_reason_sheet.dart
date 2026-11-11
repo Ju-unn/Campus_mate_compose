@@ -1,10 +1,10 @@
+import 'package:campus_mate/common/widgets/reason_radio_row.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/inquiry/model/data/inquiry_reason.dart';
 import 'package:campus_mate/inquiry/view/inquiry_reason_text.dart';
-import 'package:campus_mate/safety/view/reason_radio_row.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 
