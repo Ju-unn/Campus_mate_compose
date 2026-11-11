@@ -35,8 +35,10 @@ class BillingRepository(PostgrestRepository):
         response.raise_for_status()
         return len(response.json())
 
-    async def has_purchase(self, profile_id) -> bool:
-        """구매 기록이 하나라도 있는가(환불된 것도 센다 — DB 의 첫 구매 판정과 같은 규칙)."""
-        response = await self._get("purchases", params={"profile_id": f"eq.{profile_id}", "select": "id", "limit": "1"})
+    async def has_purchase_of_at_least(self, profile_id, min_hearts: int) -> bool:
+        """첫 구매 보너스 자격을 잃었는가 — min_hearts 이상 상품을 산 적이 있다(환불된 것도 센다, status 로 거르지 않는다).
+        DB 함수 grant_store_purchase 의 ② 와 같은 규칙: 마이그레이션 20261112000000_first_purchase_bonus_100_tier.sql."""
+        response = await self._get("purchases", params={
+            "profile_id": f"eq.{profile_id}", "heart_amount": f"gte.{min_hearts}", "select": "id", "limit": "1"})
         response.raise_for_status()
         return bool(response.json())

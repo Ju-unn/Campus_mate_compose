@@ -25,6 +25,8 @@ logger = logging.getLogger(__name__)
 
 # 화면에 보여 줄 값만(첫 구매 보너스, 2026-10-13 사용자 확정). 실제 지급은 DB 함수 grant_store_purchase 의 상수다 —
 # 유료 카드 가격과 같은 방식. 바꿀 때 둘을 같이 바꾼다.
+# 자격 규칙(2026-11-12 사용자 확정): 100하트 이상 상품을 산 적이 없으면 +50 — 50하트를 먼저 사도 자격이 남는다.
+# 환불된 구매도 "산 적" 으로 센다. 규칙의 원본은 DB 함수 grant_store_purchase ②, 여기(/billing/status)는 같은 조건을 묻는다.
 FIRST_PURCHASE_BONUS = 50
 BONUS_MIN_PRODUCT_HEARTS = 100
 # 두 스토어에 같은 이름으로 등록한 상품 5종(지급량 · 가격은 DB 함수 grant_store_purchase).
@@ -53,8 +55,8 @@ def _error(status_code: int, detail: str, code: str) -> JSONResponse:
 
 @router.get("/billing/status")
 async def billing_status(caller: Caller = Depends(get_verified_caller)) -> dict:
-    """상점(15e)이 열릴 때. 구매 창에 실을 계정 표시(구글 · 애플)와 첫 구매 자격. 자격 판정은 지급 때 DB 가 다시 한다."""
-    bought = await _repo(caller).has_purchase(caller.profile_id)
+    """상점(15e)이 열릴 때. 구매 창에 실을 계정 표시(구글 · 애플)와 첫 구매 보너스 자격. 판정은 지급 때 DB 가 다시 한다."""
+    bought = await _repo(caller).has_purchase_of_at_least(caller.profile_id, BONUS_MIN_PRODUCT_HEARTS)
     bonus = None if bought else {"hearts": FIRST_PURCHASE_BONUS, "min_product_hearts": BONUS_MIN_PRODUCT_HEARTS}
     return {"account_token": account_token(caller.profile_id),
             "apple_account_token": apple_account_token(caller.profile_id), "first_purchase_bonus": bonus}
