@@ -213,7 +213,8 @@ void main() {
     expect(find.text('같은 날, 같은 설렘으로 시작해요'), findsOneWidget);
     expect(find.text('현재 모집 인원'), findsOneWidget);
     expect(find.text('87명'), findsOneWidget);
-    expect(find.text('친구와 함께 시작하면 첫날부터 더 많은 캠퍼스 친구를 만날 수 있어요.'), findsOneWidget);
+    // "캠퍼스" 뒤에서 줄을 나눈다 — 폭에 맡기면 둘째 줄에 "요." 한 글자만 떨어진다(11-11 에뮬 확인).
+    expect(find.text('친구와 함께 시작하면 첫날부터 더 많은 캠퍼스\n친구를 만날 수 있어요.'), findsOneWidget);
     expect(find.text('친구에게 초대 링크 보내기'), findsOneWidget);
     expect(find.textContaining('100명'), findsNothing);
   });
