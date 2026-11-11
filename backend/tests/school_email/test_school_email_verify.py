@@ -11,7 +11,7 @@ import pytest
 from app.core import errors
 from app.signup_policy import bytea_literal, hash_email
 from verify_world import (AUTH, IDENTITY_KEY, ME, NOW, OTHER, OTHER_TOKEN, SNU, TEMP, TEMP_TOKEN, VerifyWorld, jwt,
-                          settings, temp_email_user)
+                          settings, social_user, temp_email_user)
 
 HMAC = bytea_literal(hash_email(IDENTITY_KEY, "hong@snu.ac.kr"))
 
@@ -194,9 +194,8 @@ def test_the_callers_own_token_in_the_temp_slot_is_refused_and_not_deleted(clien
 
 
 @pytest.mark.parametrize("change", [
-    {"identities": [{"provider": "email"}, {"provider": "kakao"}]},
-    {"identities": [{"provider": "kakao"}]},
     {"identities": []},
+    {"identities": [{"provider": "phone"}]},                                 # 소셜도 이메일도 아닌 수단
     {"email_confirmed_at": None},
     {"email": ""},
     {"email": None},
@@ -238,6 +237,87 @@ def test_a_temp_token_not_signed_in_by_otp_is_refused_and_not_deleted(client, wo
 
 def test_an_otp_token_still_verifies(client, world):
     assert _verify(client, TEMP_TOKEN).status_code == 200
+
+
+# 6-d: 임시 토큰이 **이미 있던 다른 소셜 계정**으로 로그인된 경우 — 그 메일은 이미 쓰는 중이라고 바로 알린다 ------------------
+#
+# 앱이 학교 메일 칸에 다른 계정의 로그인 메일(예: 다른 구글 계정의 gmail)을 넣으면 GoTrue 는 새 임시 계정을 만들지 않고
+# 그 기존 계정으로 OTP 로그인시킨다. 예전에는 403 NOT_CONFIRMED("다시 시도")였다 — 다시 해도 안 되는데 다시 하라는 안내였다.
+
+def _existing_social_otp(world, provider: str = "google", user_id: str = OTHER, providers: tuple[str, ...] | None = None):
+    """이미 있던 소셜 계정(기본은 호출한 사람과 다른 id)이 학교 메일 OTP 로 로그인된 토큰."""
+    token = jwt({"sub": user_id, "amr": [{"method": "otp", "timestamp": 1791428280}]})
+    user = social_user(user_id, provider)
+    user["email"] = "hong@snu.ac.kr"
+    if providers is not None:
+        user["identities"] = [{"provider": name} for name in providers]
+    world.tokens[token] = user
+    return token
+
+
+@pytest.mark.parametrize("provider, label", [("kakao", "카카오"), ("google", "구글"), ("apple", "애플")])
+def test_an_otp_token_of_an_existing_social_account_is_409_taken_with_its_provider(client, world, provider, label):
+    token = _existing_social_otp(world, provider)
+
+    response = _verify(client, token)
+
+    # 앱이 이미 아는 409 TAKEN 갈래다(provider 로 가른다). 그 계정은 지우지도 바꾸지도 않고, DB 함수도 부르지 않는다.
+    assert response.status_code == 409
+    assert response.json() == {"detail": f"이 메일은 {label}로 가입돼 있어요", "code": "SCHOOL_EMAIL_TAKEN",
+                               "provider": provider}
+    assert world.rpc_bodies == []
+    assert world.deleted_users == []
+    assert world.calls("DELETE", f"/auth/v1/admin/users/{OTHER}") == []
+    assert world.profiles[ME]["school_email_verified_at"] is None
+
+
+def test_an_existing_account_with_an_email_and_a_social_identity_reports_the_social_one(client, world):
+    token = _existing_social_otp(world, "google", providers=("email", "google"))
+
+    response = _verify(client, token)
+
+    assert response.status_code == 409
+    assert response.json()["provider"] == "google"
+    assert world.deleted_users == []
+
+
+def test_the_409_for_an_existing_social_account_tells_nothing_but_the_provider(client, world):
+    token = _existing_social_otp(world, "google")
+
+    body = _verify(client, token).json()
+
+    assert set(body) == {"detail", "code", "provider"}
+    assert OTHER not in str(body) and "hong@snu.ac.kr" not in str(body)
+
+
+@pytest.mark.parametrize("claims", [
+    {"sub": OTHER},                                                          # amr 없음
+    {"sub": OTHER, "amr": [{"method": "oauth"}]},                             # 소셜 로그인으로 받은 토큰
+    {"sub": OTHER, "amr": [{"method": "password"}]},
+    {"sub": OTHER, "amr": [{"method": "otp"}, {"method": "password"}]},
+], ids=["no-amr", "oauth", "password", "otp-and-password"])
+def test_a_social_account_token_not_signed_in_by_otp_stays_not_confirmed(client, world, claims):
+    token = jwt(claims)
+    world.tokens[token] = social_user(OTHER, "google")
+
+    _expect(_verify(client, token), 403, "학교 메일 인증이 끝나지 않았어요", "SCHOOL_EMAIL_NOT_CONFIRMED")
+    assert world.deleted_users == []
+
+
+def test_the_callers_own_social_account_by_otp_stays_not_confirmed(client, world):
+    """앱이 막아 둔 '내 로그인 메일을 그대로 넣음' — 같은 id 라 새 갈래가 아니다."""
+    token = _existing_social_otp(world, "kakao", user_id=ME)
+
+    _expect(_verify(client, token), 403, "학교 메일 인증이 끝나지 않았어요", "SCHOOL_EMAIL_NOT_CONFIRMED")
+    assert world.deleted_users == []
+    assert world.rpc_bodies == []
+
+
+def test_an_otp_token_with_no_account_id_stays_not_confirmed(client, world):
+    token = _existing_social_otp(world, "google")
+    world.tokens[token]["id"] = ""
+
+    _expect(_verify(client, token), 403, "학교 메일 인증이 끝나지 않았어요", "SCHOOL_EMAIL_NOT_CONFIRMED")
 
 
 # 6-c: 메일 앞부분의 + 별칭 — 한 메일함으로 계정을 여럿 만드는 길을 막는다 -------------------------------------
