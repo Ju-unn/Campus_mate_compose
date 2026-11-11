@@ -316,7 +316,7 @@ class _EmptyFeed extends StatelessWidget {
   Widget build(BuildContext context) {
     final (title, description) = _copy(context.l10n);
     return EmptyNotice(
-      image: Image.asset('assets/images/mascot-male.png'),
+      image: Image.asset('assets/images/mascot-male.webp'),
       title: title,
       description: description,
       action: offersAsk(tab) ? _askButton(context) : null,

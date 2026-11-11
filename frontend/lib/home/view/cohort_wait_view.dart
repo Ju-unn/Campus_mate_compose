@@ -285,8 +285,8 @@ class _MascotPairState extends State<_MascotPair> with SingleTickerProviderState
   @override
   Widget build(BuildContext context) {
     // 장식이라 낭독기에서 뺀다. 프레임마다 다시 만들지 않게 밖에서 한 번 만든다.
-    final male = Image.asset('assets/images/mascot-male.png', width: 120, height: 120, excludeFromSemantics: true);
-    final female = Image.asset('assets/images/mascot-female.png', width: 120, height: 120, excludeFromSemantics: true);
+    final male = Image.asset('assets/images/mascot-male.webp', width: 120, height: 120, excludeFromSemantics: true);
+    final female = Image.asset('assets/images/mascot-female.webp', width: 120, height: 120, excludeFromSemantics: true);
     // 매 프레임 옮기기만 한다 — 히어로의 글자까지 다시 그리지 않게 경계를 둔다.
     // 줄 256 이 히어로 안쪽보다 넓으면(폭 328 미만 폰) 날짜 줄처럼 줄여 보인다 — pen 폭 360 에선 그대로다.
     return FittedBox(

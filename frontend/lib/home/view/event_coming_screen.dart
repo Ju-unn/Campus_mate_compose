@@ -91,7 +91,7 @@ class _Body extends StatelessWidget {
       children: [
         Center(
           child: Image.asset(
-            'assets/images/mascot-male-waiting.png',
+            'assets/images/mascot-male-waiting.webp',
             width: 120,
             height: 120,
             fit: BoxFit.contain,

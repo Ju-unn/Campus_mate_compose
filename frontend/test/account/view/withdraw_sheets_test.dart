@@ -175,7 +175,7 @@ void main() {
       await openSheets(tester);
 
       final glyph = inFirst(find.byWidgetPredicate(
-        (w) => w is Image && w.image is AssetImage && (w.image as AssetImage).assetName == 'assets/images/heart-flat-vector-v3.png',
+        (w) => w is Image && w.image is AssetImage && (w.image as AssetImage).assetName == 'assets/images/heart-flat-vector-v3.webp',
       ));
       expect(glyph, findsOneWidget);
       expect(tester.getSize(glyph), const Size(20, 20));
@@ -211,7 +211,7 @@ void main() {
       await openSheets(tester);
 
       final mascot = inFirst(find.byWidgetPredicate((w) => w is Image && w.image is AssetImage && (w.image as AssetImage).assetName.contains('mascot')));
-      expect((tester.widget<Image>(mascot).image as AssetImage).assetName, 'assets/images/mascot-female-sad.png');
+      expect((tester.widget<Image>(mascot).image as AssetImage).assetName, 'assets/images/mascot-female-sad.webp');
       expect(tester.widget<Image>(mascot).fit, BoxFit.contain); // pen x3aGgV
       expect(tester.getSize(mascot), const Size(88, 88));
     });

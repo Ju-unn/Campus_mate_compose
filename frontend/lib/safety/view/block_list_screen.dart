@@ -290,7 +290,7 @@ class _Empty extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return EmptyNotice(
-      image: Image.asset('assets/images/mascot-female.png'),
+      image: Image.asset('assets/images/mascot-female.webp'),
       title: l10n.safetyBlockListEmptyTitle,
       description: l10n.safetyBlockListEmptyDescription,
       // 목록 여백 안에서 가운데에 둔다(목록과 같은 스크롤 칸).

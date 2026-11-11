@@ -633,7 +633,7 @@ void main() {
 
       final rect = tester.getRect(block());
       final heart = find.descendant(of: block(), matching: find.byType(Image));
-      expect((tester.widget<Image>(heart).image as AssetImage).assetName, 'assets/images/heart-flat-vector-v3.png');
+      expect((tester.widget<Image>(heart).image as AssetImage).assetName, 'assets/images/heart-flat-vector-v3.webp');
       expect(tester.getSize(heart), const Size(28, 28));
       expect(tester.getTopLeft(heart).dx, rect.left + 16);
       expect(tester.getCenter(heart).dy, rect.center.dy);

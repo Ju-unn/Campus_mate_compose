@@ -97,7 +97,7 @@ class MosaicMascotTile extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(color: AppColors.primaryWash, borderRadius: BorderRadius.circular(AppRadius.md)),
       child: Image.asset(
-        'assets/images/mascot-male-waiting.png',
+        'assets/images/mascot-male-waiting.webp',
         width: _mascotSize,
         height: _mascotSize,
         fit: BoxFit.contain,

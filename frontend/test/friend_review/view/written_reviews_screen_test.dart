@@ -155,7 +155,7 @@ void main() {
       expect(find.byType(FriendReviewCard), findsNothing);
       // pen J2kzx(Empty 마스터 마스코트) = 파란 목도리.
       final mascot = find.byWidgetPredicate(
-          (widget) => widget is Image && (widget.image as AssetImage).assetName == 'assets/images/mascot-male.png');
+          (widget) => widget is Image && (widget.image as AssetImage).assetName == 'assets/images/mascot-male.webp');
       final mascotRect = tester.getRect(mascot);
       expect(mascotRect.size, const Size(120, 120));
       expect(mascotRect.center.dx, 180);

@@ -127,7 +127,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final mascot = find.byWidgetPredicate(
-        (widget) => widget is Image && (widget.image as AssetImage).assetName == 'assets/images/mascot-female.png',
+        (widget) => widget is Image && (widget.image as AssetImage).assetName == 'assets/images/mascot-female.webp',
       );
       final title = find.text('아직 시작된 대화가 없어요');
       final body = find.byWidgetPredicate((widget) => widget is Text && (widget.data ?? '').contains('신청을 수락하면'));

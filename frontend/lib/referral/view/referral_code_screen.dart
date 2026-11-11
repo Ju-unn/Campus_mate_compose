@@ -86,7 +86,7 @@ class _Content extends StatelessWidget {
         const Center(child: _StepBadge()),
         const SizedBox(height: _sectionGap),
         Center(
-          child: Image.asset('assets/images/mascot-female.png', width: _mascotSize, height: _mascotSize),
+          child: Image.asset('assets/images/mascot-female.webp', width: _mascotSize, height: _mascotSize),
         ),
         const SizedBox(height: _sectionGap),
         Text(context.l10n.referralCodeHeadline, style: AppTypography.headline.copyWith(color: AppColors.ink, height: _textHeight)),

@@ -161,7 +161,7 @@ class _Empty extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return EmptyNotice(
-      image: Image.asset('assets/images/mascot-female.png'),
+      image: Image.asset('assets/images/mascot-female.webp'),
       title: l10n.safetyContactBlockEmptyTitle,
       description: l10n.safetyContactBlockEmptyDescription,
     );

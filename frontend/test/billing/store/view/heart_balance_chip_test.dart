@@ -33,7 +33,7 @@ MyProfile _profile(int hearts) => MyProfile(
   avatarRegenCost: 10,
 );
 
-const _heartAsset = 'assets/images/heart-flat-vector-v3.png';
+const _heartAsset = 'assets/images/heart-flat-vector-v3.webp';
 
 /// 테스트 글꼴은 pen 의 Pretendard 가 아니라 글자 폭이 넓어서(pen "320" 은 31) 칩 폭은 숫자 폭을 빼고 센다 —
 /// "+" 없음 = 8 + 24 + 6 + 숫자 + 12 (pen 에서 81), "+" 켬 = 8 + 24 + 6 + 숫자 + 6 + 16 + 12 (pen 에서 103).

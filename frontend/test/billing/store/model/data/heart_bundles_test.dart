@@ -30,7 +30,7 @@ void main() {
 
   test('번들 그림 5장이 모두 자산에 있다', () {
     for (final b in heartBundles) {
-      expect(b.asset, 'assets/images/heart-bundle-${b.hearts}-v1.png');
+      expect(b.asset, 'assets/images/heart-bundle-${b.hearts}-v1.webp');
     }
   });
 
@@ -63,7 +63,7 @@ void main() {
       expect((bundle.productId, bundle.hearts, bundle.asset, bundle.isRecommended), (
         'heart_100',
         100,
-        'assets/images/heart-bundle-100-v1.png',
+        'assets/images/heart-bundle-100-v1.webp',
         true,
       ));
     });

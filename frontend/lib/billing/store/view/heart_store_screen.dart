@@ -39,10 +39,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 /// 재화 하트(DESIGN §5.4 — Lucide 가 아니라 이미지). pen `l4vdk`.
-const String _heartAsset = 'assets/images/heart-flat-vector-v3.png';
+const String _heartAsset = 'assets/images/heart-flat-vector-v3.webp';
 
 /// pen `kdljs` Heart Value Scene.
-const String _heroAsset = 'assets/images/heart-value-scene.png';
+const String _heroAsset = 'assets/images/heart-value-scene.webp';
 
 /// 15e 하트 상점(pen `IAy1j` · 인앱결제 시안 6b `W50VA`). 보유 하트 · 하트 번들 구매 · 무료로 모으기.
 /// 입구: 홈 · 나 탭 앱바 하트 칩 "+" · 설정 보유 하트 블록 · 15b 시트 "충전하기".

@@ -80,7 +80,7 @@ void main() {
     expect(tester.getSize(find.ancestor(of: find.text('하루 1번'), matching: find.byType(Container)).first).height, 20);
     expect(find.text('5 · 주 최대 15'), findsOneWidget);
     expect(find.text('참여'), findsOneWidget);
-    expect(find.image(const AssetImage('assets/images/heart-flat-vector-v3.png')), findsNWidgets(3));
+    expect(find.image(const AssetImage('assets/images/heart-flat-vector-v3.webp')), findsNWidgets(3));
   });
 
   // pen 18a FreeSection(대장 전달 값 10-17): 제목은 꺼졌고 투명 여백 8 은 켜져 있다 — 섹션 시작 +16(여백 8 + 간격 8) · +88 · +160.

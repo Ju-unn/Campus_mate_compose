@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-const _heartAsset = 'assets/images/heart-flat-vector-on-primary-v1.png';
+const _heartAsset = 'assets/images/heart-flat-vector-on-primary-v1.webp';
 
 void main() {
   AvatarRegenChoice? choice;

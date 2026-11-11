@@ -24,7 +24,7 @@ class ReceivedReviewsScreen extends StatelessWidget {
       source: FriendReviewListSource.received,
       cardBuilder: (context, review) => FriendReviewCard(review: review, onReport: () => _report(context, review.id)),
       // pen 에 없는 상태(대장 4) — 16f 차단 목록 빈 상태(`KLSeQ`)와 같은 모양, 설명 없이 제목까지.
-      empty: FriendReviewEmpty(mascot: 'assets/images/mascot-female.png', title: context.l10n.friendReviewReceivedEmpty),
+      empty: FriendReviewEmpty(mascot: 'assets/images/mascot-female.webp', title: context.l10n.friendReviewReceivedEmpty),
     );
   }
 

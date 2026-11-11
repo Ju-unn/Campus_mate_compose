@@ -14,7 +14,7 @@ import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 
 /// 재화 하트 글리프 — 주색 채움 위용(pen `AJDbc` 26×26, DESIGN §5.4). 버튼이 이미 "N으로 열기" 로 읽히니 낭독에서는 뺀다.
-const String paidCardHeartAsset = 'assets/images/heart-flat-vector-on-primary-v1.png';
+const String paidCardHeartAsset = 'assets/images/heart-flat-vector-on-primary-v1.webp';
 
 /// 결제 카드(잠금 카드) 마스터 `qoYnh` · 328×368 (지시문 23 B, pen 값표 §1).
 /// 미리 정해진 한 사람의 아바타를 **흐림 + 자물쇠** 로만 보여 주고, 맞는 이유 태그와 "N으로 열기" 버튼을 둔다.

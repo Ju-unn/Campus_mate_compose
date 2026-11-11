@@ -101,7 +101,7 @@ class _HeartGlyph extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Image.asset(
-      'assets/images/heart-flat-vector-on-primary-v1.png',
+      'assets/images/heart-flat-vector-on-primary-v1.webp',
       width: 26,
       height: 26,
       excludeFromSemantics: true,

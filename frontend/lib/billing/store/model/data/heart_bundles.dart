@@ -73,22 +73,22 @@ const int defaultHeartBundleIndex = 1;
 /// pen `IAy1j` 카드 5장(`nn49S` · `J0o8uB` · `Q0F9Ta` · `l5zO0` · `KLF2n`). 가격은 스토어 가격을 못 읽었을 때의 폴백이다
 /// (서버 DB 함수 grant_store_purchase 의 상품표 · 구글 플레이 콘솔 가격과 같은 값).
 const List<HeartBundle> heartBundles = [
-  HeartBundle(productId: 'heart_50', hearts: 50, price: 3000, asset: 'assets/images/heart-bundle-50-v1.png'),
+  HeartBundle(productId: 'heart_50', hearts: 50, price: 3000, asset: 'assets/images/heart-bundle-50-v1.webp'),
   HeartBundle(
     productId: 'heart_100',
     hearts: 100,
     price: 5700,
     isRecommended: true,
-    asset: 'assets/images/heart-bundle-100-v1.png',
+    asset: 'assets/images/heart-bundle-100-v1.webp',
   ),
-  HeartBundle(productId: 'heart_200', hearts: 200, price: 10800, asset: 'assets/images/heart-bundle-200-v1.png'),
-  HeartBundle(productId: 'heart_400', hearts: 400, price: 20400, asset: 'assets/images/heart-bundle-400-v1.png'),
+  HeartBundle(productId: 'heart_200', hearts: 200, price: 10800, asset: 'assets/images/heart-bundle-200-v1.webp'),
+  HeartBundle(productId: 'heart_400', hearts: 400, price: 20400, asset: 'assets/images/heart-bundle-400-v1.webp'),
   HeartBundle(
     productId: 'heart_800',
     hearts: 800,
     price: 38400,
     isMaxDiscount: true,
-    asset: 'assets/images/heart-bundle-800-v1.png',
+    asset: 'assets/images/heart-bundle-800-v1.webp',
   ),
 ];
 

@@ -217,7 +217,7 @@ void main() {
       expect(find.text(_notice), findsOneWidget);
       expect(find.byType(FriendReviewCard), findsNothing);
       final mascot = find.byWidgetPredicate(
-          (widget) => widget is Image && (widget.image as AssetImage).assetName == 'assets/images/mascot-female.png');
+          (widget) => widget is Image && (widget.image as AssetImage).assetName == 'assets/images/mascot-female.webp');
       expect(tester.getSize(mascot), const Size(120, 120));
       final title = tester.getRect(find.text('아직 받은 리뷰가 없어요'));
       expect(title.top - tester.getRect(mascot).bottom, 24);

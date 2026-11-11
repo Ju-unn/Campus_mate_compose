@@ -194,7 +194,7 @@ void main() {
     expect(find.text('아직 차단한 연락처가 없어요'), findsOneWidget);
     expect(find.text('추가한 연락처 속 지인과는 서로의 카드에 나타나지 않아요.'), findsOneWidget);
     final mascot = find.byWidgetPredicate(
-      (widget) => widget is Image && widget.image is AssetImage && (widget.image as AssetImage).assetName == 'assets/images/mascot-female.png',
+      (widget) => widget is Image && widget.image is AssetImage && (widget.image as AssetImage).assetName == 'assets/images/mascot-female.webp',
     );
     expect(tester.getSize(mascot), const Size(120, 120));
     final title = tester.getRect(find.text('아직 차단한 연락처가 없어요'));

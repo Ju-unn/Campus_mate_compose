@@ -218,7 +218,7 @@ void main() {
         (w) =>
             w is Image &&
             w.image is AssetImage &&
-            (w.image as AssetImage).assetName == 'assets/images/heart-value-scene.png',
+            (w.image as AssetImage).assetName == 'assets/images/heart-value-scene.webp',
       );
       expect(tester.getRect(hero), const Rect.fromLTWH(90, 56 + 8, 180, 180));
       expect(find.text('보유 하트'), findsOneWidget);
@@ -503,7 +503,7 @@ void main() {
 
       final bannerBottom = tester.getBottomLeft(find.byType(HeartPurchaseBanner)).dy;
       final hero = find.byWidgetPredicate(
-        (w) => w is Image && w.image is AssetImage && (w.image as AssetImage).assetName == 'assets/images/heart-value-scene.png',
+        (w) => w is Image && w.image is AssetImage && (w.image as AssetImage).assetName == 'assets/images/heart-value-scene.webp',
       );
       expect(tester.getTopLeft(hero).dy, bannerBottom + 8);
     });

@@ -28,7 +28,7 @@ class HeartTaskPendingScreen extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // DESIGN 은 128 이지만 pen 88 을 따른다(대장 09-28, DESIGN 은 문서 정리 때).
-                  Image.asset('assets/images/mascot-female.png', width: 88, height: 88, fit: BoxFit.contain),
+                  Image.asset('assets/images/mascot-female.webp', width: 88, height: 88, fit: BoxFit.contain),
                   const SizedBox(height: AppSpacing.md),
                   // pen `AI5GP` 18/700, 렌더 26(label 토큰 줄높이 1.2 면 22 라 묶음이 pen 보다 4 짧다).
                   Text(

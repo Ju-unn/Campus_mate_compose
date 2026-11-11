@@ -379,7 +379,7 @@ class _EmptyState extends StatelessWidget {
     final failure = error;
     // pen `LD7Kb` = Empty `TVc8b`: 마스코트 120 → 24 → 제목 → 8 → 설명. 실패하면 설명 아래 16 에 한 줄이 붙는다.
     return EmptyNotice(
-      image: Image.asset('assets/images/mascot-female.png'),
+      image: Image.asset('assets/images/mascot-female.webp'),
       title: context.l10n.matchingConversationsEmptyTitle,
       description: context.l10n.matchingConversationsEmptyBody,
       action: failure == null ? null : _ErrorLine(failure: failure),
