@@ -556,7 +556,7 @@
   "homeCohortHeroCaption": "첫 카드까지 · {dayLabel}",
   "@homeCohortHeroCaption": {"placeholders": {"dayLabel": {"type": "String"}}},
   "homeCohortHeroNote": "같은 날, 같은 설렘으로 시작해요",
-  "homeCohortInviteBody": "친구와 함께 시작하면 첫날부터 더 많은 캠퍼스 친구를 만날 수 있어요.",
+  "homeCohortInviteBody": "친구와 함께 시작하면 첫날부터 더 많은 캠퍼스\n친구를 만날 수 있어요.",
   "homeCohortInviteButton": "친구에게 초대 링크 보내기",
   "homeCohortRecruitCount": "{count}명",
   "@homeCohortRecruitCount": {"placeholders": {"count": {"type": "int"}}},
