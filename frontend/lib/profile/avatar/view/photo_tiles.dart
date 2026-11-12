@@ -17,6 +17,10 @@ import 'package:flutter/services.dart';
 // 크기만 다르다). photos_screen.dart 에서 그대로 옮겼다 — 모양을 두 벌 두면 한쪽만 고쳐진다.
 // 칸 크기는 부모가 준다 — 04-2 · 15-7 모두 [PhotoSlotGrid] 로 놓고 열 간격만 다르다.
 
+/// 04-2 · 15-7 사진 안내 토스트의 앞 아이콘. 같은 사진은 pen `QgOgs` 의 [AppIcons.images], 그 밖은 경고 세모.
+IconData photoToastIcon(Failure failure) =>
+    failure is PhotoDuplicateFailure ? AppIcons.images : AppIcons.alertTriangle;
+
 /// 사진 칸 2×2 배치 — 15-7 그리드(pen `u6AR7K`: 행 사이 12, 칸 높이 158). 칸 폭은 부모 폭에서 [columnGap] 을 뺀 반이다.
 /// 칸 그리기는 아래 칸 위젯이 맡고, 이 위젯은 어느 자리에 어느 칸을 놓을지만 정한다 — 04-2 · 15-7 이 같이 쓰도록 화면 값은
 /// 열 간격만 받는다(04-2 는 12, 15-7 은 16).
