@@ -135,6 +135,20 @@ void main() {
     expectButtonOnScreen(tester);
   });
 
+  testWidgets('같은 사진을 또 고르면 칸은 그대로고 "같은 사진" 토스트(pen `QgOgs` images 16)가 뜬다', (tester) async {
+    final container = await pump(tester, photoCount: 1);
+    final again = File('${tempDir.path}/photo-0.png').copySync('${tempDir.path}/again.png');
+    container.read(photosViewModelProvider.notifier).pickFromGallery = (limit) async => [again];
+
+    await container.read(photosViewModelProvider.notifier).addPhoto();
+    await tester.pump();
+
+    expect(find.byType(DraggablePhotoTile), findsOneWidget);
+    expect(find.widgetWithText(AppToast, '같은 사진은 한 번만 올릴 수 있어요'), findsOneWidget);
+    final icon = tester.widget<Icon>(find.descendant(of: find.byType(AppToast), matching: find.byIcon(AppIcons.images)));
+    expect((icon.size, icon.color), (16, AppColors.onInk));
+  });
+
   testWidgets('글씨 배율 2.0 에서도 "다음" 이 화면 안에 있다', (tester) async {
     await pump(tester, photoCount: 4, textScale: 2.0);
 

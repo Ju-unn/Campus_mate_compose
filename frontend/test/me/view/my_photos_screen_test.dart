@@ -447,6 +447,22 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('한 번에 고른 사진끼리 같으면 한 장만 들어가고 "같은 사진" 토스트(images 아이콘)가 뜬다', (tester) async {
+    usePenFrame(tester);
+    await pump(tester, profile: _profile(ids: ['p-a', 'p-b']));
+    final first = photoFile('new.png');
+    final again = first.copySync('${tempDir.path}/new-again.png');
+    container.read(myPhotosViewModelProvider.notifier).pickFromGallery = (limit) async => [first, again];
+
+    await tester.tap(find.text('사진 추가').first);
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(DraggablePhotoTile), findsNWidgets(3));
+    expect(find.widgetWithText(AppToast, '같은 사진은 한 번만 올릴 수 있어요'), findsOneWidget);
+    expect(find.descendant(of: find.byType(AppToast), matching: find.byIcon(AppIcons.images)), findsOneWidget);
+  });
+
   testWidgets('얼굴이 없어 빠지면 04-2 와 같은 토스트가 버튼 위 12 에 뜨고 약 2초 뒤 사라진다', (tester) async {
     usePenFrame(tester);
     await pump(tester);
