@@ -57,6 +57,9 @@ abstract final class AppIcons {
 
   /// 02-g 졸업증명서 사진 칸의 빈 그림(pen `gCJ2p` 안 `image` 28 #929292)
   static const IconData image = LucideIcons.image;
+
+  /// 04-2 · 15-7 같은 사진 안내 토스트(pen `QgOgs` 안 `images` 16 #FFFFFF)
+  static const IconData images = LucideIcons.images;
   static const IconData plus = LucideIcons.plus;
   static const IconData timer = LucideIcons.timer;
 
