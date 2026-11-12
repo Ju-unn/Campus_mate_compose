@@ -217,6 +217,8 @@ def test_accept_notifies_the_target():
             return httpx.Response(200, json=[_live_card()])
         if "/rest/v1/push_tokens" in url:
             return httpx.Response(200, json=[{"token": "tok"}])
+        if "/rest/v1/matches" in url:
+            return httpx.Response(200, json=[])  # 매칭 상대 조회 — 아래 기본값(insert 모양)을 받지 않게
         if "/rest/v1/blocks" in url:
             return httpx.Response(200, json=[])  # 조각 6 차단 조회 — 아래 기본값(insert 모양)을 받지 않게
         if "/rest/v1/profile_private" in url:
@@ -276,6 +278,8 @@ def test_reject_notifies_nobody():
             return httpx.Response(200, json=[_live_card()])
         if "/rest/v1/push_tokens" in url:
             return httpx.Response(200, json=[{"token": "tok"}])
+        if "/rest/v1/matches" in url:
+            return httpx.Response(200, json=[])  # 매칭 상대 조회 — 아래 기본값(insert 모양)을 받지 않게
         if "/rest/v1/blocks" in url:
             return httpx.Response(200, json=[])  # 조각 6 차단 조회 — 아래 기본값(insert 모양)을 받지 않게
         if "/rest/v1/profile_private" in url:
