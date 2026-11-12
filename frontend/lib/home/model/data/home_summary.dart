@@ -11,6 +11,7 @@ class HomeSummary {
     required this.campuses,
     required this.profileCompletionPercent,
     this.cohort,
+    this.banners = const [],
   });
 
   /// stat-panel 세 칸
@@ -30,4 +31,24 @@ class HomeSummary {
 
   /// 우리 학교가 아직 안 열렸으면 19 대기 화면 값, 열렸으면 null
   final CohortWait? cohort;
+
+  /// 홈 배너 슬라이드(홈 v3, 서버가 기간 · 순서를 골라 준다). 옛 서버 · 배너 없음이면 빈 목록이고 화면이 칸째 숨긴다.
+  final List<HomeBanner> banners;
+}
+
+/// 홈 배너 한 장 — 서버 공개 그림 주소와 그림 속 문구(화면 읽기용, 그림에 이미 글자가 들어 있다).
+class HomeBanner {
+  const HomeBanner({required this.imageUrl, required this.altText});
+
+  factory HomeBanner.fromJson(Map<String, dynamic> json) =>
+      HomeBanner(imageUrl: json['image_url'] as String, altText: json['alt_text'] as String);
+
+  final String imageUrl;
+  final String altText;
+
+  @override
+  bool operator ==(Object other) => other is HomeBanner && other.imageUrl == imageUrl && other.altText == altText;
+
+  @override
+  int get hashCode => Object.hash(imageUrl, altText);
 }

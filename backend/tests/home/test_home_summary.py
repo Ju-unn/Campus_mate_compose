@@ -62,10 +62,13 @@ def _wire(handler: Callable[[httpx.Request], httpx.Response], verification: str 
     return TestClient(app)
 
 
-def _handler(profile: dict, seen: list[httpx.Request] | None = None, touch_status: int = 204):
+def _handler(profile: dict, seen: list[httpx.Request] | None = None, touch_status: int = 204,
+             banners: list[dict] | None = None, banner_status: int = 200):
     def handler(request: httpx.Request) -> httpx.Response:
         if seen is not None:
             seen.append(request)
+        if request.method == "GET" and request.url.path.endswith("/home_banners"):
+            return httpx.Response(banner_status, json=(banners or []) if banner_status == 200 else {"message": "boom"})
         if request.method == "POST" and request.url.path.endswith("/rpc/home_stats"):
             return httpx.Response(200, json=[STATS_ROW])
         if request.url.path.endswith("/profiles") and request.url.params.get("id") == f"eq.{PROFILE_ID}":
@@ -90,6 +93,7 @@ def test_summary_returns_service_stats_and_my_completion():
         "profile_completion_percent": 100,
         "cohort": None,
         "store_rating": 0.0, "store_rating_count": 0,
+        "banners": [],
     }
 
 
@@ -156,11 +160,11 @@ def test_a_bad_store_rating_setting_falls_back_to_zero_instead_of_failing(rating
 
 
 def test_summary_reads_my_profile_and_photo_count_in_one_request():
-    """전체 집계는 RPC 한 번, 내 완성도는 profiles 한 줄 + 사진 개수 embed 로 한 번 — 합쳐 두 번."""
+    """전체 집계는 RPC 한 번, 내 완성도는 profiles 한 줄 + 사진 개수 embed 로 한 번 — 합쳐 두 번(홈 배너 읽기는 따로 센다)."""
     seen: list[httpx.Request] = []
     _wire(_handler(FULL_PROFILE, seen)).get("/home/summary", headers=AUTH_HEADERS)
 
-    reads = [r for r in seen if r.method != "PATCH"]
+    reads = [r for r in seen if r.method != "PATCH" and not r.url.path.endswith("/home_banners")]
     assert len(reads) == 2
     profile_request = next(r for r in reads if r.url.path.endswith("/profiles"))
     assert "profile_photos(count)" in profile_request.url.params["select"]
@@ -246,6 +250,61 @@ def test_summary_succeeds_and_logs_when_the_touch_fails(caplog):
     assert response.status_code == 200
     assert response.json()["profile_completion_percent"] == 100
     assert "last_active_at" in caplog.text
+
+
+# 홈 배너(홈 v3, 11-12): 지금 기간 안의 줄만 순서대로, 공개 주소로 바꿔 싣는다. 못 읽어도 홈은 응답한다 ------------
+
+def _banner_request(seen: list[httpx.Request]) -> httpx.Request:
+    [request] = [r for r in seen if r.url.path.endswith("/home_banners")]
+    return request
+
+
+def test_banners_are_read_for_now_in_sort_order_and_capped_at_ten():
+    """기간 안 = starts_at <= 지금 이고 (ends_at 이 비었거나 > 지금). 두 조건이 같은 '지금' 을 쓴다."""
+    seen: list[httpx.Request] = []
+    before = datetime.now(timezone.utc)
+    _wire(_handler(FULL_PROFILE, seen)).get("/home/summary", headers=AUTH_HEADERS)
+    after = datetime.now(timezone.utc)
+
+    params = _banner_request(seen).url.params
+    assert params["select"] == "image_path,alt_text"
+    assert params["order"] == "sort_order.asc,created_at.asc"
+    assert params["limit"] == "10"
+    op, starts = params["starts_at"].split(".", 1)
+    assert op == "lte"
+    assert before <= datetime.fromisoformat(starts) <= after
+    assert params["or"] == f'(ends_at.is.null,ends_at.gt."{starts}")'
+
+
+def test_banners_become_public_storage_urls_in_the_order_the_db_gave():
+    rows = [{"image_path": "xmas-1.webp", "alt_text": "크리스마스에 어디 가세요?"},
+            {"image_path": "newyear.webp", "alt_text": "곧 1월 1일이에요"}]
+    response = _wire(_handler(FULL_PROFILE, banners=rows)).get("/home/summary", headers=AUTH_HEADERS)
+
+    assert response.status_code == 200
+    assert response.json()["banners"] == [
+        {"image_url": "https://x.supabase.co/storage/v1/object/public/home-banners/xmas-1.webp",
+         "alt_text": "크리스마스에 어디 가세요?"},
+        {"image_url": "https://x.supabase.co/storage/v1/object/public/home-banners/newyear.webp",
+         "alt_text": "곧 1월 1일이에요"},
+    ]
+
+
+def test_no_banner_in_period_is_an_empty_list():
+    response = _wire(_handler(FULL_PROFILE, banners=[])).get("/home/summary", headers=AUTH_HEADERS)
+
+    assert response.json()["banners"] == []
+
+
+def test_summary_still_answers_with_no_banners_when_reading_them_fails(caplog):
+    with caplog.at_level(logging.WARNING, logger="app.home.router"):
+        response = _wire(_handler(FULL_PROFILE, banner_status=500)).get("/home/summary", headers=AUTH_HEADERS)
+
+    assert response.status_code == 200
+    assert response.json()["banners"] == []
+    assert response.json()["profile_completion_percent"] == 100
+    assert "홈 배너" in caplog.text
+    assert PROFILE_ID not in caplog.text
 
 
 def test_summary_rejects_missing_login():

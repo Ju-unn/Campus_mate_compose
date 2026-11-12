@@ -138,20 +138,14 @@ class HomeStatsTest(PhoneBase):
                         talks=('GET', 'messages.kind=eq.text', _counted(talks)),
                         summary=('GET', '/home/summary', summary or _summary(cards, active, talks)))
 
-    def test_home_02_screen_numbers_match_db_with_thousands_commas(self):
-        said = {'result': 'pass', 'stats': {'전달된 카드': '1,234', '가입 수': '56', '시작된 대화': '7'}}
-        self.assertEqual(self.attempt('E-HOME-02', FakePhone(said), self.stats(1234, 56, 7))[0], 'pass')
+    def test_home_02_screen_has_no_numbers_so_only_summary_and_db_are_matched(self):
+        # 홈 v3(11-12): 숫자 칸이 화면에서 빠졌다 — 앱은 pass 만 말하고, 숫자는 /home/summary 와 DB 로만 맞춘다.
+        self.assertEqual(self.attempt('E-HOME-02', FakePhone({'result': 'pass'}), self.stats(1234, 56, 7))[0], 'pass')
+        self.assertEqual(self.attempt('E-HOME-02', FakePhone({'result': 'pass'}), self.stats(0, 0, 0))[0], 'pass')
 
-    def test_home_02_a_different_number_fails(self):
-        said = {'result': 'pass', 'stats': {'전달된 카드': '1234', '가입 수': '56', '시작된 대화': '7'}}
-        result, note = self.attempt('E-HOME-02', FakePhone(said), self.stats(1234, 56, 7))
+    def test_home_02_app_fail_is_fail(self):
+        result, _ = self.attempt('E-HOME-02', FakePhone({'result': 'fail', 'note': '링크 칸이 안 보임'}), self.stats(1, 1, 1))
         self.assertEqual(result, 'fail')
-        self.assertIn('전달된 카드', note)
-
-    def test_home_02_all_zero_wants_the_empty_panel(self):
-        self.assertEqual(self.attempt('E-HOME-02', FakePhone({'result': 'pass', 'empty': True}), self.stats(0, 0, 0))[0], 'pass')
-        said = {'result': 'pass', 'stats': {'전달된 카드': '0', '가입 수': '0', '시작된 대화': '0'}}
-        self.assertEqual(self.attempt('E-HOME-02', FakePhone(said), self.stats(0, 0, 0))[0], 'fail')
 
     def test_home_02_summary_response_must_match_db_too(self):
         said = {'result': 'pass', 'stats': {'전달된 카드': '3', '가입 수': '2', '시작된 대화': '1'}}
@@ -269,10 +263,11 @@ class CompletionTest(PhoneBase):
 
 
 class HomeMockValuesTest(PhoneBase):
-    def test_home_12_visible_mock_review_is_pass_with_the_known_note(self):
+    def test_home_12_rail_from_server_bytes_is_pass_without_a_note(self):
         # 레일 사람 칸은 서버가 흐려 준 바이트(memory) — 실제 가입자 아바타(서버 `/home/people`, 10-15).
+        # 리뷰 띠(목값)는 홈 v3(11-12)에서 빠져 "목값" 메모가 붙지 않는다.
         said = {'result': 'pass', 'rail': ['memory']}
-        self.assertEqual(self.attempt('E-HOME-12', FakePhone(said)), ('pass', '목값이 운영에 나가 있음(known A2)'))
+        self.assertEqual(self.attempt('E-HOME-12', FakePhone(said)), ('pass', ''))
 
     def test_home_12_short_of_people_default_tiles_are_pass(self):
         # 인원 부족(서버 빈 목록)이면 기본 그림 칸의 3D 아이콘 에셋만 보인다.

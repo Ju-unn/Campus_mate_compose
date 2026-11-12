@@ -6,7 +6,6 @@ import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/entrance.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
-import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/pressable.dart';
 import 'package:campus_mate/consent/model/repository/open_url.dart';
 import 'package:campus_mate/core/analytics/analytics_values.dart';
@@ -22,10 +21,11 @@ import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/home/model/data/home_people.dart';
 import 'package:campus_mate/home/model/data/home_summary.dart';
+import 'package:campus_mate/home/model/data/everytime_link.dart';
 import 'package:campus_mate/home/model/data/instagram_link.dart';
-import 'package:campus_mate/home/model/repository/store_review_url.dart';
 import 'package:campus_mate/home/view/auto_marquee.dart';
 import 'package:campus_mate/home/view/cohort_wait_view.dart';
+import 'package:campus_mate/home/view/home_banner_carousel.dart';
 import 'package:campus_mate/home/view/home_grid.dart';
 import 'package:campus_mate/home/view/mosaic_rail.dart';
 import 'package:campus_mate/home/view/notify_icon_button.dart';
@@ -45,12 +45,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// 리뷰 띠를 보이는 최소 평가 수(DESIGN §8.9 review-strip · pen `IQUAc`). 서버가 실제 스토어 값만 주므로 한 명이라도 있으면
-/// 보이고, 0 명(서버에 값을 안 넣음 · 잘못 넣음 · 옛 서버)이면 숨긴다(사용자 결정 2026-10-16, 종전 10).
-const int _minReviewCount = 1;
-
-/// 09b 메인(pen `bpA8x` → 새 시안 `M5hpo7` 10-15). hero-today → 24 → mosaic-rail → 24 → 6칸 그리드 → 24 → review-strip → 24 →
-/// campus-strip → 24 → 완성도 카드. 요약을 못 받으면(조회 중·실패) hero-today 만 남긴다 — 카드로 가는 길은 요약과 상관없다.
+/// 09b 메인(pen `bpA8x` → `M5hpo7` 10-15 → 홈 v3 `kkKiZ` 11-12). hero-today → 24 → mosaic-rail → 24 → 배너 슬라이드(있을 때만) → 24 →
+/// 링크 칸(인스타그램 · 에브리타임) → 24 → campus-strip → 24 → 완성도 카드. 요약을 못 받으면(조회 중·실패) hero-today 만 남긴다 — 카드로 가는 길은 요약과 상관없다.
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -122,18 +118,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
     if (mounted) ref.invalidate(homeSummaryProvider);
   }
 
-  /// "리뷰 남기기" — 스토어 주소([Env.storeReviewUrl])가 비어 있거나 http(s) 가 아니면 "곧 열려요" 만 띄운다.
-  /// 채워져 있으면 기기에서 연다(DESIGN §8.9 — 스토어 리뷰 페이지로 딥링크).
-  Future<void> _openStoreReview() async {
-    final uri = Uri.tryParse(ref.read(storeReviewUrlProvider).trim());
-    if (uri == null || !(uri.scheme == 'http' || uri.scheme == 'https') || uri.host.isEmpty) {
-      showTimedToast(comingSoonToast(context.l10n));
-      return;
-    }
-    await _openExternal(uri);
-  }
-
-  /// 기기 앱 · 브라우저로 연다(리뷰 남기기 · 6칸 그리드 인스타 칸). 열지 못하면 조용히 끝내지 않고 실패 안내를 띄운다.
+  /// 기기 앱 · 브라우저로 연다(링크 칸 인스타그램 · 에브리타임). 열지 못하면 조용히 끝내지 않고 실패 안내를 띄운다.
   Future<void> _openExternal(Uri uri) async {
     if (_opening) return; // 여는 호출이 끝나기 전에 다시 눌러도 두 번 열지 않는다
     _opening = true;
@@ -236,8 +221,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
     );
   }
 
-  /// 요약 블록 다섯(레일 · 6칸 그리드 · 리뷰 띠 · 참여 대학 · 완성도 카드, 10-15). 블록 사이는 모두 24. 숨는 블록(리뷰 띠 임계값 미만,
-  /// 완성도 100)은 위 여백째 빠진다. 인스타그램은 그리드 링크 칸으로 들어갔다(옛 배너).
+  /// 요약 블록(레일 · 배너 슬라이드 · 링크 칸 · 참여 대학 · 완성도 카드, 홈 v3 11-12). 블록 사이는 모두 24. 숨는 블록(배너 0장,
+  /// 완성도 100)은 위 여백째 빠진다. 숫자 3칸 · 리뷰 띠는 사용자 결정(11-12)으로 뺐다 — 서버 칸은 옛 앱이 읽어 그대로 있다.
   /// [animate] 면 블록마다 투명 · 아래 8 에서 40ms 간격으로 올라온다(DESIGN §7 standard, 처음 받을 때만).
   List<Widget> _summarySections(
     HomeSummary summary, {
@@ -254,13 +239,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
           MosaicRail(people: people),
         ],
       ),
+      // 사용자 결정(11-12): 사람 줄 아래 · 링크 칸 위. 0장이면 앞 여백째 빠진다.
+      if (summary.banners.isNotEmpty) HomeBannerCarousel(banners: summary.banners),
+      // 이벤트 칸이 빠져 9b-1 이벤트 화면(`/events`)으로 가는 길은 없다 — 화면 · 경로는 그대로 둔다(사용자 결정 11-12 「두기」).
       HomeGrid(
-        summary: summary,
         onInstagram: () => _openExternal(instagramLink),
-        onEvent: () => context.push(AppRoutes.events),
+        onEverytime: () => _openExternal(everytimeLink),
       ),
-      if (summary.reviewCount >= _minReviewCount)
-        _ReviewStrip(rating: summary.reviewRating, count: summary.reviewCount, onReview: _openStoreReview),
       _CampusStrip(campuses: summary.campuses, mySchool: mySchool),
       // 다 채웠으면 권할 것이 없어 카드를 숨긴다(사용자 결정 2026-09-26). 10-15 에 잠깐 뺐다가 사용자 요청으로 되살렸다(pen `xEpOD`).
       if (summary.profileCompletionPercent < 100)
@@ -554,70 +539,6 @@ class _RailHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(examples ? context.l10n.homeRailTitleExamples : context.l10n.homeRailTitle, style: _sectionTitleStyle);
-  }
-}
-
-/// review-strip(pen `L7wKi`). "리뷰 남기기" 는 스토어 리뷰 페이지로 간다 — 주소가 없는 동안은 "곧 열려요"(홈 화면이 정한다).
-class _ReviewStrip extends StatelessWidget {
-  const _ReviewStrip({required this.rating, required this.count, required this.onReview});
-
-  final double rating;
-  final int count;
-  final VoidCallback onReview;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 64,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        color: AppColors.reviewStripSurface,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // 글자가 커지면 왼쪽을 줄인다 — 버튼 글자는 그대로 둔다.
-          Flexible(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Row(
-                children: [
-                  Text(
-                    rating.toStringAsFixed(1),
-                    style: AppTypography.subtitle.copyWith(fontWeight: FontWeight.w700, color: AppColors.ink),
-                  ),
-                  const SizedBox(width: 6),
-                  for (var i = 0; i < 5; i++) ...[
-                    if (i > 0) const SizedBox(width: 1),
-                    const Icon3d(AppIcon3d.star, size: 15),
-                  ],
-                  const SizedBox(width: 6),
-                  Text(
-                    context.l10n.homeReviewCount(count: count),
-                    style: AppTypography.caption.copyWith(fontWeight: FontWeight.w500, color: AppColors.muted),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // 누름 칸은 pen 버튼 칸(높이 48) 그대로다 — 모양은 바꾸지 않았고, 누르는 동안 투명도만 내려간다.
-          Pressable(
-            onTap: onReview,
-            child: SizedBox(
-              height: 48,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                child: Center(
-                  child: Text(context.l10n.homeReviewButton, style: AppTypography.button.copyWith(color: AppColors.primaryText)),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 

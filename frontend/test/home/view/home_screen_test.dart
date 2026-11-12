@@ -9,8 +9,8 @@ import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/entrance.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
-import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/pressable.dart';
+import 'package:campus_mate/consent/model/repository/open_url.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/home/model/data/cohort_wait.dart';
@@ -20,12 +20,12 @@ import 'package:campus_mate/home/model/data/home_summary.dart';
 import 'package:campus_mate/home/view/auto_marquee.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/home/view/cohort_wait_view.dart';
+import 'package:campus_mate/home/view/home_banner_carousel.dart';
 import 'package:campus_mate/home/view/home_grid.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/home/view/mosaic_rail.dart';
 import 'package:campus_mate/home/view/mosaic_tile.dart';
 import 'package:campus_mate/home/view/notify_icon_button.dart';
-import 'package:campus_mate/home/view/stat_tile.dart';
 import 'package:campus_mate/home/view/tag.dart';
 import 'package:campus_mate/home/viewmodel/home_people_provider.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
@@ -106,6 +106,22 @@ void main() {
     reviewCount: reviews ?? summary.reviewCount,
     campuses: summary.campuses,
     profileCompletionPercent: percent ?? summary.profileCompletionPercent,
+  );
+
+  /// 서버가 배너 두 장을 준 홈(홈 v3 `kkKiZ` — 사람 줄 아래 · 링크 칸 위).
+  const banners = [
+    HomeBanner(imageUrl: 'https://cdn.test/a.webp', altText: '크리스마스에 어디 가세요?'),
+    HomeBanner(imageUrl: 'https://cdn.test/b.webp', altText: '곧 1월 1일이에요'),
+  ];
+  const withBanners = HomeSummary(
+    deliveredCards: 1234567,
+    signups: 862,
+    conversationsStarted: 391,
+    reviewRating: 4.6,
+    reviewCount: 57,
+    campuses: ['가람대', '새솔대'],
+    profileCompletionPercent: 40,
+    banners: banners,
   );
 
   late GoRouter router;
@@ -430,65 +446,46 @@ void main() {
     }
   });
 
-  testWidgets('stat-panel 은 저장소 숫자를 세 자리 쉼표로 보여준다', (tester) async {
-    await pump(tester);
-
-    expect(find.text('1,234,567'), findsOneWidget);
-    expect(find.text('862'), findsOneWidget);
-    expect(find.text('391'), findsOneWidget);
-    expect(find.text('전달된 카드'), findsOneWidget);
-    expect(find.text('가입 수'), findsOneWidget);
-    expect(find.text('시작된 대화'), findsOneWidget);
-  });
-
-  testWidgets('6칸 그리드 — 0 인 통계 칸은 숨기고 남은 칸이 위 행 폭을 나눈다(DESIGN §8.9 규칙 4)', (tester) async {
-    penFrame(tester);
-    await pump(tester, result: Success(summaryWith(delivered: 0)));
-
-    expect(find.text('전달된 카드'), findsNothing);
-    final join = tester.getRect(find.byType(StatTile).at(0));
-    final chat = tester.getRect(find.byType(StatTile).at(1));
-    expect(join.width, 160);
-    expect(chat.left - join.right, 8);
-  });
-
-  testWidgets('review-strip 은 평점과 평가 수를 보여준다', (tester) async {
+  testWidgets('숫자 3칸 · 리뷰 띠는 홈에서 빠졌다 — 요약에 값이 있어도 그리지 않는다(사용자 결정 11-12)', (tester) async {
     penFrame(tester);
     await pump(tester);
+    await tester.drag(_mainList, const Offset(0, -400));
+    await tester.pump(const Duration(seconds: 1));
 
-    expect(find.text('4.6'), findsOneWidget);
-    expect(find.text('(57명 평가)'), findsOneWidget);
-    expect(find.text('리뷰 남기기'), findsOneWidget);
+    for (final gone in ['1,234,567', '862', '391', '전달된 카드', '가입 수', '시작된 대화', '4.6', '(57명 평가)', '리뷰 남기기']) {
+      expect(find.text(gone), findsNothing, reason: gone);
+    }
   });
 
-  testWidgets('review-strip — 평가가 0명이면 위 여백까지 블록째 숨기고 그리드 아래 24 에 참여 대학이 온다', (tester) async {
-    penFrame(tester);
-    // 서버 env 를 넣지 않았거나 잘못 넣었을 때 · 옛 서버(칸 없음)가 이 경우다 — 0 · 0.
-    await pump(tester, result: Success(summaryWith(rating: 0, reviews: 0)));
-
-    expect(find.text('리뷰 남기기'), findsNothing);
-    expect(find.text('(0명 평가)'), findsNothing);
-    expect(tester.getTopLeft(find.text('참여 중인 대학')).dy - tester.getBottomLeft(find.byType(HomeGrid)).dy, 24);
-  });
-
-  testWidgets('review-strip — 실제 평가가 1명이라도 있으면 보인다: "5.0" · "(1명 평가)"(pen `IQUAc`), 그리드 아래 24', (tester) async {
-    penFrame(tester);
-    await pump(tester, result: Success(summaryWith(rating: 5, reviews: 1)));
-
-    expect(find.text('5.0'), findsOneWidget);
-    expect(find.text('(1명 평가)'), findsOneWidget);
-    final review = tester.getRect(find.ancestor(of: find.text('리뷰 남기기'), matching: find.byType(Container)).last);
-    expect(review.top - tester.getRect(find.byType(HomeGrid)).bottom, 24);
-  });
-
-  testWidgets('버튼 글자 — 히어로 `YiLtq` 18/700 · 리뷰 `ifX9K` 16/700', (tester) async {
+  testWidgets('버튼 글자 — 히어로 `YiLtq` 18/700', (tester) async {
     penFrame(tester);
     await pump(tester);
 
     final hero = tester.widget<Text>(find.text('지금 확인하기')).style!;
     expect((hero.fontSize, hero.fontWeight), (18, FontWeight.w700));
-    final review = tester.widget<Text>(find.text('리뷰 남기기')).style!;
-    expect((review.fontSize, review.fontWeight), (16, FontWeight.w700));
+  });
+
+  group('배너 슬라이드(홈 v3 `kkKiZ` — 사람 줄 아래 24 · 링크 칸 위 24)', () {
+    testWidgets('서버가 배너를 주면 사람 줄 → 24 → 배너 → 24 → 링크 칸 순서로 놓는다', (tester) async {
+      penFrame(tester);
+      await pump(tester, result: const Success(withBanners));
+
+      final rail = tester.getRect(find.byType(MosaicRail));
+      final carousel = tester.getRect(find.byType(HomeBannerCarousel));
+      final grid = tester.getRect(find.byType(HomeGrid));
+      expect(tester.widget<HomeBannerCarousel>(find.byType(HomeBannerCarousel)).banners, banners);
+      expect(carousel.top - rail.bottom, 24);
+      expect(carousel.width, 328);
+      expect(grid.top - carousel.bottom, 24);
+    });
+
+    testWidgets('배너가 없으면(옛 서버 · 빈 목록) 칸을 앞뒤 간격째 뺀다 — 사람 줄 아래 24 에 링크 칸', (tester) async {
+      penFrame(tester);
+      await pump(tester);
+
+      expect(find.byType(HomeBannerCarousel), findsNothing);
+      expect(tester.getRect(find.byType(HomeGrid)).top - tester.getRect(find.byType(MosaicRail)).bottom, 24);
+    });
   });
 
   testWidgets('campus-strip 은 저장소의 대학을 태그 하나씩 보여준다', (tester) async {
@@ -951,14 +948,12 @@ void main() {
   });
 
   group('카드형 누름 반응(DESIGN §7 press)', () {
-    testWidgets('완성도 카드 · "리뷰 남기기" 는 Pressable 이다 — 누르는 동안 투명도만 내려간다', (tester) async {
+    testWidgets('완성도 카드는 Pressable 이다 — 누르는 동안 투명도만 내려간다', (tester) async {
       penFrame(tester);
       await pump(tester);
-      // 완성도 카드가 유리 내비 아래에 있다 — 두 칸이 다 보이게 조금 올린다(끝을 넘겨 늘어나지 않을 만큼).
-      await tester.drag(_mainList, const Offset(0, -150));
-      await tester.pump(const Duration(seconds: 1));
+      // 숫자 칸 · 리뷰 띠가 빠져(홈 v3) 완성도 카드가 유리 내비 위에 있다 — 내리지 않는다.
 
-      for (final text in ['리뷰 남기기', '프로필을 조금 더 채우면']) {
+      for (final text in ['프로필을 조금 더 채우면']) {
         final pressable = find.ancestor(of: find.text(text), matching: find.byType(Pressable));
         expect(pressable, findsOneWidget, reason: text);
         final rect = tester.getRect(find.text(text));
@@ -979,11 +974,11 @@ void main() {
       await pump(tester, settle: false);
 
       final entrances = tester.widgetList<Entrance>(find.byType(Entrance)).toList();
-      // 레일 · 6칸 그리드 · 리뷰 띠 · 참여 대학 · 완성도 카드 다섯 블록(10-15 — 배너는 빠지고 인스타는 그리드 안).
+      // 레일 · 링크 칸 · 참여 대학 · 완성도 카드 네 블록(홈 v3 — 배너 없는 요약, 숫자 칸 · 리뷰 띠는 빠졌다).
       expect(
         entrances.map((e) => (e.rise, e.delay, e.duration, e.curve, e.enabled)),
         [
-          for (var i = 0; i < 5; i++)
+          for (var i = 0; i < 4; i++)
             (8.0, Duration(milliseconds: 40 * i), AppMotion.standard, AppMotion.standardCurve, true),
         ],
       );
@@ -1008,35 +1003,10 @@ void main() {
     });
   });
 
-  group('세 숫자가 모두 0 이면 그리드 위 행만 빠진다(10-15 — 옛 빈 상태 판 `Tklrw` 은 없다)', () {
-    testWidgets('통계 칸 · 옛 판 없이 링크 행은 남고, 다른 블록도 그대로다', (tester) async {
-      penFrame(tester);
-      await pump(tester, result: Success(summaryWith(delivered: 0, signups: 0, conversations: 0)));
-
-      expect(find.byType(StatTile), findsNothing);
-      expect(find.text('첫 기록이 쌓이는 중이에요'), findsNothing);
-      expect(find.text('인스타그램'), findsOneWidget);
-      // 링크 행 80(pen v2 `blOdR`, 10-16 초안 A — 종전 96)
-      expect(tester.getSize(find.byType(HomeGrid)), const Size(328, 80));
-      expect(find.text('지금 함께 있는 사람들'), findsOneWidget);
-      expect(find.text('리뷰 남기기'), findsOneWidget);
-    });
-
-    for (final (delivered, signups, conversations, shown) in [(1, 0, 0, '전달된 카드'), (0, 1, 0, '가입 수'), (0, 0, 1, '시작된 대화')]) {
-      testWidgets('하나라도 0 보다 크면 그 칸만 보여 준다 ($delivered, $signups, $conversations)', (tester) async {
-        await pump(tester, result: Success(summaryWith(delivered: delivered, signups: signups, conversations: conversations)));
-
-        for (final label in ['전달된 카드', '가입 수', '시작된 대화']) {
-          expect(find.text(label), label == shown ? findsOneWidget : findsNothing, reason: label);
-        }
-      });
-    }
-  });
-
-  // DESIGN §11.2 — 시스템 글꼴 확대(최대 2.0)에서도 깨지지 않는다. 6칸 그리드(통계 있음 · 없음), hero 세 상태를 본다.
+  // DESIGN §11.2 — 시스템 글꼴 확대(최대 2.0)에서도 깨지지 않는다. 링크 칸(배너 있음 · 없음), hero 세 상태를 본다.
   final layouts = <String, (HomeSummary, Result<TodayCards>)>{
-    '6칸 그리드': (summary, _arrived),
-    '통계 없음': (summaryWith(delivered: 0, signups: 0, conversations: 0), _arrived),
+    '링크 2칸': (summary, _arrived),
+    '배너 있음': (withBanners, _arrived),
     'hero 결정 대기': (
       summary,
       const Success(TodayCards(cards: [DailyCard(cardId: 'paid', source: CardSource.purchased, profile: _cardProfile)])),
@@ -1092,8 +1062,8 @@ void main() {
   });
   }
 
-  // pen 09b `M5hpo7`(대장 10-15 정정): hero → 24 → 레일 제목(25) → 10 → 레일 → 24 → 6칸 그리드(328×200) → 24 → 리뷰 띠 → 24 →
-  // 참여 대학 제목(25) → 8 → 칩 → 24 → 완성도 카드. 바로가기 줄은 사용자 결정으로 뺐다.
+  // 홈 v3 `kkKiZ`(11-12): hero → 24 → 레일 제목(25) → 10 → 레일 → 24 → [배너] → 24 → 링크 칸(328×80) → 24 →
+  // 참여 대학 제목(25) → 8 → 칩 → 24 → 완성도 카드. 숫자 3칸 · 리뷰 띠는 사용자 결정(11-12)으로 뺐다.
   testWidgets('블록 사이 — hero 아래 24 에 레일 제목 · 블록마다 24 · 대학 제목 아래 8 에 칩 · 칩 아래 24 에 완성도 카드', (tester) async {
     penFrame(tester);
     await pump(tester);
@@ -1102,22 +1072,21 @@ void main() {
     final railTitle = tester.getRect(find.text('지금 함께 있는 사람들'));
     final rail = tester.getRect(find.byType(MosaicRail));
     final grid = tester.getRect(find.byType(HomeGrid));
-    final review = tester.getRect(find.ancestor(of: find.text('리뷰 남기기'), matching: find.byType(Container)).last);
     final campusTitle = tester.getRect(find.text('참여 중인 대학'));
     final tag = tester.getRect(find.byType(Tag).first);
     final card = tester.getRect(find.ancestor(of: find.text('프로필을 조금 더 채우면'), matching: find.byType(Container)).last);
     expect(railTitle.top - hero.bottom, 24);
     expect(rail.top - railTitle.bottom, 10);
     expect(grid.top - rail.bottom, 24);
-    expect(grid.size, const Size(328, 200));
-    expect(review.top - grid.bottom, 24);
-    expect(campusTitle.top - review.bottom, 24);
+    expect(grid.size, const Size(328, 80));
+    expect(campusTitle.top - grid.bottom, 24);
     expect(tag.top - campusTitle.bottom, 8);
     expect(card.top - tester.getRect(find.byType(Tag).last).bottom, 24);
   });
 
-  // pen `M5hpo7` 최종 좌표표(대장 10-15, 앱바 56 포함 · 프레임 1054 · 유리 내비 y956).
-  testWidgets('pen 좌표와 같다 — hero 64~224 · 레일 제목 248(25) · 레일 283~423 · 그리드 447~647 · 리뷰 671~735 · 대학 759(25) · 칩 792 · 완성도 844~936', (tester) async {
+  // 위 간격으로 셈한 좌표(앱바 56 포함). 배너 없음: hero 64~224 · 레일 제목 248(25) · 레일 283~423 · 링크 칸 447~527 ·
+  // 대학 551(25) · 칩 584 · 완성도 636~728. 배너 있음: 배너 447~647(그림 184 + 10 + 점 6) · 링크 칸 671~751 · 대학 775.
+  testWidgets('좌표 — 배너 없음 · 있음', (tester) async {
     penFrame(tester);
     await pump(tester);
 
@@ -1126,13 +1095,16 @@ void main() {
     expect(tester.getSize(find.text('지금 함께 있는 사람들')).height, 25);
     expect(tester.getRect(find.byType(MosaicRail)).top, 283);
     expect(tester.getRect(find.byType(MosaicRail)).bottom, 423);
-    expect(tester.getRect(find.byType(HomeGrid)), const Rect.fromLTWH(16, 447, 328, 200));
-    final review = tester.getRect(find.ancestor(of: find.text('리뷰 남기기'), matching: find.byType(Container)).last);
-    expect((review.top, review.bottom), (671, 735));
-    expect(tester.getRect(find.text('참여 중인 대학')).top, 759);
-    expect(tester.getRect(find.byType(Tag).first).top, 792);
+    expect(tester.getRect(find.byType(HomeGrid)), const Rect.fromLTWH(16, 447, 328, 80));
+    expect(tester.getRect(find.text('참여 중인 대학')).top, 551);
+    expect(tester.getRect(find.byType(Tag).first).top, 584);
     final card = find.ancestor(of: find.text('프로필을 조금 더 채우면'), matching: find.byType(Container)).last;
-    expect(tester.getRect(card), const Rect.fromLTWH(16, 844, 328, 92));
+    expect(tester.getRect(card), const Rect.fromLTWH(16, 636, 328, 92));
+
+    await pump(tester, result: const Success(withBanners));
+    expect(tester.getRect(find.byType(HomeBannerCarousel)), const Rect.fromLTWH(16, 447, 328, 200));
+    expect(tester.getRect(find.byType(HomeGrid)), const Rect.fromLTWH(16, 671, 328, 80));
+    expect(tester.getRect(find.text('참여 중인 대학')).top, 775);
   });
 
   testWidgets('바로가기 줄은 없다 — hero 다음이 바로 레일이다(사용자 결정 10-15)', (tester) async {
@@ -1155,23 +1127,13 @@ void main() {
     }
   });
 
-  testWidgets('인스타그램 배너는 없다 — 인스타는 6칸 그리드 안에 있다', (tester) async {
+  testWidgets('인스타그램 배너는 없다 — 인스타는 링크 칸(인스타그램 · 에브리타임) 안에 있다', (tester) async {
     penFrame(tester);
     await pump(tester);
     await tester.scrollUntilVisible(find.text('프로필 완성도 40%'), 200, scrollable: _mainList);
 
     expect(find.text('CampusMate 인스타그램'), findsNothing);
     expect(find.descendant(of: find.byType(HomeGrid), matching: find.text('인스타그램')), findsOneWidget);
-  });
-
-  testWidgets('review-strip `L7wKi` — 바탕 #FFF8EC, 별은 3D 15 다섯 개(`hN4Ow` 외)', (tester) async {
-    penFrame(tester);
-    await pump(tester);
-
-    final strip = find.ancestor(of: find.text('리뷰 남기기'), matching: find.byType(Container)).last;
-    expect((tester.widget<Container>(strip).decoration! as BoxDecoration).color, const Color(0xFFFFF8EC));
-    final stars = find.descendant(of: strip, matching: find.byType(Icon3d));
-    expect(tester.widgetList<Icon3d>(stars).map((i) => (i.icon, i.size)), List.filled(5, (AppIcon3d.star, 15.0)));
   });
 
   testWidgets('hero `U1k8ZK` — 바탕 #FFF0F2 · 하트 장식 없음 · 마스코트 `S49nUs` x172 y-5 160×170 · 제목 #222 · 버튼 `t0Un8s` #FF385C 글자 흰색', (tester) async {
@@ -1233,12 +1195,10 @@ void main() {
     tester.view.devicePixelRatio = 1;
     tester.view.padding = const FakeViewPadding(bottom: 20);
     addTearDown(tester.view.reset);
-    await pump(tester);
+    // 링크 칸을 열지 못하면 실패 토스트가 뜬다(홈 v3 — 리뷰 띠가 빠져 이 길로 토스트를 띄운다).
+    await pump(tester, overrides: [openExternalUrlProvider.overrideWithValue((_) async => false)]);
 
-    // 리뷰 주소가 비어 있으면 "곧 열려요" 토스트가 뜬다. 6칸 그리드(10-15)로 리뷰 띠가 내려가 올려야 알약 위로 나온다.
-    await tester.drag(_mainList, const Offset(0, -400));
-    await tester.pump(const Duration(seconds: 1));
-    await tester.tap(find.text('리뷰 남기기'));
+    await tester.tap(find.text('인스타그램'));
     await tester.pump();
 
     final toast = find.byType(AppToast);
@@ -1247,10 +1207,11 @@ void main() {
     expect(tester.getRect(find.byType(GlassBottomNav)).top - tester.getBottomLeft(toast).dy, 12);
   });
 
-  testWidgets('요약을 못 받아도 hero-today 는 남고 6칸 그리드 · 완성도 카드는 통째로 숨는다(숫자를 지어내지 않는다)', (tester) async {
+  testWidgets('요약을 못 받아도 hero-today 는 남고 배너 · 링크 칸 · 완성도 카드는 통째로 숨는다(요약 없이 지어내지 않는다)', (tester) async {
     await pump(tester, result: const FailureResult(NetworkFailure()));
 
     expect(find.text('지금 확인하기'), findsOneWidget);
+    expect(find.byType(HomeBannerCarousel), findsNothing);
     expect(find.byType(HomeGrid), findsNothing);
     expect(find.textContaining('프로필 완성도'), findsNothing);
     expect(find.text('전달된 카드'), findsNothing);

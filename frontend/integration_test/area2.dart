@@ -6,7 +6,6 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/home/view/cohort_wait_view.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/home/view/mosaic_rail.dart';
-import 'package:campus_mate/home/view/stat_tile.dart';
 import 'package:campus_mate/home/view/tag.dart';
 import 'package:campus_mate/matching/view/notification_settings_screen.dart';
 import 'package:campus_mate/matching/viewmodel/notification_settings_view_model.dart';
@@ -30,12 +29,10 @@ const _heroCta = '지금 확인하기'; // :179
 /// 레일 제목(_RailHeader) — 요약을 받아야 그려지는 첫 줄. 사람 칸이 없으면(인원 부족 · 받는 중) 둘째 제목이다.
 const _railTitles = ['지금 함께 있는 사람들', '곧 더 많은 사람들이 모여요'];
 const _campusTitle = '참여 중인 대학'; // :109
-// 10-15 새 홈(pen `M5hpo7`): 숫자 칸 자리는 6칸 그리드. 옛 빈 상태 판 · 인스타 배너는 없다(완성도 카드는 그대로 있다).
-const _statLabels = ['전달된 카드', '가입 수', '시작된 대화']; // home_grid.dart 위 행 StatTile label — 0 인 칸은 숨고, 셋 다 0 이면 위 행만 빠진다
-const _linkTiles = ['인스타그램', '이벤트', '곧 열려요']; // home_grid.dart 아래 행 — 요약을 받으면 늘 있다
+// 홈 v3(pen `kkKiZ`, 11-12): 숫자 3칸 · 리뷰 띠 · 이벤트 · 곧 열려요 칸은 없다(사용자 결정). 링크 칸 2개만 남았다.
+const _goneLabels = ['전달된 카드', '가입 수', '시작된 대화', '리뷰 남기기', '이벤트', '곧 열려요']; // 홈 v3 에서 빠진 글 — 0개여야 한다
+const _linkTiles = ['인스타그램', '에브리타임']; // home_grid.dart — 요약을 받으면 늘 있다
 const _completionLead = '프로필 완성도'; // home_screen.dart _ProfileNudge '프로필 완성도 $percent%'
-const _reviewRating = '4.8'; // _ReviewStrip :270 rating.toStringAsFixed(1) — 목값 http_home_repository.dart:21
-const _reviewCount = '(143명 평가)'; // :280 '($count명 평가)' — 목값 :22
 const _cohortLead = '첫 카드까지'; // cohort_wait_view.dart:208 '첫 카드까지 · $dayLabel'
 const _todayTitle = '오늘의 카드'; // today_cards_screen.dart:36 앱바
 // 하트 재화 그림(DESIGN §5.4 — Lucide 가 아니라 이미지). heart_task_row.dart:11 · avatar_regen_sheet.dart:102 · 묶음 · 단계 그림.
@@ -226,29 +223,25 @@ Future<void> _openSubmit(WidgetTester tester, String row) async {
 int _count(Finder finder) => finder.evaluate().length;
 
 final Map<String, Area1Case> area2Cases = {
-  // hero 글 · 참여 대학 · 그리드 링크 칸 셋 각 하나, 통계 칸은 각 하나 이하(0 인 칸은 숨는다), 19 대기 화면 글 0.
+  // hero 글 · 참여 대학 · 링크 칸 둘 각 하나, 빠진 칸(숫자 3칸 · 리뷰 띠 · 이벤트 · 곧 열려요) 글 0, 19 대기 화면 글 0.
   'E-HOME-01': _session((tester, job) async {
     must(!await _homeLoaded(tester), '학교가 열렸는데 19 대기 화면이 보임');
     final always = [..._heroLines, _heroCta, _campusTitle, ..._linkTiles];
-    final words = {for (final text in [...always, ..._statLabels]) text: _inHome(find.text(text))};
+    final words = {for (final text in [...always, ..._goneLabels]) text: _inHome(find.text(text))};
     final seen = await _sweep(tester, {...words, 'cohort': find.textContaining(_cohortLead, skipOffstage: false)});
     for (final text in always) {
       must(seen[text] == 1, '"$text" ${seen[text]}개');
     }
-    // 셋 다 0 이면 위 행만 빠지고 링크 칸은 남는다 — 숫자 맞추기는 E-HOME-02(PC 가 DB 와 본다).
-    must(_statLabels.every((label) => seen[label]! <= 1), '통계 칸 ${[for (final l in _statLabels) seen[l]]}');
+    must(_goneLabels.every((label) => seen[label] == 0), '빠진 칸 글 ${[for (final l in _goneLabels) seen[l]]}');
     must(seen['cohort'] == 0, '"$_cohortLead" 가 보임');
     return null;
   }),
-  // 화면 세 숫자(쉼표 그대로)를 말한다 — DB · /home/summary 와 맞추기는 PC. 통계 칸이 하나도 없고 그리드 링크 칸만 보이면
-  // 'empty'(셋 다 0 이라 위 행이 빠진 그리드)다 — 옛 "첫 기록이 쌓이는 중이에요" 판과 같은 뜻으로 PC 에 돌려준다.
+  // 홈 v3 에는 숫자 칸이 없다 — 앱은 링크 칸이 보이는지만 본다. /home/summary 숫자 · DB 맞추기는 PC 가 한다(옛 앱이 읽는 칸).
   'E-HOME-02': _session((tester, job) async {
     await _summary(tester);
-    final stats = <String, String>{};
-    final seen = await _sweep(tester, {'links': _inHome(find.text(_linkTiles.first))},
-        each: () => stats.addAll({for (final t in tester.widgetList<StatTile>(_inHome(find.byType(StatTile)))) t.label: t.value}));
-    must(seen['links'] == 1, '6칸 그리드 링크 칸("${_linkTiles.first}")이 안 보임');
-    return stats.isEmpty ? {'empty': true, 'stats': stats} : {'stats': stats};
+    final seen = await _sweep(tester, {'links': _inHome(find.text(_linkTiles.first))});
+    must(seen['links'] == 1, '링크 칸("${_linkTiles.first}")이 안 보임');
+    return null;
   }),
   // 칩 순서를 말한다 — DB 순서와 맞추기는 PC.
   'E-HOME-03': _session((tester, job) async {
@@ -280,14 +273,12 @@ final Map<String, Area1Case> area2Cases = {
     must(seen['image'] == 0, '하트 재화 그림 ${seen['image']}개');
     return null;
   }),
-  // 리뷰 띠 목값이 보이면 pass(사용자 결정 10-01 (가) — 심사 때 숨김, 지금은 정상). 레일 그림 출처는 PC 가 본다.
+  // 레일 그림 출처를 말한다 — 판정은 PC. 리뷰 띠는 홈 v3 에서 빠졌다(사용자 결정 11-12).
   'E-HOME-12': _session((tester, job) async {
     await _summary(tester);
     // 레일은 맨 위 — 목록을 내리면 안 만들어지므로 내리기 전에 읽는다.
     final images = tester.widgetList<Image>(find.descendant(of: _inHome(find.byType(MosaicRail)), matching: find.byType(Image)));
     final rail = {for (final image in images) _railSource(image.image)}.toList();
-    final seen = await _sweep(tester, {_reviewRating: _inHome(find.text(_reviewRating)), _reviewCount: _inHome(find.text(_reviewCount))});
-    must(seen[_reviewRating] == 1 && seen[_reviewCount] == 1, '리뷰 띠 "$_reviewRating" ${seen[_reviewRating]}개 · "$_reviewCount" ${seen[_reviewCount]}개');
     return {'rail': rail};
   }),
   'E-REF-01': _session((tester, job) async {

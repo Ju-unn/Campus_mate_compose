@@ -142,6 +142,48 @@ void main() {
     expect(cohort.recruitCount, 87);
   });
 
+  group('홈 배너(banners, 홈 v3 11-12)', () {
+    Map<String, Object?> summaryJson([Map<String, Object?> extra = const {}]) => {
+          'delivered_cards': 0,
+          'signups': 0,
+          'conversations_started': 0,
+          'campuses': <String>[],
+          'profile_completion_percent': 60,
+          ...extra,
+        };
+
+    Future<List<HomeBanner>> bannersOf(Map<String, Object?> json) async {
+      final result = await buildRepository(MockClient((_) async => jsonResponse(json))).fetchSummary();
+      return result.when<HomeSummary?>(onSuccess: (s) => s, onFailure: (_) => null)!.banners;
+    }
+
+    test('옛 서버(banners 칸 없음)면 빈 목록이다', () async {
+      expect(await bannersOf(summaryJson()), isEmpty);
+    });
+
+    test('null 이어도 빈 목록이다', () async {
+      expect(await bannersOf(summaryJson({'banners': null})), isEmpty);
+    });
+
+    test('빈 목록은 빈 목록이다', () async {
+      expect(await bannersOf(summaryJson({'banners': <Object>[]})), isEmpty);
+    });
+
+    test('여러 장은 서버가 준 순서 그대로 그림 주소 · 문구를 읽는다', () async {
+      final banners = await bannersOf(summaryJson({
+        'banners': [
+          {'image_url': 'https://cdn.test/a.webp', 'alt_text': '크리스마스에 어디 가세요?'},
+          {'image_url': 'https://cdn.test/b.webp', 'alt_text': '곧 1월 1일이에요'},
+        ],
+      }));
+
+      expect(banners, const [
+        HomeBanner(imageUrl: 'https://cdn.test/a.webp', altText: '크리스마스에 어디 가세요?'),
+        HomeBanner(imageUrl: 'https://cdn.test/b.webp', altText: '곧 1월 1일이에요'),
+      ]);
+    });
+  });
+
   test('서버 오류면 실패를 돌려준다', () async {
     final client = MockClient((_) async => jsonResponse({'detail': 'boom'}, 500));
 
