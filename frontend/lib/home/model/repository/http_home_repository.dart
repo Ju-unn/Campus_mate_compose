@@ -30,6 +30,11 @@ class HttpHomeRepository implements HomeRepository {
                   firstCardAt: DateTime.parse(cohort['first_card_at'] as String).toLocal(),
                   recruitCount: cohort['recruit_count'] as int,
                 ),
+          // 옛 서버는 칸이 없다 — 없거나 null 이면 빈 목록(배너 칸을 숨긴다).
+          banners: [
+            for (final banner in json['banners'] as List<dynamic>? ?? const [])
+              HomeBanner.fromJson(banner as Map<String, dynamic>),
+          ],
         );
       });
 
