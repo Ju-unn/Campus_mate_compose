@@ -13,7 +13,6 @@ from e2e.area2 import _guard
 from e2e.tools import Blocked
 
 REFERRAL_CODE = re.compile(r'[A-HJ-NP-Z2-9]{6}')  # profiles_referral_code_format — 0 · O · 1 · I 없음
-KNOWN_MOCK = '목값이 운영에 나가 있음(known A2)'  # 사용자 결정 10-01 (가): 심사 때 숨김, 지금은 보이는 것이 정상
 # 홈 완성도(backend/app/home/completion.py) 넷 — 하나 채울 때마다 10. 사진은 API 로 셋째 장, 나머지는 프로필 값을 바로 쓴다.
 FILLS = {
     'mbti': {'mbti': 'ENFP'},
@@ -21,7 +20,6 @@ FILLS = {
     'interests': {'interest_tags': ['카페가기', '자전거', '패션', '산책', '영화']},
 }
 HOME_STATS_MIN_SIGNUPS = 300  # 서버 settings.home_stats_min_signups 기본값과 같다 — 가입 수가 이보다 적으면 서버가 세 숫자를 0 으로 숨긴다
-STAT_LABELS = ('전달된 카드', '가입 수', '시작된 대화')  # home_screen.dart StatTile label — 앱이 이 이름으로 말한다
 
 
 # ── 홈 09b ──────────────────────────────────────────────────────────────────────────────────────────
@@ -70,20 +68,14 @@ def p_home_02(run, phone):
     account, token = _signed_in(run, 'home')
     before = _stats(run)
     summary = _numbers(_api(run, 'GET', '/home/summary', account['token']))
-    said = _app(check, phone(token_hash=token))
+    # 홈 v3(11-12): 화면에 숫자 칸이 없다 — 앱은 링크 칸만 보고, 숫자는 옛 앱이 읽는 /home/summary 와 DB 만 맞춘다.
+    _app(check, phone(token_hash=token))
     # ponytail: 시험 중엔 실사용자가 없어 값이 안 움직인다 — 그 사이 바뀌었으면 앱이 끝난 뒤 값과 맞춰 본다.
     db = before if summary == before else _stats(run)
     hidden = summary == (0, 0, 0) and db[1] < HOME_STATS_MIN_SIGNUPS  # 기준 미만이라 숨김 — 화면도 같은 0 을 그린다
     if hidden:
         db = summary
     check.that(summary == db, f'/home/summary {summary} ≠ DB {db}')
-    if said.get('result') == 'pass':
-        if db == (0, 0, 0):
-            check.that(said.get('empty') is True, f'DB 가 전부 0 인데 "첫 기록이 쌓이는 중이에요" 판이 아님 {said.get("stats")}')
-        else:
-            got = said.get('stats') or {}
-            for label, n in zip(STAT_LABELS, db):
-                check.that(got.get(label) == f'{n:,}', f'{label} 화면 {got.get(label)!r} ≠ DB {n:,}')
     return check.result()
 
 
@@ -147,7 +139,7 @@ def p_home_06(run, phone):
 
 
 def p_home_12(run, phone):
-    """리뷰 띠 "4.8" · "(143명 평가)" 는 앱이 본다. 레일 그림은 앱이 말한 출처가 서버가 흐려 준 바이트(`memory`, `/home/people`)이거나
+    """리뷰 띠는 홈 v3(11-12)에서 빠졌다. 레일 그림은 앱이 말한 출처가 서버가 흐려 준 바이트(`memory`, `/home/people`)이거나
     앱 안 에셋(인원 부족 기본 그림 칸)인지 여기서 본다 — 네트워크 주소(원본 아바타)면 fail."""
     check = Check()
     _, token = _signed_in(run, 'home')
@@ -156,7 +148,7 @@ def p_home_12(run, phone):
         rail = said.get('rail') or []
         check.that(rail and all(p == 'memory' or str(p).startswith('assets/') for p in rail),
                    f'레일 그림이 서버 흐린 그림 · 앱 에셋이 아님 {rail}')
-    return check.result(KNOWN_MOCK)
+    return check.result()
 
 
 # ── 알림 설정 16d ───────────────────────────────────────────────────────────────────────────────────
