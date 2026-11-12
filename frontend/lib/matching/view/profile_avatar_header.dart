@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 
 /// [ProfileCard] 맨 위 아바타 칸(pen 부품 PhotoSlide · Avatar `xLjFQ`). 10b 카드 상세(`TORAs` 의 `md2PT`),
 /// 15-4 남이 보는 내 프로필 수락 전(`gnEwq` 의 `WjVmJ`), 받은 신청 · 프로필 보기(`o4QqYR`)가 header 슬롯에 꽂는다.
-/// 14c(신뢰 뒤)는 이 자리에 실사진 슬라이더([RevealedPhotoHeader])를 꽂아 이 칸을 쓰지 않는다.
+/// 14c 는 신뢰 확인 전(실사진 없음)에만 이 칸을 쓰고(pen `dzVoP`), 뒤에는 실사진 슬라이더([RevealedPhotoHeader])를 꽂는다.
 ///
 /// 한 장뿐이라 점 줄이 없다. 칸 폭은 카드 안쪽 전체(pen 288, 360 화면에서 286 — 14c 슬라이더와 같다), 높이 260.
 class ProfileAvatarHeader extends StatelessWidget {
