@@ -38,7 +38,7 @@
 | [`docs/SETUP.md`](SETUP.md) | 새 PC 준비 — 스킬 · Pencil · 폰트 · SDK · graphify · IDE |
 | [`docs/superpowers/specs/`](superpowers/specs/) | 제품·아키텍처·매칭·보안 전체 설계. 모든 결정의 기준 |
 | [`docs/superpowers/plans/`](superpowers/plans/) | 조각별 실행 계획 — 목록과 상태는 [`README.md`](superpowers/plans/README.md) |
-| [`docs/decisions/`](decisions/) | **기술 결정 기록** — 한 결정에 한 파일(`날짜-주제-decision.md`). 계기 → 대안 → 선택과 이유 → 흐름 → 남은 위험. 졸업생 인증(10-19) · 출시 당일 결정(10-20) · 웹 버전 추가 계획(10-27) · 앱 1.0.2 결정 묶음(11-04) · 11-08 회의 할 일 묶음(11-11) |
+| [`docs/decisions/`](decisions/) | **기술 결정 기록** — 한 결정에 한 파일(`날짜-주제-decision.md`). 계기 → 대안 → 선택과 이유 → 흐름 → 남은 위험. 졸업생 인증(10-19) · 출시 당일 결정(10-20) · 웹 버전 추가 계획(10-27) · 앱 1.0.2 결정 묶음(11-04) · 11-08 회의 할 일 묶음(11-11) · 출시 직전 결정(11-12) |
 | [`backend/DEPLOY.md`](../backend/DEPLOY.md) | **서버 배포 · 운영 상태** — 현재 리비전, 환경변수, 배치, 롤백 하한 |
 | [`docs/ERD.md`](ERD.md) | DB ERD — 테이블 · 컬럼 · RLS · 권한 기준 |
 | [`docs/ERD_DECISIONS.md`](ERD_DECISIONS.md) | ERD 결정 기록 · 끝난 검토 · 조각 0 적용 범위 |
