@@ -256,6 +256,11 @@ final class PhotoRejectedFailure extends Failure {
   final int count;
 }
 
+/// 고른 사진이 칸에 이미 있는 사진과 원본 바이트가 같아 넣지 않았다(04-2 · 15-7, 2026-11-12 사용자 결정 「앱에서만 막기」).
+final class PhotoDuplicateFailure extends Failure {
+  const PhotoDuplicateFailure();
+}
+
 /// 글이 [min] 자보다 짧다(06-2a "이런 사람이 좋아요") — 서버 422(schemas.py `IDEAL_NOTE_MIN_LENGTH`)와 같은 글자.
 final class NoteTooShortFailure extends Failure {
   const NoteTooShortFailure(this.min);

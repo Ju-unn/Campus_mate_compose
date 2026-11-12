@@ -75,6 +75,7 @@ void main() {
     (const AppErrorFailure(AppError.inquiryEmailInvalid), '메일 주소 형식을 확인해 주세요'),
     (const PhotoMaxFailure(4), '사진은 최대 4장까지 올릴 수 있어요'),
     (const PhotoRejectedFailure(2), '2장은 얼굴이 보이지 않아 빠졌어요'),
+    (const PhotoDuplicateFailure(), '같은 사진은 한 번만 올릴 수 있어요'),
     (const NoteTooShortFailure(10), '10자 이상 입력해 주세요'),
   ];
 

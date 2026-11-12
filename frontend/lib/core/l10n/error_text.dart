@@ -33,6 +33,7 @@ String failureText(AppLocalizations l10n, Failure failure) => switch (failure) {
       PhoneCodeMismatchFailure(:final remaining) => l10n.errorPhoneCodeMismatch(count: remaining),
       PhotoMaxFailure(:final max) => l10n.errorPhotoMax(max: max),
       PhotoRejectedFailure(:final count) => l10n.errorPhotoRejected(count: count),
+      PhotoDuplicateFailure() => l10n.errorPhotoDuplicate,
       NoteTooShortFailure(:final min) => l10n.errorNoteTooShort(min: min),
     };
 
