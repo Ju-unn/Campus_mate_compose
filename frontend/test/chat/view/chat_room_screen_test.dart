@@ -9,6 +9,7 @@ import 'package:campus_mate/chat/view/chat_intro_card.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/chat/view/date_divider.dart';
 import 'package:campus_mate/chat/view/message_bubble.dart';
+import 'package:campus_mate/chat/view/partner_message_row.dart';
 import 'package:campus_mate/chat/view/system_message.dart';
 import 'package:campus_mate/chat/view/trust_banner.dart';
 import 'package:campus_mate/chat/view/trust_reveal_bubble.dart';
@@ -62,7 +63,8 @@ void main() {
 
     await pump(tester);
 
-    expect(find.text('여우비'), findsOneWidget);
+    // 앱바 제목은 상대 닉네임이다(상대 말풍선 묶음 첫 줄 위에도 닉네임이 있다 — 아래 '상대 말풍선 프로필').
+    expect(find.descendant(of: find.byType(AppBar), matching: find.text('여우비')), findsOneWidget);
     // 내 id 를 따로 들고 다니지 않는다 — 상대가 아니면 내 것이다.
     final bubbles = {
       for (final bubble in tester.widgetList<MessageBubble>(find.byType(MessageBubble)))
@@ -327,6 +329,88 @@ void main() {
 
     expect(find.text('연결이 끊겼어요'), findsNothing);
     expect(repository.pages.length, pagesBefore + 1);
+  });
+
+  // 카카오톡처럼 상대 말풍선 묶음 첫 줄에 사진 · 닉네임(사용자 결정 11-12, pen `H9vQHd` · `C5V6P` · 초안 p4fNhS · NvH7r).
+  group('상대 말풍선 프로필', () {
+    const avatar = 'https://x/avatar.png';
+    const photos = ['https://x/1.jpg', 'https://x/2.jpg'];
+
+    /// [body] 줄을 감싼 상대 줄. 내 줄 · 시스템 줄이면 없다.
+    Finder rowOf(String body) => find.ancestor(of: find.text(body), matching: find.byType(PartnerMessageRow));
+
+    /// 화면에 보이는 상대 얼굴(제목 + 말풍선 옆)의 그림 주소.
+    List<String?> faceUrls(WidgetTester tester) =>
+        [for (final face in tester.widgetList<PartnerFace>(find.byType(PartnerFace))) face.url];
+
+    testWidgets('묶음 첫 줄에만 사진 · 닉네임, 이어지는 줄은 들여쓰기, 내 말풍선 · 시스템 줄에는 없다', (tester) async {
+      // 일곱 줄과 첫 입장 안내 카드가 한 화면에 다 들어오게 세로를 늘린다.
+      tester.view.physicalSize = const Size(360, 2000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      repository.messages = Success(MessagePage(
+        messages: [
+          messageFixture(id: 'a', body: '첫 줄', createdAt: DateTime(2026, 11, 12, 14, 10)),
+          messageFixture(id: 'b', body: '같은 분 둘째 줄', createdAt: DateTime(2026, 11, 12, 14, 10)),
+          messageFixture(id: 'c', body: '다음 분 줄', createdAt: DateTime(2026, 11, 12, 14, 11)),
+          messageFixture(id: 'd', senderId: myId, body: '내 줄', createdAt: DateTime(2026, 11, 12, 14, 11)),
+          messageFixture(id: 'e', body: '내 줄 다음 상대 줄', createdAt: DateTime(2026, 11, 12, 14, 11)),
+          messageFixture(id: 'f', kind: MessageKind.trustAccept, body: '여우비님이 수락했어요', createdAt: DateTime(2026, 11, 12, 14, 11)),
+          messageFixture(id: 'g', body: '시스템 줄 다음 상대 줄', createdAt: DateTime(2026, 11, 12, 14, 11)),
+        ],
+        hasMore: false,
+      ));
+
+      await pump(tester);
+
+      bool startsRun(String body) => tester.widget<PartnerMessageRow>(rowOf(body)).nickname != null;
+      expect(startsRun('첫 줄'), isTrue);
+      expect(startsRun('같은 분 둘째 줄'), isFalse);
+      expect(startsRun('다음 분 줄'), isTrue);
+      expect(startsRun('내 줄 다음 상대 줄'), isTrue);
+      expect(startsRun('시스템 줄 다음 상대 줄'), isTrue);
+      expect(rowOf('내 줄'), findsNothing);
+      expect(rowOf('여우비님이 수락했어요'), findsNothing);
+      // 제목 1 + 묶음 첫 줄 4.
+      expect(find.byType(PartnerFace), findsNWidgets(5));
+      expect(find.text('여우비'), findsNWidgets(5));
+    });
+
+    testWidgets('신뢰 확인 전에는 제목 · 말풍선 옆 모두 아바타(초안 p4fNhS)', (tester) async {
+      repository
+        ..room = Success(roomFixture(avatarUrl: avatar))
+        ..messages = Success(MessagePage(messages: [messageFixture()], hasMore: false));
+
+      await pump(tester);
+
+      expect(faceUrls(tester), [avatar, avatar]);
+    });
+
+    testWidgets('공개 뒤에는 제목 · 말풍선 옆 모두 실사진 첫 장(초안 NvH7r)', (tester) async {
+      repository
+        ..room = Success(roomFixture(avatarUrl: avatar, passed: true, kakaoId: 'fox_rain', photoUrls: photos))
+        ..messages = Success(MessagePage(messages: [messageFixture()], hasMore: false));
+
+      await pump(tester);
+
+      expect(faceUrls(tester), [photos.first, photos.first]);
+    });
+
+    testWidgets('방에 있는 동안 공개되면(방을 다시 읽음) 제목 · 말풍선 옆 사진이 그 자리에서 실사진으로 바뀐다', (tester) async {
+      repository
+        ..room = Success(roomFixture(avatarUrl: avatar))
+        ..messages = Success(MessagePage(messages: [messageFixture()], hasMore: false));
+      await pump(tester);
+      expect(faceUrls(tester), [avatar, avatar]);
+
+      repository.room = Success(roomFixture(avatarUrl: avatar, passed: true, kakaoId: 'fox_rain', photoUrls: photos));
+      stream.pushError();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('다시 시도'));
+      await tester.pumpAndSettle();
+
+      expect(faceUrls(tester), [photos.first, photos.first]);
+    });
   });
 
   testWidgets('통과한 방에는 신뢰 확인 카드와 카카오톡 아이디가 붙는다', (tester) async {

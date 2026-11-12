@@ -252,6 +252,8 @@
   "chatListNoMessages": "아직 메시지가 없어요",
   "chatMenuBlock": "차단하기",
   "chatPartnerGoneNotice": "상대가 채팅방을 나가 더 이상 메시지를 보낼 수 없어요.",
+  "chatPartnerProfileOpen": "{nickname} 님 프로필 보기",
+  "@chatPartnerProfileOpen": {"placeholders": {"nickname": {"type": "String"}}},
   "chatRemainingHours": "{hours}시간",
   "@chatRemainingHours": {"placeholders": {"hours": {"type": "int"}}},
   "chatRemainingMinutes": "{minutes}분",
