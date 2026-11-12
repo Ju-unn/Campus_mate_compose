@@ -101,7 +101,10 @@ def _in(value: str) -> list[str]:
 
 class _World:
     def __init__(self, offers=(), candidates=(), cards=(), profiles=None,
-                 purchase=None, purchase_status: int = 200, region_settings=None, avatars=None, vectors=False):
+                 purchase=None, purchase_status: int = 200, region_settings=None, avatars=None, vectors=False,
+                 matched=()):
+        # 이미 나와 매칭된 사람(matches 행의 상대 id).
+        self.matched = list(matched)
         self.region_settings = REGION_SETTINGS if region_settings is None else region_settings
         # 내 벡터 세 개가 다 있는가 — 첫 카드(issue_first_card)만 본다. 기본은 없음이라 옛 시험은 첫 카드를 타지 않는다.
         self.vectors = vectors
@@ -166,6 +169,10 @@ class _World:
             return httpx.Response(200, json=[{"profile_id": ME}] if self.vectors else [])
         if table == "rpc/match_candidates":
             return httpx.Response(200, json=self.candidates)
+        if table == "matches" and request.method == "GET":
+            return httpx.Response(200, json=[
+                {"id": f"match-{other}", "profile_a": ME, "profile_b": other,
+                 "created_at": NOW.isoformat(), "match_participants": []} for other in self.matched])
         if table == "paid_card_offers":
             return self._offers(request, params)
         if table == "rpc/purchase_paid_card":
@@ -503,6 +510,40 @@ def test_a_suspended_target_is_replaced_when_opened(wire):
     assert [o["status"] for o in world.offers if o["id"] == "offer-1"] == ["replaced"]
     assert body["paid_card"]["state"] == "offered"
     assert body["paid_card"]["offer_id"] != "offer-1"
+
+
+def test_a_live_free_card_of_someone_already_matched_is_hidden(wire):
+    """07:00 에 카드가 나간 뒤 다른 경로(받은 신청 수락)로 그 사람과 매칭됐다 — 오늘 화면에 그 카드가 남지 않는다."""
+    world = _World(cards=[_card("card-1", "c05"), _card("card-2", "c06")], matched=["c05"],
+                   candidates=[_candidate(i, pickable=i not in (5, 6)) for i in range(20)])
+
+    body = wire(world).get("/cards/today", headers=AUTH).json()
+
+    assert [card["profile"]["profile_id"] for card in body["cards"]] == ["c06"]
+
+
+def test_a_live_offer_of_someone_already_matched_is_replaced_when_opened(wire):
+    """유료 제안 대상과 그날 매칭됐다 — 그 사람의 흐린 칸을 그대로 두지 않고 새 사람으로 바꾼다."""
+    world = _World(offers=[_offer(target_id="c03")], matched=["c03"],
+                   candidates=[_candidate(i, pickable=i != 3) for i in range(20)])
+
+    body = wire(world).get("/cards/today", headers=AUTH).json()
+
+    assert [o["status"] for o in world.offers if o["id"] == "offer-1"] == ["replaced"]
+    assert body["paid_card"]["state"] == "offered"
+    assert body["paid_card"]["offer_id"] != "offer-1"
+    assert [o["target_id"] for o in world.offers if o["status"] == "offered"] != ["c03"]
+
+
+def test_the_only_card_being_a_match_with_no_one_left_is_the_empty_pool(wire):
+    """하나뿐인 카드의 상대와 매칭됐고 더 뽑을 사람이 없다 — 카드 0장 · 11b(빈 후보) · 제안 없음."""
+    world = _World(cards=[_card("card-1", "c00")], matched=["c00"], candidates=[_candidate(0, pickable=False)])
+
+    body = wire(world).get("/cards/today", headers=AUTH).json()
+
+    assert body["cards"] == []
+    assert body["paid_card"] is None
+    assert body["candidate_pool_empty"] is True
 
 
 def test_last_cycles_offer_expires_when_opened(wire):

@@ -26,8 +26,12 @@ HIDDEN = {
     "withdrawn": {"status": "withdrawn"},
     "i-contact-blocked": {},
     "contact-blocked-me": {},
+    # 07:00 지급 뒤 다른 경로(받은 신청 수락)로 이미 매칭된 상대 — 카드 화면에서 차단과 똑같이 사라진다.
+    "matched": {},
 }
 VISIBLE = "visible"
+# 받은 신청에 답하기는 매칭 상대를 막지 않는다 — A→B, B→A 를 둘 다 수락하면 두 번째는 이미 있는 매칭을 다시 본다(is_new).
+HIDDEN_ACCEPTERS = [other for other in HIDDEN if other != "matched"]
 BLOCKS = [{"blocker_id": ME, "blocked_id": "i-blocked"}, {"blocker_id": "blocked-me", "blocked_id": ME}]
 # 번호 HMAC(PostgREST 가 bytea 를 돌려주는 `\x` + hex 모양). 없는 사람은 phone_hmac 이 null 이다.
 PHONES = {ME: "\\x6d65", "i-contact-blocked": "\\x6963", "contact-blocked-me": "\\x6362", VISIBLE: "\\x7669"}
@@ -90,6 +94,9 @@ class _World:
             if "student_verification" in params.get("select", ""):
                 return httpx.Response(200, json=[{"student_verification": "verified", "department": "컴공", "school_email_verified_at": "2026-10-01T00:00:00+00:00"}])
             return httpx.Response(200, json=[_profile(params["id"].removeprefix("eq."))])
+        if table == "matches":
+            return httpx.Response(200, json=[{"id": "match-0", "profile_a": ME, "profile_b": "matched",
+                                              "created_at": _decided_at(), "match_participants": []}])
         if table == "blocks":
             return httpx.Response(200, json=BLOCKS)
         if table == "profile_private":
@@ -192,7 +199,7 @@ def test_acceptances_drop_every_hidden_accepter(world):
     assert [row["profile"]["profile_id"] for row in body["acceptances"]] == [VISIBLE]
 
 
-@pytest.mark.parametrize("other", list(HIDDEN))
+@pytest.mark.parametrize("other", HIDDEN_ACCEPTERS)
 def test_accepting_a_hidden_accepter_is_404_and_makes_no_match(world, other, monkeypatch):
     monkeypatch.setattr(_World, "_card", lambda self, o: _received(o))
 

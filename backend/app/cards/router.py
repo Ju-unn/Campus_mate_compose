@@ -163,6 +163,12 @@ async def _blocked_among(wiring: _Wiring, others: list[str]) -> set[str]:
         | await wiring.repo.fetch_contact_block_partner_ids(wiring.profile_id, others)
 
 
+async def _hidden_partners(wiring: _Wiring, others: list[str]) -> set[str]:
+    """내 카드(오늘 목록 · 상세 · 결정)에서 숨길 사람 — 차단 · 지인 차단에 이미 매칭된 상대를 더한다.
+    07:00 지급 뒤 다른 경로(받은 신청 수락)로 매칭되면 그 카드는 더 볼 것도 답할 것도 없다."""
+    return await _blocked_among(wiring, others) | await wiring.repo.fetch_match_partner_ids(wiring.profile_id)
+
+
 async def _region_row(repo: CardRepository, profile_id: str) -> dict | None:
     """내 지역 설정 행(지급 요일 · 시각). 없으면 다음 지급 시각도 이번 주기도 알 수 없다."""
     region = await repo.fetch_region_group(profile_id)
@@ -200,12 +206,13 @@ async def get_today_cards(wiring: _Wiring = Depends(_wire), rng: random.Random =
     live = await wiring.repo.fetch_live_cards(wiring.profile_id)
     # 제안 대상도 같은 차단 조회에 넣는다 — 요청마다 차단은 한 번만 읽는다.
     others = [card["target_id"] for card in live] + ([str(offer["target_id"])] if offer else [])
-    blocked = await _blocked_among(wiring, others)
+    # 매칭된 상대도 숨긴다 — 카드는 빠지고 제안은 아래 ensure_offer 가 바꾼다.
+    hidden = await _hidden_partners(wiring, others)
     # ponytail: 카드마다 프로필을 읽는 N+1 이다(조각 4 부터). 살아 있는 카드는 몇 장뿐이라 이대로 두고,
     # 수십 장이 되면 target_id in (...) 한 번으로 접는다. 차단은 요청마다 한 번만 읽는다.
     for card in live:
         profile = await wiring.repo.fetch_card_profile(card["target_id"])
-        if _hidden_from_cards(card["target_id"], profile, blocked):
+        if _hidden_from_cards(card["target_id"], profile, hidden):
             continue
         cards.append({
             "card_id": card["id"],
@@ -223,7 +230,7 @@ async def get_today_cards(wiring: _Wiring = Depends(_wire), rng: random.Random =
 
     paid_card = None
     if offer is not None:
-        eligible, target = await target_eligible(wiring.repo, wiring.profile_id, str(offer["target_id"]), blocked)
+        eligible, target = await target_eligible(wiring.repo, wiring.profile_id, str(offer["target_id"]), hidden)
         if eligible:
             # 살아 있는 제안이 있으면 읽기만 한다 — 순위를 다시 매기지 않는다.
             paid_card = await _offered_card(wiring, offer, target)
@@ -246,7 +253,7 @@ async def get_today_cards(wiring: _Wiring = Depends(_wire), rng: random.Random =
                 # 돌리고 이 자리는 캐시(또는 "준비 중")만 읽게 바꾼다.
                 owner_row = await matching_repo.fetch_owner(wiring.profile_id)
                 made = await ensure_offer(wiring.repo, owner_row, rank_all(owner_row, candidates), cycle,
-                                          rng, now, blocked=blocked)
+                                          rng, now, blocked=hidden)
                 if made is None:
                     # 후보는 있는데 상위 20% 구간에 뽑을 사람이 없다 — 구매는 막힌다.
                     paid_card = {"state": "empty"}
@@ -276,7 +283,7 @@ async def decide_card(card_id: str, body: DecisionRequest,
     if card is None or card["owner_id"] != wiring.profile_id:
         raise HTTPException(status_code=404, detail=errors.CARD_NOT_FOUND)
     target = await wiring.repo.fetch_card_profile(card["target_id"])
-    if _hidden_from_cards(card["target_id"], target, await _blocked_among(wiring, [card["target_id"]])):
+    if _hidden_from_cards(card["target_id"], target, await _hidden_partners(wiring, [card["target_id"]])):
         raise HTTPException(status_code=404, detail=errors.CARD_NOT_FOUND)
     if card["card_decisions"]:
         raise HTTPException(status_code=409, detail=errors.CARD_ALREADY_DECIDED)
@@ -562,7 +569,7 @@ async def get_card_detail(card_id: str,
         raise HTTPException(status_code=404, detail=errors.CARD_NOT_FOUND)
 
     profile = await wiring.repo.fetch_card_detail_profile(card["target_id"])
-    if _hidden_from_cards(card["target_id"], profile, await _blocked_among(wiring, [card["target_id"]])):
+    if _hidden_from_cards(card["target_id"], profile, await _hidden_partners(wiring, [card["target_id"]])):
         raise HTTPException(status_code=404, detail=errors.CARD_NOT_FOUND)
     return {"card_id": card["id"], **await profile_detail(wiring.repo, profile, wiring.settings.supabase_url, now)}
 
