@@ -39,7 +39,7 @@ void main() {
   tearDown(() => tempDir.deleteSync(recursive: true));
 
   File photoFile(String name) =>
-      File('${tempDir.path}/$name')..writeAsBytesSync(base64Decode(_onePixelPng));
+      File('${tempDir.path}/$name')..writeAsBytesSync([...base64Decode(_onePixelPng), ...utf8.encode(name)]); // 이름을 꼬리에 붙여 서로 다른 사진으로 — 같은 바이트는 같은 사진으로 막힌다
 
   Future<void> pump(
     WidgetTester tester, {
@@ -61,7 +61,8 @@ void main() {
     final files = [for (var i = 0; i < photoCount; i++) photoFile('photo-$i.png')];
     var index = 0;
     final viewModel = container.read(photosViewModelProvider.notifier)
-      ..pickFromGallery = (limit) async => [files[index++]];
+      ..pickFromGallery = ((limit) async => [files[index++]])
+      ..hashSource = (path) async => sha256OfFile(path); // 가짜 시계는 isolate 를 기다리지 못한다
     for (var i = 0; i < photoCount; i++) {
       await viewModel.addPhoto();
     }
@@ -166,7 +167,8 @@ void main() {
       final files = [for (var i = 0; i < 3; i++) photoFile('photo-$i.png')];
       var index = 0;
       final viewModel = container.read(photosViewModelProvider.notifier)
-        ..pickFromGallery = (limit) async => [files[index++]];
+        ..pickFromGallery = ((limit) async => [files[index++]])
+        ..hashSource = (path) async => sha256OfFile(path); // 가짜 시계는 isolate 를 기다리지 못한다
       for (var i = 0; i < 3; i++) {
         await viewModel.addPhoto();
       }

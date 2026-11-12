@@ -288,6 +288,83 @@ void main() {
     expect(container.read(photosViewModelProvider).error, isA<PhotoMaxFailure>().having((failure) => failure.max, 'max', 4));
   });
 
+  group('같은 사진(원본 바이트가 같은 사진)은 한 번만 담는다', () {
+    late Directory tempDir;
+
+    setUp(() => tempDir = Directory.systemTemp.createTempSync('photos_duplicate_test'));
+    tearDown(() => tempDir.deleteSync(recursive: true));
+
+    /// 갤러리는 같은 사진도 고를 때마다 다른 경로로 준다 — 경로가 아니라 내용으로 가려야 한다.
+    File photo(String name, String content) => File('${tempDir.path}/$name')..writeAsStringSync(content);
+
+    List<String> pickedPaths() => [for (final p in container.read(photosViewModelProvider).photos) p.file!.path];
+
+    test('sha256OfFile — 바이트가 같으면 같은 값, 다르면 다른 값, 읽지 못하면 null', () {
+      final a = sha256OfFile(photo('a.jpg', 'same').path);
+      expect(a, sha256OfFile(photo('a-again.jpg', 'same').path));
+      expect(a, isNot(sha256OfFile(photo('b.jpg', 'other').path)));
+      expect(a, hasLength(64));
+      expect(sha256OfFile('${tempDir.path}/missing.jpg'), isNull);
+    });
+
+    test('같은 사진을 두 번 고르면 한 장만 담고 같은 사진 안내를 남긴다', () async {
+      final first = photo('a.jpg', 'same');
+      final viewModel = buildViewModel([first, photo('a-again.jpg', 'same')]);
+
+      await viewModel.addPhoto();
+      await viewModel.addPhoto();
+
+      expect(pickedPaths(), [first.path]);
+      expect(container.read(photosViewModelProvider).error, isA<PhotoDuplicateFailure>());
+    });
+
+    test('한 번에 고른 묶음 안에서 겹치면 겹친 것만 빼고 안내는 한 번이다', () async {
+      final a = photo('a.jpg', 'same');
+      final b = photo('b.jpg', 'other');
+      final viewModel = container.read(photosViewModelProvider.notifier)
+        ..pickFromGallery = (limit) async => [a, photo('a-again.jpg', 'same'), b];
+
+      await viewModel.addPhoto();
+
+      expect(pickedPaths(), [a.path, b.path]);
+      expect(container.read(photosViewModelProvider).error, isA<PhotoDuplicateFailure>());
+    });
+
+    test('내용이 다른 사진은 막지 않는다', () async {
+      final a = photo('a.jpg', 'one');
+      final b = photo('b.jpg', 'two');
+      final viewModel = buildViewModel([a, b]);
+
+      await viewModel.addPhoto();
+      await viewModel.addPhoto();
+
+      expect(pickedPaths(), [a.path, b.path]);
+      expect(container.read(photosViewModelProvider).error, isNull);
+    });
+
+    test('뺀 사진은 다시 고를 수 있다', () async {
+      final a = photo('a.jpg', 'same');
+      final again = photo('a-again.jpg', 'same');
+      final viewModel = buildViewModel([a, again]);
+
+      await viewModel.addPhoto();
+      viewModel.removePhoto(0);
+      await viewModel.addPhoto();
+
+      expect(pickedPaths(), [again.path]);
+      expect(container.read(photosViewModelProvider).error, isNull);
+    });
+
+    test('같은 사진이 막혀도 얼굴 없는 사진으로 세지 않는다 — 가입 막힘을 남기지 않는다', () async {
+      final viewModel = buildViewModel([photo('a.jpg', 'same'), photo('a-again.jpg', 'same')]);
+
+      await viewModel.addPhoto();
+      await viewModel.addPhoto();
+
+      expect(analytics.calls.where((call) => call.startsWith('onboarding_blocked')), isEmpty);
+    });
+  });
+
   test('2장 이상 + 아바타 원본 1장이면 제출할 수 있고 성공하면 completed 가 켜진다', () async {
     final viewModel = buildViewModel([File('a.jpg'), File('b.jpg')]);
     await viewModel.addPhoto();
@@ -477,7 +554,8 @@ void main() {
       drafts = FakeDraftStore();
       // 얼굴 확인 · 압축이 끝난 사진은 임시 폴더에 있다 — 진짜 파일이어야 "남아 있는지" 를 볼 수 있다.
       dir = Directory.systemTemp.createTempSync('photos_draft');
-      files = [for (final name in ['a.jpg', 'b.jpg', 'c.jpg']) File('${dir.path}/$name')..writeAsBytesSync([1])];
+      // 서로 다른 사진이다 — 바이트가 같으면 같은 사진으로 막힌다.
+      files = [for (final name in ['a.jpg', 'b.jpg', 'c.jpg']) File('${dir.path}/$name')..writeAsStringSync(name)];
     });
     tearDown(() {
       if (dir.existsSync()) {
@@ -519,6 +597,29 @@ void main() {
       expect(pathsOf(reopened), [for (final file in files) file.path]);
       final avatar = [for (final photo in reopened.read(photosViewModelProvider).photos) photo.isAvatarSource];
       expect(avatar, [false, true, false]);
+    });
+
+    test('되살린 사진과 같은 사진을 다시 고르면 막힌다 — 원본 해시도 함께 남긴다', () async {
+      await pickThree(open());
+      final reopened = open();
+      final again = File('${dir.path}/a-again.jpg')..writeAsStringSync('a.jpg'); // files[0] 과 바이트가 같다
+      final vm = reopened.read(photosViewModelProvider.notifier)..pickFromGallery = (limit) async => [again];
+
+      await vm.addPhoto();
+
+      expect(pathsOf(reopened), [for (final file in files) file.path]);
+      expect(reopened.read(photosViewModelProvider).error, isA<PhotoDuplicateFailure>());
+    });
+
+    test('해시가 없는 옛 임시 저장도 그대로 되살린다', () async {
+      drafts.write(DraftScreen.photos, {
+        'photos': [
+          {'path': files[0].path, 'isAvatarSource': true},
+        ],
+      });
+
+      final restored = open().read(photosViewModelProvider).photos.single;
+      expect((restored.file!.path, restored.isAvatarSource, restored.sourceHash), (files[0].path, true, null));
     });
 
     test('복원한 사진은 얼굴 확인 · 압축을 다시 하지 않는다', () async {
