@@ -6,6 +6,8 @@ from app.core.postgrest import PostgrestRepository
 
 # 카드 자격(14일) · 후보(15일)는 일 단위라 한 시간 정밀도면 충분하다.
 _TOUCH_INTERVAL = timedelta(hours=1)
+# 홈 배너는 몇 장만 돈다 — 운영 실수로 줄이 많이 쌓여도 홈 응답이 커지지 않게 자른다.
+_BANNER_LIMIT = 10
 
 
 class HomeRepository(PostgrestRepository):
@@ -18,6 +20,20 @@ class HomeRepository(PostgrestRepository):
         response = await self._post("rpc/home_stats", json={})
         raise_for_status(response)
         return response.json()[0]
+
+    async def fetch_banners(self, now: datetime) -> list[dict]:
+        """지금 기간 안의 홈 배너(starts_at <= now, ends_at 이 비었거나 > now)를 sort_order · created_at 순으로 많아야 10장.
+        image_path · alt_text 만 읽는다. 시각 값에 `:` · `.` 이 들어 있어 or 안에서는 따옴표로 감싼다(PostgREST 예약 문자)."""
+        at = now.isoformat()
+        response = await self._get("home_banners", params={
+            "select": "image_path,alt_text",
+            "starts_at": f"lte.{at}",
+            "or": f'(ends_at.is.null,ends_at.gt."{at}")',
+            "order": "sort_order.asc,created_at.asc",
+            "limit": _BANNER_LIMIT,
+        })
+        raise_for_status(response)
+        return response.json()
 
     async def fetch_completion_materials(self, profile_id: UUID) -> dict:
         response = await self._get("profiles", params={

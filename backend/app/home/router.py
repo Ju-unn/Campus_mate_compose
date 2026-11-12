@@ -46,6 +46,19 @@ def _store_rating(settings: Settings) -> dict:
     return {"store_rating": rating, "store_rating_count": count}
 
 
+async def _banners(repo: HomeRepository, supabase_url: str) -> list[dict]:
+    """홈 배너(홈 v3) — 공개 버킷 home-banners 의 주소로 바꿔 싣는다(아바타 공개 주소와 같은 모양). 못 읽어도 홈은 그려야 해서
+    빈 목록으로 내린다. 옛 앱은 모르는 칸이라 읽지 않는다."""
+    try:
+        rows = await repo.fetch_banners(datetime.now(timezone.utc))
+    except Exception:
+        # 사람 정보가 없는 표다 — 예외 문구에도 profile_id 가 없다.
+        logger.exception("홈 배너를 못 읽어 빈 목록으로 보낸다")
+        return []
+    return [{"image_url": f"{supabase_url}/storage/v1/object/public/home-banners/{row['image_path']}",
+             "alt_text": row["alt_text"]} for row in rows]
+
+
 def get_rng() -> random.Random:
     """레일에 보일 사람을 고르는 난수 발생기. 시험은 시드를 고정한 발생기를 끼운다."""
     return random.Random()
@@ -144,4 +157,5 @@ async def get_home_summary(caller: Caller = Depends(get_verified_caller)) -> dic
         ),
         "cohort": cohort,
         **_store_rating(settings),
+        "banners": await _banners(repo, settings.supabase_url),
     }
