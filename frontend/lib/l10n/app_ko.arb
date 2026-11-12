@@ -1,7 +1,7 @@
 {
   "@@locale": "ko",
   "accountKakaoIdNoticeBody": "카카오톡에서 'ID 검색 허용'을 켜 주셔야 상대가 내 아이디를 검색할 수 있어요. 꺼져 있으면 신뢰 확인을 마쳐도 연락이 닿지 않아요.",
-  "accountKakaoIdNoticeFooter": "카카오톡 > 설정 > 프로필 관리 > 카카오톡 ID에서 켤 수 있어요",
+  "accountKakaoIdNoticeFooter": "카카오톡 홈 > 전체 설정 > 관리 > 카카오톡 ID에서 켤 수 있어요",
   "accountKakaoIdNoticeTitle": "꼭 확인해 주세요",
   "accountKakaoIdSubtitle": "신뢰 확인을 마친 상대에게만 공개돼요.",
   "accountLoginApple": "Apple 로그인",
@@ -1021,7 +1021,7 @@
   "profileKakaoIdHeadline": "카카오톡 아이디를 알려 주세요",
   "profileKakaoIdHelper": "설정 > 계정에서 언제든 바꿀 수 있어요",
   "profileKakaoIdNoticeBody": "카카오톡에서 'ID 검색 허용'을 켜 주셔야 상대가 내 아이디를 검색할 수 있어요. 꺼져 있으면 신뢰 확인을 마쳐도 연락이 닿지 않아요.",
-  "profileKakaoIdNoticeFooter": "카카오톡 > 설정 > 프로필 관리 > 카카오톡 ID에서 켤 수 있어요",
+  "profileKakaoIdNoticeFooter": "카카오톡 홈 > 전체 설정 > 관리 > 카카오톡 ID에서 켤 수 있어요",
   "profileKakaoIdNoticeTitle": "꼭 확인해 주세요",
   "profileKakaoIdPlaceholder": "예: campusmate_22",
   "profileKakaoIdSubtitle": "서로 수락하고 신뢰 확인을 마친 상대에게만 공개돼요.",
