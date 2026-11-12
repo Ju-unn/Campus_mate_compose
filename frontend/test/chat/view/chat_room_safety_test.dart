@@ -4,6 +4,7 @@ import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart'
 import 'package:campus_mate/chat/view/bubble_report_menu.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/chat/view/message_bubble.dart';
+import 'package:campus_mate/chat/view/partner_message_row.dart';
 import 'package:campus_mate/chat/view/trust_reveal_bubble.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
@@ -296,6 +297,61 @@ void main() {
         find.descendant(of: find.byType(TrustRevealBubble), matching: find.byIcon(AppIcons.chevronRight)),
         findsOneWidget,
       );
+    });
+  });
+
+  // 제목 · 말풍선 옆 사진도 14b "상대 프로필 보기" 와 같은 곳(14c)으로 간다(사용자 결정 11-12).
+  group('제목 · 말풍선 사진으로 상대 소개 열기', () {
+    Finder title() => find.descendant(of: find.byType(AppBar), matching: find.text('여우비'));
+    Finder bubbleFace() =>
+        find.descendant(of: find.byType(PartnerMessageRow), matching: find.byType(PartnerFace));
+
+    setUp(() {
+      chat.messages = Success(MessagePage(messages: [messageFixture(body: '안녕하세요')], hasMore: false));
+    });
+
+    testWidgets('제목(아바타 + 닉네임)을 누르면 상대 프로필 경로로 간다', (tester) async {
+      await pump(tester);
+
+      await tester.tap(title());
+      await tester.pumpAndSettle();
+
+      expect(find.text('프로필 $partnerId'), findsOneWidget);
+    });
+
+    testWidgets('제목은 낭독기에서 "여우비 님 프로필 보기" 버튼이다', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pump(tester);
+
+      final node = tester.getSemantics(find.descendant(of: find.byType(AppBar), matching: find.bySemanticsLabel('여우비 님 프로필 보기')));
+      expect(node, isSemantics(label: '여우비 님 프로필 보기', isButton: true, hasTapAction: true));
+      handle.dispose();
+    });
+
+    testWidgets('상대 말풍선 옆 사진을 누르면 상대 프로필 경로로 간다', (tester) async {
+      await pump(tester);
+
+      await tester.tap(bubbleFace());
+      await tester.pumpAndSettle();
+
+      expect(find.text('프로필 $partnerId'), findsOneWidget);
+    });
+
+    // 상대가 나간 방이면 14c 가 404 다 — 누를 곳을 두지 않는다.
+    testWidgets('상대가 나간 방이면 제목 · 사진을 눌러도 가지 않고 버튼으로 읽히지도 않는다', (tester) async {
+      final handle = tester.ensureSemantics();
+      chat.room = Success(roomFixture(partnerLeft: true));
+      await pump(tester);
+
+      await tester.tap(title());
+      await tester.pumpAndSettle();
+      await tester.tap(bubbleFace());
+      await tester.pumpAndSettle();
+
+      expect(find.text('프로필 $partnerId'), findsNothing);
+      expect(find.byType(ChatRoomScreen), findsOneWidget);
+      expect(find.bySemanticsLabel('여우비 님 프로필 보기'), findsNothing);
+      handle.dispose();
     });
   });
 }

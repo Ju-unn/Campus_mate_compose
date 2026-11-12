@@ -133,11 +133,12 @@ ChatRoom roomFixture({
   PartnerRead partnerRead = const PartnerRead.unknown(),
   // 실제 라우터로 14c 를 여는 시험은 UUID 상대가 필요하다(경로 id 검사).
   String partnerProfileId = partnerId,
+  String? avatarUrl,
 }) {
   final created = createdAt ?? DateTime.now();
   return ChatRoom(
     matchId: 'm1',
-    partner: ChatPartner(profileId: partnerProfileId, nickname: '여우비'),
+    partner: ChatPartner(profileId: partnerProfileId, nickname: '여우비', avatarUrl: avatarUrl),
     createdAt: created,
     gate: TrustGate(
       passed: passed,

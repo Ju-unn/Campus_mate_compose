@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:campus_mate/chat/model/data/chat_room.dart';
 import 'package:campus_mate/chat/model/data/conversation.dart';
 import 'package:campus_mate/chat/model/data/message.dart';
@@ -14,6 +13,7 @@ import 'package:campus_mate/chat/view/chat_room_menu_sheet.dart';
 import 'package:campus_mate/chat/view/chat_time.dart';
 import 'package:campus_mate/chat/view/date_divider.dart';
 import 'package:campus_mate/chat/view/message_bubble.dart';
+import 'package:campus_mate/chat/view/partner_message_row.dart';
 import 'package:campus_mate/chat/view/system_message.dart';
 import 'package:campus_mate/chat/view/trust_banner.dart';
 import 'package:campus_mate/chat/view/trust_gate_sheet.dart';
@@ -172,11 +172,15 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   }
 
   Widget _buildRoom(BuildContext context, ChatRoomUiState state, ChatRoom? room) {
+    // 제목 · 말풍선 옆 사진 · 14b 버튼이 모두 같은 14c 로 간다. 상대가 나간 방이면 14c 가 404 라 누를 곳이 없다.
+    final openPartner = room == null || state.isPartnerGone
+        ? null
+        : () => context.push('${AppRoutes.partnerProfile}/${room.partner.profileId}');
     return Scaffold(
       appBar: AppBar(
         leading: BackButton(color: AppColors.ink, onPressed: _exit),
         titleSpacing: 0,
-        title: room == null ? null : _Title(room: room, revealed: state.room!.gate.passed),
+        title: room == null ? null : _Title(room: room, onTap: openPartner),
         actions: [
           // pen `QEazm` 48×48 안 ellipsis 22. 누르면 드롭다운이 아니라 바텀시트다(pen `Lgdxu`).
           IconButton(
@@ -212,9 +216,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                       )
                     : null,
                 onBubbleLongPress: _openBubbleMenu,
-                onViewProfile: room == null
-                    ? () {}
-                    : () => context.push('${AppRoutes.partnerProfile}/${room.partner.profileId}'),
+                onViewProfile: openPartner,
               ),
             ),
             if ((_safetyError ?? state.error) != null) _ErrorLine(failure: (_safetyError ?? state.error)!),
@@ -351,24 +353,27 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
 }
 
 /// 앱바 가운데(pen `I1aI3M`). 통과하면 아바타가 실사진으로 바뀐다 — 그 순간만 `{motion.emphasis}`.
+/// 누르면 상대 소개(14c)로 간다([onTap] null = 상대가 나간 방, 누를 수 없다).
 class _Title extends StatelessWidget {
-  const _Title({required this.room, required this.revealed});
+  const _Title({required this.room, required this.onTap});
 
   final ChatRoom room;
-  final bool revealed;
+  final VoidCallback? onTap;
+
+  /// pen `I1aI3M` 아바타 지름.
+  static const double _faceSize = 32;
 
   @override
   Widget build(BuildContext context) {
-    final photo = room.photoUrls.isEmpty ? null : room.photoUrls.first;
-    final url = revealed ? (photo ?? room.partner.avatarUrl) : room.partner.avatarUrl;
-    return Row(
+    final url = room.partnerFaceUrl();
+    final title = Row(
       children: [
         AnimatedSwitcher(
           duration: MediaQuery.disableAnimationsOf(context)
               ? Duration.zero
               : AppMotion.emphasis,
           switchInCurve: AppMotion.emphasisCurve,
-          child: _Avatar(key: ValueKey(url), url: url),
+          child: PartnerFace(key: ValueKey(url), url: url, size: _faceSize),
         ),
         const SizedBox(width: AppSpacing.xs),
         Expanded(
@@ -380,24 +385,16 @@ class _Title extends StatelessWidget {
         ),
       ],
     );
-  }
-}
-
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.url, super.key});
-
-  final String? url;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 32,
-      height: 32,
-      decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.surfaceStrong),
-      clipBehavior: Clip.antiAlias,
-      child: url == null
-          ? const Icon(AppIcons.userRound, size: 16, color: AppColors.disabled)
-          : CachedNetworkImage(imageUrl: url!, fit: BoxFit.cover),
+    final open = onTap;
+    if (open == null) {
+      return title;
+    }
+    return Semantics(
+      button: true,
+      label: context.l10n.chatPartnerProfileOpen(nickname: room.partner.nickname),
+      excludeSemantics: true,
+      onTap: open,
+      child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: open, child: title),
     );
   }
 }
@@ -471,8 +468,8 @@ class _MessageList extends StatelessWidget {
   /// 상대 텍스트 말풍선을 길게 눌렀을 때. 말풍선 자리를 잴 수 있게 그 말풍선의 context 를 넘긴다.
   final void Function(BuildContext bubbleContext, Message message) onBubbleLongPress;
 
-  /// 14b 카드의 "상대 프로필 보기".
-  final VoidCallback onViewProfile;
+  /// 14b 카드의 "상대 프로필 보기" · 말풍선 옆 사진. 상대가 나간 방이면 null(14c 가 404).
+  final VoidCallback? onViewProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -528,8 +525,10 @@ class _MessageList extends StatelessWidget {
     // 14b 카드는 메시지가 아니라 `matches.trust_passed_at` 에서 나온다 — 줄로 저장하지 않는다.
     // 상대가 나갔거나 나를 차단한 방(앱에는 둘 다 "나간 방")에는 통째로 그리지 않는다 — 서버가 아이디 · 실사진을
     // 내리지 않아 "아직 등록하지 않았어요" 로 잘못 읽히고, 14c 도 404 다(사용자 결정 09-27).
-    final reveal = room.gate.passed && !state.isPartnerGone
-        ? TrustRevealBubble(kakaoId: room.kakaoId, onViewProfile: onViewProfile)
+    // 나간 방이면 onViewProfile 이 null 이다(화면이 상대 소개 길을 막는다).
+    final open = onViewProfile;
+    final reveal = room.gate.passed && !state.isPartnerGone && open != null
+        ? TrustRevealBubble(kakaoId: room.kakaoId, onViewProfile: open)
         : null;
     final revealIndex = _revealIndex(messages, state.revealAnchorAt);
     // 카드가 끼면 묶음이 끊긴다 — 카드 앞 줄도 자기 시각을 보인다.
@@ -554,7 +553,10 @@ class _MessageList extends StatelessWidget {
         items.add((child: DateDivider(date: message.createdAt), joinsAbove: false));
         lastDay = day;
       }
-      items.add((child: _bubble(room, message, showTime: !joinsAbove(index + 1)), joinsAbove: joinsAbove(index)));
+      items.add((
+        child: _bubble(room, message, showTime: !joinsAbove(index + 1), startsRun: !joinsAbove(index)),
+        joinsAbove: joinsAbove(index),
+      ));
     }
     if (reveal != null && revealIndex == messages.length) {
       items.add((child: reveal, joinsAbove: false));
@@ -584,7 +586,8 @@ class _MessageList extends StatelessWidget {
       DateUtils.isSameDay(above.createdAt, below.createdAt) &&
       timeLabel(l10n, above.createdAt) == timeLabel(l10n, below.createdAt);
 
-  Widget _bubble(ChatRoom room, Message message, {required bool showTime}) {
+  /// [startsRun] = 위 줄과 같은 분 묶음이 아니다 → 상대 줄이면 사진 · 닉네임을 붙인다(카카오톡처럼, pen `H9vQHd`).
+  Widget _bubble(ChatRoom room, Message message, {required bool showTime, required bool startsRun}) {
     if (message.isSystem) {
       return SystemMessage(body: message.body);
     }
@@ -597,14 +600,24 @@ class _MessageList extends StatelessWidget {
         showTime: showTime,
       );
     }
-    // 신고 메뉴는 상대 말풍선에만 있다(pen `I8fOcN`). Builder 로 이 말풍선 행의 context 를 잡는다.
-    return Builder(
+    // 신고 메뉴는 상대 말풍선에만 있다(pen `I8fOcN`). Builder 로 이 말풍선 행의 context 를 잡는다 —
+    // 사진 · 닉네임 바깥이라 팝업이 다시 그리는 말풍선 자리와 맞는다.
+    final bubble = Builder(
       builder: (bubbleContext) => MessageBubble(
         message: message,
         isMine: false,
         showTime: showTime,
         onLongPress: () => onBubbleLongPress(bubbleContext, message),
       ),
+    );
+    if (!startsRun) {
+      return PartnerMessageRow.continued(bubble: bubble);
+    }
+    return PartnerMessageRow.first(
+      nickname: room.partner.nickname,
+      photoUrl: room.partnerFaceUrl(),
+      onOpenProfile: onViewProfile,
+      bubble: bubble,
     );
   }
 }

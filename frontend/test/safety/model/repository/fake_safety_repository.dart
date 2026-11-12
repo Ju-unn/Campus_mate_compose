@@ -79,12 +79,13 @@ PartnerProfile partnerProfileFixture({
   String? kakaoId,
   List<String>? photoUrls,
   String? idealNote,
+  String? avatarUrl,
 }) {
   return PartnerProfile(
     matchId: matchId,
     detail: CardDetail(
       cardId: matchId,
-      profile: CardProfile(profileId: profileId, nickname: nickname, age: 23),
+      profile: CardProfile(profileId: profileId, nickname: nickname, age: 23, avatarUrl: avatarUrl),
       survey: List.filled(9, 0.5),
       animalType: AnimalType.cat,
       impressionType: ImpressionType.chic,

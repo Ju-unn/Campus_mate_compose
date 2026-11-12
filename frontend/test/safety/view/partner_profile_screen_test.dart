@@ -232,30 +232,42 @@ void main() {
       expect(container.read(partnerPhotoImageProvider)('https://x/1.jpg'), const NetworkImage('https://x/1.jpg'));
     });
 
-    testWidgets('게이트 전이면 슬라이더가 없다', (tester) async {
+    // 신뢰 확인 전에는 맨 위가 비어 있었다 → 10b · 받은 신청과 같은 아바타 칸(사용자 결정 11-12, pen dzVoP · xLjFQ).
+    testWidgets('게이트 전이면 슬라이더 대신 아바타 칸이 맨 위에 있다(pen dzVoP)', (tester) async {
+      safety.partnerProfile = Success(partnerProfileFixture(avatarUrl: 'https://x/avatar.png'));
+      await pump(tester);
+
+      expect(find.byType(PhotoSlider), findsNothing);
+      final header = tester.widget<ProfileAvatarHeader>(find.byType(ProfileAvatarHeader));
+      expect(header.url, 'https://x/avatar.png');
+      expect(tester.getRect(find.text('여우비, 23')).top, greaterThan(tester.getRect(find.byType(ProfileAvatarHeader)).top));
+    });
+
+    testWidgets('게이트 전 · 아바타도 없으면 빈 아바타 칸(회색 면 + 사람 아이콘)', (tester) async {
       safety.partnerProfile = Success(partnerProfileFixture());
       await pump(tester);
 
-      expect(find.byType(PhotoSlider), findsNothing);
+      expect(tester.widget<ProfileAvatarHeader>(find.byType(ProfileAvatarHeader)).url, isNull);
     });
 
-    testWidgets('게이트 뒤라도 사진이 0장이면 슬라이더가 없다', (tester) async {
-      safety.partnerProfile = Success(partnerProfileFixture(kakaoId: 'fox_rain', photoUrls: const []));
+    // 제목 · 말풍선 옆과 같은 규칙: 실사진이 없으면 아바타다(사진 0장은 드물다 — 서버가 실사진을 안 준 경우).
+    testWidgets('게이트 뒤라도 사진이 0장이면 슬라이더 대신 아바타 칸', (tester) async {
+      safety.partnerProfile =
+          Success(partnerProfileFixture(kakaoId: 'fox_rain', photoUrls: const [], avatarUrl: 'https://x/avatar.png'));
       await pump(tester);
 
       expect(find.byType(PhotoSlider), findsNothing);
+      expect(tester.widget<ProfileAvatarHeader>(find.byType(ProfileAvatarHeader)).url, 'https://x/avatar.png');
       expect(find.text('신뢰 확인 완료'), findsOneWidget);
     });
 
-    // 10b · 15-4 수락 전 · 받은 신청 프로필 보기에는 아바타 칸이 있지만 14c(신뢰 뒤)는 넣지 않는다(사용자 결정 10-16).
-    for (final photos in [twoPhotos, const <String>[]]) {
-      testWidgets('14c 에는 아바타 칸이 없다(사진 ${photos.length}장)', (tester) async {
-        safety.partnerProfile = Success(partnerProfileFixture(kakaoId: 'fox_rain', photoUrls: photos));
-        await pump(tester);
+    // 실사진이 있으면 아바타 칸은 없다 — 14c(신뢰 뒤) 맨 위는 실사진 슬라이더 하나다(사용자 결정 10-16).
+    testWidgets('게이트 뒤 사진이 있으면 아바타 칸이 없다', (tester) async {
+      safety.partnerProfile = Success(partnerProfileFixture(kakaoId: 'fox_rain', photoUrls: twoPhotos));
+      await pump(tester);
 
-        expect(find.byType(ProfileAvatarHeader), findsNothing);
-      });
-    }
+      expect(find.byType(ProfileAvatarHeader), findsNothing);
+    });
 
     // 카드 안쪽 폭은 360 화면에서 286(328 - 테두리 2 - 여백 40)이라 pen 안쪽 288 보다 2 좁다.
     for (final scale in [1.0, 2.0]) {

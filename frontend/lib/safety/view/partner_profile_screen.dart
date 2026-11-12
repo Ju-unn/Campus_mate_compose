@@ -9,6 +9,7 @@ import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/friend_review/view/partner_reviews_section.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
+import 'package:campus_mate/matching/view/profile_avatar_header.dart';
 import 'package:campus_mate/safety/model/data/partner_profile.dart';
 import 'package:campus_mate/safety/model/data/report_target.dart';
 import 'package:campus_mate/safety/view/revealed_profile_parts.dart';
@@ -110,10 +111,11 @@ class _ProfileBody extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       child: ProfileCard(
         detail: profile.detail,
-        // 게이트 전(null)이거나 0장이면 사진 칸이 없다 — 카드는 10b 와 같다.
+        // 실사진(신뢰 확인 뒤)이 있으면 슬라이더, 없으면(게이트 전 null · 0장) 10b · 받은 신청과 같은 아바타 칸
+        // (사용자 결정 11-12, pen dzVoP). 채팅방 제목 · 말풍선 옆 사진과 같은 규칙이다.
         header: switch (profile.photoUrls) {
           [_, ...] && final urls => RevealedPhotoHeader(urls: urls),
-          _ => null,
+          _ => ProfileAvatarHeader(url: profile.detail.profile.avatarUrl),
         },
         nameTrailing: revealed ? const _TrustBadge() : null,
         footer: _Footer(
