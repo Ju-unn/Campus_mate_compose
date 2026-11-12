@@ -68,4 +68,33 @@ void main() {
       expect(const PartnerRead.unknown().later(const PartnerRead.known(null)).hasNotRead(probe), isTrue);
     });
   });
+
+  // 제목 · 말풍선 옆 · 14c 맨 위가 같은 규칙을 쓴다(사용자 결정 11-12): 둘 다 공유 수락 + 실사진 → 첫 장, 아니면 아바타.
+  group('상대 얼굴 사진 — 신뢰 확인 뒤 실사진 첫 장, 아니면 아바타', () {
+    Map<String, dynamic> withAvatar([Map<String, dynamic> extra = const {}]) => roomJson({
+          'partner': {'profile_id': 'p2', 'nickname': '여우비', 'avatar_url': 'https://x/avatar.png'},
+          ...extra,
+        });
+    const passedGate = {'passed': true, 'partner_left': false, 'deadline_at': '2026-10-15T05:00:00Z'};
+
+    test('신뢰 확인 전이면 아바타', () {
+      expect(ChatRoom.fromJson(withAvatar()).partnerFaceUrl(), 'https://x/avatar.png');
+    });
+
+    test('신뢰 확인 뒤 실사진이 있으면 첫 장', () {
+      final room = ChatRoom.fromJson(withAvatar({
+        'gate': passedGate,
+        'photo_urls': ['https://x/1.jpg', 'https://x/2.jpg'],
+      }));
+      expect(room.partnerFaceUrl(), 'https://x/1.jpg');
+    });
+
+    test('신뢰 확인 뒤라도 실사진이 없으면(나간 방 등 서버가 안 줌) 아바타', () {
+      expect(ChatRoom.fromJson(withAvatar({'gate': passedGate})).partnerFaceUrl(), 'https://x/avatar.png');
+    });
+
+    test('아바타도 없으면 null — 화면이 기본 그림을 그린다', () {
+      expect(ChatRoom.fromJson(roomJson()).partnerFaceUrl(), isNull);
+    });
+  });
 }

@@ -144,6 +144,12 @@ class ChatRoom {
   /// 리마인드 시점을 지났는가 — 14f 시트가 뜨는 조건 하나다.
   bool isReminderDue(DateTime now) => !now.isBefore(createdAt.add(trustGateReminderAfter));
 
+  /// 상대 얼굴로 보일 그림(제목 · 말풍선 옆 · 14c 맨 위가 같은 규칙, 사용자 결정 11-12).
+  /// 둘 다 공유를 수락해 실사진이 왔으면 첫 장, 아니면 아바타. 서버는 신뢰 확인 뒤에만 실사진을 준다.
+  /// 둘 다 없으면 null — 화면이 기본 그림을 그린다.
+  String? partnerFaceUrl() =>
+      gate.passed && photoUrls.isNotEmpty ? photoUrls.first : partner.avatarUrl;
+
   factory ChatRoom.fromJson(Map<String, dynamic> json) {
     return ChatRoom(
       matchId: json['match_id'] as String,
