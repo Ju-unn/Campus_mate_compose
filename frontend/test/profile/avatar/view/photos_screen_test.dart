@@ -70,7 +70,7 @@ void main() {
   tearDown(() => tempDir.deleteSync(recursive: true));
 
   File photoFile(String name) =>
-      File('${tempDir.path}/$name')..writeAsBytesSync(base64Decode(_onePixelPng));
+      File('${tempDir.path}/$name')..writeAsBytesSync([...base64Decode(_onePixelPng), ...utf8.encode(name)]); // 이름을 꼬리에 붙여 서로 다른 사진으로 — 같은 바이트는 같은 사진으로 막힌다
 
   Future<ProviderContainer> pump(
     WidgetTester tester, {
@@ -99,7 +99,8 @@ void main() {
     final files = [for (var i = 0; i < photoCount; i++) photoFile('photo-$i.png')];
     var index = 0;
     final viewModel = container.read(photosViewModelProvider.notifier)
-      ..pickFromGallery = (limit) async => [files[index++]];
+      ..pickFromGallery = ((limit) async => [files[index++]])
+      ..hashSource = (path) async => sha256OfFile(path); // 가짜 시계는 isolate 를 기다리지 못한다
     for (var i = 0; i < photoCount; i++) {
       await viewModel.addPhoto();
     }
@@ -132,6 +133,20 @@ void main() {
 
     expect(find.text('다음'), findsOneWidget);
     expectButtonOnScreen(tester);
+  });
+
+  testWidgets('같은 사진을 또 고르면 칸은 그대로고 "같은 사진" 토스트(pen `QgOgs` images 16)가 뜬다', (tester) async {
+    final container = await pump(tester, photoCount: 1);
+    final again = File('${tempDir.path}/photo-0.png').copySync('${tempDir.path}/again.png');
+    container.read(photosViewModelProvider.notifier).pickFromGallery = (limit) async => [again];
+
+    await container.read(photosViewModelProvider.notifier).addPhoto();
+    await tester.pump();
+
+    expect(find.byType(DraggablePhotoTile), findsOneWidget);
+    expect(find.widgetWithText(AppToast, '같은 사진은 한 번만 올릴 수 있어요'), findsOneWidget);
+    final icon = tester.widget<Icon>(find.descendant(of: find.byType(AppToast), matching: find.byIcon(AppIcons.images)));
+    expect((icon.size, icon.color), (16, AppColors.onInk));
   });
 
   testWidgets('글씨 배율 2.0 에서도 "다음" 이 화면 안에 있다', (tester) async {

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:campus_mate/auth/media/model/repository/face_detector_provider.dart';
 import 'package:campus_mate/auth/media/model/repository/image_compressor_provider.dart';
@@ -12,6 +13,7 @@ import 'package:campus_mate/profile/avatar/model/repository/photos_repository_pr
 import 'package:campus_mate/profile/avatar/viewmodel/avatar_generation_view_model.dart';
 import 'package:campus_mate/profile/avatar/viewmodel/photos_ui_state.dart';
 import 'package:campus_mate/profile/onboarding/viewmodel/onboarding_blocked.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -36,9 +38,25 @@ Future<List<File>> _pickFromGallery(int limit) async {
   return [for (final image in picked) File(image.path)];
 }
 
+/// [path] 파일 바이트의 sha256. 읽지 못하면 null — 예외가 isolate 밖으로 나가지 않는다.
+String? sha256OfFile(String path) {
+  try {
+    return sha256.convert(File(path).readAsBytesSync()).toString();
+  } on FileSystemException {
+    return null;
+  }
+}
+
+/// 12MB 원본 한 장에 데스크톱에서도 약 380ms(검토 실측, 폰은 0.3~1초) 걸려 화면 스레드가 아니라 따로 된 isolate 에서 센다.
+Future<String?> _hashInIsolate(String path) => Isolate.run(() => sha256OfFile(path));
+
 /// 사진 업로드(04-2)와 아바타 사진 고르기(04-3)의 흐름을 맡는다. 두 화면이 같은 상태를 이어 쓴다.
 class PhotosViewModel extends Notifier<PhotosUiState> {
   Future<List<File>> Function(int limit) pickFromGallery = _pickFromGallery;
+
+  /// 고른 원본의 해시를 세는 곳. 위젯 시험의 가짜 시계는 isolate 응답을 기다리지 못해 [sha256OfFile] 을 바로 부르는 것으로
+  /// 갈아끼운다([pickFromGallery] 와 같은 훅).
+  Future<String?> Function(String path) hashSource = _hashInIsolate;
 
   /// 온보딩일 때만 채워진다. 15-7 사진 수정(`MyPhotosViewModel`)은 [build] 를 덮어써 비어 있다 —
   /// 편집은 열 때마다 서버 사진으로 채우므로 임시 저장을 쓰지도 지우지도(사진 파일 포함) 않는다.
@@ -91,9 +109,17 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
     state = state.copyWith(isCheckingPhotos: true, error: null, documentRejected: false);
     final accepted = <SelectedPhoto>[];
     var rejected = 0;
+    var duplicated = false;
+    // 이미 칸에 있는 사진 + 이번 묶음에서 먼저 본 사진. 같은 사진이면 넣지 않고 안내만 한 번 한다(2026-11-12 사용자 결정).
+    final seen = state.photos.map((photo) => photo.sourceHash).whereType<String>().toSet();
     try {
       for (final file in picked.take(room)) {
-        final photo = await _checkedPhoto(file);
+        final hash = await _sourceHash(file);
+        if (hash != null && !seen.add(hash)) {
+          duplicated = true;
+          continue;
+        }
+        final photo = await _checkedPhoto(file, hash);
         if (photo != null) {
           accepted.add(photo);
         } else {
@@ -105,7 +131,8 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
       state = state.copyWith(
         photos: [...state.photos, ...accepted],
         isCheckingPhotos: false,
-        error: _rejectedFailure(accepted.length, rejected),
+        // 얼굴 없음 안내가 먼저다 — 한 장도 못 넣었으면 다시 골라야 한다는 뜻이 더 급하다.
+        error: _rejectedFailure(accepted.length, rejected) ?? (duplicated ? const PhotoDuplicateFailure() : null),
       );
     }
     if (accepted.isEmpty && rejected > 0) {
@@ -125,14 +152,19 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
 
   /// 압축한 사진을 돌려준다. 얼굴이 없거나 사진 자체를 처리하지 못하면 `null` — 둘 다 '빠진 장'으로 센다
   /// (3b `_compressedPhotoWithFace` 와 같은 모양). 압축이 try 밖에 있으면 기다리는 표시가 굳는다.
-  Future<SelectedPhoto?> _checkedPhoto(File file) async {
+  Future<SelectedPhoto?> _checkedPhoto(File file, String? sourceHash) async {
     try {
       final compressed = await ref.read(imageCompressorProvider).compressToJpeg(file);
-      return await _hasFace(compressed) ? SelectedPhoto(compressed) : null;
+      return await _hasFace(compressed) ? SelectedPhoto(compressed, sourceHash: sourceHash) : null;
     } on Exception {
       return null;
     }
   }
+
+  /// 고른 원본(압축 전)의 sha256. 읽지 못하면 null — 견주지 않고 압축 · 얼굴 검사가 평소대로 다룬다.
+  /// shortcut: 이미 올려 둔 사진([SelectedPhoto.saved], 바이트 없음)과는 견주지 않고, 캡처 · 크기를 바꾼 같은 사진도 못 막는다 —
+  /// 서버가 사진 해시를 돌려주게 되면 그때 함께 견준다.
+  Future<String?> _sourceHash(File file) => hashSource(file.path);
 
   /// 얼굴을 못 찾은 것과 **검사 자체가 실패한 것**은 다르다 — ML Kit 이 예외를 던지면 통과시킨다.
   /// 기기 안 검사는 1차 필터일 뿐이고 올릴 때 서버 SafeSearch 가 다시 본다(설계 §7.3).

@@ -25,6 +25,7 @@ import 'package:campus_mate/me/viewmodel/my_photos_view_model.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/profile/onboarding/model/repository/onboarding_repository_provider.dart';
 import 'package:campus_mate/profile/avatar/view/photo_tiles.dart';
+import 'package:campus_mate/profile/avatar/viewmodel/photos_view_model.dart' show sha256OfFile;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -98,7 +99,7 @@ void main() {
   setUp(() => tempDir = Directory.systemTemp.createTempSync('my_photos_screen_test'));
   tearDown(() => tempDir.deleteSync(recursive: true));
 
-  File photoFile(String name) => File('${tempDir.path}/$name')..writeAsBytesSync(base64Decode(_onePixelPng));
+  File photoFile(String name) => File('${tempDir.path}/$name')..writeAsBytesSync([...base64Decode(_onePixelPng), ...utf8.encode(name)]); // 이름을 꼬리에 붙여 서로 다른 사진으로 — 같은 바이트는 같은 사진으로 막힌다
 
   void usePenFrame(WidgetTester tester) {
     tester.view.physicalSize = const Size(360, 780);
@@ -153,6 +154,8 @@ void main() {
     await container.read(myProfileProvider.future);
     await tester.pump();
     await openPhotos(tester);
+    // 가짜 시계는 isolate 를 기다리지 못한다 — 같은 해시를 바로 센다.
+    container.read(myPhotosViewModelProvider.notifier).hashSource = (path) async => sha256OfFile(path);
   }
 
   AppButton saveButton(WidgetTester tester) => tester.widget<AppButton>(find.byType(AppButton));
@@ -442,6 +445,22 @@ void main() {
     expect(find.byType(DraggablePhotoTile), findsNWidgets(3));
     me.holdSavePhotos!.complete();
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('한 번에 고른 사진끼리 같으면 한 장만 들어가고 "같은 사진" 토스트(images 아이콘)가 뜬다', (tester) async {
+    usePenFrame(tester);
+    await pump(tester, profile: _profile(ids: ['p-a', 'p-b']));
+    final first = photoFile('new.png');
+    final again = first.copySync('${tempDir.path}/new-again.png');
+    container.read(myPhotosViewModelProvider.notifier).pickFromGallery = (limit) async => [first, again];
+
+    await tester.tap(find.text('사진 추가').first);
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(DraggablePhotoTile), findsNWidgets(3));
+    expect(find.widgetWithText(AppToast, '같은 사진은 한 번만 올릴 수 있어요'), findsOneWidget);
+    expect(find.descendant(of: find.byType(AppToast), matching: find.byIcon(AppIcons.images)), findsOneWidget);
   });
 
   testWidgets('얼굴이 없어 빠지면 04-2 와 같은 토스트가 버튼 위 12 에 뜨고 약 2초 뒤 사라진다', (tester) async {

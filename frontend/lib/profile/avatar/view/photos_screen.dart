@@ -37,14 +37,18 @@ class _PhotosScreenState extends ConsumerState<PhotosScreen> {
 
   /// 지금 떠 있는 안내. 겹쳐 뜨지 않게 한 번에 하나만 들고 있는다(pen `EvcRf`).
   String? _toast;
+  IconData _toastIcon = AppIcons.alertTriangle;
   Timer? _toastTimer;
 
   /// pen 에 표시 시간이 없고 앱에 정해 둔 값도 없어 3초로 둔다.
   static const Duration _toastDuration = Duration(seconds: 3);
 
-  void _showToast(String message) {
+  void _showToast(String message, IconData icon) {
     _toastTimer?.cancel();
-    setState(() => _toast = message);
+    setState(() {
+      _toast = message;
+      _toastIcon = icon;
+    });
     _toastTimer = Timer(_toastDuration, () {
       if (mounted) {
         setState(() => _toast = null);
@@ -75,7 +79,7 @@ class _PhotosScreenState extends ConsumerState<PhotosScreen> {
     ref.listen(photosViewModelProvider, (previous, next) {
       final error = next.error;
       if (error != null) {
-        _showToast(context.errorText(error));
+        _showToast(context.errorText(error), photoToastIcon(error));
       }
     });
     // 04-1b 로 돌아간다(04-2 는 아직 지금 단계라 고른 사진은 메모리 · 임시 저장에 남는다). 저장 중(04-3 올리기)엔 무시한다.
@@ -139,7 +143,7 @@ class _PhotosScreenState extends ConsumerState<PhotosScreen> {
               if (_toast != null) ...[
                 Center(
                   child: AppToast(
-                    leading: const Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk),
+                    leading: Icon(_toastIcon, size: 16, color: AppColors.onInk),
                     label: _toast!,
                   ),
                 ),

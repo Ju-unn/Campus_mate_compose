@@ -95,6 +95,18 @@ void main() {
     expect(viewModel().canSave, isTrue);
   });
 
+  test('새로 고른 사진끼리는 같은 사진을 막는다 — 서버 사진과는 견주지 않는다', () async {
+    final tempDir = Directory.systemTemp.createTempSync('my_photos_duplicate_test');
+    addTearDown(() => tempDir.deleteSync(recursive: true));
+    await open(_profile(ids: ['p-a', 'p-b']));
+
+    await addPhoto(File('${tempDir.path}/new.jpg')..writeAsStringSync('same'));
+    await addPhoto(File('${tempDir.path}/new-again.jpg')..writeAsStringSync('same'));
+
+    expect([for (final photo in state().photos) photo.key], ['p-a', 'p-b', '${tempDir.path}/new.jpg']);
+    expect(state().error, isA<PhotoDuplicateFailure>());
+  });
+
   test('하나 빼고 하나 더해 저장하면 [남길 사진, 새 사진] · 원본 0 을 보낸다', () async {
     await open(_profile(ids: ['p-a', 'p-b']));
     viewModel().removePhoto(1);

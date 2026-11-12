@@ -4,7 +4,6 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
-import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
@@ -49,7 +48,7 @@ class _MyPhotosScreenState extends ConsumerState<MyPhotosScreen> with MeToastHos
     if (error != null) {
       showTimedToast(
         AppToast(
-          leading: const Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk),
+          leading: Icon(photoToastIcon(error), size: 16, color: AppColors.onInk),
           label: context.errorText(error),
         ),
       );

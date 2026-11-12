@@ -9,9 +9,13 @@ const Object _keep = Object();
 /// 칸의 사진 한 장 + 아바타 원본 여부. 온보딩(04-2 · 04-3)은 늘 이번에 고른 사진이고, 15-7 사진 수정은 이미 올려 둔
 /// 사진([SelectedPhoto.saved])과 섞인다(계획서 2026-09-27-me-edit.md A6).
 class SelectedPhoto {
-  const SelectedPhoto(File this.file, {this.isAvatarSource = false}) : id = null, url = null;
+  const SelectedPhoto(File this.file, {this.isAvatarSource = false, this.sourceHash}) : id = null, url = null;
   const SelectedPhoto.saved({required String this.id, required String this.url, this.isAvatarSource = false})
-      : file = null;
+      : file = null,
+        sourceHash = null;
+
+  /// 고른 원본 사진 바이트의 sha256 — 같은 사진을 두 번 넣지 않으려고 견준다. 원본을 못 읽었거나 올려 둔 사진이면 null.
+  final String? sourceHash;
 
   /// 이번에 고른 사진. 이미 올려 둔 사진(15-7 편집)이면 null.
   final File? file;
@@ -27,7 +31,7 @@ class SelectedPhoto {
   ImageProvider get image => file != null ? FileImage(file!) : NetworkImage(url!);
 
   SelectedPhoto copyWith({bool? isAvatarSource}) => file != null
-      ? SelectedPhoto(file!, isAvatarSource: isAvatarSource ?? this.isAvatarSource)
+      ? SelectedPhoto(file!, isAvatarSource: isAvatarSource ?? this.isAvatarSource, sourceHash: sourceHash)
       : SelectedPhoto.saved(id: id!, url: url!, isAvatarSource: isAvatarSource ?? this.isAvatarSource);
 }
 
@@ -88,10 +92,12 @@ class PhotosUiState {
   /// 이번에 고른 사진(파일이 있는 칸)만 — 이미 올려 둔 사진은 15-7 편집에만 있고 임시 저장 대상이 아니다.
   Iterable<SelectedPhoto> get _pickedPhotos => photos.where((photo) => photo.file != null);
 
-  /// 폰에 임시 저장할 값 — 고른 사진의 **파일 경로**와 아바타 원본 표시. 사진 자체는 임시 폴더에 그대로 있다.
+  /// 폰에 임시 저장할 값 — 고른 사진의 **파일 경로**와 아바타 원본 표시, 원본 해시(되살린 뒤에도 같은 사진을 막는다).
+  /// 사진 자체는 임시 폴더에 그대로 있다.
   Map<String, Object?> toDraft() => {
         'photos': [
-          for (final photo in _pickedPhotos) {'path': photo.file!.path, 'isAvatarSource': photo.isAvatarSource},
+          for (final photo in _pickedPhotos)
+            {'path': photo.file!.path, 'isAvatarSource': photo.isAvatarSource, 'sourceHash': photo.sourceHash},
         ],
       };
 
@@ -101,10 +107,15 @@ class PhotosUiState {
   /// [toDraft] 로 남긴 경로 중 **파일이 남아 있는 것만** 칸에 넣는다(시스템이 임시 폴더를 비웠을 수 있다).
   /// 이미 얼굴 확인 · 압축이 끝난 파일이라 다시 처리하지 않는다. 아바타 원본은 많아야 한 장만 살린다 —
   /// 그 사진이 사라졌으면 비워 두고, 04-2 → 04-3 으로 넘어갈 때 첫 장이 골라진다. 모양이 안 맞으면 던진다.
+  /// 해시가 없는 옛 임시 저장은 해시 없이(null) 되살린다.
   static PhotosUiState fromDraft(Map<String, Object?> data) {
     final saved = [
       for (final item in (data['photos'] as List).cast<Map<String, Object?>>())
-        SelectedPhoto(File(item['path'] as String), isAvatarSource: item['isAvatarSource'] as bool),
+        SelectedPhoto(
+          File(item['path'] as String),
+          isAvatarSource: item['isAvatarSource'] as bool,
+          sourceHash: item['sourceHash'] as String?,
+        ),
     ];
     final kept = saved.where((photo) => photo.file!.existsSync()).take(maxPhotos).toList();
     final avatar = kept.indexWhere((photo) => photo.isAvatarSource);
