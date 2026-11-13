@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from app.cards.push import PushToken
 from app.core import errors
 from app.core.http import error_code, raise_for_status
-from app.core.postgrest import PostgrestRepository
+from app.core.postgrest import PostgrestRepository, read_all_pages
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +84,10 @@ class CardRepository(PostgrestRepository):
         return counts
 
     async def fetch_issue_owners(self) -> list[dict]:
-        return await self._rows_post("rpc/card_issue_owners", {}, prefer="")
+        """오늘 카드 대상 전부. 한 번에 읽으면 PostgREST 가 1000줄에서 말없이 자르고 정렬도 없어, 1000명을 넘는 사람이
+        오류 없이 빠졌다(최종 점검 11-13 ⑤). profile_id 순으로 쪽을 넘겨 끝까지 읽는다 — 읽는 사이 첫 카드가 나가 줄이 빠져도 안전하다."""
+        return await read_all_pages(
+            lambda page: self._rows_post("rpc/card_issue_owners", {}, prefer="", params=page), "profile_id")
 
     async def has_had_daily_card(self, owner_id: UUID | str, since: datetime | None = None) -> bool:
         """무료 카드를 한 장이라도 받은 적이 있는가(만료 · 결정 상관없이). 없으면 첫 카드 대상이다(issuing.issue_first_card).

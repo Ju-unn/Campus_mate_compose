@@ -20,6 +20,11 @@ FILES = ("POST", "/storage/v1/object/list/student-id-temp")
 KAKAO = ("POST", "/v1/user/unlink")
 CLOSE = ("POST", "/rest/v1/rpc/admin_close_account")
 CLAIM = ("GET", "/rest/v1/school_email_claims")
+GRAD_CLOSE = ("PATCH", "/rest/v1/graduate_verification_requests")
+# 앱 안 탈퇴(account/router.py)와 같은 정리 단계 + 대행만의 카카오 끊기(관리자 키).
+CLEAN = {"push_tokens": "ok", "student_id_files": "ok", "graduate_request": "ok", "graduate_files": "ok",
+         "kakao_unlink": "ok"}
+STUDENT_HMAC = "\\x" + "cd" * 32
 
 
 def _world(world, *, kakao: bool = True) -> None:
@@ -166,7 +171,7 @@ def test_a_clean_close_reports_every_step_and_what_cannot_be_done(client, world)
     response = client.post(URL, headers=ADMIN_HEADERS, json=BODY)
 
     assert response.json() == {
-        **CLOSED, "cleanup": {"push_tokens": "ok", "student_id_files": "ok", "kakao_unlink": "ok"},
+        **CLOSED, "cleanup": CLEAN,
         "not_done": ["apple_revoke", "logout_everywhere"],
     }
     [unlink] = world.kakao_unlinks
@@ -176,7 +181,7 @@ def test_a_clean_close_reports_every_step_and_what_cannot_be_done(client, world)
     assert world.calls("DELETE", "/rest/v1/push_tokens")[0].url.params["profile_id"] == f"eq.{U1}"
     assert world.actions == [{
         "admin_user_id": ADMIN, "action": "account_close_cleanup", "target_type": "profile", "target_id": U1,
-        "before": None, "after": {"push_tokens": "ok", "student_id_files": "ok", "kakao_unlink": "ok"},
+        "before": None, "after": CLEAN,
         "reason": None, "ip": None,
     }]
 
@@ -190,7 +195,7 @@ def test_outside_cleanup_failure_still_closes_and_is_recorded(client, world, cap
     response = client.post(URL, headers=ADMIN_HEADERS, json=BODY)
 
     assert response.status_code == 200
-    cleanup = {"push_tokens": "failed", "student_id_files": "ok", "kakao_unlink": "failed"}
+    cleanup = {**CLEAN, "push_tokens": "failed", "kakao_unlink": "failed"}
     assert response.json()["cleanup"] == cleanup
     assert world.actions[-1]["action"] == "account_close_cleanup" and world.actions[-1]["after"] == cleanup
     for secret in (KAKAO_MEMBER, KEY, "secret@gmail.com"):
@@ -214,3 +219,45 @@ def test_a_failed_cleanup_record_still_returns_200(client, world):
     response = client.post(URL, headers=ADMIN_HEADERS, json=BODY)
 
     assert response.status_code == 200 and response.json()["status"] == "withdrawn"
+
+
+# 앱 안 탈퇴와 같은 정리(최종 점검 11-13 ③) -------------------------------------------------
+
+def test_close_account_closes_a_pending_graduate_request_and_deletes_its_photo(client, world):
+    """심사 중 졸업증명 사진이 대행 탈퇴 뒤 14일까지 남았다(처리방침은 "즉시 삭제") — 앱 탈퇴처럼 신청을 닫고 사진을 지운다."""
+    _world(world)
+    world.graduate_pending = {"id": "req-1", "photo_path": f"{U1}/req-1.jpg"}
+
+    response = client.post(URL, headers=ADMIN_HEADERS, json=BODY)
+
+    assert response.status_code == 200
+    assert response.json()["cleanup"] == CLEAN
+    [closing] = world.calls(*GRAD_CLOSE)[:1]
+    assert closing.url.params["profile_id"] == f"eq.{U1}" and closing.url.params["status"] == "eq.pending"
+    assert json.loads(closing.content)["reason"] == "account_withdrawn"
+    assert world.calls("DELETE", f"/storage/v1/object/graduate-cert-temp/{U1}/req-1.jpg")
+    assert world.calls("POST", "/storage/v1/object/list/graduate-cert-temp")
+    order = _order(world)
+    assert order.index(CLOSE) < order.index(GRAD_CLOSE)  # DB 함수(탈퇴)가 먼저, 정리는 그 뒤
+
+
+def test_close_account_without_a_school_email_claim_uses_the_graduate_student_hash(client, world):
+    """학교 메일 없이 졸업생 인증으로 들어온 사람은 학번 해시로 재가입을 막는다 — 앱 탈퇴(_rejoin_hash)와 같은 규칙."""
+    _world(world)
+    world.claims = []
+    world.graduate_claim = {"student_hmac": STUDENT_HMAC, "key_version": 1}
+
+    client.post(URL, headers=ADMIN_HEADERS, json=BODY)
+
+    assert world.rpcs[0][1]["p_email_hmac"] == STUDENT_HMAC and world.rpcs[0][1]["p_key_version"] == 1
+
+
+def test_close_account_graduate_claim_read_failure_is_503_and_changes_nothing(client, world):
+    _world(world)
+    world.claims = []
+    world.table_status["/rest/v1/graduate_verification_requests"] = 500
+
+    response = client.post(URL, headers=ADMIN_HEADERS, json=BODY)
+
+    assert response.status_code == 503
+    assert world.rpcs == [] and world.kakao_unlinks == [] and world.actions == []

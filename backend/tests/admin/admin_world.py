@@ -169,6 +169,9 @@ class AdminWorld:
         self.phone: str | None = None
         self.kakao_id: str | None = None
         self.kakao_unlinks: list[httpx.Request] = []
+        # 졸업생 인증(탈퇴 대행이 앱 탈퇴와 같은 정리를 하는지): 심사 중 신청 한 줄({id, photo_path}) · 승인된 학번 해시 줄.
+        self.graduate_pending: dict | None = None
+        self.graduate_claim: dict | None = None
         # get_settings 를 시험마다 바꾸는 값(예: {"kakao_admin_key": "..."}). conftest 의 람다가 요청마다 읽는다.
         self.settings_overrides: dict = {}
         # 인증샷 결과 알림(10-18). 승인 · 반려 직후 서버가 notify() 로 부르는 표 · FCM 을 받는 가짜.
@@ -412,8 +415,17 @@ class AdminWorld:
             return httpx.Response(200, json=user)
         if path == "/rest/v1/push_tokens" and method == "DELETE":
             return httpx.Response(204)
-        if path == "/storage/v1/object/list/student-id-temp" and method == "POST":
+        if path in ("/storage/v1/object/list/student-id-temp", "/storage/v1/object/list/graduate-cert-temp") and method == "POST":
             return httpx.Response(200, json=[])
+        if path == "/rest/v1/graduate_verification_requests" and method == "GET":  # 승인된 학번 해시(재가입 제한)
+            return httpx.Response(200, json=[self.graduate_claim] if self.graduate_claim else [])
+        if path == "/rest/v1/graduate_verification_requests" and method == "PATCH":
+            if params.get("status") == "eq.pending":  # 심사 중 신청 닫기(cancel_pending)
+                pending, self.graduate_pending = self.graduate_pending, None
+                return httpx.Response(200, json=[pending] if pending else [])
+            return httpx.Response(204)  # 사진을 지운 뒤 경로 비우기(clear_photo_path)
+        if path.startswith("/storage/v1/object/graduate-cert-temp/") and method == "DELETE":
+            return httpx.Response(200, json={})
         if path == "/v1/user/unlink" and method == "POST":  # 카카오(kapi.kakao.com) 연결 끊기
             self.kakao_unlinks.append(request)
             return httpx.Response(200, json={"id": 1})

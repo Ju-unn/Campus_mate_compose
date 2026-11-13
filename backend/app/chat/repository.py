@@ -6,7 +6,7 @@ import httpx
 
 from app.chat.realtime import Broadcaster
 from app.core.http import raise_for_status
-from app.core.postgrest import PostgrestRepository
+from app.core.postgrest import PostgrestRepository, read_all_pages
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ MESSAGE_MAX_LENGTH = 1000
 UNREAD_COUNT_CAP = 100
 # PostgREST db-max-rows 에 조용히 잘리지 않게 상한을 우리가 정한다(조각 4 리뷰 권고 2번과 같은 이유).
 _CONVERSATION_LIMIT = 200
-_OPEN_MATCH_LIMIT = 5000
+_OPEN_MATCH_WARN = 5000
 
 _MATCH_COLUMNS = "id,profile_a,profile_b,created_at,trust_passed_at,chat_closed_at"
 # profiles(status): 정지는 left_at 을 찍지 않고 조회 시점에 가른다(조각 6, chat/gate.is_gone).
@@ -247,17 +247,21 @@ class ChatRepository(PostgrestRepository):
             await self._announce(match_id, "room_changed", {"match_id": str(match_id), "reason": "closed"})
         return bool(rows)
 
-    async def fetch_open_matches(self, limit: int = _OPEN_MATCH_LIMIT) -> list[dict]:
-        """아직 통과도 종료도 하지 않은 매칭 + 참가자 두 행(매시 배치용)."""
-        rows = await self._rows("matches", {
+    async def fetch_open_matches(self, warn_at: int = _OPEN_MATCH_WARN) -> list[dict]:
+        """아직 통과도 종료도 하지 않은 매칭 + 참가자 두 행(매시 배치용). 전부 읽는다.
+
+        한쪽이 나간 방은 배치가 닫지 않아(결정 7·11) 열린 채로 쌓인다. 한 번에 읽으면 PostgREST 가 1000줄에서 말없이 잘라,
+        나간 방이 1000개를 넘으면 그 뒤의 새 방이 48시간 마감도 리마인드도 못 받았다(최종 점검 11-13 ⑪) — id 순으로 쪽을 넘긴다.
+        오래된 방을 조회에서 빼지는 않는다: 배치가 한동안 멈췄다 돌아오면 마감이 한참 지난 정상 방도 닫아야 한다."""
+        rows = await read_all_pages(lambda page: self._rows("matches", {
             "trust_passed_at": "is.null",
             "chat_closed_at": "is.null",
             "select": f"{_MATCH_COLUMNS},match_participants({_PARTICIPANT_COLUMNS})",
-            "limit": limit,
-        })
-        if len(rows) >= limit:
-            # 잘린 줄 모르면 뒤쪽 매칭이 리마인드도 마감도 못 받고 조용히 밀린다.
-            logger.warning("열린 매칭이 상한 %s 에 닿았다 — 배치를 나눌 때가 됐다", limit)
+            **page,
+        }), "id")
+        if len(rows) >= warn_at:
+            # 잘리지는 않지만 매시 읽는 양이 이만큼이다 — 나간 방이 쌓인 것이다. 조회를 나누거나 정리할 때가 됐다.
+            logger.warning("열린 매칭이 상한 %s 에 닿았다(%s개) — 배치를 나눌 때가 됐다", warn_at, len(rows))
         return rows
 
     # 게이트를 통과한 뒤에만 부르는 것 ------------------------------------------

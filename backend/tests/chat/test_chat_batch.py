@@ -54,6 +54,11 @@ def _match(**overrides) -> dict:
     }
 
 
+def _first_page(request: httpx.Request, rows: list) -> list:
+    """열린 방 읽기는 빈 쪽이 올 때까지 쪽을 넘긴다(read_all_pages). 이어 읽기(id=gt.)에는 빈 쪽을 줘 끝낸다."""
+    return [] if "id" in request.url.params else rows
+
+
 class _Run:
     """배치 한 번을 돌리고 무슨 일이 있었는지 모아 준다."""
 
@@ -73,7 +78,7 @@ class _Run:
                 self.patches.append(json.loads(request.content))
                 return httpx.Response(200, json=self._patch_rows if self._patch_rows is not None
                                       else [{"id": MATCH_ID}])
-            return httpx.Response(200, json=self._matches)
+            return httpx.Response(200, json=_first_page(request, self._matches))
         if "/rest/v1/push_tokens" in url:
             return httpx.Response(200, json=[{"token": "tok"}])
         if "/rest/v1/notification_settings" in url:
@@ -254,7 +259,8 @@ def test_closing_from_the_batch_endpoint_tells_both_people(oidc_overrides, monke
             broadcasts.extend(json.loads(request.content)["messages"])
             return httpx.Response(202)
         if request.url.path == "/rest/v1/matches":
-            return httpx.Response(200, json=[{"id": MATCH_ID}] if request.method == "PATCH" else [expired])
+            return httpx.Response(200, json=[{"id": MATCH_ID}] if request.method == "PATCH"
+                                  else _first_page(request, [expired]))
         if request.url.path == "/rest/v1/match_participants" and request.url.params.get("left_at") == "is.null":
             return httpx.Response(200, json=[{"profile_id": A}, {"profile_id": B}])
         return httpx.Response(200, json=[])
@@ -285,7 +291,7 @@ def test_a_dead_realtime_is_tried_once_per_batch_not_once_per_room(oidc_override
             attempts.append(request)
             raise httpx.ConnectTimeout("down", request=request)
         if request.url.path == "/rest/v1/matches":
-            return httpx.Response(200, json=[{"id": "x"}] if request.method == "PATCH" else rooms)
+            return httpx.Response(200, json=[{"id": "x"}] if request.method == "PATCH" else _first_page(request, rooms))
         if request.url.path == "/rest/v1/match_participants" and request.url.params.get("left_at") == "is.null":
             return httpx.Response(200, json=[{"profile_id": A}, {"profile_id": B}])
         return httpx.Response(200, json=[])
@@ -332,3 +338,62 @@ async def test_a_room_with_a_suspended_side_is_left_untouched():
 async def test_an_active_room_still_runs_after_a_suspension_is_lifted():
     run = _Run([_with_status("active", "active")])
     assert (await run.at(MATCHED_AT + timedelta(hours=49)))["closed"] == 1
+
+
+# 열린 방 목록이 1000줄에서 잘리던 것(최종 점검 11-13 ⑪) ------------------------------------------------
+PAGE_CAP = 1000  # PostgREST db-max-rows(supabase/config.toml max_rows)
+
+
+class _PagedRun(_Run):
+    """matches 읽기를 PostgREST 처럼 흉내 낸다: order · id=gt. · limit 를 따르고 한 번에 1000줄까지만 준다.
+    정렬을 달지 않으면 넣은 순서(오래된 방부터) 그대로 — 나간 방이 쌓이면 새 방이 1000줄 뒤로 밀린다."""
+
+    def __init__(self, matches: list[dict]):
+        super().__init__(matches)
+        self.reads: list[httpx.QueryParams] = []
+
+    def _handler(self, request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/rest/v1/matches" and request.method == "GET":
+            params = request.url.params
+            self.reads.append(params)
+            rows = sorted(self._matches, key=lambda m: m["id"]) if params.get("order") == "id.asc" else self._matches
+            if "id" in params:
+                after = params["id"].removeprefix("gt.")
+                rows = [m for m in rows if m["id"] > after]
+            return httpx.Response(200, json=rows[:min(int(params.get("limit", PAGE_CAP)), PAGE_CAP)])
+        return super()._handler(request)
+
+
+def _room(i: int, **overrides) -> dict:
+    return _match(id=f"{i:08x}-0000-4000-8000-000000000000", **overrides)
+
+
+def _left_room(i: int) -> dict:
+    # 한쪽이 나간 방 — 배치는 닫지 않고 건너뛴다(결정 7·11). 그래서 열린 채로 목록에 계속 남는다.
+    return _room(i, participants=[
+        {"profile_id": A, "trust_response": None, "left_at": "2026-09-01T20:00:00+09:00", "last_read_at": None},
+        {"profile_id": B, "trust_response": None, "left_at": None, "last_read_at": None},
+    ])
+
+
+async def test_new_rooms_behind_1500_left_rooms_still_close_and_get_reminded():
+    """나간 방이 1000개를 넘게 쌓이면 그 뒤의 새 방은 48시간 마감도 리마인드도 조용히 못 받았다."""
+    now = datetime(2026, 9, 21, 14, 0, tzinfo=SEOUL)  # MATCHED_AT 방의 리마인드 창 안
+    overdue = _room(1500, created_at=(now - timedelta(hours=49)).isoformat())
+    waiting = _room(1501)
+    run = _PagedRun([*(_left_room(i) for i in range(1500)), overdue, waiting])
+
+    result = await run.at(now)
+
+    assert result == {"reminded": 2, "closed": 1, "passed": 0}
+    assert all(p.get("order") == "id.asc" for p in run.reads)
+
+
+async def test_every_one_of_2500_open_rooms_is_read():
+    rooms = [_room(i, created_at=(MATCHED_AT - timedelta(hours=30)).isoformat()) for i in range(2500)]
+    run = _PagedRun(rooms)
+
+    result = await run.at(MATCHED_AT + timedelta(hours=19))  # 전부 48시간이 지났다
+
+    assert result["closed"] == 2500
+    assert len(run.reads) == 4 and all(p.get("order") == "id.asc" for p in run.reads)  # 1000 · 1000 · 500 · 0

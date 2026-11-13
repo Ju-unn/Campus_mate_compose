@@ -8,13 +8,10 @@ from pydantic import BaseModel
 
 from app.account.repository import AccountRepository, SupabaseAdmin
 from app.account.social_unlink import exchange_apple_code, revoke_apple_token, unlink_kakao
+from app.account.withdrawal import data_cleanup_steps, rejoin_hash
 from app.chat.repository import ChatRepository
 from app.core import errors
 from app.core.deps import Caller, get_caller, get_now, get_verified_caller
-from app.graduate_verification.repository import GraduateRequestRepository
-from app.graduate_verification.retention import delete_photo
-from app.graduate_verification.storage import GraduateCertStorage
-from app.signup_policy import IDENTITY_KEY_VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -46,11 +43,11 @@ async def withdraw(body: WithdrawRequest | None = None,
     admin = SupabaseAdmin(settings, client)
 
     try:
-        rejoin_hash, key_version = await _rejoin_hash(accounts, profile_id)
+        email_hash, key_version = await rejoin_hash(accounts, profile_id)
     except httpx.HTTPError as exc:
         logger.warning("탈퇴 전 재가입 제한 해시 읽기 실패 → 503 %s", type(exc).__name__)
         raise HTTPException(status_code=503, detail=errors.AUTH_UNAVAILABLE)
-    await accounts.withdraw(profile_id, rejoin_hash, key_version)
+    await accounts.withdraw(profile_id, email_hash, key_version)
 
     # 애플은 두 단계다 — 코드 교환이 준 refresh_token 을 철회 단계가 쓴다. 교환이 실패하면 철회는 건너뛴다.
     apple_refresh_token: str | None = None
@@ -60,20 +57,9 @@ async def withdraw(body: WithdrawRequest | None = None,
         apple_refresh_token = await exchange_apple_code(settings, client, body and body.apple_authorization_code)
 
     # 상태가 바뀐 뒤에는 다시 부르면 401 이라, 여기서 500 을 내 봐야 재시도가 안 된다 — 실패는 로그만 남긴다.
-    graduate_repo = GraduateRequestRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
-
-    async def close_graduate_request() -> None:
-        # 심사 중이던 졸업생 신청을 닫고(평문 비움) 사진을 지운다. 대기가 없으면 아무 일도 하지 않는다.
-        cancelled = await graduate_repo.cancel_pending(profile_id, "account_withdrawn", now)
-        if cancelled is not None:
-            storage = GraduateCertStorage(settings.storage_url, settings.supabase_service_role_key, client)
-            await delete_photo(graduate_repo, storage, cancelled["id"], cancelled["photo_path"])
-
+    # 데이터 정리는 관리자 대행과 같은 함수다(account/withdrawal.py). 아래 셋은 본인 토큰이 있어야 해서 여기만 한다.
     steps = (
-        ("push_tokens", lambda: accounts.delete_push_tokens(profile_id)),
-        ("student_id_files", lambda: admin.empty_folder("student-id-temp", profile_id)),
-        ("graduate_request", close_graduate_request),
-        ("graduate_files", lambda: admin.empty_folder("graduate-cert-temp", profile_id)),
+        *data_cleanup_steps(settings, client, profile_id, now),
         ("kakao_unlink", lambda: unlink_kakao(settings, client, authorization)),
         ("apple_token_exchange", exchange_apple),
         ("apple_revoke", lambda: revoke_apple_token(settings, client, apple_refresh_token)),
@@ -85,17 +71,6 @@ async def withdraw(body: WithdrawRequest | None = None,
         except Exception:
             logger.warning("탈퇴 뒤 정리 실패 step=%s profile=%s", name, profile_id)
     return {"ok": True}
-
-
-async def _rejoin_hash(accounts: AccountRepository, profile_id) -> tuple[str | None, int]:
-    """탈퇴 재가입 제한에 쓸 (해시, 키 버전). 학교 메일 인증 기록이 먼저고, 없으면 졸업생 학번 해시, 둘 다 없으면 (None, 현재 버전)."""
-    claim = await accounts.fetch_school_email_claim(profile_id)
-    if claim is not None:
-        return claim["school_email_hmac"], claim["key_version"]
-    graduate = await accounts.fetch_graduate_claim(profile_id)
-    if graduate is not None:
-        return graduate["student_hmac"], graduate["key_version"]
-    return None, IDENTITY_KEY_VERSION
 
 
 @router.get("/account")
