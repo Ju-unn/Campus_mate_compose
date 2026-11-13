@@ -4,6 +4,7 @@
 열람은 기록 한 줄을 **먼저** 남긴 뒤 복호화한다 — 기록이 실패하면 값을 읽지도 돌려주지도 않는다.
 """
 import logging
+from datetime import datetime
 from uuid import UUID
 
 import httpx
@@ -11,15 +12,16 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, StrictInt, field_validator
 
-from app.account.repository import AccountRepository, SupabaseAdmin
+from app.account.repository import AccountRepository
 from app.account.social_unlink import unlink_kakao_for_user
+from app.account.withdrawal import data_cleanup_steps, rejoin_hash
 from app.admin.caller import AdminCaller, get_admin_caller
 from app.admin.reason import Reason, ReasonBody
 from app.admin.repository import ACCOUNT_WITHDRAWN, NOT_FOUND
 from app.admin.request_ip import request_ip
 from app.admin.user_repository import AdminUserRepository
 from app.core import errors
-from app.signup_policy import IDENTITY_KEY_VERSION
+from app.core.deps import get_now
 
 router = APIRouter(prefix="/users")
 logger = logging.getLogger(__name__)
@@ -94,24 +96,17 @@ def _verified_by(text: str) -> str:
     return text
 
 
-async def _outside_cleanup(caller: AdminCaller, user_id: UUID) -> dict[str, str]:
-    """탈퇴 뒤 바깥 정리. 각각 best-effort — 한 단계가 실패해도 다음 단계로 간다(앱 안 탈퇴와 같은 정리, account/router.py).
+async def _outside_cleanup(caller: AdminCaller, user_id: UUID, now: datetime) -> dict[str, str]:
+    """탈퇴 뒤 바깥 정리. 각각 best-effort — 한 단계가 실패해도 다음 단계로 간다. 데이터 정리는 앱 안 탈퇴와 같은 함수
+    (account/withdrawal.py)이고, 카카오 끊기만 본인 토큰 대신 관리자 키로 한다.
     로그에는 단계 이름과 profile 번호만(회원번호 · 키 · 메일은 남기지 않는다)."""
     settings, client = caller.settings, caller.client
-    accounts = AccountRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
-    admin = SupabaseAdmin(settings, client)
-
-    async def push_tokens() -> None:
-        await accounts.delete_push_tokens(user_id)
-
-    async def student_id_files() -> None:
-        await admin.empty_folder("student-id-temp", user_id)
 
     async def kakao_unlink() -> bool:
         return await unlink_kakao_for_user(settings, client, user_id)
 
     results: dict[str, str] = {}
-    for name, step in (("push_tokens", push_tokens), ("student_id_files", student_id_files), ("kakao_unlink", kakao_unlink)):
+    for name, step in (*data_cleanup_steps(settings, client, user_id, now), ("kakao_unlink", kakao_unlink)):
         try:
             outcome = await step()
         except Exception:
@@ -125,24 +120,24 @@ async def _outside_cleanup(caller: AdminCaller, user_id: UUID) -> dict[str, str]
 @router.post("/{user_id}/close-account")
 async def close_account(
     user_id: UUID, body: CloseAccountBody, request: Request, caller: AdminCaller = Depends(get_admin_caller),
+    now: datetime = Depends(get_now),
 ) -> dict:
-    """앱 밖 탈퇴 요청 대행. ① 학교 메일 인증 기록(재가입 제한 해시)을 읽고 ② DB 함수로 탈퇴 + 기록 ③ 바깥 정리 ④ 정리 결과를 별도 기록.
+    """앱 밖 탈퇴 요청 대행. ① 재가입 제한 해시(학교 메일 인증 기록, 없으면 졸업생 학번 — 앱 안 탈퇴와 같은 함수)를 읽고 ② DB 함수로 탈퇴 + 기록 ③ 바깥 정리 ④ 정리 결과를 별도 기록.
     ②가 바깥 호출보다 먼저다 — ③은 실패해도 200 이다(이미 탈퇴됐고 다시 부르면 409 라 재시도가 안 된다). ①을 못 읽으면 아무것도
     바꾸기 전에 503(해시 없이 탈퇴시키면 재가입 제한을 잃는다 — 앱 안 탈퇴와 같은 규칙)."""
     verified_by = _verified_by(body.verified_by)
     repo = _repo(caller)
     accounts = AccountRepository(caller.settings.postgrest_url, caller.settings.supabase_service_role_key, caller.client)
     try:
-        claim = await accounts.fetch_school_email_claim(user_id)
+        email_hash, key_version = await rejoin_hash(accounts, user_id)
     except httpx.HTTPError as exc:
-        logger.warning("탈퇴 대행 전 학교 메일 인증 기록 읽기 실패 → 503 %s", type(exc).__name__)
+        logger.warning("탈퇴 대행 전 재가입 제한 해시 읽기 실패 → 503 %s", type(exc).__name__)
         raise HTTPException(status_code=503, detail=errors.AUTH_UNAVAILABLE)
     ip = request_ip(request)
     closed = await repo.close_account(
-        caller.admin_user_id, user_id, None if claim is None else claim["school_email_hmac"],
-        IDENTITY_KEY_VERSION if claim is None else claim["key_version"], body.reason, verified_by, ip)
+        caller.admin_user_id, user_id, email_hash, key_version, body.reason, verified_by, ip)
 
-    cleanup = await _outside_cleanup(caller, user_id)
+    cleanup = await _outside_cleanup(caller, user_id, now)
     try:
         await repo.record_action(caller.admin_user_id, "account_close_cleanup", target_type="profile",
                                  target_id=str(user_id), after=cleanup, ip=ip)
