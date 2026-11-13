@@ -150,7 +150,7 @@ iOS 15.5 이상(ML Kit 얼굴 감지 요구), iPhone 전용, 세로 고정이다
 
 ### 실행할 때마다
 
-1. GitHub > Actions > iOS TestFlight > Run workflow(main). 30~40분쯤 걸린다. 빌드 번호는 실행 번호이고, 앱 버전 이름은 실행 화면의 `build_name` 입력(기본 `1.0.2`, `숫자.숫자.숫자` 모양만 받는다)이다 — `pubspec.yaml` 의 `version`(`1.0.0+1`)은 그대로 둔다.
+1. GitHub > Actions > iOS TestFlight > Run workflow(main). 30~40분쯤 걸린다. 빌드 번호는 실행 번호이고, 앱 버전 이름은 실행 화면의 `build_name` 입력이다(**필수 입력이고 기본값이 없다** — 이미 낸 버전으로 잘못 올리지 않게 실행할 때마다 직접 적는다. `숫자.숫자.숫자` 모양만 받는다. 2026-11-13 PR #726 개정, 종전 서술: "기본 `1.0.2`") — `pubspec.yaml` 의 `version`(`1.0.0+1`)은 그대로 둔다. 실행하면 첫 단계가 **그 커밋의 Flutter 워크플로(`flutter.yml`, 분석 · 시험) 실행이 전부 success 인지** 확인하고, 하나도 없거나 아직 도는 중이거나 실패가 있으면 멈춘다 — Actions 의 Flutter 가 초록이 된 뒤 Run workflow 로 다시 실행한다(PR #726).
 2. 실패하면 빨간 단계의 `::error::` 줄을 본다(비밀은 이름만 찍힌다). 그 실행의 아티팩트 `ios-testflight-logs-<실행 번호>` 에 이 워크플로가 만든 로그 두 개(빌드 · 업로드)가 비밀과 실명을 지운 채 7일 남는다. xcodebuild 의 자세한 기록은 계정 정보가 섞여 올리지 않는다. 성공한 실행을 Re-run 하면 빌드 번호가 겹쳐 실패하니 늘 Run workflow 로 새로 돌린다.
 3. 성공하면 App Store Connect > 앱 > TestFlight 에서 빌드 처리가 끝날 때까지 10~30분 기다린다(끝나면 애플 메일이 온다).
 4. 처음 한 번: TestFlight > 내부 테스팅 > "+" 로 그룹을 만들고 테스터(App Store Connect 사용자인 본인 Apple ID)를 더한다. 이후 새 빌드는 그 그룹에 넣는다(그룹의 자동 배포를 켜 두면 생략).
