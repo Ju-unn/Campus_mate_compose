@@ -1,0 +1,43 @@
+name: Backend
+
+# paths 필터를 두지 않는다 — 나중에 필수 검사로 삼을 때, 서버를 안 건드린 PR 에서 건너뛴 검사가 "대기 중"으로 남아 merge 를 막지 않게.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# 받아서 시험만 한다 — 쓰기 권한도 비밀값도 필요 없다(시험용 환경변수는 backend/tests/conftest.py 가 채운다).
+permissions:
+  contents: read
+
+# PR 은 PR 마다 한 묶음이라 새 커밋이 오면 앞 실행을 멈춘다. main push 는 커밋(sha)마다 묶음이 달라 서로 기다리지도 취소되지도 않는다(커밋마다 결과가 남게).
+concurrency:
+  group: backend-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # 잡 이름은 필수 검사 이름으로 쓴다 — 바꾸지 않는다.
+  backend-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/constraints.txt
+      # 배포 이미지(Dockerfile)와 같은 고정 버전으로 깐다.
+      - name: 고정한 버전으로 설치(constraints.txt)
+        working-directory: backend
+        run: pip install -c constraints.txt -e ".[dev]"
+      - name: 서버 시험
+        working-directory: backend
+        run: python -m pytest -q
+      # 배포 스크립트와 워크플로 모양 검사(ios_testflight.py · ios-testflight.yml).
+      - name: 배포 스크립트 시험(.github/scripts)
+        run: |
+          # PyYAML 이 없으면 워크플로 모양 시험이 실패가 아니라 조용히 건너뛰어진다 — 있는지 먼저 본다(constraints.txt 로 깔린다).
+          python -c "import yaml"
+          python -m unittest discover -s .github/scripts

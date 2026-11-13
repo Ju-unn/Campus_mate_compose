@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
@@ -170,5 +172,19 @@ void main() {
     await Future.wait([viewModel.decide(CardDecision.accept), viewModel.decide(CardDecision.accept)]);
 
     expect(repository.decisions.length, 1);
+  });
+
+  // 11-13 출시 전 점검: 로그아웃하면 SessionScope 가 컨테이너째 버린다 — 그 순간 가 있던 읽기가 돌아와 버려진 뷰모델의
+  // 상태를 건드리면 처리되지 않은 오류가 된다.
+  test('읽는 중에 버려지면(로그아웃) 늦게 온 답을 버린다 — 던지지 않는다', () async {
+    final local = ProviderContainer(overrides: [cardRepositoryProvider.overrideWithValue(repository)]);
+    repository.holdCard = Completer<void>();
+    final reading = local.read(cardDetailViewModelProvider('card-1').notifier).load();
+    await pumpEventQueue();
+
+    local.dispose();
+    repository.holdCard!.complete();
+
+    await expectLater(reading, completes);
   });
 }

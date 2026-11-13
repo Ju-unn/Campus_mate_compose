@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/core/http/http_send.dart';
 import 'package:campus_mate/profile/basic/model/data/basic_info_submission.dart';
 import 'package:campus_mate/profile/basic/model/data/phone_code_sent.dart';
 import 'package:campus_mate/profile/basic/model/repository/basic_info_repository.dart';
@@ -31,6 +32,7 @@ class HttpBasicInfoRepository implements BasicInfoRepository {
           'gender': submission.gender,
           'mbti': submission.mbti,
         },
+        timeout: longWriteTimeout,
       );
 
   /// 번호는 기본 정보 저장과 같이 숫자만 보낸다 — 서버(`to_signup_e164`)가 하이픈을 떼고 같은 번호로 읽는다.

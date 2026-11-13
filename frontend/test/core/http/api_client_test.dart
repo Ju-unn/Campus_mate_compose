@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/core/analytics/handled_api_error.dart';
 import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/core/http/http_send.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -90,6 +93,22 @@ void main() {
 
       expect(handled, isEmpty);
     });
+  });
+
+  // send · sendRequest 가 넘겨받은 상한을 sendAuthorizedRequest → sendHttpRequest 까지 그대로 전한다.
+  testWidgets('send 에 긴 상한을 넘기면 쓰기 기본 상한(30초)에 끊기지 않는다', (tester) async {
+    final api = build(MockClient((request) => Completer<http.Response>().future));
+    Object? outcome;
+    unawaited(api
+        .send('POST', '/profile-onboarding/bio-draft', (_) {}, timeout: longWriteTimeout)
+        .then((result) => outcome = result.when(onSuccess: (_) => 'success', onFailure: (f) => f)));
+
+    await tester.pump(longWriteTimeout - const Duration(milliseconds: 1));
+    expect(outcome, isNull);
+
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(outcome, isA<NetworkFailure>());
+    expect(observed.single, isA<NetworkFailure>());
   });
 
   test('onFailure 가 없어도 실패를 그대로 돌려준다', () async {

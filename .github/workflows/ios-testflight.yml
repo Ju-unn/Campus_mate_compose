@@ -48,13 +48,15 @@ on:
   workflow_dispatch:
     inputs:
       build_name:
-        description: 앱 버전 이름(CFBundleShortVersionString, 예 1.0.2). pubspec.yaml 의 version 은 그대로 두고 이 값으로 정한다
+        # 기본값을 두지 않는다 — 옛 버전 이름이 남아 있으면 그대로 눌러 이미 낸 버전으로 올리게 된다.
+        description: 앱 버전 이름(CFBundleShortVersionString, 예 1.2.3). 실행할 때마다 직접 적는다. pubspec.yaml 의 version 은 그대로 두고 이 값으로 정한다
         required: true
-        default: "1.0.2"
         type: string
 
+# actions: read 는 첫 단계가 이 커밋의 Flutter 워크플로 실행 결과를 읽는 데만 쓴다.
 permissions:
   contents: read
+  actions: read
 
 # 업로드 도중 끊기지 않게 앞 실행을 취소하지 않고 줄을 세운다.
 concurrency:
@@ -89,6 +91,30 @@ jobs:
         # bash -eo pipefail: 로그를 비밀 지우개와 tee 로 넘겨도 앞 명령의 실패가 묻히지 않는다.
         shell: bash
     steps:
+      # 분석 · 시험(Flutter 워크플로, flutter.yml)이 통과한 커밋만 올린다. 아무것도 받기 전에 본다 — 앱 비밀은 넘기지 않는다.
+      # 검사 이름(analyze-test)이 아니라 flutter.yml 의 실행을 읽는다 — admin-web.yml 에도 같은 이름의 잡이 있어 이름으로 보면 그쪽만 초록이어도 통과한다.
+      # 이 커밋의 실행이 하나도 없거나, 아직 도는 중이거나, 하나라도 success 가 아니면 멈춘다. 읽기에 실패해도 멈춘다(pipefail).
+      - name: 이 커밋의 Flutter 워크플로(분석 · 시험)가 통과했는지 확인
+        # checkout 전이라 잡 기본 폴더(frontend)가 아직 없다.
+        working-directory: ${{ github.workspace }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +x
+          # 실행마다 낱말 하나: 끝났으면 결론(success · failure · cancelled …), 아니면 상태(queued · in_progress).
+          # 글자 인코딩에 걸리지 않게 바이트로 읽는다(응답에 한글 커밋 제목이 섞여 온다).
+          if ! STATES="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/flutter.yml/runs?head_sha=$GITHUB_SHA" | python3 -c '
+          import json, sys
+          runs = json.load(sys.stdin.buffer)["workflow_runs"]
+          states = [r["status"] if r["status"] != "completed" else str(r["conclusion"]) for r in runs]
+          print(" ".join(states))
+          sys.exit(0 if states and set(states) == {"success"} else 1)
+          ')"; then
+            echo "::error::이 커밋의 Flutter 워크플로 실행이 전부 success 가 아니다(${STATES:-실행 없음 또는 읽기 실패}) — Actions 의 Flutter 가 초록이 된 뒤 Run workflow 로 다시 실행한다"
+            exit 1
+          fi
+          echo "Flutter 워크플로 통과($STATES)"
+
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
@@ -118,7 +144,8 @@ jobs:
         with:
           flutter-version: 3.47.3
           channel: stable
-      - run: flutter pub get
+      # pubspec.lock 과 다른 판을 받지 않는다(잠금 파일이 안 맞으면 실패).
+      - run: flutter pub get --enforce-lockfile
 
       - name: 비밀 파일 복원(GoogleService-Info.plist · Secrets.xcconfig)
         env:

@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/core/http/http_send.dart';
 import 'package:campus_mate/profile/appearance/model/repository/appearance_type_repository.dart';
 import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
 
@@ -15,5 +16,6 @@ class HttpAppearanceTypeRepository implements AppearanceTypeRepository {
         '/profile-onboarding/appearance-type',
         (_) {},
         body: {'animal_type': animalType.name, 'impression_type': impressionType.name},
+        timeout: longWriteTimeout,
       );
 }

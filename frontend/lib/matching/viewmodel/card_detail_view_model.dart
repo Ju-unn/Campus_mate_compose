@@ -31,6 +31,8 @@ class CardDetailViewModel extends Notifier<CardDetailUiState> {
 
   Future<void> _load() async {
     final result = await ref.read(cardRepositoryProvider).fetchCard(cardId);
+    // 읽는 사이 로그아웃으로 버려졌으면(SessionScope 가 컨테이너째 버린다) 늦게 온 답은 버린다 — 상태를 건드리면 던진다.
+    if (!ref.mounted) return;
     state = result.when(
       onSuccess: (detail) => CardDetailUiState(detail: detail),
       onFailure: (failure) => CardDetailUiState(error: failure),

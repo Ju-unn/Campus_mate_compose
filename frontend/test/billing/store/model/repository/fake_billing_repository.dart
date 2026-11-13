@@ -30,6 +30,9 @@ class FakeBillingRepository implements BillingRepository {
   /// 채우면 verify 가 이 오류를 던진다(계약 밖 — Result 로 감싸지 못한 버그 흉내).
   Object? throwOnVerify;
 
+  /// 채우면 fetchStatus 가 이 오류를 던진다(계약 밖 — 확인 밖에서 난 오류 흉내).
+  Object? throwOnStatus;
+
   /// 채워 두면 verify 가 이것이 끝날 때까지 멈춘다 — "결제 확인 중" 모양 · 차례 확인용.
   Completer<void>? holdVerify;
 
@@ -44,6 +47,8 @@ class FakeBillingRepository implements BillingRepository {
   Future<Result<BillingStatus>> fetchStatus() async {
     statusCount++;
     await holdStatus?.future;
+    final error = throwOnStatus;
+    if (error != null) Error.throwWithStackTrace(error, StackTrace.current);
     return status;
   }
 
