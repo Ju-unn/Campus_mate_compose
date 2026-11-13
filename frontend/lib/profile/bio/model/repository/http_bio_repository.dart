@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/core/http/http_send.dart';
 import 'package:campus_mate/profile/bio/model/repository/bio_repository.dart';
 
 /// [BioRepository]를 FastAPI 호출로 구현한다.
@@ -13,9 +14,10 @@ class HttpBioRepository implements BioRepository {
         'POST',
         '/profile-onboarding/bio-draft',
         (body) => (body as Map<String, dynamic>)['draft'] as String,
+        timeout: longWriteTimeout,
       );
 
   @override
   Future<Result<void>> submit(String bio) =>
-      _api.send('POST', '/profile-onboarding/bio', (_) {}, body: {'bio': bio});
+      _api.send('POST', '/profile-onboarding/bio', (_) {}, body: {'bio': bio}, timeout: longWriteTimeout);
 }

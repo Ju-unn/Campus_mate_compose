@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/core/http/http_send.dart';
 import 'package:campus_mate/matching/model/data/card_detail.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/model/data/photo_slot.dart';
@@ -108,6 +109,7 @@ class HttpMeRepository implements MeRepository {
         'animal_type': ?appearance?.animalType.name,
         'impression_type': ?appearance?.impressionType.name,
       },
+      timeout: longWriteTimeout,
     );
   }
 
