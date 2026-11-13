@@ -58,7 +58,113 @@ gcloud projects add-iam-policy-binding <PROJECT_ID> \
 
 ## 2. 배포
 
+**운영 서비스는 이미 돌고 있다. 코드 배포 · env 변경 · 되돌림은 아래 "현행 배포 방식" 의 고정 3단계로만 한다**(2026-11-13 개정: 종전에는 되돌리는 명령이 문서에 없었다). `--set-env-vars` · `--set-secrets`(목록을 통째로 갈아끼운다)는 쓰지 않는다 — 목록에 없는 값(애플 · 문자 · 관리자 웹 · 강제 업데이트 설정 등)이 지워진다. 처음 서비스를 만들 때 한 번 쓴 전체 명령은 이 절 맨 아래 "최초 배포 명령(기록)" 에 기록으로만 남겼다. 이 절의 명령은 모두 운영 명령이라 사용자가 승인한 뒤에만 실행한다(위 맨 앞 문장 · spec §13-37).
+
+### 현행 배포 방식 — 고정 3단계 (2026-11-13 코드 배포 `00111-veg` · `00113-suh` 와 env 만 바꾼 `00115-daq` 에서 쓴 방식 그대로, 대장 전달 값)
+
+코드만 바꾸는 배포는 env · 시크릿 목록을 넘기지 않는다. 그러면 새 리비전이 **직전 리비전의 env · 시크릿을 그대로 이어받는다.** 새 판은 먼저 트래픽 0% 로 올려 점검하고, 통과하면 100% 로 옮기고, 문제가 나면 직전 리비전으로 되돌린다. 아래 `<태그>` · `<새 리비전>` · `<직전 리비전>` 은 그때 정하거나 읽은 값으로 바꾼다(`--project=<PROJECT_ID>` 는 gcloud 의 활성 프로젝트가 campus-mate 가 아닐 때만 붙인다, §1).
+
+**(가) 루트가 최신 main 인지 확인한다.** 배포는 루트 폴더(항상 main)의 `backend/` 를 올린다 — 워크트리에서 하지 않는다.
+
 ```bash
+cd <저장소 루트>
+git pull --ff-only origin main   # 사용자가 "main 가져와" 라고 한 뒤에만(docs/GIT.md §5.5). 이미 최신이면 아무 일도 없다
+git log -1                       # 배포할 PR 의 merge 커밋이 맨 위인지 본다
+```
+
+**(나) 0% 로 올려 점검한 뒤 100% 로 옮긴다.**
+
+```bash
+cd backend
+gcloud run deploy campus-mate-backend --source . --region=asia-northeast3 --allow-unauthenticated --quiet --no-traffic --tag <태그>
+```
+
+태그는 소문자로 시작하는 짧은 이름이다(지금까지 `s1112` · `b1112` · `m1113` · `a1113` · `p1113` — 글자 하나 + 월일). 새 리비전은 트래픽 0% 로 뜨고 **태그 주소**로만 열린다. 새 리비전 이름 · 태그 주소는 서비스 설명에서 읽는다(트래픽 줄에 비율 · 태그 · 주소가 함께 나온다). **전환하기 전에 지금 100% 를 받는 리비전의 이름을 적어 둔다 — (다) 되돌림 대상이다.**
+
+```bash
+gcloud run services describe campus-mate-backend --region asia-northeast3 --format="yaml(status.traffic)"
+gcloud run services describe campus-mate-backend --region asia-northeast3 --format="value(status.traffic[].revisionName)"   # 리비전 이름만
+```
+
+태그 주소(`<태그 주소>`)로 본다. 하나라도 어긋나면 전환하지 않는다:
+
+- `GET <태그 주소>/health` → 200 `{"status":"ok"}`
+- `GET <태그 주소>/app/version` → 200(운영 `MIN_APP_VERSION` 이 있으면 그 값 `{"min_version":"1.0.3"}`, 없으면 `null`, §4-20)
+- 무인증 `POST <태그 주소>/batch/cleanup` → 401(배치 문이 닫혀 있는지, §4-3)
+- 새 리비전 ERROR 로그 0:
+
+  ```bash
+  gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.revision_name="<새 리비전>" AND severity>=ERROR' --limit=20 --freshness=1h --format="value(timestamp,severity)"
+  ```
+
+  아무것도 나오지 않아야 한다(콘솔 로그 탐색기에서 같은 조건으로 봐도 된다). 새 리비전이 부팅에서 멈췄다면(예: 필수 시크릿이 빔, 아래 "빈 값") 여기서 보인다.
+- **env 개수 · 이름 비교** — 직전 리비전과 새 리비전에 각각 돌려 같은지 본다(코드만 바꾼 배포는 같아야 하고, `--update-*` 를 쓴 배포는 넣은 것만큼만 달라야 한다). 값은 찍지 않고 개수와 이름만 나온다:
+
+  ```bash
+  gcloud run revisions describe <리비전> --region asia-northeast3 --format=json | python -c "import json,sys; e=json.load(sys.stdin)['spec']['containers'][0]['env']; print(len(e), ' '.join(sorted(x['name'] for x in e)))"
+  ```
+
+  기록: `00111-veg` 32 · `00113-suh` 32 · `00115-daq` 34(대장 전달 값).
+
+점검이 끝나면 새 리비전으로 트래픽을 옮긴다:
+
+```bash
+gcloud run services update-traffic campus-mate-backend --region asia-northeast3 --to-revisions=<새 리비전>=100
+```
+
+옮긴 뒤 서비스 주소로 `/health`(§3)와 ERROR 로그를 몇 분 더 본다.
+
+**(다) 되돌림.** 직전 리비전으로 트래픽을 되돌린다(설정 · 네트워크도 그 리비전 것으로 돌아온다):
+
+```bash
+gcloud run services update-traffic campus-mate-backend --region asia-northeast3 --to-revisions=<직전 리비전>=100
+```
+
+직전 리비전 이름은 (나) 에서 적어 둔 것이다. 잊었으면 위 `describe` 의 리비전 이름 줄이나 §5 의 표를 본다. 되돌릴 수 있는 하한과 이미지 보존은 §5 "되돌림 하한" · §4-24, DB 를 같이 바꾼 배포의 되돌림 순서는 그 배포를 적은 절(§4-x)을 따른다. 새 리비전은 지우지 않아도 된다(트래픽 0%).
+
+**env · 시크릿만 바꿀 때** — 코드 배포 없이 값만 바꾸는 것도 같은 3단계다. `--no-traffic --tag` 를 빼면 바로 100% 로 나가니 빼지 않는다:
+
+```bash
+gcloud run services update campus-mate-backend --region asia-northeast3 --update-env-vars A=B --no-traffic --tag <태그>
+```
+
+시크릿은 `--update-secrets NAME=<시크릿 이름>:latest`, 값을 빼는 것은 `--remove-env-vars A`. 목록에 **더하거나 고치기만** 한다(`--set-*` 금지). 뒤는 위 (나) 의 점검 → 전환, 문제가 나면 (다) 와 같다. 예: 2026-11-13 `00115-daq` — `PHONE_VERIFICATION_REQUIRED=true` · `MIN_APP_VERSION=1.0.3` 을 더해 env 32 → 34(§5).
+
+### 설정(env · 시크릿)의 개수와 필수값
+
+코드로 센 설정은 **`Settings` 37개(env 22 · 시크릿 15) + 별도 클래스 `AdminWebSettings` 의 `ADMIN_ALLOWED_ORIGINS` 1개 = 38개**다(2026-11-13 `backend/app/settings.py` 를 직접 세었다 — 11-08 회의 묶음이 env 6개(`HOME_STATS_MIN_SIGNUPS` · `INQUIRY_NOTIFY_TO` · `INQUIRY_SMTP_USER` · `SMS_PROVIDER` · `SMS_DAILY_GLOBAL_LIMIT` · `PHONE_VERIFICATION_REQUIRED`)와 시크릿 4개(`INQUIRY_SMTP_PASSWORD` · `SOLAPI_API_KEY` · `SOLAPI_API_SECRET` · `SOLAPI_SENDER`)를 더했다, §4-25). **운영 서비스는 지금 env 34개**(2026-11-13 `00115-daq`, 대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다)다: `00109` · `00111` · `00113` 배포 때는 32개 그대로였고, 11-13 저녁에 `PHONE_VERIFICATION_REQUIRED` · `MIN_APP_VERSION` 두 개를 더해 34개가 됐다(§5). 38 과 34 가 다른 것은 기본값만 쓰는 이름이 있고(예: `ADMIN_MFA_MAX_AGE_HOURS` 는 운영에 넣지 않은 것으로 추정, §4-14) `settings.py` 밖의 `GRADUATE_VERIFICATION_ENABLED` 가 운영에 있기 때문으로 읽는다(이름을 하나씩 맞춰 보지는 못했다). **이 개수를 지키는 시험은 없다**(`backend/tests/test_deploy_docs.py` 는 개수가 아니라 `KAKAO_ADMIN_KEY` · `APPLE_PRIVATE_KEY` · `MIN_APP_VERSION` 문단과 `.env.example` 이름만 본다) — 그래서 **배포마다 위 "현행 배포 방식" (나) 의 "env 개수 · 이름 비교" 로 직전 리비전과 맞춰 본다.** 애플 키 6개는 운영 서비스에 모두 연결돼 있다(대장 전달 값). (종전 서술 2026-11-04 ~ 11-12: "`Settings` 27개(env 16 · 시크릿 11) + `AdminWebSettings` 1개 = 28개 … 운영 서비스는 env 27개(그중 시크릿 11) — `ADMIN_MFA_MAX_AGE_HOURS` · `MIN_APP_VERSION` 이 없고 `GRADUATE_VERIFICATION_ENABLED` 가 있어 27개, `MIN_APP_VERSION` 을 넣으면 28개". 2026-11-11 의 "코드 기준(운영 미배포) 38개, 운영은 이 값을 넣기 전까지 27개 그대로" 는 11-12 에 운영이 32개가 된 뒤로 낡았다.)
+
+**`MIN_APP_VERSION`(강제 업데이트 — 앱 1.0.1 이상 빌드부터 읽는다)** — 이 버전 **미만** 인 앱을 "업데이트해 주세요" 화면으로 막는다. `GET /app/version`(인증 없음, 응답 `{"min_version": "<버전>"}` 또는 `{"min_version": null}`, `Cache-Control: public, max-age=300`)이 이 값을 알려 주고 앱이 시작할 때와 앱으로 돌아올 때 비교한다. 1.0.0 은 이 경로를 읽지 않아 막히지 않고, 이 경로를 읽는 첫 공개 버전은 1.0.2 다(§4-20). 코드 기본은 비어 있어 아무도 막지 않는다(**운영은 2026-11-13 부터 `1.0.3`** — 아래 예외). 형식이 `숫자.숫자.숫자` 가 아니면(예: `1.0`, `1.0.1+19`) 서버는 뜨고 로그에 경고(`MIN_APP_VERSION 형식이 올바르지 않아 무시한다`)만 남긴 채 막지 않는다. **고친 빌드가 두 스토어(구글 플레이 · 앱 스토어)에서 모두 공개된 뒤에만 올린다** — 공개되기 전에 올리면 업데이트할 곳이 없는 사람이 앱을 쓸 수 없다. **2026-11-13 예외(사용자 결정): 이 원칙을 알고도 `PHONE_VERIFICATION_REQUIRED=true` 와 함께 `MIN_APP_VERSION=1.0.3` 을 두 스토어 공개 전에 미리 켰다**(운영 `00115-daq`, 사용자 「지금 켜기」, 대장 전달 값 — 이 문서 담당이 직접 보지 못했다). 이유: 스토어가 승인한 1.0.2 에는 문자 인증 화면이 없다 — 인증 필수만 켜면 1.0.2 사용자가 이유도 모른 채 가입에서 막히고, 둘 다 끄면 인증 없는 번호가 저장된다. 둘 다 켜면 1.0.2 는 업데이트 안내 화면으로 막힌다. **출시 순서(사용자 결정): 1.0.2 공개 → 1.0.3 긴급 업데이트.** 1.0.3 이 두 스토어에 공개되기 전까지 1.0.2 앱은 쓸 수 없다(§5 열려 있는 것 12). 올리거나 바꾸는 법은 env 하나를 **더하는** 명령이다 — 위 "현행 배포 방식" 의 "env 만 바꿀 때" 로 0% 점검 뒤 전환한다: `gcloud run services update campus-mate-backend --region asia-northeast3 --update-env-vars MIN_APP_VERSION=<버전> --no-traffic --tag <태그>`(새 리비전이 뜬다). 푸는 법은 `--remove-env-vars MIN_APP_VERSION`(같은 절차, 앱은 다음 시작 또는 앱으로 돌아올 때 풀린다). 급하면 두 env 가 모두 없는 `00113-suh` 로 트래픽을 돌린다(위 (다), 2026-11-13 기준). 앱이 서버를 못 부르거나(장애 · 3초 시간 초과) 응답이 이상하면 앱은 막지 않는다 — 서버 장애로 앱이 잠기지 않는다. **예시 값 `1.0.1` 로는 아무도 막히지 않는다**(1.0.0 앱은 이 경로를 읽지 않고, 읽는 앱은 1.0.1 이상이다) — 처음으로 사람을 막는 값은 1.0.2 보다 높은 다음 버전 숫자다(§4-20) — 2026-11-13 에 올린 `1.0.3` 이 그 값이다(1.0.2 이하가 막힌다).
+
+**빈 값이면 서버가 뜨지 않는 env 는 6개다**(2026-11-13 서버 PR #727, `backend/app/settings.py` 의 `Field(min_length=1)`을 직접 읽어 확인했다 — 종전에는 `IDENTITY_HMAC_KEY` · `OPENAI_API_KEY` · `PHONE_ENCRYPTION_KEY` 3개였다. 나머지 셋은 비어도 떴고, 빈 서명 비밀이면 서명 검증이 통과하는 것이 11-13 최종 점검에서 나왔다): `SUPABASE_SERVICE_ROLE_KEY` · `AUTH_HOOK_SIGNING_SECRET` · `DISCORD_WEBHOOK_URL` · `OPENAI_API_KEY` · `IDENTITY_HMAC_KEY` · `PHONE_ENCRYPTION_KEY`. 여섯 다 시크릿이다(Secret Manager 이름 `supabase-service-role-key` · `auth-hook-signing-secret` · `discord-review-webhook-url` · `open-api-key` · `identity-hmac-key` · `phone-number-encryption-key`). 값이 비어 있거나 목록에서 빠지면 그 새 리비전은 부팅에서 멈춘다 — 0% 로 올린 리비전이면 트래픽은 옛 리비전에 남는다(위 (나)). `SUPABASE_URL` · `GOOGLE_CLOUD_PROJECT` 도 아예 없으면 못 뜨지만 빈 글자는 막지 않는다. `00113-suh` 가 100% 로 떠 있으므로 그 시점에 여섯 값은 비어 있지 않았던 것으로 읽는다(기동했다는 사실로 읽은 것이고 길이를 직접 본 결과는 전달받지 못했다).
+
+**배포 전에 이 여섯이 비어 있지 않은지 길이로 본다**(값은 화면에 나오지 않고 길이만 나온다):
+
+```bash
+for s in supabase-service-role-key auth-hook-signing-secret discord-review-webhook-url open-api-key identity-hmac-key phone-number-encryption-key; do
+  printf '%s ' "$s"; gcloud secrets versions access latest --secret="$s" | wc -c
+done
+```
+
+0 이면 비어 있다. 윈도우에서 만든 파일로 넣은 값은 끝에 `\r`(1바이트)이 붙어 있을 수 있으니 길이가 1 ~ 2 로 나오면 줄바꿈만 든 것을 의심한다(§1 2026-09-21 사고). 서비스가 `:latest` 가 아닌 고정 버전을 참조하면 그 버전으로 본다. 값 자체는 이 문서 · 채팅 · 로그 어디에도 적지 않는다.
+
+`DISCORD_REPORT_WEBHOOK_URL`(`discord-report-webhook-url`, 신고 전용 채널 — 비어 있으면 신고 알림만 건너뛰고 경고 로그) · `KAKAO_ADMIN_KEY` · `VERIFICATION_HOOK_SECRET`(`verification-hook-secret`, 학생증 검토 결과 훅의 공유 비밀 — 비어 있으면 `/hooks/verification-reviewed` 가 모든 요청을 막는다)은 비어도 서버는 뜬다(그 기능만 건너뛰거나 닫힌다). **`PHONE_ENCRYPTION_KEY` 는 전화번호 · 실명 · 카카오톡 아이디 암호화에 같이 쓴다**(같은 키, §4-4 · `docs/SUPABASE.md` §8) — 이 키를 바꾸면 전화번호 · 실명 · 카톡 암호문을 모두 다시 암호화해야 한다
+
+### 그 밖의 배포 규칙 (업로드 제외 목록 · Auth OTP · 인증 없는 배포)
+
+**업로드는 `.gcloudignore`, 이미지는 `.dockerignore` — 둘 다 맞춘다.** `gcloud run deploy --source .` 는 제외 목록을 두 군데에서 본다. ① PC 에서 클라우드로 올리는 **업로드** 단계는 `backend/.gcloudignore`, ② 올라간 뒤 **이미지를 만드는**(Dockerfile `COPY`) 단계는 `backend/.dockerignore` 다. 서로 다른 파일이라 **한쪽만 고치면 다른 단계에는 반영되지 않는다 — 제외할 것을 바꿀 때는 두 파일을 같이 맞춘다.** `.gcloudignore` 는 `.gcloudignore` · `.git` · `.gitignore` · `.venv/` · `__pycache__/` · `*.pyc` · `.pytest_cache/` · `*.egg-info/` · `tests/` · `.env` · `.env.*`(가상환경 · 시험 · 비밀값 파일)를 뺀다. `Dockerfile` · `pyproject.toml` · `constraints.txt`(2026-11-13 #726, 의존성 버전 고정, §4-29) · `app/` 은 이미지에 필요하니 **어느 쪽 목록에도 넣지 않는다.** **배포 뒤 확인**: Cloud Build 로그(콘솔 또는 `gcloud builds log <빌드 ID>`)에 `inflating: /workspace/.venv` 가 한 줄도 없어야 한다 — 보이면 `.gcloudignore` 가 빠졌거나 어긋난 것이다(정상이면 업로드가 170 파일 · 1MB 안팎이다, §3). 이미 쌓인 업로드 zip · 이미지는 §4-24 의 자동 삭제 규칙(업로드 버킷 30일, 이미지 창고 최근 15개 보존)이 맡고, 되돌릴 수 있는 리비전의 하한도 거기서 정해진다.
+
+**Auth OTP expiry — Supabase 대시보드 Authentication 설정의 OTP 유효시간을 300초(5분)로 맞춘다.** 기본값(3600초)과 앱의 인증 코드 화면 카운트다운(5분)이 어긋나 있었다(운영에서는 아직 3600초, 승인 대기 중).
+
+`--allow-unauthenticated` 로 배포한다 — Supabase HTTP Auth Hook은 GCP IAM 아이덴티티 토큰을 발급할 수 없어서, IAM 인증을 걸면 훅 호출 자체가 막힌다. 대신 요청 인증은 Standard Webhooks HMAC 서명 검증 + timestamp ±5분 범위 검사(코드에 구현됨)가 담당한다.
+
+### 최초 배포 명령(기록 — 다시 돌리지 않는다)
+
+아래는 2026-09 에 서비스를 처음 만들 때 한 번 쓴 명령이다. **지금 서비스에 돌리면 env · 시크릿 목록이 이 목록으로 통째로 바뀌어 목록에 없는 값이 지워진다**(애플 토큰 철회 · 아이폰 결제 · 문자 · 관리자 웹 · 강제 업데이트 설정 등). 새 서비스를 처음부터 다시 만들 때의 참고로만 남긴다.
+
+```bash
+# [기록 — 실행하지 않는다] 2026-09 최초 배포용이다. 서비스에 이미 들어 있는 env · 시크릿을 이 목록으로 통째로 갈아끼워, 목록에 없는 값(애플 · 문자 키 등)이 지워진다.
+# 지금 배포는 이 절 맨 위 "현행 배포 방식" 을 쓴다.
 cd backend
 gcloud run deploy campus-mate-backend \
   --source . \
@@ -79,27 +185,7 @@ gcloud run deploy campus-mate-backend \
 **`APPLE_PRIVATE_KEY`(애플 토큰 철회, App Store 5.1.1(v))** — 탈퇴할 때 애플 토큰 철회(`app/account/social_unlink.py`)에 쓴다. Sign in with Apple 키(`.p8`)의 PEM 본문을 Secret Manager 에 시크릿 `apple-sign-in-private-key` 로 등록하고(`gcloud secrets create apple-sign-in-private-key --data-file=AuthKey_<키 ID>.p8`, PEM 이라 줄바꿈이 남아도 · `tr -d '\r\n'` 로 지워도 읽힌다), 위 `--set-secrets` 목록에 `APPLE_PRIVATE_KEY=apple-sign-in-private-key:latest` 를 더한다. 같이 쓰는 `APPLE_TEAM_ID`(팀 ID) · `APPLE_KEY_ID`(키 ID)는 비밀이 아니라 `--set-env-vars` 에 `APPLE_TEAM_ID=<팀 ID>,APPLE_KEY_ID=<키 ID>` 로 더한다.
 셋 중 하나라도 비면 그 단계만 건너뛴다(경고 없이, 서버 시작은 막지 않는다). 앱이 탈퇴 본문에 `apple_authorization_code` 를 실어 보낸 애플 사용자만 철회한다 — 코드를 애플 `/auth/token` 으로 refresh_token 과 바꾼 뒤 `/auth/revoke` 로 바로 철회하고, 토큰은 저장하지 않는다. client_id 는 번들 ID(`io.github.juunn.campusmate`)다. 값은 이 문서에 적지 않는다.
 
-**설정 개수와 전체 `--set-*` 명령 주의.** 위 전체 명령은 최초 배포용이라 지금 서비스 설정과 같지 않다(그대로 다시 돌리지 않는다). 이 명령에는 `APPLE_TEAM_ID` · `APPLE_KEY_ID`(env)와 `APPLE_PRIVATE_KEY=apple-sign-in-private-key:latest`(시크릿), 아이폰 하트 구매용 `APPLE_IAP_KEY_ID` · `APPLE_IAP_ISSUER_ID`(env)와 `APPLE_IAP_PRIVATE_KEY=apple-iap-private-key:latest`(시크릿, §4-10), 홈 리뷰 띠용 `STORE_RATING` · `STORE_RATING_COUNT`(§4-13), 관리자 웹용 `ADMIN_ALLOWED_ORIGINS` · `ADMIN_BASE_URL` · `ADMIN_MFA_MAX_AGE_HOURS`(§4-14), 졸업생 스위치 `GRADUATE_VERIFICATION_ENABLED`(§4-14), `MIN_APP_VERSION`(아래)이 빠져 있다. `--set-env-vars` · `--set-secrets` 는 **목록 전체를 갈아끼우므로** 서비스에 들어 있는 이 값들이 지워진다(애플 값이 비면 탈퇴 때 애플 토큰 철회가 조용히 건너뛰어진다). 배포는 아래 "현행 배포 방식"으로 하고, 새 값은 `--update-env-vars` · `--update-secrets` 로 **더한다.**
-코드로 센 설정은 `Settings` 27개(env 16 · 시크릿 11) + 별도 클래스 `AdminWebSettings` 의 `ADMIN_ALLOWED_ORIGINS` 1개 = 28개다(`ADMIN_MFA_MAX_AGE_HOURS`(기본 12, 관리자 2단계 인증 나이 상한) · `MIN_APP_VERSION`(기본 빈 글자)이 `Settings` 에 있다). 운영 서비스는 env 27개(그중 시크릿 11)다 — `ADMIN_MFA_MAX_AGE_HOURS`(운영에 넣지 않은 것으로 추정, §4-14) · `MIN_APP_VERSION`(아직 안 넣었다)이 없고, `settings.py` 밖의 `GRADUATE_VERIFICATION_ENABLED` 가 있어 27개다. `MIN_APP_VERSION` 을 넣으면 28개가 된다. 이 개수를 지키는 시험은 없다(`backend/tests/test_deploy_docs.py` 는 아래 `MIN_APP_VERSION` 문단의 "두 스토어" · "공개" 만 본다). 애플 키 6개는 운영 서비스에 모두 연결돼 있다(대장 전달 값). **2026-11-11 코드 기준(운영 미배포): `Settings` 37개(env 22 · 시크릿 15) + `AdminWebSettings` 1개 = 38개다** — 11-08 회의 묶음이 env 6개(`HOME_STATS_MIN_SIGNUPS` · `INQUIRY_NOTIFY_TO` · `INQUIRY_SMTP_USER` · `SMS_PROVIDER` · `SMS_DAILY_GLOBAL_LIMIT` · `PHONE_VERIFICATION_REQUIRED`)와 시크릿 4개(`INQUIRY_SMTP_PASSWORD` · `SOLAPI_API_KEY` · `SOLAPI_API_SECRET` · `SOLAPI_SENDER`)를 더했다(§4-25). 운영 서비스는 이 값을 넣기 전까지 위 27개 그대로다.
-
-**현행 배포 방식(2026-10-13 ~ 14 배포 기준, 대장 전달 값)** — 설정을 바꾸지 않는 코드 배포는 env · 시크릿 목록을 넘기지 않는다. 그러면 새 리비전이 **직전 리비전의 env · 시크릿을 그대로 이어받는다**:
-
-```bash
-cd backend
-gcloud run deploy campus-mate-backend --source . --project=<PROJECT_ID> --region=asia-northeast3 --allow-unauthenticated --quiet
-```
-
-새 env · 시크릿이 생길 때만 `--update-env-vars` · `--update-secrets`(목록에 **더하기**)를 쓴다 — `--set-*`(갈아끼우기)는 위 이유로 쓰지 않는다. 배포 뒤 리비전 이름 · 되돌림 하한은 §5.
-
-**업로드는 `.gcloudignore`, 이미지는 `.dockerignore` — 둘 다 맞춘다.** `gcloud run deploy --source .` 는 제외 목록을 두 군데에서 본다. ① PC 에서 클라우드로 올리는 **업로드** 단계는 `backend/.gcloudignore`, ② 올라간 뒤 **이미지를 만드는**(Dockerfile `COPY`) 단계는 `backend/.dockerignore` 다. 서로 다른 파일이라 **한쪽만 고치면 다른 단계에는 반영되지 않는다 — 제외할 것을 바꿀 때는 두 파일을 같이 맞춘다.** `.gcloudignore` 는 `.gcloudignore` · `.git` · `.gitignore` · `.venv/` · `__pycache__/` · `*.pyc` · `.pytest_cache/` · `*.egg-info/` · `tests/` · `.env` · `.env.*`(가상환경 · 시험 · 비밀값 파일)를 뺀다. `Dockerfile` · `pyproject.toml` · `app/` 은 이미지에 필요하니 **어느 쪽 목록에도 넣지 않는다.** **배포 뒤 확인**: Cloud Build 로그(콘솔 또는 `gcloud builds log <빌드 ID>`)에 `inflating: /workspace/.venv` 가 한 줄도 없어야 한다 — 보이면 `.gcloudignore` 가 빠졌거나 어긋난 것이다(정상이면 업로드가 170 파일 · 1MB 안팎이다, §3). 이미 쌓인 업로드 zip · 이미지는 §4-24 의 자동 삭제 규칙(업로드 버킷 30일, 이미지 창고 최근 15개 보존)이 맡고, 되돌릴 수 있는 리비전의 하한도 거기서 정해진다.
-
-**`MIN_APP_VERSION`(강제 업데이트 — 앱 1.0.1 이상 빌드부터 읽는다)** — 이 버전 **미만** 인 앱을 "업데이트해 주세요" 화면으로 막는다. `GET /app/version`(인증 없음, 응답 `{"min_version": "<버전>"}` 또는 `{"min_version": null}`, `Cache-Control: public, max-age=300`)이 이 값을 알려 주고 앱이 시작할 때와 앱으로 돌아올 때 비교한다. 1.0.0 은 이 경로를 읽지 않아 막히지 않고, 이 경로를 읽는 첫 공개 버전은 1.0.2 다(§4-20). 기본은 비어 있어 아무도 막지 않는다. 형식이 `숫자.숫자.숫자` 가 아니면(예: `1.0`, `1.0.1+19`) 서버는 뜨고 로그에 경고(`MIN_APP_VERSION 형식이 올바르지 않아 무시한다`)만 남긴 채 막지 않는다. **고친 빌드가 두 스토어(구글 플레이 · 앱 스토어)에서 모두 공개된 뒤에만 올린다** — 공개되기 전에 올리면 업데이트할 곳이 없는 사람이 앱을 쓸 수 없다. 올리는 법은 새 env 하나를 더하는 `gcloud run services update campus-mate-backend --project=<PROJECT_ID> --region=asia-northeast3 --update-env-vars MIN_APP_VERSION=<버전>`(새 리비전이 뜬다), 푸는 법은 `--remove-env-vars MIN_APP_VERSION`(앱은 다음 시작 또는 앱으로 돌아올 때 풀린다). 앱이 서버를 못 부르거나(장애 · 3초 시간 초과) 응답이 이상하면 앱은 막지 않는다 — 서버 장애로 앱이 잠기지 않는다. **예시 값 `1.0.1` 로는 아무도 막히지 않는다**(1.0.0 앱은 이 경로를 읽지 않고, 읽는 앱은 1.0.1 이상이다) — 처음으로 사람을 막는 값은 1.0.2 보다 높은 다음 버전 숫자다(§4-20).
-
-**`IDENTITY_HMAC_KEY` · `OPENAI_API_KEY` · `PHONE_ENCRYPTION_KEY` 는 `settings.py` 가 필수(`min_length=1` 등)로 요구하므로 배포 명령에서 빠지면 그 자리에서 기동이 실패한다.** 위 명령에 셋 다 들어 있다(시크릿 이름 `identity-hmac-key` · `open-api-key` · `phone-number-encryption-key`). `DISCORD_REPORT_WEBHOOK_URL`(`discord-report-webhook-url`, 신고 전용 채널 — 비어 있으면 신고 알림만 건너뛰고 경고 로그)도 위 명령에 있다. `KAKAO_ADMIN_KEY` 와 `VERIFICATION_HOOK_SECRET`(`verification-hook-secret`, 학생증 검토 결과 훅의 공유 비밀 — 비어 있으면 `/hooks/verification-reviewed` 가 모든 요청을 막는다)도 위 명령에 있다. **`PHONE_ENCRYPTION_KEY` 는 전화번호 · 실명 · 카카오톡 아이디 암호화에 같이 쓴다**(같은 키, §4-4 · `docs/SUPABASE.md` §8) — 이 키를 바꾸면 전화번호 · 실명 · 카톡 암호문을 모두 다시 암호화해야 한다
-
-**Auth OTP expiry — Supabase 대시보드 Authentication 설정의 OTP 유효시간을 300초(5분)로 맞춘다.** 기본값(3600초)과 앱의 인증 코드 화면 카운트다운(5분)이 어긋나 있었다(운영에서는 아직 3600초, 승인 대기 중).
-
-`--allow-unauthenticated` 로 배포한다 — Supabase HTTP Auth Hook은 GCP IAM 아이덴티티 토큰을 발급할 수 없어서, IAM 인증을 걸면 훅 호출 자체가 막힌다. 대신 요청 인증은 Standard Webhooks HMAC 서명 검증 + timestamp ±5분 범위 검사(코드에 구현됨)가 담당한다.
+**전체 `--set-*` 명령 주의(2026-11-13 개정: 이 명령과 아래 문단들은 이 절 맨 위에서 맨 아래로 옮겼다).** 위 전체 명령은 최초 배포용이라 지금 서비스 설정과 같지 않다(**그대로 다시 돌리지 않는다**). 이 명령에는 `APPLE_TEAM_ID` · `APPLE_KEY_ID`(env)와 `APPLE_PRIVATE_KEY=apple-sign-in-private-key:latest`(시크릿), 아이폰 하트 구매용 `APPLE_IAP_KEY_ID` · `APPLE_IAP_ISSUER_ID`(env)와 `APPLE_IAP_PRIVATE_KEY=apple-iap-private-key:latest`(시크릿, §4-10), 홈 리뷰 띠용 `STORE_RATING` · `STORE_RATING_COUNT`(§4-13), 관리자 웹용 `ADMIN_ALLOWED_ORIGINS` · `ADMIN_BASE_URL` · `ADMIN_MFA_MAX_AGE_HOURS`(§4-14), 졸업생 스위치 `GRADUATE_VERIFICATION_ENABLED`(§4-14), `MIN_APP_VERSION`, 문자 인증 설정(`SMS_PROVIDER` · `SMS_DAILY_GLOBAL_LIMIT` · `PHONE_VERIFICATION_REQUIRED` · 솔라피 시크릿 3개, §4-25)이 빠져 있다. `--set-env-vars` · `--set-secrets` 는 **목록 전체를 갈아끼우므로** 서비스에 들어 있는 이 값들이 지워진다(애플 값이 비면 탈퇴 때 애플 토큰 철회가 조용히 건너뛰어진다). 배포는 이 절 맨 위 "현행 배포 방식"으로 하고, 새 값은 `--update-env-vars` · `--update-secrets` 로 **더한다.**
 
 ## 3. 배포 확인
 
@@ -109,7 +195,7 @@ gcloud run deploy campus-mate-backend --source . --project=<PROJECT_ID> --region
 curl https://<서비스 URL>/health
 ```
 
-`{"status":"ok"}` 가 나오면 성공.
+`{"status":"ok"}` 가 나오면 성공. 0% 로 올린 새 리비전은 서비스 주소가 아니라 **태그 주소**로 같은 점검을 먼저 한다(§2 (나)).
 
 **빌드 로그도 본다.** 배포 뒤 Cloud Build 로그에 `inflating: /workspace/.venv` 가 0줄이어야 한다(업로드 제외 목록 `backend/.gcloudignore` 가 맞는지 보는 확인, §2 "업로드는 `.gcloudignore`, 이미지는 `.dockerignore`"). 이 확인은 `/health` 와 달리 코드가 아니라 배포 방식이 어긋났는지를 알려 준다.
 
@@ -440,7 +526,7 @@ gcloud scheduler jobs create http campus-mate-cleanup \
   - ① 의 버킷은 **4개**다 — `avatars` · `profile-photos` · `student-id-temp` · `heart-task-proofs`(`app/account/batch_router.py` `STORAGE_BUCKETS`). **⑤ 검수 끝나고 60일 지난 무료 하트 인증샷**을 하루 100장씩 지운다(파일 먼저, 경로 비우기는 나중 — `app/heart_tasks/cleanup.py`). `heart-task-proofs` 버킷이 운영에 없으면 ① 이 그 버킷에서 막혀 탈퇴 계정이 전부 `skipped` 가 된다 — 무료 하트 마이그레이션(§4-5)이 먼저다.
   - ② 는 `resolved_at` 기준이다(열린 신고는 남는다).
   - **⑥ 글 속 취향 나누기가 실패해 단어 칸이 null 인 사람의 4칸을 다시 만든다**(하루 최대 20명 · 150초 예산, `app/matching/vectors.py` `refill_taste`). ⑤ 뒤에 돌고 07:00 카드 배치보다 먼저 메운다. 자세한 내용은 §4-19.
-- 결과는 `{"deleted_accounts", "skipped_accounts", "deleted_reports", "deleted_signup_blocks", "stale_key_rows", "deleted_heart_proofs", "refilled_taste"}` 모양이다(`deleted_heart_proofs` = ⑤, `refilled_taste` = ⑥ 에서 다시 만들려고 **시도한** 사람 수 — 실패한 사람도 센다). **2026-11-11 코드(운영 미배포)부터 응답에 `deleted_inquiries`(답변 완료 1년 지난 문의 + 답을 안 한 채 접수 1년 지난 문의 — 답 안 한 문의 정리는 2026-11-13 코드부터)와 `deleted_phone_verifications`(보낸 지 30일 지난 문자 인증 줄) 두 키가 더해진다** — 두 단계는 DB 표가 아직 없어도 다른 정리가 멈추지 않게 따로 감싸 실패하면 0 으로 두고 경고만 남긴다(§4-25).
+- 결과는 `{"deleted_accounts", "skipped_accounts", "deleted_reports", "deleted_signup_blocks", "stale_key_rows", "deleted_heart_proofs", "refilled_taste"}` 모양이다(`deleted_heart_proofs` = ⑤, `refilled_taste` = ⑥ 에서 다시 만들려고 **시도한** 사람 수 — 실패한 사람도 센다). **2026-11-11 코드부터(운영은 `00103-bak` 부터 — 종전 서술 2026-11-11: "운영 미배포") 응답에 `deleted_inquiries`(답변 완료 1년 지난 문의 + 답을 안 한 채 접수 1년 지난 문의 — 답 안 한 문의 정리는 2026-11-13 코드부터, `00113-suh` 부터 운영 — §4-29)와 `deleted_phone_verifications`(보낸 지 30일 지난 문자 인증 줄) 두 키가 더해진다** — 두 단계는 DB 표가 아직 없어도 다른 정리가 멈추지 않게 따로 감싸 실패하면 0 으로 두고 경고만 남긴다(§4-25).
   `skipped_accounts` 는 파일 삭제가 실패해 **내일 다시** 할 사람이다. 며칠째 같은 수면 로그의 `탈퇴 계정 정리 건너뜀` 을 본다.
   `stale_key_rows` 가 0 이 아니면 `identity-hmac-key` 를 바꾼 뒤 옛 행이 남은 것이다(`app/signup_policy.py` 의 `IDENTITY_KEY_VERSION`).
 - 확인: `gcloud scheduler jobs run campus-mate-cleanup --location=asia-northeast3` 뒤 §4-3 의 `logging read` 로 `/batch/cleanup` 200 을 본다. 다시 돌려도 안전하다(두 번째는 전부 0).
@@ -1007,7 +1093,7 @@ DB 변경 없음, 새 env 없음, 앱 변경 없음(서버만). 배경: §4-18 "
 
 ## 4-20. 강제 업데이트 `GET /app/version` (서버 PR #642 안의 커밋 `24472397`)
 
-DB 변경 없음, 새 시크릿 · 새 Cloud Tasks 큐 · 새 Scheduler job 없음, env 는 `MIN_APP_VERSION` 하나가 **선택**이다(운영에는 아직 넣지 않았다 — 안 넣으면 아무도 안 막는다). 앱 쪽 짝은 `frontend/lib/core/app_update/`(화면 `frontend/docs/DESIGN.md` §9 01-2, 규칙 설계 문서 §4.7). 새 의존성 `package_info_plus` 의 승인 원문은 `frontend/CLAUDE.md` §2.1 의존성 표(원문은 `docs/decisions/2026-11-04-v102-decisions.md` §6).
+DB 변경 없음, 새 시크릿 · 새 Cloud Tasks 큐 · 새 Scheduler job 없음, env 는 `MIN_APP_VERSION` 하나가 **선택**이다(**2026-11-13 개정: 운영에 `1.0.3` 을 넣었다** — `00115-daq`, §2 · §5. 종전 서술: "운영에는 아직 넣지 않았다 — 안 넣으면 아무도 안 막는다"). 앱 쪽 짝은 `frontend/lib/core/app_update/`(화면 `frontend/docs/DESIGN.md` §9 01-2, 규칙 설계 문서 §4.7). 새 의존성 `package_info_plus` 의 승인 원문은 `frontend/CLAUDE.md` §2.1 의존성 표(원문은 `docs/decisions/2026-11-04-v102-decisions.md` §6).
 
 | 항목 | 값 |
 | --- | --- |
@@ -1019,18 +1105,18 @@ DB 변경 없음, 새 시크릿 · 새 Cloud Tasks 큐 · 새 Scheduler job 없�
 | 시험 | 서버 pytest `backend/tests/app_version/test_app_version_router.py`(함수 6개: 기본값은 아무도 안 막음 · 빈 값 · 값 그대로 · 앞뒤 공백 · 틀린 모양은 안 막고 경고 · 캐시 헤더), 앱 `frontend/test/core/app_update/` 4파일, 문서 시험 `backend/tests/test_deploy_docs.py` 의 `MIN_APP_VERSION` 문단 검사. |
 
 **올리는 순서와 규칙**
-- 순서: 고친 빌드를 두 스토어에 제출 → 두 스토어에서 **공개된 것을 확인** → 그다음에만 `MIN_APP_VERSION`(§2). 이 경로를 읽는 첫 공개 버전은 1.0.2 이므로 처음 사람을 막는 값은 **1.0.2 보다 높은 다음 버전 숫자**다. AAB 는 올리기 전에 매니페스트 `versionName` 을 확인한다(`frontend/run.md` — `--build-name` 을 빼면 1.0.0 으로 기록돼 나중에 갇힌다).
-- **예시 값 `1.0.1` 로는 아무도 막히지 않는다.** 1.0.0 앱은 이 경로를 읽지 않고, 읽는 앱은 1.0.1 이상이다. 처음으로 사람을 막는 값은 1.0.2 보다 높은 다음 버전 숫자(예: 1.0.3 이 두 스토어에 공개된 뒤 `1.0.3`)다.
+- 순서: 고친 빌드를 두 스토어에 제출 → 두 스토어에서 **공개된 것을 확인** → 그다음에만 `MIN_APP_VERSION`(§2). 이 경로를 읽는 첫 공개 버전은 1.0.2 이므로 처음 사람을 막는 값은 **1.0.2 보다 높은 다음 버전 숫자**다. AAB 는 올리기 전에 매니페스트 `versionName` 을 확인한다(`frontend/run.md` — `--build-name` 을 빼면 1.0.0 으로 기록돼 나중에 갇힌다). **2026-11-13 예외: 사용자 결정으로 두 스토어 공개 전에 `1.0.3` 을 미리 올렸다**(출시 순서 1.0.2 공개 → 1.0.3 긴급 업데이트, 그 사이 1.0.2 는 업데이트 안내 화면으로 막힌다 — 이유 · 되돌리는 법은 §2 `MIN_APP_VERSION` 문단).
+- **예시 값 `1.0.1` 로는 아무도 막히지 않는다.** 1.0.0 앱은 이 경로를 읽지 않고, 읽는 앱은 1.0.1 이상이다. 처음으로 사람을 막는 값은 1.0.2 보다 높은 다음 버전 숫자(예: 1.0.3 이 두 스토어에 공개된 뒤 `1.0.3`)다. 2026-11-13 에 이 값(`1.0.3`)을 올렸다(위 예외).
 
 **배포 순서 · 롤백 주의 (코드 근거 — 시험하지 않았다)**
 - DB 변경이 없어 순서는 merge → 서버 배포 하나뿐이다. 서버가 앱보다 먼저 나가도 1.0.0 앱은 이 경로를 부르지 않아 무해하다.
 - **롤백**: 서버를 `00097` 로 내리면 이 경로가 사라져 404 가 되지만, 앱은 200 이 아닌 답을 "알아내지 못함 = 막지 않음"으로 읽어 막지 않는다(`AppVersionRepository.fetchMinimum`) — 롤백은 안전하다. 이미 올린 `MIN_APP_VERSION` 만 풀 때는 코드 롤백이 필요 없다(§2 `--remove-env-vars`). 하한은 그대로 **`00063` 아래 금지 + `00087` 이전 금지**(§4-14).
 
 **배포 후 점검 목록 (다음 배포에도 같은 목록을 쓴다)**
-- `/health` 200 · 무인증 `GET /app/version` 200 `{"min_version":null}` + 헤더 `Cache-Control: public, max-age=300`(`MIN_APP_VERSION` 을 비운 채)
+- `/health` 200 · 무인증 `GET /app/version` 200 `{"min_version":null}` + 헤더 `Cache-Control: public, max-age=300`(`MIN_APP_VERSION` 을 비운 채) (2026-11-13 부터 운영 값은 `1.0.3` 이라 `{"min_version":"1.0.3"}` 이 정상이다)
 - 무인증 `POST /batch/cleanup` 401 · 새 리비전 ERROR 로그 0 · env 개수(§2)
 - AAB 매니페스트 `versionName` · 카카오 스킴 `kakao<키>` 채워짐 · 업로드 키 서명(`frontend/run.md`)
-- 두 스토어에 고친 빌드가 공개된 것을 확인한 뒤에만 `MIN_APP_VERSION` 결정
+- 두 스토어에 고친 빌드가 공개된 것을 확인한 뒤에만 `MIN_APP_VERSION` 결정(2026-11-13 예외: 공개 전에 `1.0.3` 으로 켰다, §2)
 
 ## 4-21. 무료 카드 — 후보가 1명뿐이면 유료 제안을 접고 무료로 (서버 PR #646)
 
@@ -1165,7 +1251,7 @@ DB 변경 없음, 새 시크릿 · job 없음, 앱 변경 없음. `settings.py` 
 | `SMS_PROVIDER` | env | `fake` | `solapi` 면 솔라피로 보낸다. 그 밖은 가짜 발송기인데 **로컬 스택(`SUPABASE_URL` 이 루프백)에서만** 만들어지고, 운영 주소면 발송기가 없어 503 이다 |
 | `SOLAPI_API_KEY` · `SOLAPI_API_SECRET` · `SOLAPI_SENDER` | 시크릿 | 빈 글자 | Secret Manager 이름 `solapi-api-key` · `solapi-api-secret` · `solapi-sender`(발신번호는 숫자만). 하나라도 비면 `solapi` 여도 보내지 않고 503 이다 |
 | `SMS_DAILY_GLOBAL_LIMIT` | env | `300` | 하루(한국 시간) 전체 발송 상한 — 요금 폭탄의 마지막 방어선. 솔라피 하루 한도(개인 50 · 사업자 1,000)보다 낮게 둔다. 정수만(빈 값은 서버가 안 뜬다) |
-| `PHONE_VERIFICATION_REQUIRED` | env | `false` | 위 "기본 정보 저장과의 연결". 새 앱이 두 스토어에 공개된 뒤에 켠다 |
+| `PHONE_VERIFICATION_REQUIRED` | env | `false` | 위 "기본 정보 저장과의 연결". 코드 기본은 꺼짐이고 **운영은 2026-11-13 부터 `true`** 다 — 사용자 결정으로 `MIN_APP_VERSION=1.0.3` 과 함께 두 스토어 공개 전에 미리 켰다(`00115-daq`, 이유 · 출시 순서 · 끄는 법은 §2 `MIN_APP_VERSION` 문단 · §5). (종전 서술 2026-11-11: "새 앱이 두 스토어에 공개된 뒤에 켠다") |
 | `INQUIRY_SMTP_PASSWORD` | 시크릿 | 빈 글자 | Secret Manager 이름 `inquiry-smtp-password`(구글 계정의 앱 비밀번호). 비면 문의 알림 메일만 건너뛴다(문의 저장은 된다). 지메일 SSL 465 로 보낸다(표준 `smtplib`, 새 의존성 없음) |
 | `INQUIRY_NOTIFY_TO` · `INQUIRY_SMTP_USER` | env | 운영 메일 | 받는 곳 · 보내는 계정. 기본값이 코드에 있어 보통 넣지 않는다(주소는 이 문서에 적지 않는다). 받은 메일의 "답장" 이 사용자 `reply_email` 로 가도록 `Reply-To` 를 붙인다 |
 | `HOME_STATS_MIN_SIGNUPS` | env | `300` | `GET /home/summary` 가 **가입 수(active)가 이보다 적으면 전달된 카드 · 가입 수 · 시작된 대화 세 숫자를 모두 0 으로 내린다.** DB 값은 그대로다. 앱은 0 인 칸을 숨기고 셋 다 0 이면 줄 전체를 숨긴다. **가입자가 300명 미만인 동안 홈 숫자 줄이 사라진다.** 기본값 300 은 11-10 회의 할 일 계획에서 대장이 정했고 사용자가 그 계획을 승인한 상태로 **`00102-46b` 에 이미 배포됐다**(env 를 따로 넣지 않아 코드 기본값이 운영 값이다). 되돌릴 리비전은 `00101-bc9` |
@@ -1191,12 +1277,12 @@ DB 변경 없음, 새 시크릿 · job 없음, 앱 변경 없음. `settings.py` 
 2. **0% 새 판 시험.** 새 리비전을 트래픽 0% 로 올리고(`--no-traffic` + 시험용 태그 주소) 위 고정 IP 플래그와 새 env · 시크릿을 `--update-env-vars` · `--update-secrets` 로 **더한다**(`--set-*` 금지, §2). 새 판에서 본다: `/health` · 문의 한 건(운영 메일이 오는지) · 댓글 쓰기 · 목록 · 삭제 · **문자 한 통(받는 번호는 사용자 시험 번호 하나뿐 — 아무 번호로 보내지 않는다)** · 위 NAT 점검 · 새 리비전 ERROR 로그. 솔라피로 보내는 요청의 `Date` 를 "…Z" 로 만드는데 실제 발송에서 거절되는지는 처음 운영 발송에서 확인한다.
 3. **100%.** 시험이 끝나면 새 리비전으로 트래픽을 옮긴다. 이때 `PHONE_VERIFICATION_REQUIRED` 는 꺼진 채다.
 4. **앱 빌드 · 제출.** 새 앱은 **서버 플래그와 상관없이 번호 인증이 필수**다(앱 [다음] 은 인증된 번호일 때만 켜지고 인증 경로는 `/phone-verification/*` 하나뿐이다). 그래서 앱보다 서버(솔라피 설정)를 먼저 올려야 한다 — 서버에 인증 경로가 없으면 새 앱의 가입이 04-1 에서 멈춘다.
-5. **새 앱이 두 스토어에 공개된 뒤에만** `PHONE_VERIFICATION_REQUIRED=true` 를 켜고, **같은 때 `MIN_APP_VERSION` 을 휴대폰 인증을 넣은 앱 버전으로 올린다**(§2 · §4-20). 공개 전에 켜면 인증하지 못하는 옛 앱의 가입이 전부 422 로 막힌다.
+5. **새 앱이 두 스토어에 공개된 뒤에만** `PHONE_VERIFICATION_REQUIRED=true` 를 켜고, **같은 때 `MIN_APP_VERSION` 을 휴대폰 인증을 넣은 앱 버전으로 올린다**(§2 · §4-20). 공개 전에 켜면 인증하지 못하는 옛 앱의 가입이 전부 422 로 막힌다. **2026-11-13 개정(사용자 결정): 이 원칙과 달리 공개 전에 두 값을 함께 미리 켰다**(`PHONE_VERIFICATION_REQUIRED=true` · `MIN_APP_VERSION=1.0.3`, `00115-daq`) — 스토어 승인본 1.0.2 에는 문자 인증 화면이 없어 인증만 켜면 이유 없이 막히고 둘 다 끄면 인증 없는 번호가 저장되기 때문이다. 둘 다 켜면 1.0.2 는 업데이트 안내 화면으로 막힌다. 출시 순서는 1.0.2 공개 → 1.0.3 긴급 업데이트(§2 `MIN_APP_VERSION` 문단).
 
 ### 휴대폰 인증 앱 쪽 (앱 PR #696, 2026-11-11 merge)
 
 - **화면**: 기본 정보(04-1)의 번호 줄 아래에 "인증번호 받기" → 인증번호 줄(6자리 · 남은 시간 · 다시 받기) → "인증됐어요" / "번호 바꾸기". 규칙과 오류 문구는 `frontend/docs/DESIGN.md` §9 04-1. **[다음] 은 인증된 번호일 때만 켜진다.**
-- **서버 플래그와 무관**: 새 앱은 `PHONE_VERIFICATION_REQUIRED` 가 꺼져 있어도 인증을 거친다. 그래서 **앱보다 서버(솔라피 설정 · 고정 나가는 IP)를 먼저 배포한다.** 서버 플래그를 켜는 것은 옛 앱(인증 줄을 만들지 않는)이 더는 없을 때다.
+- **서버 플래그와 무관**: 새 앱은 `PHONE_VERIFICATION_REQUIRED` 가 꺼져 있어도 인증을 거친다. 그래서 **앱보다 서버(솔라피 설정 · 고정 나가는 IP)를 먼저 배포한다.** 서버 플래그를 켜는 것은 옛 앱(인증 줄을 만들지 않는)이 더는 없을 때다. (2026-11-13 개정: 옛 앱 1.0.2 는 `MIN_APP_VERSION=1.0.3` 으로 업데이트 안내 화면에 막혀 가입에 닿지 못하므로 미리 켰다.)
 - **쓰는 경로와 응답**: `POST /phone-verification/send` 의 200(`resend_after_seconds` · `expires_in_seconds` · `already_sent`) · 400 `phone_number_invalid` · 409 `phone_number_in_use` · 429(`retry_after_seconds`) · 503 `sms_unavailable`, `POST /phone-verification/verify` 의 400 `phone_code_mismatch`(`remaining_attempts`) · `phone_code_expired` · `phone_code_locked`, 기본 정보 저장의 422 `phone_not_verified` · 409 `phone_number_in_use`. 앱은 code 로 가르고 글자는 앱이 정한다.
 - **분석**: `ApiRoutePattern.routeWords` 에 `phone-verification` · `send` 낱말이 더해졌다(5xx · 연결 실패 기록의 경로 패턴).
 - **기기 E2E 7건(E-ONB-05 · 06 · 07 · 10 · 11 · 16 · 17) — 2026-11-11 PR #699 로 되살렸다**(기기 실행은 아직 하지 않았다: PC 단위 시험 · 서버 시험 · `flutter analyze` 까지만 확인). 04-1 [다음] 이 인증된 번호에서만 켜지므로, 앱이 시험 번호로 [인증번호 받기] 를 누르면 PC 하네스(`e2e/phone_sms.py`)가 **로컬 서버의 가짜 발송기 로그**에서 6자리를 읽어 앱에 건넨다. 규칙은 코드가 지킨다: 받는 번호는 사용자 시험 번호 하나뿐(무작위 번호 금지, 앱도 칸의 번호가 PC 가 준 시험 번호가 아니면 누르기 전에 멈춘다) · `SUPABASE_URL` 과 `API_BASE_URL` 어느 한쪽이 운영이거나 `API_BASE_URL` 을 알 수 없으면 `blocked`. 준비물은 `frontend/run.md` "자동 E2E 하네스"의 "가짜 문자 시험 준비물". **서버 쪽 변경은 `app/phone_verification/sms.py` 한 줄**(가짜 발송기의 INFO 한 줄이 로컬 서버 로그에 나오게 함)이고 **다음 서버 배포 때 함께 나간다** — 운영에는 가짜 발송기가 없어 동작은 달라지지 않는다. (종전 서술 2026-11-11 오전: "기기 E2E 7건이 막혀 있다 … 다음 PR 에서 로컬 가짜 문자로 되살린다" — #699 merge 로 개정.) E-ONB-12 · 13 은 인증번호 받기도 꺼져 있는지 함께 본다.
@@ -1324,6 +1410,53 @@ where region_group = 'seoul' and card_opens_at is null;
 - **그대로인 것**: 받은 신청 수락 경로(`/acceptances/...`)는 바꾸지 않았다 — 이미 매칭된 상대면 기존 매칭을 돌려준다. 후보를 고르는 SQL(`match_candidates`)도 그대로다(거기서는 이미 `pickable = false` 로 처리한다 — 설계 §6.7).
 - 시험: `backend/tests/cards/test_cards_hidden.py` · `test_cards_router.py` · `test_paid_card_router.py` 에 추가. 배포 뒤 점검 항목: 받은 신청을 수락해 매칭된 상대의 카드가 `GET /cards/today` 에서 빠지는지, 그 카드의 상세 · 결정이 404 인지(실제 점검 결과는 전달받지 못했다).
 
+## 4-29. 2026-11-13 출시 전 최종 점검 서버 수정 묶음 — 의존성 고정 · CI · 끊긴 수락 복구 · 문의 정리 (서버 PR #726 · #727 · #728) — **main 에 merge 됨(`40ab757e`) · 서버 `00113-suh` 100% 배포됨, 이어 `00115-daq`(문자 인증 필수 · 강제 업데이트 켬)**
+
+11-13 출시 전 최종 점검에서 나온 서버 쪽 「상」 항목의 수정이다(PR 본문 · 코드 기준 — 이 문서 담당이 클라우드를 조회하지 않았다). **배포(대장 전달 값)**: `campus-mate-backend-00113-suh` **100%**, 태그 `a1113`, 코드는 #725 ~ #728(#725 는 앱 쪽, #729 는 홈페이지 문서라 서버에 닿지 않는다), **되돌림 대상 `00111-veg`**, env 32개 그대로, DB 변경 없음. 이어 같은 날 저녁 env 두 개를 더한 `00115-daq` 가 올라갔다(§2 `MIN_APP_VERSION` 문단 · §5). `00112` · `00114` 가 무엇인지, 배포 뒤 점검의 실제 결과는 전달받지 못했다.
+
+| PR | 내용 | 마이그레이션 · 설정 |
+| --- | --- | --- |
+| #726 | 서버 의존성 버전 고정(`backend/constraints.txt`) + 서버 pytest · DB pgTAP CI + 앱 CI 잠금 파일 강제 + TestFlight 관문 · 버전 이름 필수 입력 | 없음. 새 env · 시크릿 없음 |
+| #727 | 출시 전 최종 점검 서버 수정 7건(아래) | 없음(새 RPC · 새 열 없음). `app/core/errors.py` 변경 없음 · 새 오류 코드 없음. **빈 값이면 서버가 뜨지 않는 env 가 6개가 됐다**(§2) |
+| #728 | 답하지 않은 문의도 접수 1년 뒤 정리 | 없음(DB 변경 없음) |
+
+### 의존성 고정 · CI (#726)
+
+- **`backend/constraints.txt` 가 배포 때 실제로 깔리는 버전을 정한다**(`pyproject.toml` 은 하한만 적는다). `backend/Dockerfile` 이 `pip install -c constraints.txt .` 로 설치해 배포할 때마다 최신이 깔려 달라지지 않는다. 출처는 시험이 통과한 `backend/.venv` 의 `pip freeze`(2026-11-13, Python 3.12)이고, 알려진 취약점이 있던 `pillow` 12.3.0 → **13.0.0**(`pyproject.toml` 도 `pillow>=13`) · `pyasn1` 0.6.4 → 0.6.5 · `certifi` · `opentelemetry-api` 를 올렸다. 올릴 때는 버전을 고치고 → 새 venv 에 `pip install -c constraints.txt -e ".[dev]"` → pytest 전체 통과 → `pip-audit -r constraints.txt --no-deps --disable-pip` 0건 확인(파일 머리 주석).
+- **Pillow 메이저 올림(12 → 13)이 다음 서버 배포, 곧 `00113-suh` 에 실렸다**(PR 본문: 서버가 Pillow 를 쓰는 곳은 `app/cards/paid_preview.py` 한 곳, 관련 시험 107 통과). 운영 이미지 안의 실제 Pillow 버전과 유료 카드 미리보기의 운영 동작은 확인하지 못했다.
+- `backend/.gcloudignore` 는 주석만 바뀌었다 — `constraints.txt` 는 이미지에 필요하니 어느 제외 목록(`.gcloudignore` · `.dockerignore`)에도 넣지 않는다(§2). merge 뒤 루트 `backend/.venv` 는 `pip install -c constraints.txt -e ".[dev]"` 를 한 번 돌려야 고정 버전과 맞는다.
+- **CI**: `.github/workflows/backend.yml`(잡 `backend-test` — `pip install -c constraints.txt -e ".[dev]"` 뒤 `python -m pytest -q`, PR · main push 마다, paths 필터가 없어 필수 검사로 걸어도 된다) · `.github/workflows/db.yml`(잡 `db-test` — 러너에 로컬 Supabase 를 띄워 마이그레이션 전부와 pgTAP 을 돌린다. **`supabase/` 가 바뀔 때만 돈다 — paths 조건이 있어 필수 검사로 걸면 안 된다.** PR 에서는 새 마이그레이션의 이름 · 순서와 "main 에 이미 있는 파일 수정 · 삭제 금지" 도 본다 — 운영에 아직 적용 안 한 파일을 고칠 때는 사람이 판단한다). 두 워크플로는 쓰기 권한도 비밀값도 쓰지 않고 운영 DB 에 닿지 않는다. `flutter.yml` · `ios-build.yml` · `admin-web.yml` 은 `pubspec.lock` 을 따른다(`flutter pub get --enforce-lockfile`). `db.yml` 이 러너에서 끝까지 도는지는 PR 본문 기준 "이 PR 의 첫 실행이 증거"였고 그 결과는 전달받지 못했다.
+- **TestFlight(`ios-testflight.yml`)**: 첫 단계가 그 커밋의 `flutter.yml` 실행이 하나도 없거나 아직 도는 중이거나 success 가 아닌 것이 있으면 멈춘다. `build_name`(앱 버전 이름)은 **필수 입력이고 기본값이 없다** — 실행할 때마다 직접 적는다(`frontend/run.md` "TestFlight 로 아이폰에 설치하기").
+
+### 서버 수정 7건 (#727)
+
+1. **(상) 끊긴 수락 복구.** 수락 응답 저장 뒤 매칭 생성이 끊기면 재시도가 409 라 채팅방이 영영 안 생기던 것. ① `POST /cards/acceptances/{card_id}` 에 같은 `accept` 를 다시 보내면 매칭 만들기만 다시 한다(`create_match` 는 멱등이고, 이 재시도 길은 7일 만료를 보지 않는다 — 기한 안에 수락한 사람을 구제하는 길). ② 앱은 실패 뒤 POST 를 다시 보내지 않고 목록만 다시 읽으므로 **`GET /cards/acceptances` 가 "내가 수락했는데 매칭이 없거나 참가자가 2행 미만인 카드" 를 이어서 만든다 — GET 이 쓰기를 한다(의도한 복구).** POST 와 같은 숨김 관문(차단 · 지인 차단 · 정지 · 탈퇴 · 가림)을 지나고, 만들기에 실패해도 목록은 200 이다. 이어 만들기는 **상대가 수락한 지 7일 안의 카드만**이고, 만들 것이 없으면 읽기가 늘지 않는다(저장소가 한 번의 읽기로 안 한 것과 수락한 것을 함께 돌려준다). 매칭 생성 · 알림은 `_make_match` 로 묶어 두 길이 같이 쓴다. **배포 직후 최근 7일 안의 끊긴 수락이 있으면 그 사람이 받은 신청 목록을 여는 순간 매칭과 푸시가 나간다.**
+2. **관리자 웹 문의 PATCH(CORS).** 사전 요청(OPTIONS)이 400 이던 것 — `backend/app/admin/cors.py` 의 허용 메서드가 GET · POST · PATCH 가 됐다(`ADMIN_ALLOWED_ORIGINS` 가 있을 때만 CORS 가 붙는다, §4-14).
+3. **푸시 준비 실패가 요청을 깨뜨리지 않는다.** 알림 준비 단계(상태 · 스위치 · 보류 · 기기 읽기)가 DB 장애로 실패하면 채팅 전송 · 수락이 500 이 되고 앱이 다시 보내 **두 번 저장되던 것** — 준비 단계를 `_tokens_to_push` 로 떼어 `notify` 가 실패를 삼키고 0 을 돌려준다(로그에는 profile id · kind · 예외 종류만 남는다). 죽은 토큰 지우기 실패도 경고만 남기고 이미 보낸 건수를 그대로 돌려준다(`backend/app/cards/push.py`).
+4. **문의 계정별 하루 한도.** 프로필이 없는 계정의 문의는 `profile_id` 없이 저장돼 DB 로 세는 하루 상한(5건, §4-25)이 늘 0 이라 무제한으로 넣을 수 있던 것 — 계정 번호 + 한국 날짜를 키로 한 `SlidingWindow`(`backend/app/core/rate_window.py`)로 한 번 더 센다. 저장이 실패한 시도는 세지 않는다. **프로세스 안 한도라 인스턴스별이다**(Cloud Run 이 N 대면 N 배까지 느슨 — 코드 주석 `shortcut`, 실제로 뚫리면 DB 카운터로).
+5. **학교 메일 인증(`POST /school-email/verify`) 두 가지.** ① 임시 계정은 번호를 요청할 때 생겨서 메일을 늦게 보고 30분(`TEMP_ACCOUNT_MAX_AGE`)을 넘겨 맞히면 실제 계정으로 몰려 막히던 것 — 신선도를 계정 생성 시각이 아니라 `email_confirmed_at`(없으면 `created_at`)으로 잰다. ② 이메일로 먼저 생긴 계정에 소셜을 연결하면 GoTrue 가 `provider` 를 `email` 로 두고 `app_metadata.providers` 에만 붙여 학교 메일 인증이 403 이던 것 — 호출한 사람의 소셜 수단을 `providers` 배열에서 먼저 나온 소셜(kakao · google · apple)로도 읽는다.
+6. **빈 비밀값이면 서버가 뜨지 않는다.** `SUPABASE_SERVICE_ROLE_KEY` · `AUTH_HOOK_SIGNING_SECRET` · `DISCORD_WEBHOOK_URL` · `OPENAI_API_KEY` 에 `min_length=1` 을 더해 6개가 됐다(§2). 빈 서명 비밀이면 서명 검증이 통과하던 것이 계기다.
+7. **채팅 두 가지.** ① 나간 사람의 읽음 처리(`PATCH /chat/matches/{match_id}/read`)는 방 머리말 · 메시지 읽기와 같이 404 로 답하고 읽음 시각을 움직이지 않는다. ② 메시지 전송(`POST /chat/matches/{match_id}/messages`)에서 푸시 제목에 쓸 닉네임을 저장 **앞에서** 읽는다 — 저장 뒤에 읽다 실패하면 메시지는 남고 500 이 나가 앱이 다시 보내 두 줄이 되던 것.
+
+PR 본문 검증: backend 전체 pytest 3728 passed(main 3661), 검토 담당 변이 확인 3차례(9 · 7 · 4종이 기대한 시험에서 실패). 로그인 관문을 전 경로에 훑는 시험(`backend/tests/test_route_gates.py`)이 새로 생겼다 — 새 경로를 관문 없이 열면 여기서 걸린다.
+
+### 문의 접수 1년 정리 (#728)
+
+처리방침(2026-11-20 시행)에 "답하지 않은 문의는 접수 뒤 1년 보관 후 삭제" 를 적기로 한 사용자 결정(2026-11-13)에 서버를 맞췄다. 매일 04:00 `POST /batch/cleanup` 의 문의 정리가 답한 문의(`answered_at` 기준 1년, 그대로)에 더해 답하지 않은 문의(`answered_at` null, `created_at` 기준 365일)도 지운다 — DELETE 한 번에 `or=(answered_at.lt.A,and(answered_at.is.null,created_at.lt.B))`. 조건이 비거나 깨지면 PostgREST 가 400 으로 거절해 0건 삭제 + 경고로 끝난다(로컬 PostgREST 로 확인, PR 본문). **처리방침 시행일 2026-11-20 전에 배포돼야 했고 `00113-suh`(11-13)에 들어 있다.** 문의 기능은 11-10 에 생겨 운영에 1년 넘은 문의는 아직 없다. 접수 1년 넘은 답변 완료 문의를 처리 중으로 되돌리면 다음 04:00 에 지워진다(§4-25 관리자 API 행). 서버는 운영 메일함의 문의 알림 메일을 지우지 못한다 — 처리방침에 맞춰 운영자가 직접 지운다(대장 전달 값). pytest 3731 passed, pgTAP `inquiries_test.sql` 24 통과(PR 본문).
+
+### 배포 순서 · 롤백 · 점검
+
+- **순서**: DB 변경이 없어 서버 배포 하나뿐이다(위 "현행 배포 방식"). DB PR #724(운영 DB · 소셜 연결 계정 프로필 트리거, 대장 전달: 아직 merge · 운영 적용 전)보다 먼저 나가도 안전하다(새 RPC · 새 열 없음, PR 본문).
+- **배포 전 확인**: §2 의 필수 시크릿 6개 길이. 비어 있으면 새 리비전이 기동에 실패한다(0% 로 올렸다면 트래픽은 옛 리비전에 남는다).
+- **점검 목록 (다음 배포에도 같은 목록을 쓴다)**: `/health` 200 · 무인증 `POST /batch/cleanup` 401 · 새 리비전 ERROR 로그 0 · env 개수 · 이름이 직전과 같음(§2) · 관리자 웹에서 문의 상태를 바꿔(PATCH) CORS 에 막히지 않는지 · 받은 신청 목록 `GET /cards/acceptances` 200 · 유료 카드 미리보기(Pillow 13) · 04:00 `/batch/cleanup` 200.
+- **롤백**: `00113` → `00111`(되돌림 대상 `00111-veg`) 이면 이 절의 변경이 모두 빠지고 의존성도 옛 판(Pillow 12, 취약점이 알려진 판)으로 돌아간다. DB 변경이 없어 되돌릴 DB 는 없다. 하한은 §5 "되돌림 하한".
+
+### 남은 것 · 확인하지 못한 것 (PR 본문 "남긴 것")
+
+- 이어 만든 뒤 내 프로필 읽기가 실패하면 그 푸시는 다시 안 간다(방은 생긴다). 방해 금지 시간에는 내 쪽 푸시만 버려진다. `/trust` 의 수락 저장 뒤 닉네임 읽기 순서는 그대로다. "나간 방은 이어 만들기 대상이 아니다" 를 직접 지키는 시험은 없다.
+- 구글 결제 productId 기본값(`backend/app/billing/router.py`)은 이번 범위 밖이다 — 사용자가 테스터 구매로 확인한 뒤에 정한다(대장 전달 값).
+- 위 7건의 운영 확인(특히 1 번의 실제 끊긴 수락 수, 3 번 · 5 번의 재현 조건)은 전달받지 못했다.
+
 ## 5. 현재 배포 상태 (2026-11-13 기준)
 
 대장 전달 값이다 — 이 문서 담당이 클라우드를 조회하지 않았다. 리비전 · 마이그레이션 개수가 바뀌면 이 절 하나만 고친다.
@@ -1331,11 +1464,11 @@ where region_group = 'seoul' and card_opens_at is null;
 | 항목 | 값 |
 | --- | --- |
 | Cloud Run 서비스 | `campus-mate-backend` (asia-northeast3) |
-| 돌고 있는 리비전 | **`campus-mate-backend-00111-veg`**(2026-11-13, 트래픽 100%, 태그 `m1113`, 사용자 「배포」 — 서버 PR #722 이미 매칭된 상대 카드 숨김까지, §4-28, DB 변경 없음, env 32개 그대로. **되돌림 대상은 `00109-joz`**, `00110` 이 무엇인지는 전달받지 못했다). 바로 앞 `campus-mate-backend-00109-joz`(2026-11-12 ~ 13, 트래픽 100%, 태그 `b1112`, main `ca52a738`, 사용자 「1. main 가져오고 , db 승인 ,서버배포 ,배너 그림 5장 올리고 목록에 등록하기」 — 홈 배너 `banners` 와 #713 ~ #716 서버 코드가 들어 있다, §4-27. 그때의 되돌림 대상은 `00107-dez`. `00106` · `00108` 이 무엇인지는 전달받지 못했다). **이어 main 의 서버 PR #722(§4-28, 이미 매칭된 상대 카드 숨김)가 `00111-veg` 로 배포됐다** (종전 서술 2026-11-12: **`campus-mate-backend-00105-hol`**(2026-11-11 밤, 트래픽 100%, 사용자 「지금 배포 (추천)」 — #707 문의 알림 메일 제목 · 본문 맨 위에 카테고리 · 닉네임 · 내용까지). 바로 앞은 `00103-bak`(2026-11-11, 사용자 「db 승인하고」로 DB 6개를 적용한 뒤 「지금 배포 (추천)」로 올린 리비전, 되돌림 대상). `00104` 가 무엇인지는 전달받지 못했다. **그 뒤 main 에 들어간 서버 코드 #713 · #714 · #715 · #716(레일 필터)은 배포하지 않았다(§4-26).** (종전 서술 2026-11-11: **`campus-mate-backend-00102-46b`**(2026-11-10 08:49 UTC 에 만들어짐, 트래픽 100%, 서버 배포 ①, 사용자 승인 뒤) — 서버 PR #653(§4-23)까지에 더해 **#686 홈 숫자 기준 미만 숨김 · #683 서버 글자 고침("잠시 후" · 푸시 제목 "학교 인증") · 자기소개 프롬프트의 "졸업생"** 이 들어 있다(2026-11-11 대장 전달). **그 뒤 main 에 들어간 서버 코드(문의 · 댓글 · 문자 인증 · 친구 초대 50/25, PR #687 ~ #689 · #694, §4-25)는 배포하지 않았다.** 바로 앞 리비전은 `00101-bc9`)) |
+| 돌고 있는 리비전 | **`campus-mate-backend-00115-daq`**(2026-11-13 저녁, 트래픽 100%, 태그 `p1113`, 사용자 「지금 켜기」 — env 만 바꾼 리비전으로 `PHONE_VERIFICATION_REQUIRED=true` · `MIN_APP_VERSION=1.0.3` 을 더했다, 코드는 `00113-suh` 와 같다, **env 34개**, §2 · §4-29. **되돌림 대상은 `00113-suh`** — 둘 다 꺼진다). 바로 앞 `campus-mate-backend-00113-suh`(2026-11-13, 트래픽 100%, 태그 `a1113`, #725 ~ #728 코드 — 서버 쪽은 #726 · #727 · #728, §4-29, env 32개 그대로, DB 변경 없음. 되돌림 대상은 `00111-veg`). 그 앞 (종전 서술 2026-11-13 오전: **`campus-mate-backend-00111-veg`**(2026-11-13, 트래픽 100%, 태그 `m1113`, 사용자 「배포」 — 서버 PR #722 이미 매칭된 상대 카드 숨김까지, §4-28, DB 변경 없음, env 32개 그대로. **되돌림 대상은 `00109-joz`**, `00110` 이 무엇인지는 전달받지 못했다). 바로 앞 `campus-mate-backend-00109-joz`(2026-11-12 ~ 13, 트래픽 100%, 태그 `b1112`, main `ca52a738`, 사용자 「1. main 가져오고 , db 승인 ,서버배포 ,배너 그림 5장 올리고 목록에 등록하기」 — 홈 배너 `banners` 와 #713 ~ #716 서버 코드가 들어 있다, §4-27. 그때의 되돌림 대상은 `00107-dez`. `00106` · `00108` 이 무엇인지는 전달받지 못했다). **이어 main 의 서버 PR #722(§4-28, 이미 매칭된 상대 카드 숨김)가 `00111-veg` 로 배포됐다** (종전 서술 2026-11-12: **`campus-mate-backend-00105-hol`**(2026-11-11 밤, 트래픽 100%, 사용자 「지금 배포 (추천)」 — #707 문의 알림 메일 제목 · 본문 맨 위에 카테고리 · 닉네임 · 내용까지). 바로 앞은 `00103-bak`(2026-11-11, 사용자 「db 승인하고」로 DB 6개를 적용한 뒤 「지금 배포 (추천)」로 올린 리비전, 되돌림 대상). `00104` 가 무엇인지는 전달받지 못했다. **그 뒤 main 에 들어간 서버 코드 #713 · #714 · #715 · #716(레일 필터)은 배포하지 않았다(§4-26).** (종전 서술 2026-11-11: **`campus-mate-backend-00102-46b`**(2026-11-10 08:49 UTC 에 만들어짐, 트래픽 100%, 서버 배포 ①, 사용자 승인 뒤) — 서버 PR #653(§4-23)까지에 더해 **#686 홈 숫자 기준 미만 숨김 · #683 서버 글자 고침("잠시 후" · 푸시 제목 "학교 인증") · 자기소개 프롬프트의 "졸업생"** 이 들어 있다(2026-11-11 대장 전달). **그 뒤 main 에 들어간 서버 코드(문의 · 댓글 · 문자 인증 · 친구 초대 50/25, PR #687 ~ #689 · #694, §4-25)는 배포하지 않았다.** 바로 앞 리비전은 `00101-bc9`))) |
 | 운영 마이그레이션 | **저장소 113개 = 운영 113개, 모두 적용**. 2026-11-12 에 `20261112000000_first_purchase_bonus_100_tier`(#714) · `20261112090000_poll_comment_spam_guard`(#715)가 적용됐고, 이어 `20261112122138_create_home_banners`(원격 version `20261112145756`, 사용자 「1. main 가져오고 , db 승인 ,서버배포 ,배너 그림 5장 올리고 목록에 등록하기」)가 적용됐다(§4-27). 원격 버전이 파일 이름과 다른 것은 `docs/SUPABASE.md` §4 관례(대조는 `name`) (종전 서술 2026-11-12: **저장소 112개, 운영 110개 — 2개가 운영 미적용(사용자 승인 대기)**. 2026-11-11 에 6개 적용(사용자 「db 승인하고」, 합 109개), 2026-11-12 에 `20261112100000_home_stats_exclude_test_school` 적용(사용자 「실제 db 적용해줘 테스트 대학 사라지는거 보게」, MCP `apply_migration`). 미적용 2개는 `20261112000000_first_purchase_bonus_100_tier`(#714) · `20261112090000_poll_comment_spam_guard`(#715) — 순서는 §4-26. 운영 기록의 버전 번호가 파일 이름과 같은지는 확인하지 못했다. (종전 서술 2026-11-11: **103개 적용, 저장소는 109개 — 6개가 운영 미적용(사용자 승인 대기)**. 마지막 적용은 `20261108090000_faq_graduate_certificate`(2026-11-09). 미적용 6개는 `20261110120000` · `20261110200000` · `20261111000000` · `20261111000100` · `20261111000200` · `20261111010000`(§4-25 · `docs/SUPABASE.md` §1 · `docs/ERD.md` 상태줄))) |
 | 되돌림 하한 | 기능상 `00063` 아래 금지(§4-4) + `00087` 이전 금지(§4-14). 이미지가 남은 가장 오래된 리비전은 **`00086`**(§4-24 — 배포가 늘수록 올라간다). 되돌리기 전에 그 리비전의 이미지가 창고에 남아 있는지 먼저 확인한다 |
-| 리비전별 되돌림 | **`00111` → `00109`**(대장 전달: 되돌림 대상 `00109-joz`): 이미 매칭된 상대 카드 숨김(§4-28)만 빠진다. **`00109` → `00107`**(대장 전달: 되돌림 대상 `00107-dez`): 홈 `banners` 가 빠져 앱 1.0.3 은 배너 칸을 숨긴다(§4-27), `00108` 몫은 확인하지 못했다. `00105` → `00103`: #707 문의 알림 메일 요약만 빠진다(대장 전달: 되돌림 대상 `00103-bak`). `00103` 이하는 §4-25 롤백 문단과 아래 줄. `00102` → `00101`: 홈 숫자 기준 미만 숨김 · 글자 고침 · 프롬프트 "졸업생" 만 빠진다(§4-25). `00101` → `00100`: 흡연 칸 감점 규칙만 빠진다(§4-23). `00100` → `00099`: 푸시 고치기 4건만(§4-22). `00099` → `00098`: 후보 1명 무료만(§4-21). `00098` → `00097`: `GET /app/version` 만 사라지고 앱은 막지 않는다(§4-20). `00097` → `00096`: 새벽 4시 취향 단어 다시 채우기(⑥)만(§4-19). `00096` → `00095`: 글 속 취향 부딪힘 감점만(§4-18). `00094` 아래: 첫 카드와 학번 숫자 규칙이 빠진다(§4-17) |
-| 설정 | 약관 동의 판 `2026-10-20` · 홈 리뷰 띠 숨김(`STORE_RATING_COUNT=0` — 앱 1.0.3 의 홈은 띠 자체를 그리지 않는다, §4-27) · 졸업생 스위치 켜짐 · 최대 인스턴스 20 · 로그 보관 30일 · **env 32개**(2026-11-13 대장 전달, `00109` · `00111` 배포 때 그대로 두었다. 그중 시크릿 수는 확인하지 못했다) (종전 서술 2026-11-12: 약관 동의 판 `2026-10-20` · 홈 리뷰 띠 숨김(`STORE_RATING_COUNT=0`) · 졸업생 스위치 켜짐 · 최대 인스턴스 20 · 로그 보관 30일 · env 27개(그중 시크릿 11, §2)) |
+| 리비전별 되돌림 | **`00115` → `00113`**(대장 전달: 되돌림 대상 `00113-suh`): `PHONE_VERIFICATION_REQUIRED` · `MIN_APP_VERSION` 둘이 꺼진다 — 문자 인증 필수와 1.0.2 차단이 풀린다, 코드는 그대로(§2). **`00113` → `00111`**(대장 전달: 되돌림 대상 `00111-veg`): 끊긴 수락 복구 · 관리자 CORS PATCH · 푸시 준비 실패 삼킴 · 문의 계정 한도 · 학교 메일 신선도 · 빈 비밀값 막기 · 나간 방 읽음 404 · 닉네임 읽기 순서 · 답 안 한 문의 1년 정리가 빠지고 의존성이 옛 판(Pillow 12)으로 돌아간다(§4-29). **`00111` → `00109`**(대장 전달: 되돌림 대상 `00109-joz`): 이미 매칭된 상대 카드 숨김(§4-28)만 빠진다. **`00109` → `00107`**(대장 전달: 되돌림 대상 `00107-dez`): 홈 `banners` 가 빠져 앱 1.0.3 은 배너 칸을 숨긴다(§4-27), `00108` 몫은 확인하지 못했다. `00105` → `00103`: #707 문의 알림 메일 요약만 빠진다(대장 전달: 되돌림 대상 `00103-bak`). `00103` 이하는 §4-25 롤백 문단과 아래 줄. `00102` → `00101`: 홈 숫자 기준 미만 숨김 · 글자 고침 · 프롬프트 "졸업생" 만 빠진다(§4-25). `00101` → `00100`: 흡연 칸 감점 규칙만 빠진다(§4-23). `00100` → `00099`: 푸시 고치기 4건만(§4-22). `00099` → `00098`: 후보 1명 무료만(§4-21). `00098` → `00097`: `GET /app/version` 만 사라지고 앱은 막지 않는다(§4-20). `00097` → `00096`: 새벽 4시 취향 단어 다시 채우기(⑥)만(§4-19). `00096` → `00095`: 글 속 취향 부딪힘 감점만(§4-18). `00094` 아래: 첫 카드와 학번 숫자 규칙이 빠진다(§4-17) |
+| 설정 | 약관 동의 판 `2026-10-20` · 홈 리뷰 띠 숨김(`STORE_RATING_COUNT=0` — 앱 1.0.3 의 홈은 띠 자체를 그리지 않는다, §4-27) · 졸업생 스위치 켜짐 · 최대 인스턴스 20 · 로그 보관 30일 · **env 34개**(2026-11-13 `00115-daq` 대장 전달 — `00113-suh` 까지 32개, 11-13 저녁에 두 개를 더했다. 그중 시크릿 수는 확인하지 못했다) · **문자 인증 필수 켜짐(`PHONE_VERIFICATION_REQUIRED=true`) · 강제 업데이트 최소 버전 `1.0.3`(`MIN_APP_VERSION`, 1.0.2 이하는 업데이트 안내 화면으로 막힌다)**, §2 (종전 서술 2026-11-13 오전: "env 32개(`00109` · `00111` 배포 때 그대로 두었다)", 두 값은 꺼짐 · 비어 있음) (종전 서술 2026-11-12: 약관 동의 판 `2026-10-20` · 홈 리뷰 띠 숨김(`STORE_RATING_COUNT=0`) · 졸업생 스위치 켜짐 · 최대 인스턴스 20 · 로그 보관 30일 · env 27개(그중 시크릿 11, §2)) |
 | Cloud Scheduler | 4개, 전부 OIDC(§4-3) — 카드 지급 `campus-mate-daily-cards` 매일 07:00 · 정리 `campus-mate-cleanup` 매일 04:00 · 채팅 확인 `campus-mate-chat-gate` 매시 정각 · 환불 확인(`/batch/billing-voided`) 매시 30분. 전부 Asia/Seoul · asia-northeast3 |
 | Cloud Tasks 큐 | `avatar-generate`(asia-northeast3) — 재시도 1회(실효상 끔), 동시 처리 5, 호출자 서비스 계정 `avatar-task-invoker`(§4-2) |
 | Storage 버킷 | `avatars`(공개) · `profile-photos` · `student-id-temp` · `heart-task-proofs` · `graduate-cert-temp`(비공개) — 정리 배치와 졸업생 정리가 비운다. 공개 버킷 `university-logos`(마이그레이션 `20261001010000`)와 **`home-banners`**(2026-11-12 `20261112122138`, WebP · 1MB, 홈 배너 그림 5장, §4-27)도 있다 |
@@ -1350,9 +1483,10 @@ where region_group = 'seoul' and card_opens_at is null;
 3. 새벽 4시 정리 배치 ⑥ 의 `refilled_taste` 응답 값을 본 적이 없다(§4-19).
 4. 후보 1명 무료 카드 · 흡연 칸 · 푸시 고치기의 운영 실제 결과는 전달받지 못했다(§4-21 · §4-23 · §4-22).
 5. 배포 창고 정리 규칙을 켠 뒤 실제 삭제 결과는 전달받지 못했다(§4-24).
-6. `MIN_APP_VERSION` 은 두 스토어에 고친 빌드가 공개된 뒤에만 올린다(§2).
-7. **11-08 회의 묶음(문의 · 댓글 · 휴대폰 인증 · 친구 초대 50/25)은 DB 6개 적용 · 서버 배포(`00103-bak`, 이어 `00105-hol`)가 끝났다**(2026-11-11 사용자 「db 승인하고」 · 「지금 배포 (추천)」). 이 문서 담당이 확인하지 못한 것: 관리자 웹 #690 · #692(main 에는 merge 됐다)의 배포 여부, 고정 나가는 IP · 솔라피 연결 상태. `PHONE_VERIFICATION_REQUIRED` 는 새 앱이 두 스토어에 공개된 뒤에 켜고 `MIN_APP_VERSION` 과 같이 올린다. (종전 서술 2026-11-11 오전: "**11-08 회의 묶음의 나머지(문의 · 댓글 · 휴대폰 인증 · 친구 초대 50/25 — 홈 숫자 기준은 `00102-46b` 로 이미 배포됐다)는 DB 6개 · 서버 · 고정 나가는 IP · 관리자 웹 #690 · #692 가 모두 승인 대기다.** 순서와 점검은 §4-25. `PHONE_VERIFICATION_REQUIRED` 는 새 앱이 두 스토어에 공개된 뒤에 켜고 `MIN_APP_VERSION` 과 같이 올린다.")
+6. `MIN_APP_VERSION` 은 두 스토어에 고친 빌드가 공개된 뒤에만 올린다(§2). **2026-11-13 개정: 사용자 결정으로 `1.0.3` 을 두 스토어 공개 전에 미리 올렸다**(§2, 출시 순서 1.0.2 공개 → 1.0.3 긴급 업데이트).
+7. **11-08 회의 묶음(문의 · 댓글 · 휴대폰 인증 · 친구 초대 50/25)은 DB 6개 적용 · 서버 배포(`00103-bak`, 이어 `00105-hol`)가 끝났다**(2026-11-11 사용자 「db 승인하고」 · 「지금 배포 (추천)」). 이 문서 담당이 확인하지 못한 것: 관리자 웹 #690 · #692(main 에는 merge 됐다)의 배포 여부, 고정 나가는 IP · 솔라피 연결 상태. **`PHONE_VERIFICATION_REQUIRED` 와 `MIN_APP_VERSION` 은 2026-11-13 사용자 결정으로 두 스토어 공개 전에 함께 켰다**(`1.0.3`, `00115-daq`, §2). (종전 서술 2026-11-13 이전: "`PHONE_VERIFICATION_REQUIRED` 는 새 앱이 두 스토어에 공개된 뒤에 켜고 `MIN_APP_VERSION` 과 같이 올린다.") (종전 서술 2026-11-11 오전: "**11-08 회의 묶음의 나머지(문의 · 댓글 · 휴대폰 인증 · 친구 초대 50/25 — 홈 숫자 기준은 `00102-46b` 로 이미 배포됐다)는 DB 6개 · 서버 · 고정 나가는 IP · 관리자 웹 #690 · #692 가 모두 승인 대기다.** 순서와 점검은 §4-25. `PHONE_VERIFICATION_REQUIRED` 는 새 앱이 두 스토어에 공개된 뒤에 켜고 `MIN_APP_VERSION` 과 같이 올린다.")
 8. **2026-11-13 개정: #713 ~ #716 서버 코드와 #714 · #715 DB 는 모두 운영에 올라갔다**(서버 `00109-joz`, DB 11-12 적용 — §4-27). 새 앱 1.0.3 이 이 변경과 함께 동작하는지의 운영 확인 결과는 전달받지 못했다. (종전 서술 2026-11-12: "**#713 · #714 · #715 서버와 DB 2개, #716 레일 필터는 운영에 없다.** 순서와 점검은 §4-26. 새 앱 1.0.3 이 이 변경 없이 동작하는지는 확인하지 못했다.")
 9. **홈 배너 5장은 끝 날짜가 없다(§4-27).** 크리스마스 · 새해 그림이 계절이 지나도 계속 돈다 — 사용자가 그때마다 직접 교체한다(사용자 결정, 사용자 원문 「그대로 두기 내가 파악해서 그때마다 교체 하는식으로 할게」(대장 전달)). 옛 그림을 내리는 SQL 은 §4-27 "배너 운영 방법" 3번.
 10. **서버 PR #722(이미 매칭된 상대 카드 숨김, §4-28)는 `00111-veg` 로 배포됐다**(사용자 「배포」, 운영 점검 결과는 전달받지 못했다). 서울 그룹 `card_opens_at` 은 2026-11-12 상태(null)로 적었다 — 그 뒤 바뀐 전달을 받지 못했다. **막지 않으면 11-16(월) 07:00 에 실제 학교 카드가 나간다**(위 1번).
 11. **앱 1.0.3 의 두 스토어 공개 · 심사 상태와 11-13 시점 `/home/summary` · 홈 배너 · 채팅 사진 누르기의 실기기 확인 결과는 전달받지 못했다.** pen 노드 id(#719 `H9vQHd` · `CxCs7` · `c42Zd` · `LpIpn` · `C5V6P` · `dzVoP` · `p4fNhS` · `NvH7r`, #720 `zz7fZ` · `PatDJ` · `UsvHN`, #721 `kkKiZ` · `C3J23d` · `cCMoW` · `z4q4nv` · `djKOY`)는 대장 전달 값이고 이 문서 담당은 pen 을 열지 않았다.
+12. **출시 순서(사용자 결정, 2026-11-13): 1.0.2 공개 → 1.0.3 긴급 업데이트.** `MIN_APP_VERSION=1.0.3` · `PHONE_VERIFICATION_REQUIRED=true` 가 켜져 있어 **1.0.3 이 두 스토어에 공개되기 전까지 1.0.2 앱은 업데이트 안내 화면에 막힌다**(공개된 뒤 새로 설치한 사람 포함). 급히 풀어야 하면 §2 `MIN_APP_VERSION` 문단의 되돌림(`00113-suh`)이다. 1.0.3 의 두 스토어 심사 · 공개 상태는 전달받지 못했다. 애플 심사원 계정은 가입을 끝낸 active 계정이라 문자 인증 필수에 걸리지 않는다(2026-11-13 대장 확인 — 대장 전달 값, 계정 정보는 적지 않는다).
