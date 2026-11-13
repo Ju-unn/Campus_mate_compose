@@ -427,19 +427,63 @@ void main() {
       expect(outcome, isA<NetworkFailure>());
     });
 
-    testWidgets('쓰기(POST)는 끊지 않는다 — 아바타 생성은 60초 걸리고, 보내기는 끊으면 두 번 갈 수 있다', (tester) async {
-      final reply = Completer<http.Response>();
-      final client = MockClient((request) => reply.future);
+    // 11-13 출시 전 점검: 쓰기에 상한이 없어, 응답이 끝내 안 오면 버튼이 "진행 중" 에서 풀리지 않았다.
+    group('쓰기', () {
       Object? outcome;
-      unawaited(sendHttpRequest(client, http.Request('POST', Uri.parse('https://api.test/avatar')))
-          .then((result) => outcome = result.when(onSuccess: (response) => response.body, onFailure: (f) => f)));
 
-      await tester.pump(readTimeout * 4);
-      expect(outcome, isNull);
+      void sendHanging(http.BaseRequest request, {Duration? timeout}) {
+        outcome = null;
+        final client = MockClient((request) => Completer<http.Response>().future);
+        unawaited(sendHttpRequest(client, request, timeout: timeout)
+            .then((result) => outcome = result.when(onSuccess: (_) => 'success', onFailure: (f) => f)));
+      }
 
-      reply.complete(http.Response('ok', 200));
-      await tester.pump();
-      expect(outcome, 'ok');
+      http.Request post() => http.Request('POST', Uri.parse('https://api.test/inquiries'));
+
+      testWidgets('POST · PUT · PATCH · DELETE 는 30초가 지나면 NetworkFailure 로 끝난다', (tester) async {
+        for (final method in ['POST', 'PUT', 'PATCH', 'DELETE']) {
+          sendHanging(http.Request(method, Uri.parse('https://api.test/inquiries')));
+
+          await tester.pump(writeTimeout - const Duration(milliseconds: 1));
+          expect(outcome, isNull, reason: '$method 는 조회 상한(15초)에 끊지 않는다');
+
+          await tester.pump(const Duration(milliseconds: 1));
+          expect(outcome, isA<NetworkFailure>(), reason: method);
+        }
+      });
+
+      testWidgets('호출부가 긴 상한(90초)을 넘기면 그때까지 기다린다 — 서버가 외부 AI 를 기다리는 호출', (tester) async {
+        sendHanging(post(), timeout: longWriteTimeout);
+
+        await tester.pump(longWriteTimeout - const Duration(milliseconds: 1));
+        expect(outcome, isNull);
+
+        await tester.pump(const Duration(milliseconds: 1));
+        expect(outcome, isA<NetworkFailure>());
+      });
+
+      testWidgets('사진 올리기(multipart)는 넘기지 않아도 긴 상한(90초)이다', (tester) async {
+        sendHanging(http.MultipartRequest('POST', Uri.parse('https://api.test/me/photos')));
+
+        await tester.pump(longWriteTimeout - const Duration(milliseconds: 1));
+        expect(outcome, isNull);
+
+        await tester.pump(const Duration(milliseconds: 1));
+        expect(outcome, isA<NetworkFailure>());
+      });
+
+      testWidgets('상한 안에 온 답은 그대로 돌려준다', (tester) async {
+        final reply = Completer<http.Response>();
+        Object? body;
+        unawaited(sendHttpRequest(MockClient((request) => reply.future), post())
+            .then((result) => body = result.when(onSuccess: (response) => response.body, onFailure: (f) => f)));
+
+        await tester.pump(readTimeout + const Duration(seconds: 1));
+        reply.complete(http.Response('ok', 200));
+        await tester.pump();
+
+        expect(body, 'ok');
+      });
     });
   });
 

@@ -299,25 +299,20 @@ void main() {
       expect(outcome, isA<NetworkFailure>());
     });
 
-    testWidgets('보내기(POST)는 끊지 않는다 — 끊었다 다시 보내면 두 번 갈 수 있다', (tester) async {
-      final reply = Completer<http.Response>();
-      final client = MockClient((request) => reply.future);
+    // 11-13 출시 전 점검: 보내기도 쓰기 기본 상한(30초)에 끊는다 — 끊기면 실패로 돌아가 글이 입력칸으로 돌아온다
+    // (chat_input_bar: send 가 false 면 비웠던 글을 되돌린다). 서버가 뒤늦게 받았다면 다시 보낸 글이 두 번 갈 수 있다.
+    testWidgets('보내기(POST)는 30초가 지나면 NetworkFailure 로 끝난다', (tester) async {
+      final client = MockClient((request) => Completer<http.Response>().future);
       Object? outcome;
       unawaited(buildRepository(client)
           .sendMessage('m1', '안녕하세요')
           .then((result) => outcome = result.when(onSuccess: (m) => m?.body, onFailure: (f) => f)));
 
-      await tester.pump(readTimeout * 4);
+      await tester.pump(writeTimeout - const Duration(milliseconds: 1));
       expect(outcome, isNull);
 
-      reply.complete(jsonResponse({
-        'message': {
-          'id': 'm9', 'sender_id': 'p1', 'kind': 'text', 'body': '안녕하세요',
-          'created_at': '2026-09-22T14:30:00+09:00',
-        },
-      }, 201));
-      await tester.pump();
-      expect(outcome, '안녕하세요');
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(outcome, isA<NetworkFailure>());
     });
   });
 }
