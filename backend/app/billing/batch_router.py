@@ -1,11 +1,17 @@
-"""환불 회수 배치(결정 I-7: 매시 Voided Purchases 조회). 경로 이름에 refund 를 쓰지 않는다 — router.py 머리말."""
+"""구글 환불 회수 — 매시 배치(결정 I-7: Voided Purchases 조회)와 실시간 알림(RTDN, 2026-11-14 사용자 결정).
+
+알림이 몇 초 안에 회수하고, 배치는 알림을 놓쳤을 때의 안전망으로 그대로 돈다. 둘 다 같은 문(Cloud Scheduler 와 같은
+서비스 계정 · audience 의 ID 토큰)으로 들어온다. 경로 이름에 refund 를 쓰지 않는다 — router.py 머리말.
+"""
+import base64
+import json
 import logging
 from datetime import datetime, timedelta
 
 import httpx
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 
-from app.billing.play import PlayApi, PlayUnavailable, token_hash
+from app.billing.play import PACKAGE_NAME, PlayApi, PlayUnavailable, token_hash
 from app.billing.repository import BillingRepository
 from app.billing.router import play_api_dependency
 from app.core.batch_auth import verify_oidc_token
@@ -80,3 +86,63 @@ async def run_billing_voided(
                 counts["refunded"] + counts["already_refunded"], counts["refunded"],
                 counts["already_refunded"] + counts["unknown"], start.isoformat())
     return {"voided": len(voided), **counts, "purged": await repo.purge(now - PURCHASE_RETENTION)}
+
+
+# voidedPurchaseNotification 값(구글 RTDN 문서): productType 1 정기 결제 · 2 일회성, refundType 1 전액 · 2 수량 일부.
+_ONE_TIME_PRODUCT, _FULL_REFUND = 2, 1
+_IGNORED = {"result": "ignored"}
+
+
+def _developer_notification(raw: bytes) -> dict | None:
+    """Pub/Sub push 봉투 {"message": {"data": <base64 JSON>}} → 구글 알림(DeveloperNotification). 풀 수 없으면 None."""
+    try:
+        notification = json.loads(base64.b64decode(json.loads(raw)["message"]["data"], validate=True))
+    # binascii.Error · UnicodeDecodeError 도 ValueError 다. RecursionError = 깊게 중첩된 JSON(봉투 · data 둘 다).
+    except (ValueError, KeyError, TypeError, RecursionError):
+        return None
+    return notification if isinstance(notification, dict) else None
+
+
+@router.post("/billing/play/notifications")
+async def receive_play_notification(
+    request: Request,
+    authorization: str | None = Header(default=None),
+    settings: Settings = Depends(get_settings),
+    client: httpx.AsyncClient = Depends(get_client),
+) -> dict:
+    """구글 플레이 실시간 알림(Pub/Sub push). 일회성 상품의 전액 무효 알림이면 그 구매의 하트를 바로 회수한다.
+
+    Pub/Sub 은 2xx 가 아니면 다시 보낸다. 풀 수 없는 봉투 · 다른 앱 · 할 일 없는 알림은 다시 받아도 같아서 로그만 남기고 200.
+    DB 실패는 5xx 로 둔다(다시 보내 주는 게 맞다 — 회수 함수가 멱등이라 중복 배달은 already_refunded 로 끝난다)."""
+    await verify_oidc_token(authorization, audience=settings.batch_audience,
+                            service_account_email=settings.batch_service_account)
+    notification = _developer_notification(await request.body())
+    if notification is None:
+        logger.warning("구글 알림 봉투를 풀 수 없음 — 할 일 없음")
+        return _IGNORED
+    if notification.get("packageName") != PACKAGE_NAME:
+        logger.warning("다른 앱의 구글 알림 packageName=%s — 할 일 없음", str(notification.get("packageName"))[:100])
+        return _IGNORED
+    voided = notification.get("voidedPurchaseNotification")
+    if not isinstance(voided, dict):
+        kinds = sorted(key for key in notification if key.endswith("Notification"))
+        logger.info("구글 알림 kinds=%s — 할 일 없음", kinds)
+        return _IGNORED
+    # 토큰 · 토큰 해시는 남기지 않는다. 주문 번호는 배치처럼 앞 12자만.
+    order, token = str(voided.get("orderId") or "-")[:12], voided.get("purchaseToken")
+    product_type, refund_type = voided.get("productType"), voided.get("refundType")
+    # ASCII 만 — 짝 없는 서로게이트는 token_hash 의 .encode() 에서 500 이 된다(구글 토큰은 영문 · 숫자 · . _ -).
+    usable_token = isinstance(token, str) and bool(token) and token.isascii()
+    if product_type != _ONE_TIME_PRODUCT or refund_type != _FULL_REFUND or not usable_token:
+        # 우리 상품은 수량 1 의 일회성뿐이라 오지 않을 알림이다. 회수하지 않고 운영자가 플레이 콘솔에서 본다.
+        # %r — "2" 와 2 를 가른다. 토큰은 원문 없이 "비어 있지 않은 문자열인가" 만.
+        logger.warning("구글 무효 알림 회수 안 함 orderId=%s productType=%r refundType=%r token=%s", order,
+                       product_type, refund_type, isinstance(token, str) and bool(token))
+        return _IGNORED
+
+    repo = BillingRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
+    outcome = await repo.refund_store_purchase(token_hash(token))
+    logger.info("구글 무효 알림 orderId=%s productType=%s refundType=%s result=%s", order, product_type, refund_type,
+                outcome.get("result"))
+    _warn_shortfall(outcome)
+    return {"result": outcome.get("result")}
