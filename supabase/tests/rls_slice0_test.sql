@@ -6,7 +6,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(21);
+select plan(22);
 
 -- 준비 (postgres) -------------------------------------------------------------
 -- 사용자 A = ...aa, 사용자 B = ...bb, 테스트 대학 = ...01
@@ -73,6 +73,21 @@ select is_empty(
        and relkind in ('r', 'p')
        and not relrowsecurity$$,
   'public 의 모든 테이블은 RLS 가 켜져 있다'
+);
+
+-- 함수 실행 권한 전수. 앱 역할(anon · authenticated)은 public 의 함수를 하나도 부를 수 없다 — PostgREST 가
+-- public 함수를 /rpc 로 내놓으므로 revoke 를 빠뜨린 함수는 곧 앱에서 부를 수 있는 함수다(PUBLIC 에 준 권한도 잡힌다).
+-- 새 함수의 revoke 를 빠뜨리면 여기서 그 함수 이름이 찍힌다. 일부러 여는 함수가 생기면 아래 빈 배열(허용 목록)에
+-- 이 조회가 찍는 글자 그대로(예: 'some_function(uuid, text)') 적는다.
+select is_empty(
+  $$select p.oid::regprocedure::text
+      from pg_proc p
+     where p.pronamespace = 'public'::regnamespace
+       and (has_function_privilege('anon', p.oid, 'execute')
+            or has_function_privilege('authenticated', p.oid, 'execute'))
+       and p.oid::regprocedure::text <> all (array[]::text[])
+     order by 1$$,
+  'anon · authenticated 가 실행할 수 있는 public 함수는 없다'
 );
 
 -- 표에 없는 권한(특히 anon · authenticated 의 insert · update · delete)이 붙거나
