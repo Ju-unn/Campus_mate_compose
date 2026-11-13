@@ -1,12 +1,12 @@
 -- 소셜 로그인 DB(ERD v6 ①~⑩, 사용자 승인 10-08) 검증.
 -- 마이그레이션 20261008010000_social_login_pending_profiles · 20261008020000_scrub_social_identity_names ·
--- 20261008030000_create_school_email_claims.
+-- 20261008030000_create_school_email_claims · 20261113030841_social_link_creates_pending_profile(9번).
 -- 로컬 스택에서 `supabase test db` 로 돌린다. 트랜잭션 안에서만 돌고 rollback 으로 흔적을 남기지 않는다.
 begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(66);
+select plan(75);
 
 -- 0. ⑨ 기존 계정 보정 ---------------------------------------------------------
 -- 이 파일이 데이터를 넣기 전에 본다. 빈 DB(db reset)에서는 0행이라 늘 참이고, 기존 프로필이 있는 DB 위에
@@ -432,6 +432,84 @@ select is_empty(
   $$select 1 from public.school_email_claims where profile_id = '00000000-0000-0000-0000-000000005a01'$$,
   '계정을 지우면 claims 행도 지워진다 — 그 학교 메일로 다시 인증할 수 있다(재가입 제한은 signup_blocks 몫)'
 );                                                                                                   -- 66
+
+-- 9. email 계정에 소셜이 연결될 때 on_auth_user_social_linked (20261113030841) ------------
+-- GoTrue 는 같은 메일의 소셜 로그인을 이미 있는 email 계정에 연결한다 — auth.users insert 가 없어 가입 트리거가
+-- 돌지 않는다. 연결 때 app_metadata.provider 는 처음 방식(email)으로 남고 providers 에만 더해진다.
+-- L1 = providers 에 구글이 더해짐, L2 = provider 자체가 카카오로 바뀜, L3 = 소셜과 무관한 변경,
+-- L4 = 프로필이 이미 있는 email 계정(10-08 전 학교 메일 가입자).
+insert into auth.users (id, email, raw_app_meta_data) values
+  ('00000000-0000-0000-0000-000000005a21', 'l1@social-test.ac.kr', '{"provider": "email", "providers": ["email"]}'),
+  ('00000000-0000-0000-0000-000000005a22', 'l2@social-test.ac.kr', '{"provider": "email", "providers": ["email"]}'),
+  ('00000000-0000-0000-0000-000000005a23', 'l3@social-test.ac.kr', '{"provider": "email", "providers": ["email"]}'),
+  ('00000000-0000-0000-0000-000000005a24', 'l4@social-test.ac.kr', '{"provider": "email", "providers": ["email"]}');
+insert into public.profiles (id, university_id, school_email_verified_at)
+values ('00000000-0000-0000-0000-000000005a24', '00000000-0000-0000-0000-000000005a00', now());
+
+select has_trigger('auth', 'users', 'on_auth_user_social_linked',
+  'auth.users 에 소셜 연결 트리거가 있다');                                                            -- 67
+select is_empty(
+  $$select 1 from public.profiles
+     where id in ('00000000-0000-0000-0000-000000005a21', '00000000-0000-0000-0000-000000005a22',
+                  '00000000-0000-0000-0000-000000005a23')$$,
+  'email 방식으로 먼저 생긴 계정에는 프로필이 없다'
+);                                                                                                   -- 68
+
+update auth.users set raw_app_meta_data = '{"provider": "email", "providers": ["email", "google"]}'
+where id = '00000000-0000-0000-0000-000000005a21';
+
+select ok(
+  (select university_id is null and school_email_verified_at is null and status = 'pending'
+     from public.profiles where id = '00000000-0000-0000-0000-000000005a21'),
+  'providers 에 구글이 더해지면(provider 는 email 그대로) 학교 없는 pending 프로필이 생긴다'
+);                                                                                                   -- 69
+
+update auth.users set raw_app_meta_data = '{"provider": "email", "providers": ["email", "google"]}'
+where id = '00000000-0000-0000-0000-000000005a21';
+
+select is(
+  (select count(*) from public.profiles where id = '00000000-0000-0000-0000-000000005a21'),
+  1::bigint,
+  '같은 update 를 한 번 더 해도 프로필은 하나다'
+);                                                                                                   -- 70
+
+update auth.users set raw_app_meta_data = '{"provider": "kakao"}'
+where id = '00000000-0000-0000-0000-000000005a22';
+
+select isnt_empty(
+  $$select 1 from public.profiles where id = '00000000-0000-0000-0000-000000005a22'$$,
+  'providers 없이 provider 만 소셜로 바뀌어도 프로필이 생긴다'
+);                                                                                                   -- 71
+
+update auth.users set raw_app_meta_data = '{"provider": "email", "providers": ["email"], "note": "x"}'
+where id = '00000000-0000-0000-0000-000000005a23';
+
+select is_empty(
+  $$select 1 from public.profiles where id = '00000000-0000-0000-0000-000000005a23'$$,
+  '소셜과 무관한 app_metadata 변경은 프로필을 만들지 않는다'
+);                                                                                                   -- 72
+select lives_ok(
+  $$update auth.users set raw_app_meta_data = '{"provider": "email", "providers": ["email", "apple"]}'
+     where id = '00000000-0000-0000-0000-000000005a24'$$,
+  '프로필이 이미 있는 email 계정에 소셜이 연결돼도 오류가 나지 않는다(GoTrue 로그인이 깨지지 않는다)'
+);                                                                                                   -- 73
+select is(
+  (select count(*) from public.profiles
+    where id = '00000000-0000-0000-0000-000000005a24'
+      and university_id = '00000000-0000-0000-0000-000000005a00' and school_email_verified_at is not null),
+  1::bigint,
+  '그 계정의 프로필은 그대로다(학교 · 인증 시각을 덮지 않는다)'
+);                                                                                                   -- 74
+
+-- GoTrue 는 소셜 로그인 때마다 app_metadata 를 다시 쓴다 — 처음부터 소셜인 계정은 가입 때 만든 하나뿐이다.
+update auth.users set raw_app_meta_data = '{"provider": "google", "providers": ["google"]}'
+where id = '00000000-0000-0000-0000-000000005a02';
+
+select is(
+  (select count(*) from public.profiles where id = '00000000-0000-0000-0000-000000005a02'),
+  1::bigint,
+  '처음부터 소셜로 가입한 계정은 app_metadata 가 다시 쓰여도 프로필이 하나다'
+);                                                                                                   -- 75
 
 select * from finish();
 rollback;
