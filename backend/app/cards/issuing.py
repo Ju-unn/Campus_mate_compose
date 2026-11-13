@@ -6,9 +6,12 @@ from app.cards.ladder import bottleneck_count, ladder_weekdays, last_issue_at, n
 from app.cards.paid_offer import ensure_offer
 from app.cards.push import notify
 from app.cards.repository import DailyCardConflict
+from app.core.logs import show_info
 from app.matching.band import FREE_BAND_RATIO, PAID_BAND_RATIO, band_size, pick_from_band, rank_all
 
 logger = logging.getLogger(__name__)
+# 배치 요약(INFO)이 Cloud Run 로그에 보이게 한다 — core/logs.py.
+show_info(logger)
 
 
 def _parse_time(value: str) -> time:
@@ -53,22 +56,29 @@ async def issue_daily_cards(card_repo, matching_repo, sender, now: datetime,
     issued = 0
     no_candidate = 0
     failed = 0
-    for owner in await card_repo.fetch_issue_owners():
+    already = 0
+    off_day = 0
+    owners = await card_repo.fetch_issue_owners()
+    for owner in owners:
         region = owner["region_group"]
         weekdays = weekdays_by_region.get(region)
         if weekdays is None or now.isoweekday() not in weekdays:
+            off_day += 1
             continue
 
         owner_id = owner["profile_id"]
         if owner_id in issued_today:
+            already += 1
             continue
         try:
             # 위 목록은 배치 시작 때 읽은 것이라, 그 사이 앱이 첫 카드(issue_first_card)를 줬을 수 있다 — 오픈일 07:00 에 겹친다.
             if await card_repo.has_had_daily_card(owner_id, since=today_start):
+                already += 1
                 continue
             got_card = await _issue_to_owner(card_repo, matching_repo, sender, now, rng, owner_id, weekdays,
                                              settings_by_region[region])
         except DailyCardConflict:
+            already += 1
             continue  # 바로 위 확인과 insert 사이에 첫 카드가 먼저 들어갔다 — DB 가 막았고 이미 받은 사람이다
         except Exception:
             # 한 사람의 실패(프로필이 지워져 404 · 후보 RPC 오류 등)가 뒷사람 지급을 막으면 안 된다. 사람 정보는
@@ -81,6 +91,8 @@ async def issue_daily_cards(card_repo, matching_repo, sender, now: datetime,
         else:
             no_candidate += 1
 
+    logger.info("아침 카드 배치 대상=%s 지급=%s 후보없음=%s 이미받음=%s 지급일아님=%s 실패=%s 쉬는지역=%s",
+                len(owners), issued, no_candidate, already, off_day, failed, skipped)
     return {"issued": issued, "no_candidate": no_candidate, "skipped_regions": skipped, "failed": failed}
 
 

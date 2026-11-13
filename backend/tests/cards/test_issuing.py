@@ -126,6 +126,18 @@ async def test_issues_one_card_from_the_band_not_always_the_top():
     assert len(picked) > 5
 
 
+async def test_the_batch_logs_one_summary_line(caplog):
+    caplog.set_level(logging.INFO, logger="app.cards.issuing")
+    owners = [{"profile_id": "owner-1", "region_group": "seoul"},
+              {"profile_id": "owner-2", "region_group": "seoul"},     # 오늘 이미 받음
+              {"profile_id": "owner-3", "region_group": "busan"}]     # 설정 없는 지역 — 지급일 아님
+    repo = _FakeCardRepo(owners, issued_today={"owner-2"})
+    await issue_daily_cards(repo, _FakeMatchingRepo(TWO), sender=None, now=MONDAY_7AM, rng=random.Random(1))
+
+    assert [r.getMessage() for r in caplog.records if r.name == "app.cards.issuing"] == [
+        "아침 카드 배치 대상=3 지급=1 후보없음=0 이미받음=1 지급일아님=1 실패=0 쉬는지역=[]"]
+
+
 async def test_a_seeded_batch_is_repeatable():
     results = []
     for _ in range(2):
