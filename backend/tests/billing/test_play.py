@@ -85,6 +85,36 @@ async def test_a_timeout_is_unavailable_and_the_error_does_not_carry_the_token()
     assert caught.value.__cause__ is None and caught.value.__suppress_context__
 
 
+async def test_product_ids_asks_the_v2_address_and_lists_every_line_item():
+    # v1(products.get) 응답에는 productId 가 없다(운영 기록 11-13) — 산 상품은 v2 productLineItem 에서만 읽힌다.
+    seen: list[httpx.Request] = []
+    body = {"productLineItem": [{"productId": "heart_50", "productOfferDetails": {"quantity": 1}},
+                                {"productId": "heart_800"}], "orderId": "GPA.1"}
+    api = _api(lambda r: httpx.Response(200, json=body), seen)
+
+    assert await api.get_product_ids(TOKEN) == ["heart_50", "heart_800"]
+    (request,) = seen
+    assert request.method == "GET"
+    assert request.url.path == f"/androidpublisher/v3/applications/{PACKAGE_NAME}/purchases/productsv2/tokens/{TOKEN}"
+    assert request.headers["Authorization"] == "Bearer play-access-token"
+    assert request.extensions["timeout"]["read"] == 10.0
+
+
+async def test_product_ids_without_line_items_is_empty():
+    assert await _api(lambda r: httpx.Response(200, json={})).get_product_ids(TOKEN) == []
+
+
+@pytest.mark.parametrize("status", [400, 404, 410])
+async def test_product_ids_is_none_when_google_does_not_know_the_token(status):
+    assert await _api(lambda r: httpx.Response(status, json={"error": {}})).get_product_ids(TOKEN) is None
+
+
+@pytest.mark.parametrize("status", [500, 503, 429, 401, 403])
+async def test_product_ids_is_unavailable_on_outage(status):
+    with pytest.raises(PlayUnavailable):
+        await _api(lambda r: httpx.Response(status)).get_product_ids(TOKEN)
+
+
 async def test_consume_posts_to_the_consume_address_and_reports_success():
     seen: list[httpx.Request] = []
     api = _api(lambda r: httpx.Response(200), seen)
