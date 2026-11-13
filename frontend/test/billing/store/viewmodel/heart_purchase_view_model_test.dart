@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:campus_mate/billing/store/model/data/billing_status.dart';
 import 'package:campus_mate/billing/store/model/data/heart_purchase_notice.dart';
@@ -6,22 +7,33 @@ import 'package:campus_mate/billing/store/model/data/payment_store.dart';
 import 'package:campus_mate/billing/store/model/data/store_purchase.dart';
 import 'package:campus_mate/billing/store/model/repository/billing_repository_provider.dart';
 import 'package:campus_mate/billing/store/model/repository/heart_store_gateway.dart';
+import 'package:campus_mate/billing/store/model/repository/http_billing_repository.dart';
 import 'package:campus_mate/billing/store/model/repository/payment_store_provider.dart';
 import 'package:campus_mate/billing/store/viewmodel/heart_purchase_ui_state.dart';
 import 'package:campus_mate/billing/store/viewmodel/heart_purchase_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
+import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/core/http/http_send.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:mocktail/mocktail.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show GoTrueClient, Session;
 
 import '../../../core/analytics/fake_analytics_service.dart';
 import '../../../me/model/repository/fake_me_repository.dart';
 import '../model/repository/fake_billing_repository.dart';
 import '../model/repository/fake_heart_store_gateway.dart';
+
+class _MockGoTrueClient extends Mock implements GoTrueClient {}
+
+class _MockSession extends Mock implements Session {}
 
 /// 성공 토스트의 서버 숫자(받은 하트, 보너스). 글자는 view 쪽(heart_store_text_test)이 본다.
 (int, int) _granted(HeartPurchaseUiState state) {
@@ -445,6 +457,29 @@ void main() {
       expect(repo.verified, [('heart_100', 'tok'), ('heart_200', 'next'), ('heart_100', 'tok')]);
     });
 
+    // 11-13 출시 전 점검: 지급 뒤 자격 다시 읽기 · 분석 기록처럼 확인(_send) 밖에서 난 오류는 줄(_queue)을 실패로 끝냈다 —
+    // 실패한 Future 에 건 then 은 돌지 않아, 그 뒤 결제가 이 로그인 내내 서버로 가지 않았다.
+    test('확인 밖에서 예기치 않게 던져도(지급 뒤 자격 다시 읽기) 줄이 멈추지 않고 다음 결제를 처리한다', () async {
+      repo.throwOnStatus = StateError('계약 밖');
+      await emit([const StorePurchased('heart_100', 't1')]);
+
+      repo.throwOnStatus = null;
+      await emit([const StorePurchased('heart_200', 't2')]);
+
+      expect(repo.verified, [('heart_100', 't1'), ('heart_200', 't2')]);
+      expect(state().phase, HeartPurchasePhase.idle);
+    });
+
+    test('확인 밖에서 던진 결제의 토큰은 풀려, 다음 복구 때 다시 보낸다(서버가 이미 받았다고 답한다)', () async {
+      repo.throwOnStatus = StateError('계약 밖');
+      await emit([const StorePurchased('heart_100', 'tok')]);
+
+      repo.throwOnStatus = null;
+      await emit([const StorePurchased('heart_100', 'tok')]);
+
+      expect(repo.verified, [('heart_100', 'tok'), ('heart_100', 'tok')]);
+    });
+
     test('clearToast 는 토스트만 지운다', () async {
       await emit([const StorePurchaseCanceled('')]);
 
@@ -631,6 +666,44 @@ void main() {
 
     expect(repo.verified, [('heart_400', 'old')]);
     expect(state().phase, HeartPurchasePhase.idle);
+  });
+
+  // 11-13 출시 전 점검: 쓰기에 상한이 없던 때는 응답이 끝내 안 오는 확인 하나가 줄(_queue)을 영영 붙잡아, 그 뒤 결제가
+  // 서버로 가지 않았다. 진짜 저장소(HttpBillingRepository)로 본다 — 상한(30초)이 지나면 지급 지연이 되고 다음 결제로 간다.
+  testWidgets('결제 확인 응답이 끝내 안 오면 30초 뒤 지급 지연으로 두고, 다음 결제를 처리한다', (tester) async {
+    final auth = _MockGoTrueClient();
+    final session = _MockSession();
+    when(() => session.accessToken).thenReturn('token-abc');
+    when(() => auth.currentSession).thenReturn(session);
+    final verifiedTokens = <String>[];
+    final client = MockClient((request) {
+      if (request.url.path != '/billing/google/verify') return Future.value(http.Response('', 500));
+      final token = (jsonDecode(request.body) as Map<String, dynamic>)['purchase_token'] as String;
+      verifiedTokens.add(token);
+      if (token == 'hangs') return Completer<http.Response>().future;
+      return Future.value(http.Response(jsonEncode({'result': 'granted', 'hearts': 200, 'bonus_hearts': 0}), 200));
+    });
+    final made = ProviderContainer(overrides: [
+      heartStoreGatewayProvider.overrideWithValue(gateway),
+      billingRepositoryProvider.overrideWithValue(HttpBillingRepository(ApiClient('https://api.test', client, auth))),
+      heartPurchaseSupportedProvider.overrideWithValue(true),
+      paymentStoreProvider.overrideWithValue(PaymentStore.googlePlay),
+      meRepositoryProvider.overrideWithValue(me),
+      analyticsServiceProvider.overrideWithValue(analytics),
+    ]);
+    addTearDown(made.dispose);
+    made.read(heartPurchaseViewModelProvider);
+
+    gateway.emit([const StorePurchased('heart_100', 'hangs'), const StorePurchased('heart_200', 'next')]);
+    await tester.pump(writeTimeout - const Duration(milliseconds: 1));
+    expect(verifiedTokens, ['hangs']);
+    expect(made.read(heartPurchaseViewModelProvider).phase, HeartPurchasePhase.verifying);
+
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+
+    expect(verifiedTokens, ['hangs', 'next']);
+    expect(_granted(made.read(heartPurchaseViewModelProvider)), (200, 0));
   });
 
   test('구독은 뷰모델 하나가 앱 수명 동안 — 상점을 열지 않아도 늦게 온 결제를 받는다', () async {
