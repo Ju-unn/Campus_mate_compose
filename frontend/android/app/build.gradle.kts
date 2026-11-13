@@ -1,3 +1,4 @@
+import java.util.Base64
 import java.util.Properties
 
 plugins {
@@ -30,6 +31,24 @@ if (isReleaseBuild && kakaoNativeAppKey.isBlank()) {
     throw GradleException(
         "KAKAO_NATIVE_APP_KEY 가 비었습니다 — 환경변수 또는 android/local.properties 에 넣고 다시 빌드하세요 " +
             "(비운 채 릴리스를 만들면 카카오 복귀 스킴이 빈 값이 된다. frontend/run.md `AAB 빌드`).",
+    )
+}
+
+// 앱 코드가 --dart-define 으로 받는 필수 값(lib/core/env.dart · lib/core/supabase/supabase_config.dart). 한 줄만 빠져도 서버를 못 부르거나
+// 구글 로그인이 죽은 릴리스가 조용히 만들어진다 — 위 카카오 키처럼 릴리스 빌드에서 막는다(최종 점검 ⑧). 시험: test/core/android/release_dart_defines_test.dart.
+// flutter 는 --dart-define · --dart-define-from-file 값을 `dart-defines` 속성(쉼표로 이은 base64 "이름=값")으로 넘긴다.
+// STORE_REVIEW_URL 은 선택 값이라 보지 않는다(비면 "곧 열려요"). 오류에는 이름만 쓴다 — 값은 찍지 않는다.
+val requiredDartDefines = listOf("SUPABASE_URL", "SUPABASE_ANON_KEY", "API_BASE_URL", "KAKAO_NATIVE_APP_KEY", "GOOGLE_WEB_CLIENT_ID")
+val dartDefines: Map<String, String> = (findProperty("dart-defines") as String?).orEmpty()
+    .split(",")
+    .filter { it.isNotBlank() }
+    .map { String(Base64.getDecoder().decode(it)) }
+    .associate { it.substringBefore("=") to it.substringAfter("=", "") }
+val missingDartDefines = requiredDartDefines.filter { dartDefines[it].isNullOrBlank() }
+if (isReleaseBuild && missingDartDefines.isNotEmpty()) {
+    throw GradleException(
+        "--dart-define 값이 비었습니다: ${missingDartDefines.joinToString()} — --dart-define-from-file 파일에 넣고 다시 빌드하세요 " +
+            "(비운 채 릴리스를 만들면 서버 · 로그인이 동작하지 않는다. frontend/run.md `AAB 빌드`).",
     )
 }
 
