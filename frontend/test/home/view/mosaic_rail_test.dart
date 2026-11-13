@@ -73,19 +73,21 @@ void main() {
     });
 
 
-    testWidgets('그림을 못 풀면(깨진 바이트) 그 칸은 기본 그림 칸 모양으로 둔다 — 레일에 구멍 · 오류가 없다', (tester) async {
+    testWidgets('그림을 못 풀면(깨진 바이트) 그 칸은 토끼 마스코트 칸으로 둔다 — 없는 사람 그림 없음(사용자 11-13) · 레일에 구멍 · 오류가 없다', (tester) async {
       await pumpRail(tester, people(1));
       // 그림 풀기는 엔진에서 실제 시간으로 끝난다.
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
       await tester.pump();
 
       final tile = find.byType(MosaicPersonTile).first;
-      expect(find.descendant(of: tile, matching: find.byType(MosaicDefaultTile)), findsOneWidget);
+      expect(find.descendant(of: tile, matching: find.byType(MosaicMascotTile)), findsOneWidget);
       expect(tester.getSize(tile), const Size(112, 140));
       expect(tester.takeException(), isNull);
-      // 사람 칸이 흐리지 않으므로(10-17) 대신 넣은 예시 그림도 흐리지 않는다.
-      expect(find.descendant(of: tile, matching: find.byType(ImageFiltered)), findsNothing);
-      expect(find.descendant(of: tile, matching: find.byType(BackdropFilter)), findsNothing);
+      final assets = [
+        for (final image in tester.widgetList<Image>(find.descendant(of: find.byType(MosaicRail), matching: find.byType(Image))))
+          if (image.image is AssetImage) (image.image as AssetImage).assetName,
+      ];
+      expect(assets.where((asset) => asset.contains('example-illust')), isEmpty);
     });
     testWidgets('화면 읽기는 그림 칸을 읽지 않고 끝 빈 칸 문구만 한 번 읽는다', (tester) async {
       final semantics = tester.ensureSemantics();
@@ -99,52 +101,35 @@ void main() {
   });
 
   group('인원 부족 `HhKIR`(Home Mosaic Rail · 인원 부족) — 서버가 빈 목록 · 못 받음 · 받는 중', () {
-    // 아바타 변환 예시(사용자 10-16 "Node ID: jReRU 실사진이 아니라 아바타 변환이야") — 첫 칸 단발머리 여학생, 둘째 칸 안경 쓴 남학생.
-    const girl = 'assets/images/example-illust-b-v1.webp';
-    const boy = 'assets/images/example-illust-a-v1.webp';
-
-    testWidgets('레일을 숨기지 않고 아바타 예시 칸 2(단발 여학생 · 안경 남학생) + 토끼 마스코트 칸을 한 벌로 되풀이한다 · 사람 칸 · 빈 칸 없음', (tester) async {
+    testWidgets('레일을 숨기지 않고 토끼 마스코트 칸만 칸 사이 10 으로 되풀이한다 — 없는 사람 그림(예시 아바타) · 사람 칸 · 빈 칸 없음(사용자 11-13)', (tester) async {
       await pumpRail(tester, HomePeople.none);
 
       expect(find.byType(MosaicRail), findsOneWidget);
       expect(find.byType(MosaicPersonTile), findsNothing);
       expect(find.byType(MosaicEmptyTile), findsNothing);
-      final copies = find.byType(MosaicMascotTile).evaluate().length;
-      expect(copies, greaterThanOrEqualTo(2));
-      expect(find.byType(MosaicDefaultTile).evaluate().length, 2 * copies);
-      // 한 벌 순서: 여학생 → 남학생 → 마스코트(왼쪽부터 되풀이).
-      final tiles = [
-        for (final type in [MosaicDefaultTile, MosaicMascotTile])
-          for (var i = 0; i < find.byType(type).evaluate().length; i++)
-            (
-              tester.getRect(find.byType(type).at(i)).left,
-              switch (tester.widget(find.byType(type).at(i))) { MosaicDefaultTile(:final asset) => asset, _ => 'mascot' },
-            ),
-      ]..sort((a, b) => a.$1.compareTo(b.$1));
-      final order = [for (final (_, kind) in tiles) kind];
-      for (var i = 1; i < order.length; i++) {
-        expect(order[i], switch (order[i - 1]) { girl => boy, boy => 'mascot', _ => girl }, reason: '$i');
+      final assets = [
+        for (final image in tester.widgetList<Image>(find.descendant(of: find.byType(MosaicRail), matching: find.byType(Image))))
+          (image.image as AssetImage).assetName,
+      ];
+      expect(assets.toSet(), {'assets/images/mascot-male-waiting.webp'});
+      // 화면 폭(800)을 덮고도 한 벌이 남는다.
+      final mascots = [for (var i = 0; i < find.byType(MosaicMascotTile).evaluate().length; i++) tester.getRect(find.byType(MosaicMascotTile).at(i))]
+        ..sort((a, b) => a.left.compareTo(b.left));
+      expect(mascots.last.right - mascots.first.left, greaterThanOrEqualTo(800 + mosaicTileWidth));
+      for (var i = 1; i < mascots.length; i++) {
+        expect(mascots[i].left - mascots[i - 1].right, 10, reason: '$i');
       }
       expect(tester.getSize(find.byType(MosaicRail)).height, 140);
     });
 
-    testWidgets('아바타 예시 칸 — 112×140 · 모서리 14 로 자른 아바타 일러스트 136×170, 흐리지 않는다(사용자 10-16) · 글자 없음', (tester) async {
+    testWidgets('토끼 칸만이어도 오른쪽으로 흐르고 오류가 없다', (tester) async {
       await pumpRail(tester, HomePeople.none);
+      final before = tester.getTopLeft(find.byType(MosaicMascotTile).first).dx;
 
-      for (final asset in [girl, boy]) {
-        final tile = find.byWidgetPredicate((w) => w is MosaicDefaultTile && w.asset == asset).first;
-        expect(tester.getSize(tile), const Size(112, 140), reason: asset);
-        final clip = tester.widget<ClipRRect>(find.descendant(of: tile, matching: find.byType(ClipRRect)).first);
-        expect(clip.borderRadius, BorderRadius.circular(14), reason: asset);
-        final image = find.descendant(of: tile, matching: find.byType(Image));
-        expect((tester.widget<Image>(image).image as AssetImage).assetName, asset);
-        expect(tester.widget<Image>(image).fit, BoxFit.cover);
-        expect(tester.getSize(image), const Size(136, 170), reason: asset);
-        expect(tester.getCenter(image), tester.getCenter(tile), reason: asset);
-        expect(find.descendant(of: tile, matching: find.byType(ImageFiltered)), findsNothing, reason: asset);
-        expect(find.descendant(of: tile, matching: find.byType(BackdropFilter)), findsNothing, reason: asset);
-        expect(find.descendant(of: tile, matching: find.byType(Text)), findsNothing);
-      }
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(tester.getTopLeft(find.byType(MosaicMascotTile).first).dx, greaterThan(before));
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('마스코트 칸 — 112×140 · 모서리 14 · primary-wash · 기다리는 토끼(`mascot-male-waiting`) 88×88 가운데', (tester) async {
