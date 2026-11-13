@@ -121,6 +121,17 @@ class PlayApi:
                                     purchase_token=purchase_token)
         return response.json() if response.is_success else None
 
+    async def get_product_ids(self, purchase_token: str) -> list[str] | None:
+        """그 토큰으로 실제로 산 상품 id 들(v2 purchases.productsv2.getproductpurchasev2 의 productLineItem[].productId).
+
+        v1(get_purchase) 답에는 productId 가 없다(운영 기록 11-13) — 산 상품은 여기서만 읽힌다.
+        구글이 모르는 토큰이면 None(400 · 404 · 410, get_purchase 와 같다)."""
+        response = await self._call("GET", f"{_PURCHASES}/productsv2/tokens/{purchase_token}",
+                                    purchase_token=purchase_token)
+        if not response.is_success:
+            return None
+        return [item.get("productId") for item in response.json().get("productLineItem", [])]
+
     async def consume(self, product_id: str, purchase_token: str) -> bool:
         """소비(= 확인 처리 겸함, 구글 문서). 예외를 던지지 않는다 — 지급은 끝났고 앱이 다시 보내면 다시 한다."""
         try:
