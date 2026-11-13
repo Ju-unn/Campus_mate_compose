@@ -78,7 +78,13 @@ class FakeCardRepository implements CardRepository {
   }
 
   @override
-  Future<Result<CardDetail>> fetchCard(String cardId) async => card!;
+  Future<Result<CardDetail>> fetchCard(String cardId) async {
+    await holdCard?.future;
+    return card!;
+  }
+
+  /// 채워 두면 상세 조회가 이것이 끝날 때까지 멈춘다(읽는 중 버려지는 경우를 볼 때).
+  Completer<void>? holdCard;
 
   @override
   Future<Result<void>> decide(String cardId, CardDecision decision) async {
