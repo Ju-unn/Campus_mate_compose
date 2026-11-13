@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/core/http/http_send.dart';
 import 'package:campus_mate/profile/ideal/model/data/ideal_conditions_submission.dart';
 import 'package:campus_mate/profile/ideal/model/repository/ideal_conditions_repository.dart';
 
@@ -26,5 +27,6 @@ class HttpIdealConditionsRepository implements IdealConditionsRepository {
           // null 을 보내면 서버가 저장값을 null 로 되돌린다 — 안 골랐으면 키를 아예 싣지 않는다.
           'accepts_smoker': ?submission.acceptsSmoker,
         },
+        timeout: longWriteTimeout,
       );
 }

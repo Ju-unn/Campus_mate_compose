@@ -47,7 +47,8 @@ jobs:
         with:
           flutter-version: 3.47.3
           channel: stable
-      - run: flutter pub get
+      # pubspec.lock 과 다른 판을 받지 않는다(잠금 파일이 안 맞으면 실패).
+      - run: flutter pub get --enforce-lockfile
 
       # 진짜 Firebase 설정 파일은 저장소에 없다(gitignore). 컴파일 확인용 가짜 값 — 실제 Firebase 에는 연결되지 않는다.
       - name: 가짜 GoogleService-Info.plist 만들기

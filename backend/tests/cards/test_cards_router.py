@@ -168,6 +168,22 @@ def test_card_detail_carries_the_nine_survey_axes():
     assert body["ideal_note"] == "같이 영화 보는 사람"
 
 
+def _spy(handler: Callable[[httpx.Request], httpx.Response]):
+    """(핸들러, 쓰기, 푸시). 거절된 요청이 아무것도 남기지 않았는지 본다 — 쓰기는 /rest/v1 의 GET 아닌 요청의 표 이름이다
+    (card_decisions · acceptance_responses · matches …)."""
+    writes: list[str] = []
+    pushes: list[str] = []
+
+    def spying(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "fcm.googleapis.com":
+            pushes.append(str(request.url))
+        elif request.method != "GET" and request.url.path.startswith("/rest/v1/"):
+            writes.append(request.url.path.removeprefix("/rest/v1/"))
+        return handler(request)
+
+    return spying, writes, pushes
+
+
 def test_decision_on_someone_elses_card_is_404():
     """카드 주인만 결정할 수 있다. 남의 카드 id 를 찍어 보는 시도는 존재 자체를 알려주지 않는다."""
     def handler(request: httpx.Request) -> httpx.Response:
@@ -175,9 +191,11 @@ def test_decision_on_someone_elses_card_is_404():
             return httpx.Response(200, json=[_live_card(owner_id="somebody-else")])
         return httpx.Response(200, json=[])
 
+    handler, writes, pushes = _spy(handler)
     response = _wire(handler).post("/cards/card-1/decision", headers=AUTH_HEADERS,
                                    json={"decision": "accept"})
     assert response.status_code == 404
+    assert (writes, pushes) == ([], [])
 
 
 def test_expired_card_cannot_be_decided():
@@ -187,9 +205,11 @@ def test_expired_card_cannot_be_decided():
             return httpx.Response(200, json=[_live_card(expires_at="2026-09-20T07:00:00+09:00")])
         return httpx.Response(200, json=[])
 
+    handler, writes, pushes = _spy(handler)
     response = _wire(handler).post("/cards/card-1/decision", headers=AUTH_HEADERS,
                                    json={"decision": "accept"})
     assert response.status_code == 409
+    assert (writes, pushes) == ([], [])
 
 
 def test_deciding_twice_is_conflict():
@@ -199,9 +219,11 @@ def test_deciding_twice_is_conflict():
                                                                         "decided_at": "2026-09-21T08:00:00+09:00"})])
         return httpx.Response(200, json=[])
 
+    handler, writes, pushes = _spy(handler)
     response = _wire(handler).post("/cards/card-1/decision", headers=AUTH_HEADERS,
                                    json={"decision": "reject"})
     assert response.status_code == 409
+    assert (writes, pushes) == ([], [])
 
 
 def test_accept_notifies_the_target():

@@ -4,12 +4,31 @@
 httpx 의 raise_for_status 를 그대로 쓰는 곳이 섞여 있어서, 판정은 저장소가 고르게 둔다.
 """
 import logging
+from collections.abc import Awaitable, Callable
 
 import httpx
 
 from app.profile_onboarding.encryption import decrypt_profile_private
 
 logger = logging.getLogger(__name__)
+
+# PostgREST 의 db-max-rows(supabase/config.toml max_rows = 1000). 몇 줄을 달라 해도 한 번에 이만큼만 주고, 잘랐다고 알리지 않는다.
+POSTGREST_MAX_ROWS = 1000
+
+
+async def read_all_pages(fetch_page: Callable[[dict], Awaitable[list[dict]]], key: str) -> list[dict]:
+    """db-max-rows 에 잘리지 않고 끝까지 읽는다. fetch_page 는 받은 쿼리(정렬 · 쪽 크기 · 이어 읽을 자리)를 자기 조건에 더해 한 쪽을 읽는다.
+    key(유일한 칸) 순으로 정렬하고 앞 쪽 마지막 값 뒤부터(keyset) 읽는다 — offset 과 달리 읽는 사이 줄이 빠져도 건너뛰는 사람이 없다.
+    빈 쪽이 와야 끝이다 — 덜 찬 쪽에서 멈추면 운영 max_rows 가 limit 보다 작게 설정됐을 때 다시 조용히 잘린다(요청이 한 번 는다)."""
+    rows: list[dict] = []
+    while True:
+        params = {"order": f"{key}.asc", "limit": str(POSTGREST_MAX_ROWS)}
+        if rows:
+            params[key] = f"gt.{rows[-1][key]}"
+        page = await fetch_page(params)
+        if not page:
+            return rows
+        rows += page
 
 
 class PostgrestRepository:

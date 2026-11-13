@@ -14,6 +14,7 @@ class AuthRedirect {
     this._onboardingStep, {
     this._accountStatus = AccountStatus.active,
     this._isCohortWaiting = false,
+    this._isOnboardingUnreachable = false,
   });
 
   final bool _isAuthenticated;
@@ -23,6 +24,8 @@ class AuthRedirect {
   final AccountStatus _accountStatus;
   /// 우리 학교가 아직 첫 카드를 안 열었다(홈 요약에 cohort). 요약을 못 받았으면 false — 열린 것으로 친다.
   final bool _isCohortWaiting;
+  /// 단계를 모르는데 조회가 실패했다([OnboardingStepListenable.isUnreachable]) — 스플래시 대신 01-1(다시 시도)에 둔다.
+  final bool _isOnboardingUnreachable;
 
   /// 이동이 필요 없으면 null 을 돌려준다 (go_router 의 규약).
   String? resolve(String location) {
@@ -40,7 +43,7 @@ class AuthRedirect {
     if (_accountStatus == AccountStatus.withdrawn || _accountStatus == AccountStatus.expired) {
       return null;
     }
-    // 정지가 가장 먼저다 — 정지면 게이트·온보딩 조회가 403 이라 기본값(02-c · 04-1)에 머물러 있다.
+    // 정지가 가장 먼저다 — 정지면 게이트·온보딩 조회가 403 이라 01-1 · "못 물어봄" 에 머물러 있다.
     if (_accountStatus == AccountStatus.suspended) {
       return location == AppRoutes.accountSuspended ? null : AppRoutes.accountSuspended;
     }
@@ -113,7 +116,8 @@ class AuthRedirect {
   String? _onboardingTarget() {
     return switch (_onboardingStep) {
       // 단계를 묻는 중이면 스플래시에 둔다 — 관문의 `unknown` 과 같다. 04-1 로 보내면 마친 사람에게도 04-1 이 번쩍인다.
-      null => AppRoutes.splash,
+      // 못 물어봤으면 01-1 — 관문의 `unreachable` 과 같다(04-1 로 보내면 가입을 마친 사람이 갇힌다).
+      null => _isOnboardingUnreachable ? AppRoutes.offline : AppRoutes.splash,
       OnboardingStep.basicInfo => AppRoutes.onboardingBasicInfo,
       OnboardingStep.kakaoId => AppRoutes.onboardingKakaoId,
       OnboardingStep.photos => AppRoutes.onboardingPhotos,

@@ -32,13 +32,15 @@ class ApiClient {
   }
 
   /// JSON 한 번 주고받는 흔한 경우. [parse] 는 성공 응답의 본문만 받는다 —
-  /// 돌려줄 것이 없으면 `(_) {}` 로 비워 둔다.
+  /// 돌려줄 것이 없으면 `(_) {}` 로 비워 둔다. [timeout] 을 비우면 조회 15초 · 쓰기 30초다 — 서버가 외부 AI 를
+  /// 기다리는 쓰기만 [longWriteTimeout] 을 넘긴다.
   Future<Result<T>> send<T>(
     String method,
     String path,
     T Function(Object body) parse, {
     Map<String, Object?>? body,
     Map<String, String>? query,
+    Duration? timeout,
   }) async {
     final result = await sendRequest((accessToken) {
       final request = http.Request(method, uri(path, query))
@@ -49,7 +51,7 @@ class ApiClient {
           ..body = jsonEncode(body);
       }
       return request;
-    });
+    }, timeout: timeout);
     return result.when(
       onSuccess: (response) {
         try {
@@ -86,9 +88,16 @@ class ApiClient {
   /// 위 두 가지에 들지 않는 요청이 쓴다. 헤더는 부른 쪽이 단다.
   /// [send] · [sendMultipart] 도 여기를 지나므로 실패를 [_onFailure] 에 넘기는 곳은 여기 하나다.
   Future<Result<http.Response>> sendRequest(
-    FutureOr<http.BaseRequest> Function(String accessToken) buildRequest,
-  ) async {
-    final result = await sendAuthorizedRequest(_client, _auth, buildRequest, onHandledError: _onHandledError);
+    FutureOr<http.BaseRequest> Function(String accessToken) buildRequest, {
+    Duration? timeout,
+  }) async {
+    final result = await sendAuthorizedRequest(
+      _client,
+      _auth,
+      buildRequest,
+      onHandledError: _onHandledError,
+      timeout: timeout,
+    );
     result.when<void>(onSuccess: (_) {}, onFailure: (failure) => _onFailure?.call(failure));
     return result;
   }

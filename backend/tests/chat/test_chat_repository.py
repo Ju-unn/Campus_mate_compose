@@ -196,10 +196,11 @@ async def test_open_matches_skip_passed_and_closed_ones():
 async def test_open_matches_warn_when_the_limit_is_reached(caplog):
     """상한에 닿으면 뒤쪽 매칭이 리마인드도 마감도 못 받는다 — 조용히 넘기지 않는다(권고 3번)."""
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json=[{"id": MATCH}, {"id": MATCH}])
+        # 빈 쪽이 와야 쪽 넘김이 끝난다 — 이어 읽기(id=gt.)에는 빈 쪽.
+        return httpx.Response(200, json=[] if "id" in request.url.params else [{"id": MATCH}, {"id": MATCH}])
 
     with caplog.at_level(logging.WARNING):
-        await _repo(handler).fetch_open_matches(limit=2)
+        await _repo(handler).fetch_open_matches(warn_at=2)
 
     assert "상한" in caplog.text
 

@@ -308,10 +308,27 @@ async def get_acceptances(wiring: _Wiring = Depends(_wire)) -> dict:
     now = wiring.now
 
     acceptances = []
-    pending = await wiring.repo.fetch_pending_acceptances(wiring.profile_id, ACCEPTANCE_TTL_DAYS, now=now)
-    blocked = await _blocked_among(wiring, [row["daily_cards"]["owner_id"] for row in pending])
-    # 이미 매칭된 상대는 답할 게 없다(결정 11) — 프로필을 읽기 전에 거른다.
-    matched = await wiring.repo.fetch_match_partner_ids(wiring.profile_id)
+    pending, accepted = await wiring.repo.fetch_pending_acceptances(wiring.profile_id, ACCEPTANCE_TTL_DAYS, now=now)
+    # 이미 매칭된 상대는 답할 게 없다(결정 11) — 프로필을 읽기 전에 거른다. 상대 id → 매칭 행(참가자 목록 포함).
+    matched = await wiring.repo.fetch_matches_by_partner(wiring.profile_id)
+    # GET 이 쓰기를 한다 — 끊긴 수락 복구. 내가 수락했는데 매칭이 없거나(응답만 저장되고 매칭 쓰기가 끊김) 참가자가
+    # 두 행이 안 되는(매칭 행만 들어가고 참가자 쓰기가 끊김 — 대화 목록에 방이 안 보이고 열면 404) 카드다.
+    # 앱은 수락이 실패하면 다시 보내지 않고 이 목록만 다시 읽어서, 여기서 이어 만들지 않으면 방이 영영 안 생긴다
+    # (답한 카드라 목록에는 계속 없다). 참가자만 모자란 쪽은 create_match 가 merge 로 채우고 새 매칭이 아니라 알림은 없다.
+    # 평소에는 빈 목록이다.
+    unfinished = [row for row in accepted
+                  if len(matched.get(row["daily_cards"]["owner_id"], {}).get("match_participants") or []) < 2]
+    blocked = await _blocked_among(wiring, [row["daily_cards"]["owner_id"] for row in [*pending, *unfinished]])
+    for row in unfinished:
+        accepter_id = row["daily_cards"]["owner_id"]
+        try:
+            accepter = await wiring.repo.fetch_card_profile(accepter_id)
+            # 수락 응답(respond_to_acceptance)과 같은 관문 — 그사이 차단 · 정지 · 탈퇴 · 가림이면 조용히 건너뛴다.
+            if accepter and not _hidden_from_cards(accepter_id, accepter, blocked):
+                await _make_match(wiring, accepter_id, accepter, now)
+        except Exception as exc:
+            # 이어 만들기는 덤이다 — 실패해도 목록은 그대로 내려가고 다음에 읽을 때 다시 해 본다. 카드 번호와 예외 종류만 남긴다.
+            logger.warning("매칭 이어 만들기 실패 card=%s | %s", row["card_id"], type(exc).__name__)
     for row in pending:
         accepter_id = row["daily_cards"]["owner_id"]
         if accepter_id in matched:
@@ -437,33 +454,45 @@ async def respond_to_acceptance(card_id: str, body: DecisionRequest,
     accepter = await wiring.repo.fetch_card_profile(card["owner_id"])
     if _hidden_from_cards(card["owner_id"], accepter, await _blocked_among(wiring, [card["owner_id"]])):
         raise HTTPException(status_code=404, detail=errors.ACCEPTANCE_NOT_FOUND)
-    if card["acceptance_responses"]:
+    answered = card["acceptance_responses"]
+    # 내가 이미 수락한 카드를 다시 수락으로 부르면 매칭 만들기만 다시 한다 — 응답은 저장됐는데 매칭 쓰기가 끊기면
+    # 다시 눌러도 409 라 방이 영영 안 생겼다. create_match 는 멱등이라 이미 있으면 같은 답만 돌아간다.
+    retry = bool(answered) and answered.get("decision") == "accept" and body.decision == "accept"
+    if answered and not retry:
         raise HTTPException(status_code=409, detail=errors.ACCEPTANCE_ALREADY_ANSWERED)
-    decided_at = datetime.fromisoformat(accepted["decided_at"])
-    if decided_at <= now - timedelta(days=ACCEPTANCE_TTL_DAYS):
-        raise HTTPException(status_code=410, detail=errors.ACCEPTANCE_EXPIRED)
+    if not retry:
+        # 다시 부르기(retry)는 만료를 보지 않는다 — 기한 안에 수락한 사람을 구제하는 길이라 7일이 지났어도 방을 만든다.
+        decided_at = datetime.fromisoformat(accepted["decided_at"])
+        if decided_at <= now - timedelta(days=ACCEPTANCE_TTL_DAYS):
+            raise HTTPException(status_code=410, detail=errors.ACCEPTANCE_EXPIRED)
 
-    await wiring.repo.insert_acceptance_response(card_id, wiring.profile_id, body.decision)
-    if body.decision != "accept":
-        return {"matched": False}
+        await wiring.repo.insert_acceptance_response(card_id, wiring.profile_id, body.decision)
+        if body.decision != "accept":
+            return {"matched": False}
 
-    match, is_new = await wiring.repo.create_match(card["owner_id"], wiring.profile_id)
+    match = await _make_match(wiring, card["owner_id"], accepter, now)
+    return {"matched": True, "match_id": match["id"]}
+
+
+async def _make_match(wiring: _Wiring, accepter_id: str, accepter: dict, now: datetime) -> dict:
+    """나와 accepter(나에게 대화를 신청한 사람)의 매칭을 만들고 그 행을 돌려준다. 수락 응답과, 목록을 읽을 때 끊긴 매칭을
+    이어 만드는 길(get_acceptances)이 같이 쓴다. 숨김 관문은 부르는 쪽이 먼저 본다 — accepter 는 그때 읽은 프로필이다."""
+    match, is_new = await wiring.repo.create_match(accepter_id, wiring.profile_id)
     # 매칭 성사는 양쪽 모두에게 알린다(화면 12 `UFNSi`). 다만 신규일 때만이다 —
     # A→B, B→A 카드가 같은 날 나가 둘 다 수락하면 두 번째 수락은 이미 있는 매칭을 다시 본다.
     if is_new:
         # 두 사람의 대화 목록에 새 방이 생겼다는 신호만 보낸다(실시간 안 A) — 상대 프로필은 앱이 목록을 다시 읽어 가져온다.
         await Broadcaster(wiring.settings.supabase_url, wiring.settings.supabase_service_role_key, wiring.client).send(
-            [card["owner_id"], wiring.profile_id], "room_changed", {"match_id": match["id"], "reason": "matched"})
+            [accepter_id, wiring.profile_id], "room_changed", {"match_id": match["id"], "reason": "matched"})
         me = await wiring.repo.fetch_card_profile(wiring.profile_id)
-        # 상대 프로필은 위 숨김 검사에서 이미 읽었다(accepter).
-        await notify(wiring.repo, wiring.sender, card["owner_id"], "match_made", "매칭됐어요!",
+        await notify(wiring.repo, wiring.sender, accepter_id, "match_made", "매칭됐어요!",
                      f"{me['nickname']} 님이 신청을 수락했어요.",
                      {"route": "match", "match_id": match["id"]}, now=now)
         # 내 쪽은 방금 화면에서 매칭을 봤다 — 밤이면 아침에 다시 알리지 않고 버린다(대장 10-03).
         await notify(wiring.repo, wiring.sender, wiring.profile_id, "match_made", "매칭됐어요!",
                      f"{accepter['nickname']} 님과 대화를 시작해 보세요",
                      {"route": "match", "match_id": match["id"]}, now=now, defer=False)
-    return {"matched": True, "match_id": match["id"]}
+    return match
 
 
 @router.post("/cards/push-tokens")

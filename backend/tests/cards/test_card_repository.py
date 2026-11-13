@@ -123,15 +123,20 @@ async def test_pending_acceptances_drop_already_answered_ones():
                              "acceptance_responses": None}},
             {"card_id": "c2", "decided_at": "2026-09-20T07:00:00+00:00",
              "daily_cards": {"id": "c2", "owner_id": "o2", "target_id": "me",
-                             "acceptance_responses": {"card_id": "c2"}}},
+                             "acceptance_responses": {"card_id": "c2", "decision": "accept"}}},
+            {"card_id": "c3", "decided_at": "2026-09-20T07:00:00+00:00",
+             "daily_cards": {"id": "c3", "owner_id": "o3", "target_id": "me",
+                             "acceptance_responses": {"card_id": "c3", "decision": "reject"}}},
         ])
 
     repo, _ = _repo(handler)
-    pending = await repo.fetch_pending_acceptances("me", now=NOW)
+    pending, accepted = await repo.fetch_pending_acceptances("me", now=NOW)
 
     assert [p["card_id"] for p in pending] == ["c1"]
+    # 내가 수락으로 답한 것은 따로 돌려준다 — 매칭 쓰기가 끊긴 카드를 목록을 읽을 때 이어 만든다. 거절한 것은 어디에도 없다.
+    assert [p["card_id"] for p in accepted] == ["c2"]
     # card_decisions 에서 acceptance_responses 로 바로 가면 PGRST200 이라 daily_cards 를 거쳐야 한다.
-    assert "daily_cards!inner(id,owner_id,target_id,acceptance_responses(card_id))" in select[0]
+    assert "daily_cards!inner(id,owner_id,target_id,acceptance_responses(card_id,decision))" in select[0]
     # 기한은 "7일"이 아니라 실제 시각으로 나가야 한다 — 숫자를 그대로 보내면 PostgREST 가 전부 돌려준다.
     cutoff = datetime.fromisoformat(seen[0].removeprefix("gte."))
     assert cutoff == NOW.astimezone(timezone.utc) - timedelta(days=7)
@@ -327,3 +332,67 @@ async def test_insert_offer_sends_status_offered_and_leaves_created_at_to_the_db
         "owner_id": "owner-1", "cycle_started_at": cycle.isoformat(), "target_id": "target-1",
         "reasons": [{"kind": "tendency", "text": "성향이 비슷해요"}], "band_count": 5, "status": "offered",
     }]
+
+
+# 아침 카드 대상(card_issue_owners) — PostgREST 는 한 번에 db-max-rows(1000)줄까지만 주고, 정렬이 없으면 순서도 보장하지 않는다.
+SERVER_MAX_ROWS = 1000
+
+
+def _issue_owners_server(count: int, cap: int = SERVER_MAX_ROWS) -> tuple[list[httpx.QueryParams], callable]:
+    """card_issue_owners 를 PostgREST 처럼 흉내 낸다: order · profile_id=gt. · limit 를 따르고, 몇을 달라 해도 cap 줄에서 자른다.
+    정렬을 달지 않으면 DB 가 고른 아무 순서(여기서는 거꾸로)로 준다 — 그러면 같은 사람이 매일 잘려 나간다."""
+    rows = [{"profile_id": f"{i:08x}-0000-4000-8000-000000000000", "region_group": "seoul"} for i in range(count)]
+    seen: list[httpx.QueryParams] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST" and request.url.path == "/rest/v1/rpc/card_issue_owners"
+        params = request.url.params
+        seen.append(params)
+        out = sorted(rows, key=lambda r: r["profile_id"]) if params.get("order") == "profile_id.asc" else rows[::-1]
+        if "profile_id" in params:
+            after = params["profile_id"].removeprefix("gt.")
+            out = [r for r in out if r["profile_id"] > after]
+        return httpx.Response(200, json=out[:min(int(params.get("limit", cap)), cap)])
+
+    return seen, handler
+
+
+async def test_issue_owners_reads_past_the_server_row_cap():
+    """대상이 1000명을 넘으면 넘는 사람은 오류 없이 카드를 못 받았다(최종 점검 11-13 ⑤)."""
+    _, handler = _issue_owners_server(2500)
+    repo, _ = _repo(handler)
+
+    owners = await repo.fetch_issue_owners()
+
+    assert len(owners) == 2500 and len({o["profile_id"] for o in owners}) == 2500
+
+
+async def test_issue_owners_stops_at_the_first_empty_page():
+    seen, handler = _issue_owners_server(2000)
+    repo, _ = _repo(handler)
+
+    owners = await repo.fetch_issue_owners()
+
+    assert len(owners) == 2000
+    assert len(seen) == 3  # 1000 · 1000 · 0 — 빈 쪽을 보고서야 멈춘다
+
+
+async def test_issue_owners_reads_everything_when_the_server_cap_is_below_the_page_size():
+    """운영 max_rows 가 우리가 아는 1000 보다 작게 설정돼도(여기서는 300) 덜 찬 쪽에서 멈추지 않고 끝까지 읽는다."""
+    seen, handler = _issue_owners_server(1000, cap=300)
+    repo, _ = _repo(handler)
+
+    owners = await repo.fetch_issue_owners()
+
+    assert len(owners) == 1000 and len({o["profile_id"] for o in owners}) == 1000
+    assert len(seen) == 5  # 300 · 300 · 300 · 100 · 0
+
+
+async def test_issue_owners_asks_for_a_stable_order_on_every_page():
+    seen, handler = _issue_owners_server(1500)
+    repo, _ = _repo(handler)
+
+    await repo.fetch_issue_owners()
+
+    assert [p.get("order") for p in seen] == ["profile_id.asc"] * 3  # 1000 · 500 · 0
+    assert all(int(p["limit"]) <= SERVER_MAX_ROWS for p in seen)

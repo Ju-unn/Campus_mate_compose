@@ -28,7 +28,7 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 SOCIAL_PROVIDERS = frozenset({"kakao", "google", "apple"})
-# 앱이 OTP 를 받아 만든 임시 계정은 방금 생긴 것이다. 이보다 오래된 이메일 계정은 임시 계정이 아니라 실제 계정으로 본다.
+# 앱이 OTP 를 받아 만든 임시 계정은 방금 번호를 맞힌 계정이다. 맞힌 지 이보다 오래된 이메일 계정은 임시 계정이 아니라 실제 계정으로 본다.
 TEMP_ACCOUNT_MAX_AGE = timedelta(minutes=30)
 
 
@@ -89,9 +89,17 @@ class VerifyRequest(BaseModel):
 
 
 def _caller_provider(auth_user: dict) -> str | None:
-    """호출한 사람의 주 로그인 수단(app_metadata.provider). 소셜 셋 중 하나가 아니면 None — 못 읽어도 None."""
-    provider = (auth_user.get("app_metadata") or {}).get("provider")
-    return provider if provider in SOCIAL_PROVIDERS else None
+    """호출한 사람의 소셜 로그인 수단. 주 수단(app_metadata.provider)이 소셜 셋 중 하나면 그것, 아니면 providers 배열에서
+    먼저 나온 소셜이다 — GoTrue 는 이메일로 먼저 생긴 계정에 소셜을 연결해도 provider 는 email 로 두고 providers 에만 붙인다.
+    소셜이 없거나 못 읽으면 None."""
+    metadata = auth_user.get("app_metadata") or {}
+    provider = metadata.get("provider")
+    if provider in SOCIAL_PROVIDERS:
+        return provider
+    providers = metadata.get("providers")
+    if not isinstance(providers, list):
+        return None
+    return next((name for name in providers if isinstance(name, str) and name in SOCIAL_PROVIDERS), None)
 
 
 # 정확히 JWT 한 개(header.payload.signature). 공백 · 토막이 섞이면 /user 가 확인한 토큰과 여기서 읽는 토큰이 같다고 할 수 없다.
@@ -145,24 +153,29 @@ def existing_social_account_provider(temp_user: dict, caller_id: str, temp_token
     return next((name for name in providers if name in SOCIAL_PROVIDERS), None)
 
 
-def _created_just_now(user: dict, now: datetime) -> bool:
-    """created_at 이 지금 − TEMP_ACCOUNT_MAX_AGE 안이면 True. 없거나 해석할 수 없으면 오래된 것으로 본다(False)."""
+def _confirmed_just_now(user: dict, now: datetime) -> bool:
+    """번호를 처음 맞힌 시각(email_confirmed_at)이 지금 − TEMP_ACCOUNT_MAX_AGE 안이면 True. 그 칸이 없으면 created_at 을 본다.
+    없거나 해석할 수 없으면 오래된 것으로 본다(False).
+
+    생성 시각으로 재지 않는 이유: 임시 계정은 번호를 **요청할 때** 생긴다 — 메일을 늦게 보거나 번호를 다시 받아 30분 넘겨
+    맞히면 실제 계정으로 몰려 409 가 나고, 정리 배치가 지울 때까지 하루 막혔다. 옛 이메일 가입 계정은 가입하던 때 이미
+    맞혔으니 이 시각도 오래됐다."""
     try:
-        created = datetime.fromisoformat(user["created_at"])
+        confirmed = datetime.fromisoformat(user.get("email_confirmed_at") or user["created_at"])
     except (KeyError, TypeError, ValueError):
         return False
-    if created.tzinfo is None:
-        created = created.replace(tzinfo=timezone.utc)
-    return now - created <= TEMP_ACCOUNT_MAX_AGE
+    if confirmed.tzinfo is None:
+        confirmed = confirmed.replace(tzinfo=timezone.utc)
+    return now - confirmed <= TEMP_ACCOUNT_MAX_AGE
 
 
 async def _is_fresh_temp_account(repo: SchoolEmailRepository, temp_user: dict, now: datetime) -> bool:
-    """방금 만들어졌고 프로필이 없는 계정만 임시 계정이다. 프로필을 못 읽으면 있는 것으로 본다.
+    """방금 번호를 맞혔고 프로필이 없는 계정만 임시 계정이다. 프로필을 못 읽으면 있는 것으로 본다.
 
     임시 연결로 OTP 를 받은 메일이 옛 이메일 가입 계정의 메일이면 그 토큰의 주인은 **실제 계정**이다(프로필 있음,
     오래전 생성). DB 함수는 claims 행이 없는 기존 가입자를 막지 못해서, 여기서 막지 않으면 호출자가 남의 학교 메일로
     인증되고 그 실제 계정까지 지워진다."""
-    if not _created_just_now(temp_user, now):
+    if not _confirmed_just_now(temp_user, now):
         return False
     try:
         return not await repo.has_profile(str(temp_user["id"]))
@@ -176,7 +189,7 @@ async def delete_temp_account(settings: Settings, client: httpx.AsyncClient, tem
     """임시 이메일 계정을 관리자 API 로 지운다(최선만). 실패는 경고만 — 정리 배치가 하루 뒤 지운다.
 
     삭제 **직전에** 세 가지를 다시 본다. 하나라도 어긋나거나 읽지 못하면 지우지 않는다.
-    ① id ≠ 호출한 사람 ② 관리자 API 로 다시 읽은 identities 가 정확히 email 하나 ③ 프로필 없음 + 방금 생성.
+    ① id ≠ 호출한 사람 ② 관리자 API 로 다시 읽은 identities 가 정확히 email 하나 ③ 프로필 없음 + 방금 번호를 맞힘.
     이메일 · 토큰은 로그에 남기지 않는다."""
     if str(temp_id) == str(caller_id):
         logger.error("임시 계정 삭제를 멈춤 — 호출한 사람과 같은 id profile=%s", caller_id)
@@ -191,7 +204,7 @@ async def delete_temp_account(settings: Settings, client: httpx.AsyncClient, tem
         return
     providers = [identity.get("provider") for identity in user.get("identities") or []]
     if str(user.get("id")) != str(temp_id) or providers != ["email"] or has_profile \
-            or not _created_just_now(user, now):
+            or not _confirmed_just_now(user, now):
         logger.warning("임시 계정이 아닌 것으로 보여 지우지 않는다 user=%s", temp_id)
         return
     try:

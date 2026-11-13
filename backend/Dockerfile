@@ -2,8 +2,9 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY pyproject.toml ./
-RUN pip install --no-cache-dir .
+# 버전은 constraints.txt 가 정한다(pyproject.toml 은 하한만) — 배포할 때마다 최신이 깔리지 않게.
+COPY pyproject.toml constraints.txt ./
+RUN pip install --no-cache-dir -c constraints.txt .
 
 COPY app ./app
 

@@ -95,6 +95,8 @@ class ConversationsViewModel extends Notifier<ConversationsUiState> {
 
   Future<void> _load({required bool quiet}) async {
     final result = await ref.read(chatRepositoryProvider).fetchConversations();
+    // 읽는 사이 로그아웃으로 버려졌으면(SessionScope 가 컨테이너째 버린다) 늦게 온 답은 버린다 — 상태를 건드리면 던진다.
+    if (!ref.mounted) return;
     state = result.when(
       onSuccess: (conversations) =>
           state.copyWith(isLoading: false, conversations: conversations),

@@ -110,7 +110,7 @@ class PushRegistrar {
   }
 
   /// 서버에서 지울 토큰. 못 찾으면 null — 로그아웃은 이 단계 때문에 멈추지 않는다.
-  /// 앱 http 에는 타임아웃이 없어 등록이나 FCM 이 매달리면 끝나지 않는다 — [_deleteTimeout] 이 지나면 모르는 것으로 본다.
+  /// 등록(앱 http 쓰기 상한 30초)이나 FCM 이 매달리면 로그아웃이 그만큼 멈춘다 — [_deleteTimeout] 이 지나면 모르는 것으로 본다.
   Future<String?> _findToken() async {
     try {
       return await _tokenToDelete().timeout(_deleteTimeout);
@@ -133,7 +133,7 @@ class PushRegistrar {
   }
 
   /// 서버에서 지웠는지. [within] 이 남아 있지 않으면 보내지 않고 실패로 본다.
-  /// 앱 http 에는 타임아웃이 없다 — 매달린 DELETE 를 기다리면 로그아웃(signOut 의 finally)까지 못 간다.
+  /// 앱 http 쓰기 상한(30초)은 로그아웃이 기다리기에 길다 — 매달린 DELETE 를 기다리면 로그아웃(signOut 의 finally)이 그만큼 늦는다.
   /// 끝나지 않으면 인터넷 없음과 같게 보고 실패로 돌려준다. 늦게 온 DELETE 는 서버가 주인까지 맞춰 지워 무해하다.
   Future<bool> _deleted(String token, {required Duration within}) async {
     if (within <= Duration.zero) {

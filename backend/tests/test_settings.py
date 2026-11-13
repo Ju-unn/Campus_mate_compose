@@ -1,4 +1,6 @@
 import pytest
+from pydantic import ValidationError
+
 from app.settings import Settings
 
 
@@ -46,6 +48,20 @@ def test_settings_requires_all_values(monkeypatch):
     monkeypatch.delenv("SUPABASE_URL", raising=False)
     with pytest.raises(Exception):
         Settings(_env_file=None)
+
+
+@pytest.mark.parametrize("name", [
+    "SUPABASE_SERVICE_ROLE_KEY", "AUTH_HOOK_SIGNING_SECRET", "OPENAI_API_KEY", "DISCORD_WEBHOOK_URL",
+    "IDENTITY_HMAC_KEY", "PHONE_ENCRYPTION_KEY",
+])
+def test_an_empty_secret_stops_boot(monkeypatch, name):
+    """`KEY=` 처럼 빈 값으로 배포되면 서버가 뜨지 않아야 한다 — 뜨고 나면 서명 검증 · DB 호출 · 알림이 첫 요청부터 조용히 틀어진다."""
+    monkeypatch.setenv(name, "")
+
+    with pytest.raises(ValidationError) as caught:
+        Settings()
+
+    assert [error["loc"] for error in caught.value.errors()] == [(name.lower(),)]
 
 
 def test_min_app_version_is_empty_by_default_and_a_bad_value_does_not_stop_boot(monkeypatch):

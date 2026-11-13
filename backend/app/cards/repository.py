@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from app.cards.push import PushToken
 from app.core import errors
 from app.core.http import error_code, raise_for_status
-from app.core.postgrest import PostgrestRepository
+from app.core.postgrest import PostgrestRepository, read_all_pages
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +84,10 @@ class CardRepository(PostgrestRepository):
         return counts
 
     async def fetch_issue_owners(self) -> list[dict]:
-        return await self._rows_post("rpc/card_issue_owners", {}, prefer="")
+        """오늘 카드 대상 전부. 한 번에 읽으면 PostgREST 가 1000줄에서 말없이 자르고 정렬도 없어, 1000명을 넘는 사람이
+        오류 없이 빠졌다(최종 점검 11-13 ⑤). profile_id 순으로 쪽을 넘겨 끝까지 읽는다 — 읽는 사이 첫 카드가 나가 줄이 빠져도 안전하다."""
+        return await read_all_pages(
+            lambda page: self._rows_post("rpc/card_issue_owners", {}, prefer="", params=page), "profile_id")
 
     async def has_had_daily_card(self, owner_id: UUID | str, since: datetime | None = None) -> bool:
         """무료 카드를 한 장이라도 받은 적이 있는가(만료 · 결정 상관없이). 없으면 첫 카드 대상이다(issuing.issue_first_card).
@@ -158,7 +161,7 @@ class CardRepository(PostgrestRepository):
         rows = await self._rows("daily_cards", {
             "id": f"eq.{card_id}",
             "select": "id,owner_id,target_id,source,issued_at,expires_at,"
-                      "card_decisions(decision,decided_at),acceptance_responses(responder_id)",
+                      "card_decisions(decision,decided_at),acceptance_responses(responder_id,decision)",
         })
         return rows[0] if rows else None
 
@@ -236,20 +239,25 @@ class CardRepository(PostgrestRepository):
 
     # 받은 수락함 -------------------------------------------------------------
     async def fetch_pending_acceptances(self, profile_id: UUID | str, days: int = 7,
-                                        *, now: datetime) -> list[dict]:
-        """내가 받은 수락 중 7일이 지나지 않았고 아직 답하지 않은 것(설계 §2.2, 2026-09-21 확정).
+                                        *, now: datetime) -> tuple[list[dict], list[dict]]:
+        """(아직 답하지 않은 것, 내가 수락으로 답한 것) — 내가 받은 수락 중 7일이 지나지 않은 것(설계 §2.2, 2026-09-21 확정).
+        둘째는 목록에 보이지 않는다. 수락 응답만 저장되고 매칭 쓰기가 끊긴 카드를 부르는 쪽이 이어 만들 때 쓴다 —
+        같은 한 번의 읽기에 decision 만 실어, 이어 만들 것이 없으면 읽기가 늘지 않는다.
         건수가 1인당 하루 0.3~0.5건이라 응답 여부는 파이썬에서 거른다 — 전용 SQL 함수를 만들지 않는다.
         card_decisions 와 acceptance_responses 사이에는 FK 가 없어(둘 다 daily_cards 만 가리킨다)
         곧바로 임베드하면 PGRST200 이다 — daily_cards 를 거쳐서 붙인다."""
         since = now.astimezone(timezone.utc) - timedelta(days=days)
         rows = await self._rows("card_decisions", {
             "select": "card_id,decided_at,"
-                      "daily_cards!inner(id,owner_id,target_id,acceptance_responses(card_id))",
+                      "daily_cards!inner(id,owner_id,target_id,acceptance_responses(card_id,decision))",
             "decision": "eq.accept",
             "decided_at": f"gte.{since.isoformat()}", "daily_cards.target_id": f"eq.{profile_id}",
             "order": "decided_at.desc",
         })
-        return [row for row in rows if not row["daily_cards"]["acceptance_responses"]]
+        pending = [row for row in rows if not row["daily_cards"]["acceptance_responses"]]
+        accepted = [row for row in rows
+                    if (row["daily_cards"]["acceptance_responses"] or {}).get("decision") == "accept"]
+        return pending, accepted
 
     async def fetch_sent_acceptances(self, profile_id: UUID | str, since: datetime, limit: int) -> list[dict]:
         """보낸 신청 — 내가 수락한 카드와 상대의 응답(거절도 행으로 남는다), 최신 순. 받은 수락함과 같은 길로

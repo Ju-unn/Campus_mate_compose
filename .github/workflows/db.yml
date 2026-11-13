@@ -1,0 +1,74 @@
+name: DB
+
+# 로컬 Supabase DB 를 띄워 마이그레이션 전부와 pgTAP 시험(supabase/tests)을 돌린다. 무거워서 supabase/ 가 바뀔 때만 돈다.
+# 필수 검사로 삼으려면 paths 를 떼야 한다 — paths 로 건너뛴 필수 검사는 "대기 중"으로 남아 merge 를 막는다.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/**'
+      - '.github/workflows/db.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/**'
+      - '.github/workflows/db.yml'
+
+# 받아서 러너 안의 DB 로 시험만 한다 — 쓰기 권한도 비밀값도 필요 없다. 운영 DB 에는 닿지 않는다.
+permissions:
+  contents: read
+
+# PR 은 PR 마다 한 묶음이라 새 커밋이 오면 앞 실행을 멈춘다. main push 는 커밋(sha)마다 묶음이 달라 서로 기다리지도 취소되지도 않는다.
+concurrency:
+  group: db-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  db-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # 아래 검사가 병합 커밋의 첫 부모(그때의 main)와 비교한다.
+          fetch-depth: 2
+
+      # 운영 DB 는 이름(숫자) 순서로 "마지막 적용 뒤의 것"만 적용한다. main 의 마지막보다 앞선 이름으로 끼어든 파일은 운영에 적용되지 않거나
+      # 순서가 뒤집히고, main 에 이미 있는 파일을 고치거나 지우면 운영에는 반영되지 않은 채 로컬 · CI 와 운영이 달라진다. PR 에서만 본다.
+      - name: 마이그레이션 검사(새 파일의 이름 · 순서, 기존 파일 수정 · 삭제 금지)
+        if: github.event_name == 'pull_request'
+        run: |
+          # PR 실행의 HEAD 는 GitHub 가 만든 "main + 이 PR" 병합 커밋이다. 첫 부모(HEAD^1)가 그때의 main 이라 둘의 차이가 곧 이 PR 이 바꾼 것이다.
+          # origin/main 을 새로 받아 비교하지 않는다 — 그 사이 main 에 들어온 다른 마이그레이션이 "이 PR 이 지운 파일"로 잘못 잡힌다.
+          if ! git rev-parse -q --verify 'HEAD^2' > /dev/null; then
+            echo "::error::HEAD 가 병합 커밋이 아니라 main 과 비교할 수 없다"
+            exit 1
+          fi
+          LATEST="$(git ls-tree --name-only 'HEAD^1' supabase/migrations/ | sed 's|.*/||' | grep -E '^[0-9]{14}_' | sort | tail -n 1)"
+          # 이름을 바꾼 것은 "지움 + 새 파일"로 본다(--no-renames).
+          CHANGED="$(git diff --no-renames --name-only --diff-filter=MD 'HEAD^1' HEAD -- supabase/migrations/ | sed 's|.*/||')"
+          ADDED="$(git diff --no-renames --name-only --diff-filter=A 'HEAD^1' HEAD -- supabase/migrations/ | sed 's|.*/||')"
+          BAD=0
+          for NAME in $CHANGED; do
+            echo "::error::main 에 이미 있는 마이그레이션을 고치거나 지웠다: $NAME — 그 파일은 그대로 두고, 바꿀 내용은 새 마이그레이션 파일로 낸다"
+            BAD=1
+          done
+          for NAME in $ADDED; do
+            if [[ ! "$NAME" =~ ^[0-9]{14}_.+\.sql$ ]]; then
+              echo "::error::마이그레이션 이름이 '14자리 숫자_이름.sql' 모양이 아니다: $NAME"
+              BAD=1
+            elif (( 10#${NAME:0:14} <= 10#${LATEST:0:14} )); then
+              echo "::error::마이그레이션 $NAME 의 숫자가 main 의 마지막($LATEST)보다 크지 않다 — 숫자(날짜 · 시각)를 그보다 뒤로 바꾼다"
+              BAD=1
+            fi
+          done
+          echo "main 의 마지막: $LATEST / 이 PR 이 더한 파일: ${ADDED:-없음} / 고치거나 지운 파일: ${CHANGED:-없음}"
+          exit "$BAD"
+
+      # 외부(제3자) 액션이라 태그 대신 커밋으로 고정한다(v3.2.0). CLI 는 개발 PC 와 같은 버전으로 고정한다.
+      - uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13
+        with:
+          version: 2.117.0
+      # DB 만 띄운다(마이그레이션 전부 적용). 마이그레이션이 깨졌으면 여기서 실패한다.
+      - run: supabase db start
+      - run: supabase test db

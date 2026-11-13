@@ -53,9 +53,10 @@ def social_user(user_id: str, provider: str = "kakao") -> dict:
 
 
 def temp_email_user(email: str = "hong@snu.ac.kr", user_id: str = TEMP,
-                    created_at: str | None = "2026-10-08T02:58:00Z") -> dict:
-    """방금(NOW 2분 전) 만든 임시 계정. 프로필은 없다(VerifyWorld.profiles 에 넣지 않는다)."""
-    return {"id": user_id, "email": email, "email_confirmed_at": "2026-10-08T02:59:00Z", "created_at": created_at,
+                    created_at: str | None = "2026-10-08T02:58:00Z",
+                    email_confirmed_at: str | None = "2026-10-08T02:59:00Z") -> dict:
+    """방금(NOW 2분 전) 만들고 1분 전에 번호를 맞힌 임시 계정. 프로필은 없다(VerifyWorld.profiles 에 넣지 않는다)."""
+    return {"id": user_id, "email": email, "email_confirmed_at": email_confirmed_at, "created_at": created_at,
             "app_metadata": {"provider": "email", "providers": ["email"]},
             "identities": [{"provider": "email", "identity_data": {"email": email, "sub": TEMP}}]}
 

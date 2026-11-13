@@ -15,7 +15,7 @@ show_info(logger)
 
 _DETAIL_MAX = 300
 _RAW_MAX = 200
-# 푸시 서버에 닿지 못했거나(연결 · 시간 초과 · 끊김) 구글 인증 토큰을 못 받은 경우. notify 가 이것만 삼킨다 — 그 밖의 예외는 코드 버그라 숨기지 않는다.
+# 푸시 서버에 닿지 못했거나(연결 · 시간 초과 · 끊김) 구글 인증 토큰을 못 받은 경우. notify 가 보내는 단계에서는 이것만 삼킨다 — 그 밖의 예외는 코드 버그라 숨기지 않는다(준비 단계의 실패는 notify 가 따로 삼킨다).
 _SEND_ERRORS = (httpx.HTTPError, GoogleAuthError)
 # 그중 서비스 계정(ADC) 설정이 깨진 경우 — 일시 장애가 아니라 모든 푸시가 안 가는 사고라 ERROR 로 따로 남긴다.
 _AUTH_ERRORS = (DefaultCredentialsError, RefreshError)
@@ -190,6 +190,26 @@ async def _record(repo, profile_id, kind: str, title: str, body: str, data: dict
         logger.exception("알림함 기록 실패 profile=%s kind=%s", profile_id, kind)
 
 
+async def _tokens_to_push(repo, profile_id, kind: str, title: str, body: str, data: dict[str, str],
+                          now: datetime, defer: bool, record: bool) -> list:
+    """notify 의 준비 단계 — 지금 푸시를 보낼 기기들. 보내지 않을 알림(정지 · 탈퇴 · 스위치 꺼짐 · 조용한 시간)이면 빈 목록."""
+    if await repo.fetch_profile_status(profile_id) in ("suspended", "withdrawn"):
+        # 조각 6: 정지 · 탈퇴 계정에는 어떤 알림도 보내지 않는다. 모든 푸시가 이 함수를 지나서 한 곳만 본다.
+        # 탈퇴는 토큰도 지우지만 best-effort 라 남을 수 있어 여기서 한 번 더 막는다.
+        return []
+    if record:
+        # 사용자 결정(2026-10-10): 스위치는 푸시만 끈다. 알림함에는 스위치와 상관없이 남아 종에서 다시 볼 수 있다.
+        await _record(repo, profile_id, kind, title, body, data)
+    settings = await repo.fetch_notification_settings(profile_id)
+    if not settings.get(kind, True):
+        return []
+    if settings.get("quiet_hours", _quiet_hours_default()) and kind not in _QUIET_HOURS_EXEMPT and _is_quiet(now):
+        if defer and kind in _DEFERRED:
+            await repo.insert_pending_push(profile_id, kind, title, body, data)
+        return []
+    return await repo.fetch_push_tokens(profile_id)
+
+
 async def notify(repo, sender: FcmSender, profile_id, kind: str,
                  title: str, body: str, data: dict[str, str], now: datetime, defer: bool = True,
                  record: bool = True) -> int:
@@ -198,23 +218,16 @@ async def notify(repo, sender: FcmSender, profile_id, kind: str,
 
     `defer=False` 면 조용한 시간에 보류하지 않고 옛날처럼 버린다 — 방금 화면에서 본 일을 알리는 자리용이다.
     `record=False` 는 알림함에 이미 남긴 알림을 다시 보내는 자리(아침 묶음)용이다 — 중복 기록을 막는다."""
-    if await repo.fetch_profile_status(profile_id) in ("suspended", "withdrawn"):
-        # 조각 6: 정지 · 탈퇴 계정에는 어떤 알림도 보내지 않는다. 모든 푸시가 이 함수를 지나서 한 곳만 본다.
-        # 탈퇴는 토큰도 지우지만 best-effort 라 남을 수 있어 여기서 한 번 더 막는다.
-        return 0
-    if record:
-        # 사용자 결정(2026-10-10): 스위치는 푸시만 끈다. 알림함에는 스위치와 상관없이 남아 종에서 다시 볼 수 있다.
-        await _record(repo, profile_id, kind, title, body, data)
-    settings = await repo.fetch_notification_settings(profile_id)
-    if not settings.get(kind, True):
-        return 0
-    if settings.get("quiet_hours", _quiet_hours_default()) and kind not in _QUIET_HOURS_EXEMPT and _is_quiet(now):
-        if defer and kind in _DEFERRED:
-            await repo.insert_pending_push(profile_id, kind, title, body, data)
+    try:
+        tokens = await _tokens_to_push(repo, profile_id, kind, title, body, data, now, defer, record)
+    except Exception as exc:
+        # 알림은 덤이다 — 준비(상태 · 스위치 · 보류 · 기기 읽기)가 DB 장애로 실패해도 부른 쪽 본 작업(메시지 · 수락 저장)이
+        # 500 이 되면 안 된다(앱이 다시 보내 두 번 저장된다). 예외 메시지에는 URL 이 들어 있을 수 있어 받는 사람 id · kind · 종류만 남긴다.
+        logger.warning("알림 준비 실패 profile=%s kind=%s | %s", profile_id, kind or "?", type(exc).__name__)
         return 0
 
     sent = 0
-    for token in await repo.fetch_push_tokens(profile_id):
+    for token in tokens:
         platform = getattr(token, "platform", "")
         try:
             result = await sender.send(token, title, body, data, kind=kind, platform=platform)
@@ -234,7 +247,12 @@ async def notify(repo, sender: FcmSender, profile_id, kind: str,
             sent += 1
         elif result == "dead":
             # 이 토큰은 방금 profile_id 로 꺼내 온 것이라 주인이 확실하다.
-            await repo.delete_push_token(token, profile_id)
+            try:
+                await repo.delete_push_token(token, profile_id)
+            except Exception as exc:
+                # 정리도 덤이다(위 준비 실패와 같은 이유) — 남은 토큰은 다음 알림 때 다시 죽은 것으로 나와 지워진다.
+                logger.warning("죽은 토큰 정리 실패 profile=%s kind=%s | %s", profile_id, kind or "?", type(exc).__name__)
+                continue
             logger.info("FCM 죽은 토큰 정리 kind=%s platform=%s token=%s", kind or "?", platform or "?", _mask(token))
     return sent
 

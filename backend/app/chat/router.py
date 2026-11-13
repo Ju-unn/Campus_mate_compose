@@ -267,8 +267,9 @@ async def send_message(match_id: str, body: MessageRequest,
     mine, partner = _sides(match, wiring.profile_id)
     _guard_writable(match, mine, partner)
 
-    message = await wiring.repo.insert_message(match_id, wiring.profile_id, body.body)
+    # 푸시 제목에 쓸 내 닉네임은 저장 **앞에서** 읽는다 — 저장 뒤에 읽다 실패하면 메시지는 남았는데 500 이 나가 앱이 다시 보내 두 줄이 된다.
     nickname = await wiring.repo.fetch_nickname(wiring.profile_id)
+    message = await wiring.repo.insert_message(match_id, wiring.profile_id, body.body)
     preview = body.body.replace("\n", " ")[:PUSH_PREVIEW_LENGTH]
     await _notify_message(wiring, partner, nickname, preview, match_id, now)
     return {"message": message}
@@ -279,6 +280,10 @@ async def mark_read(match_id: str, wiring: _Wiring = Depends(_wire)) -> dict:
     """방에 들어올 때와 나갈 때 한 번씩 부른다(ERD §4). 상대 화면의 읽음 '1' 이 이 시각으로 사라진다."""
     match = await wiring.repo.fetch_match(match_id, wiring.profile_id)
     if match is None:
+        raise HTTPException(status_code=404, detail=errors.CHAT_NOT_FOUND)
+    mine, _ = _sides(match, wiring.profile_id)
+    if mine["left_at"]:
+        # 나간 사람에게는 방이 없는 것과 같다(방 머리말 · 메시지 읽기와 같은 판단) — 읽음 시각도 더 움직이지 않는다.
         raise HTTPException(status_code=404, detail=errors.CHAT_NOT_FOUND)
 
     await wiring.repo.touch_read(match_id, wiring.profile_id, wiring.now)
