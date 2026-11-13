@@ -76,6 +76,8 @@ class _World:
     def __init__(self) -> None:
         self.posted: list[str] = []
         self.pushes = 0
+        # 내가 이미 수락으로 답해 둔 받은 신청의 보낸 사람들(매칭 쓰기가 끊긴 카드).
+        self.accepted_by_me: set[str] = set()
 
     def handle(self, request: httpx.Request) -> httpx.Response:
         path, params = request.url.path, request.url.params
@@ -96,7 +98,9 @@ class _World:
             return httpx.Response(200, json=[_profile(params["id"].removeprefix("eq."))])
         if table == "matches":
             return httpx.Response(200, json=[{"id": "match-0", "profile_a": ME, "profile_b": "matched",
-                                              "created_at": _decided_at(), "match_participants": []}])
+                                              "created_at": _decided_at(), "match_participants": [
+                                                  {"profile_id": ME, "left_at": None},
+                                                  {"profile_id": "matched", "left_at": None}]}])
         if table == "blocks":
             return httpx.Response(200, json=BLOCKS)
         if table == "profile_private":
@@ -119,7 +123,8 @@ class _World:
             return httpx.Response(200, json=[{
                 "card_id": f"card-{owner}", "decided_at": _decided_at(),
                 "daily_cards": {"id": f"card-{owner}", "owner_id": owner, "target_id": ME,
-                                "acceptance_responses": None},
+                                "acceptance_responses": {"card_id": f"card-{owner}", "decision": "accept"}
+                                if owner in self.accepted_by_me else None},
             } for owner in [*HIDDEN, VISIBLE]])
         if table == "push_tokens":
             return httpx.Response(200, json=[{"token": "tok"}])
@@ -220,6 +225,28 @@ def test_the_visible_accepter_still_makes_a_match(world, monkeypatch):
 
     assert response.json() == {"matched": True, "match_id": "match-1"}
     assert "matches" in world.posted
+
+
+@pytest.mark.parametrize("other", list(HIDDEN))
+def test_reading_the_list_never_finishes_a_match_with_a_hidden_accepter(world, other):
+    """목록을 읽을 때 끊긴 매칭을 이어 만드는 길도 수락 응답과 같은 관문을 지난다 — 숨은 상대 · 이미 매칭된 상대는 건너뛴다."""
+    world.accepted_by_me = {other}
+
+    response = TestClient(app).get("/cards/acceptances", headers=AUTH)
+
+    assert response.status_code == 200
+    assert world.posted == []
+    assert world.pushes == 0
+
+
+def test_reading_the_list_finishes_the_match_with_a_visible_accepter(world):
+    world.accepted_by_me = {VISIBLE}
+
+    body = TestClient(app).get("/cards/acceptances", headers=AUTH).json()
+
+    assert body["acceptances"] == []   # 답한 카드는 목록에 없다
+    assert (world.posted.count("matches"), world.posted.count("match_participants")) == (1, 1)
+    assert world.pushes == 2
 
 
 def test_blocks_are_read_once_per_request_not_per_card(world):
