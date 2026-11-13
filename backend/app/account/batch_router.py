@@ -27,8 +27,10 @@ WITHDRAWN_RETENTION = timedelta(days=30)
 # 소셜로 가입하고 학교 메일 확인을 이만큼 안 한 계정은 지운다(소셜 로그인 전환).
 UNVERIFIED_RETENTION_DAYS = 14
 REPORT_RETENTION = timedelta(days=365)
-# 문의는 답변 완료(answered_at) 후 이만큼 지나면 지운다. 아직 답하지 않은 문의는 남는다.
+# 문의는 답변 완료(answered_at) 후 이만큼 지나면 지운다.
 INQUIRY_RETENTION = timedelta(days=365)
+# 답하지 않은 문의(new · in_progress)는 접수(created_at) 후 이만큼 지나면 지운다(처리방침, 2026-11-13 사용자 결정).
+UNANSWERED_INQUIRY_RETENTION = timedelta(days=365)
 # 휴대폰 문자 인증 줄은 보낸 지 이만큼 지나면 지운다(계획서 문자인증_솔라피 §5 "기록은 짧게").
 PHONE_VERIFICATION_RETENTION = timedelta(days=30)
 # 학교 메일 verify 가 지우지 못한 임시 이메일 계정(provider=email 하나뿐, 프로필 없음)은 이만큼 뒤 지운다.
@@ -71,7 +73,7 @@ async def run_cleanup(accounts: AccountRepository, admin: SupabaseAdmin, now: da
     ① 탈퇴 30일 지난 계정: 버킷 다섯(STORAGE_BUCKETS)의 파일 → auth 사용자(profiles 는 cascade)
     ①-b 가입 14일이 지나도록 학교 메일 확인을 안 한 계정: ① 과 같은 길, 지우기 직전 재확인(deleted_unverified)
     ①-c 학교 메일 verify 가 못 지운 임시 이메일 계정 24시간 뒤(deleted_temp_email_accounts)
-    ② 처리 끝나고 1년 지난 신고(열린 신고는 남는다) · 답변 완료 후 1년 지난 문의(답 안 한 문의는 남는다) · 보낸 지 30일 지난
+    ② 처리 끝나고 1년 지난 신고(열린 신고는 남는다) · 답변 완료 후 1년 지난 문의 · 접수 후 1년 지난 답 안 한 문의 · 보낸 지 30일 지난
        문자 인증 줄 ③ 만료된 재가입 제한 ④ 옛 키 버전 지인 차단 세기(경고)
     ⑤ 검수 끝나고 60일 지난 하트 인증샷은 엔드포인트(run_cleanup_batch)가 이어서 지운다.
     ⑥ 글 속 취향 단어 칸이 빈 사람 다시 만들기도 엔드포인트가 한다(matching.vectors.refill_taste).
@@ -93,7 +95,8 @@ async def run_cleanup(accounts: AccountRepository, admin: SupabaseAdmin, now: da
     deleted_signup_blocks = await accounts.delete_signup_blocks_before(now)
     try:
         # 맨 뒤에 둔다 — 서버가 DB(inquiries 표)보다 먼저 배포돼 여기가 실패해도 위 정리는 이미 끝났다.
-        deleted_inquiries = await accounts.delete_inquiries_before(now - INQUIRY_RETENTION)
+        deleted_inquiries = await accounts.delete_inquiries_before(
+            now - INQUIRY_RETENTION, now - UNANSWERED_INQUIRY_RETENTION)
     except Exception as exc:
         logger.warning("문의 정리 실패 %s", type(exc).__name__)
         deleted_inquiries = 0

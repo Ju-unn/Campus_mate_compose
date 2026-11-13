@@ -4,6 +4,7 @@ from datetime import timedelta
 
 from account_world import BUCKETS, INFINITY, NOW, OLD, RECENT
 
+from app.account import batch_router
 from app.matching import vectors
 
 # conftest 가 구글 서명 확인을 가짜로 통과시킨다.
@@ -73,18 +74,58 @@ def test_reports_go_one_year_after_they_were_resolved_and_open_ones_stay(client,
     assert "created_at" not in world.calls("DELETE", "/rest/v1/reports")[0].url.params
 
 
-def test_inquiries_go_one_year_after_they_were_answered_and_unanswered_ones_stay(client, world):
-    """문의는 답변 완료(answered_at) 후 1년에 지운다. 아직 답하지 않은 문의는 몇 년이 지나도 남는다."""
+def test_answered_inquiries_go_one_year_after_they_were_answered_not_after_they_arrived(client, world):
+    """답한 문의는 답변 완료(answered_at) 후 1년에 지운다 — 접수가 2년 전이어도 답한 지 1년이 안 됐으면 남는다."""
     world.inquiries = [
-        {"id": "q-new", "answered_at": None},
-        {"id": "q-answered-old", "answered_at": NOW - timedelta(days=366)},
-        {"id": "q-answered-new", "answered_at": NOW - timedelta(days=364)},
+        {"id": "q-answered-old", "created_at": NOW - timedelta(days=800), "answered_at": NOW - timedelta(days=366)},
+        {"id": "q-answered-new", "created_at": NOW - timedelta(days=800), "answered_at": NOW - timedelta(days=364)},
+        {"id": "q-answered-edge", "created_at": NOW - timedelta(days=800), "answered_at": NOW - timedelta(days=365)},
     ]
 
     result = _run(client)
 
     assert result["deleted_inquiries"] == 1
-    assert [i["id"] for i in world.inquiries] == ["q-new", "q-answered-new"]
+    assert [i["id"] for i in world.inquiries] == ["q-answered-new", "q-answered-edge"]
+
+
+def test_unanswered_inquiries_go_one_year_after_they_arrived(client, world):
+    """처리방침(2026-11-13 사용자 결정): 답하지 않은 문의(new · in_progress)는 접수(created_at) 뒤 1년 보관 후 지운다.
+    정확히 365일째는 아직 남는다(`lt.` — 답한 문의 · 신고와 같은 경계)."""
+    world.inquiries = [
+        {"id": "q-364", "created_at": NOW - timedelta(days=364), "answered_at": None},
+        {"id": "q-365", "created_at": NOW - timedelta(days=365), "answered_at": None},
+        {"id": "q-366", "created_at": NOW - timedelta(days=366), "answered_at": None},
+    ]
+
+    result = _run(client)
+
+    assert result["deleted_inquiries"] == 1
+    assert [i["id"] for i in world.inquiries] == ["q-364", "q-365"]
+
+
+def test_answered_and_unanswered_inquiries_each_use_their_own_period(client, world, monkeypatch):
+    """두 기간을 서로 다르게 두면, 기준 시각이 서로 바뀌어 들어갈 때 이 시험이 떨어진다."""
+    monkeypatch.setattr(batch_router, "UNANSWERED_INQUIRY_RETENTION", timedelta(days=30))
+    world.inquiries = [
+        {"id": "q-answered-100", "created_at": NOW - timedelta(days=200), "answered_at": NOW - timedelta(days=100)},
+        {"id": "q-unanswered-100", "created_at": NOW - timedelta(days=100), "answered_at": None},
+    ]
+
+    result = _run(client)
+
+    assert result["deleted_inquiries"] == 1
+    assert [i["id"] for i in world.inquiries] == ["q-answered-100"]
+
+
+def test_inquiry_cleanup_sends_both_cutoffs_in_one_request(client, world):
+    """답한 문의는 answered_at, 답하지 않은 문의는 created_at 기준 — 한 요청의 or 조건으로 같이 간다."""
+    _run(client)
+
+    [request] = world.calls("DELETE", "/rest/v1/inquiries")
+    cutoff = (NOW - timedelta(days=365)).isoformat()
+    assert request.url.params["or"] == (
+        f"(answered_at.lt.{cutoff},and(answered_at.is.null,created_at.lt.{cutoff}))")
+    assert "answered_at" not in request.url.params
 
 
 def test_a_failing_inquiry_cleanup_does_not_stop_the_other_steps(client, world, caplog):

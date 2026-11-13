@@ -4,6 +4,7 @@
 "탈퇴 → 다시 부르면 401", "정리 → 다시 돌리면 0건" 처럼 앞 요청이 뒤 요청의 답을 바꾸는 흐름을 그대로 흉내 낸다.
 """
 import json
+import re
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -58,7 +59,7 @@ class AccountWorld:
         self.real_names: dict[str, str] = {}
         self.decrypt_bodies: list[dict] = []
         self.reports: list[dict] = []          # {id, created_at, resolved_at}
-        self.inquiries: list[dict] = []        # {id, answered_at} — answered_at 이 null 이면 아직 답하지 않은 문의
+        self.inquiries: list[dict] = []        # {id, created_at, answered_at} — answered_at 이 null 이면 아직 답하지 않은 문의
         self.phone_verifications: list[dict] = []  # {id, sent_at} — 휴대폰 문자 인증 줄
         self.signup_blocks: list[dict] = []    # {email_hmac, blocked_until}
         self.contact_key_versions: list[int] = []
@@ -308,8 +309,14 @@ class AccountWorld:
 
     def _inquiries(self, method, params, body):
         assert method == "DELETE"
-        cutoff = _when(params["answered_at"])
-        gone = [i for i in self.inquiries if i["answered_at"] is not None and i["answered_at"] < cutoff]
+        # 이 꼴만 받는다: or=(answered_at.lt.A,and(answered_at.is.null,created_at.lt.B)). SQL `<` 처럼 null 은 lt 에 걸리지 않는다.
+        found = re.fullmatch(r"\(answered_at\.lt\.([^,]+),and\(answered_at\.is\.null,created_at\.lt\.([^,)]+)\)\)",
+                             params["or"])
+        assert found, params
+        answered_cutoff, created_cutoff = (datetime.fromisoformat(value) for value in found.groups())
+        gone = [i for i in self.inquiries
+                if (i["answered_at"] is not None and i["answered_at"] < answered_cutoff)
+                or (i["answered_at"] is None and i["created_at"] < created_cutoff)]
         self.inquiries = [i for i in self.inquiries if i not in gone]
         return httpx.Response(200, json=[{"id": i["id"]} for i in gone])
 

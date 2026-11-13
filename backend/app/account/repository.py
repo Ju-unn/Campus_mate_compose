@@ -110,11 +110,13 @@ class AccountRepository(PostgrestRepository):
             "resolved_at": f"lt.{cutoff.isoformat()}", "select": "id",
         })
 
-    async def delete_inquiries_before(self, cutoff: datetime) -> int:
-        # 답변 완료 시각(answered_at)에서 1년이다. 답하지 않은 문의는 answered_at 이 null 이라(inquiries_status_pair) `lt.` 에 걸리지 않고 남는다.
+    async def delete_inquiries_before(self, answered_cutoff: datetime, unanswered_cutoff: datetime) -> int:
+        # 답한 문의는 답변 완료 시각(answered_at)이 answered_cutoff 전이면, 답하지 않은 문의(answered_at null —
+        # inquiries_status_pair)는 접수 시각(created_at)이 unanswered_cutoff 전이면 지운다. 한 요청이라 센 수가 한 번에 나온다.
         # ponytail: answered_at 인덱스 없음 — 문의가 수만 건이면 부분 인덱스 마이그레이션.
+        answered, unanswered = answered_cutoff.isoformat(), unanswered_cutoff.isoformat()
         return await self._delete_counted("inquiries", {
-            "answered_at": f"lt.{cutoff.isoformat()}", "select": "id",
+            "or": f"(answered_at.lt.{answered},and(answered_at.is.null,created_at.lt.{unanswered}))", "select": "id",
         })
 
     async def delete_phone_verifications_before(self, cutoff: datetime) -> int:
