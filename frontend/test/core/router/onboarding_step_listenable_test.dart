@@ -187,13 +187,65 @@ void main() {
     expect(notifyCount, 1);
   });
 
-  test('첫 조회부터 실패하면 04-1 로 대신하고 알린다 — 스플래시에 갇히지 않게', () async {
-    repository.nextResult = const FailureResult(NetworkFailure());
+  // 최종 점검 ⑦: 앱을 켤 때 단계 조회만 15초 초과 · 서버 오류로 실패하면 가입을 마친 사람도 04-1 에 갇혔다.
+  // 이제 "못 물어봄" 으로 두고 알린다 — 라우터가 01-1(다시 시도)로 보낸다.
+  for (final failure in const <Failure>[NetworkFailure(), ServerUnavailableFailure(), UnknownFailure()]) {
+    test('첫 조회가 ${failure.runtimeType} 로 실패하면 04-1 로 대신하지 않고 "못 물어봄" 으로 두고 알린다', () async {
+      repository.nextResult = FailureResult(failure);
+
+      await listenable.refresh();
+
+      expect(listenable.value, isNull);
+      expect(listenable.isUnreachable, isTrue);
+      expect(notifyCount, 1);
+    });
+  }
+
+  // 단계 조회는 관문(학교 메일 · 학과 · 재동의)을 넘어야 답한다 — 거절(403)은 "아직 가입을 시작 못 했다" 는 답이라 지금처럼 04-1 이다.
+  test('관문 전이라 서버가 거절하면 지금처럼 04-1 로 두고 "못 물어봄" 이 아니다', () async {
+    repository.nextResult = const FailureResult(ServerRejectedFailure('학과 정보를 먼저 입력해 주세요'));
 
     await listenable.refresh();
 
     expect(listenable.value, OnboardingStep.basicInfo);
+    expect(listenable.isUnreachable, isFalse);
     expect(notifyCount, 1);
+  });
+
+  test('못 물어본 뒤 다시 물어 성공하면 그 단계로 바꾸고 "못 물어봄" 을 푼다', () async {
+    repository.nextResult = const FailureResult(NetworkFailure());
+    await listenable.refresh();
+
+    repository.nextResult = const Success(OnboardingStep.complete);
+    await listenable.refresh();
+
+    expect(listenable.value, OnboardingStep.complete);
+    expect(listenable.isUnreachable, isFalse);
+    expect(notifyCount, 2);
+  });
+
+  test('실패가 이어져도 처음 한 번만 알리고 혼자 다시 묻지 않는다', () async {
+    repository.nextResult = const FailureResult(NetworkFailure());
+
+    await listenable.refresh();
+    await listenable.refresh();
+    await listenable.refresh();
+    await pumpEventQueue();
+
+    expect(repository.fetchCount, 3);
+    expect(listenable.isUnreachable, isTrue);
+    expect(notifyCount, 1);
+  });
+
+  test('reset 하면 "못 물어봄" 도 지운다', () async {
+    repository.nextResult = const FailureResult(NetworkFailure());
+    await listenable.refresh();
+
+    listenable.reset();
+
+    expect(listenable.value, isNull);
+    expect(listenable.isUnreachable, isFalse);
+    expect(notifyCount, 2);
   });
 
   test('아는 단계가 있으면 조회에 실패해도 그대로 둔다', () async {

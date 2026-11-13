@@ -381,6 +381,45 @@ void main() {
     });
   });
 
+  // 최종 점검 ⑦: 단계 조회만 실패하면(15초 초과 · 서버 오류) 예전에는 04-1 로 대신해 가입을 마친 사람도 04-1 에 갇혔다.
+  // 관문의 `unreachable` 과 같이 01-1 인터넷 없음(다시 시도)으로 보낸다.
+  group('관문은 통과했지만 온보딩 단계를 못 물어봤을 때', () {
+    const redirect = AuthRedirect(true, VerificationGate.complete, null, isOnboardingUnreachable: true);
+
+    test('04-1 이 아니라 01-1 로 보낸다', () {
+      for (final path in [AppRoutes.splash, AppRoutes.home, AppRoutes.onboardingBasicInfo]) {
+        expect(redirect.resolve(path), AppRoutes.offline, reason: path);
+      }
+    });
+
+    test('01-1 에 있으면 그대로 둔다', () {
+      expect(redirect.resolve(AppRoutes.offline), isNull);
+    });
+
+    test('다시 물어 단계를 알면 01-1 을 떠난다', () {
+      expect(const AuthRedirect(true, VerificationGate.complete, OnboardingStep.complete).resolve(AppRoutes.offline),
+          AppRoutes.home);
+      expect(const AuthRedirect(true, VerificationGate.complete, OnboardingStep.photos).resolve(AppRoutes.offline),
+          AppRoutes.onboardingPhotos);
+    });
+
+    test('관문이 남았으면 관문이 먼저다', () {
+      const gated = AuthRedirect(true, VerificationGate.needsSchoolInfo, null, isOnboardingUnreachable: true);
+
+      expect(gated.resolve(AppRoutes.splash), AppRoutes.schoolInfo);
+    });
+
+    test('정지 · 탈퇴 분기는 그대로다', () {
+      const suspended = AuthRedirect(true, VerificationGate.complete, null,
+          accountStatus: AccountStatus.suspended, isOnboardingUnreachable: true);
+      const withdrawn = AuthRedirect(true, VerificationGate.complete, null,
+          accountStatus: AccountStatus.withdrawn, isOnboardingUnreachable: true);
+
+      expect(suspended.resolve(AppRoutes.offline), AppRoutes.accountSuspended);
+      expect(withdrawn.resolve(AppRoutes.offline), isNull);
+    });
+  });
+
   group('정지된 계정(조각 6 A4)', () {
     test('suspended wins over onboarding default', () {
       // 정지면 온보딩 단계 조회가 403 이라 기본값 basicInfo 에 머문다 — 그래도 04-1 로 튀지 않는다.

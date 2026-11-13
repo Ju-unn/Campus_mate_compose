@@ -360,6 +360,7 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
       isAuthenticated: () => _authSession.isAuthenticated,
       verificationGate: () => _verificationGate.value,
       onboardingStep: () => _onboardingStep.value,
+      isOnboardingUnreachable: () => _onboardingStep.isUnreachable,
       isSplashHeld: _splashHold.isHolding,
       accountStatus: () => _accountStatus.value,
       isCohortWaiting: () => _cohortWaiting.value,

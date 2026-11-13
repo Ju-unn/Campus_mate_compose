@@ -1,11 +1,12 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/core/analytics/analytics_service.dart';
 import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/profile/onboarding/model/data/onboarding_step.dart';
 import 'package:campus_mate/profile/onboarding/model/repository/onboarding_repository.dart';
 import 'package:flutter/foundation.dart';
 
-/// 첫 조회가 실패했을 때 쓰는 비관적 기본값. 아직 아무것도 안 채운 것으로 본다.
-const OnboardingStep _defaultStep = OnboardingStep.basicInfo;
+/// 관문 전이라 서버가 단계 조회를 거절했을 때(403 학교 메일 · 학과 · 재동의) 쓰는 값. 관문을 넘어야 가입을 시작하니 아직 아무것도 안 채웠다.
+const OnboardingStep _beforeGateStep = OnboardingStep.basicInfo;
 
 /// 온보딩 다음 단계를 캐시하고, 바뀌면 go_router 재평가를 트리거한다
 /// ([VerificationGateListenable]과 같은 패턴 — 검증 게이트와 온보딩은 서로 다른 자원이라 별도로 둔다).
@@ -32,6 +33,11 @@ class OnboardingStepListenable extends ChangeNotifier {
 
   /// 뒤로가기로 돌아가 다시 보고 있는 앞 단계. 늘 [_cached] 보다 앞이다. 다시 보는 중이 아니면 null.
   OnboardingStep? _visiting;
+
+  /// 단계를 모르는데 조회가 실패했다(15초 초과 · 인터넷 없음 · 서버 오류). 라우터가 01-1(다시 시도)로 보낸다 — 관문의 `unreachable` 과 같다.
+  /// 예전에는 04-1 로 대신해 가입을 마친 사람도 04-1 에 갇혔다(최종 점검 ⑦). 혼자 다시 묻지 않는다 — 다시 시도 · 세션 변화 때 묻는다.
+  bool get isUnreachable => _unreachable;
+  bool _unreachable = false;
 
   /// 라우터가 묶는 단계. 아직 모르면 null.
   OnboardingStep? get value => _visiting ?? _cached;
@@ -78,6 +84,12 @@ class OnboardingStepListenable extends ChangeNotifier {
   /// 로그아웃 등으로 조회할 근거가 사라지면 다시 "모름" 으로 되돌린다. 다음 계정이 다시 보기를 물려받지 않게 함께 지운다.
   void reset() {
     _visiting = null;
+    // "못 물어봄" 은 단계를 모를 때만 선다 — 이미 모르는 상태라 [_cache] 가 알리지 않으니 여기서 알린다.
+    if (_unreachable) {
+      _unreachable = false;
+      notifyListeners();
+      return;
+    }
     _cache(null);
   }
 
@@ -87,10 +99,16 @@ class OnboardingStepListenable extends ChangeNotifier {
     result.when(
       onSuccess: _cache,
       // 아는 단계가 있으면 그대로 둔다 — 다음 저장 성공 때 다시 시도.
-      // 모르는데 실패했으면 04-1 로 대신한다 — 스플래시에 갇히지 않게(정지 · 재동의 · 인터넷 없음은 관문이 먼저 막는다).
-      onFailure: (_) {
-        if (_cached == null) {
-          _cache(_defaultStep);
+      // 모르는데 관문 전 거절이면 04-1(관문이 먼저 막는다), 그 밖의 실패는 "못 물어봄" — 스플래시에 갇히지도, 04-1 로 새지도 않게.
+      onFailure: (failure) {
+        if (_cached != null) {
+          return;
+        }
+        if (failure is ServerRejectedFailure) {
+          _cache(_beforeGateStep);
+        } else if (!_unreachable) {
+          _unreachable = true;
+          notifyListeners();
         }
       },
     );
@@ -103,6 +121,7 @@ class OnboardingStepListenable extends ChangeNotifier {
     _logProgress(step);
     _cached = step;
     if (step != null) {
+      _unreachable = false;
       _stepSince = _now();
     }
     // 서버 단계가 다시 보는 단계와 같거나 앞으로 바뀌면 다시 보기를 끝낸다 — 서버 단계 너머 화면에 머물지 않게.
