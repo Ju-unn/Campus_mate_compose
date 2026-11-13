@@ -42,13 +42,20 @@ def review_requests(monkeypatch) -> list[tuple]:
     return calls
 
 
-def _wire(handler, verification: str = "verified") -> TestClient:
+# 기본 가입자는 04-1 에서 번호를 저장했다(번호 해시가 있다).
+SAVED_PHONE = [{"phone_hmac": "\\x" + "ab" * 32}]
+
+
+def _wire(handler, verification: str = "verified", phone_rows: list[dict] = SAVED_PHONE) -> TestClient:
     def wrapped(request: httpx.Request) -> httpx.Response:
         url = str(request.url)
         if "/auth/v1/user" in url:
             return httpx.Response(200, json={"id": str(PROFILE_ID)})
         if "student_verification" in request.url.params.get("select", "") and request.method == "GET":
             return httpx.Response(200, json=[{"student_verification": verification, "department": "컴퓨터공학과", "school_email_verified_at": "2026-10-01T00:00:00+00:00"}])
+        if request.url.path == "/rest/v1/profile_private" and request.method == "GET":
+            assert request.url.params["profile_id"] == f"eq.{PROFILE_ID}"
+            return httpx.Response(200, json=phone_rows)
         return handler(request)
 
     app.dependency_overrides[get_client] = lambda: httpx.AsyncClient(transport=httpx.MockTransport(wrapped))
@@ -128,3 +135,19 @@ def test_redeem_rejects_blank_or_long_code_without_calling_db(code):
         "/referral/redeem", headers=AUTH_HEADERS, json={"code": code})
     assert response.status_code == 422
     assert called == []
+
+
+@pytest.mark.parametrize("phone_rows", [
+    pytest.param([{"phone_hmac": None}], id="no-phone-saved-yet"),
+    pytest.param([], id="no-private-row-yet"),
+])
+def test_redeem_refuses_before_the_phone_is_saved(phone_rows, review_requests):
+    """같은 번호 검사(redeem_referral)는 번호 해시가 있어야 돈다 — 번호를 저장하기 전에 코드를 넣으면 검사를 건너뛰어
+    한 번호로 계정을 바꿔 가며 50 · 25하트를 되풀이해 받았다(최종 점검 11-13 ①). 앱은 04-1(번호 저장) 뒤에만 화면 20 을 연다."""
+    called = []
+    response = _wire(lambda r: called.append(r) or httpx.Response(200, json=REFERRER_ID), phone_rows=phone_rows).post(
+        "/referral/redeem", headers=AUTH_HEADERS, json={"code": "K7QMX2"})
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == errors.REFERRAL_CODE_NOT_ALLOWED
+    assert called == [] and review_requests == []
