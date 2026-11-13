@@ -39,7 +39,9 @@ import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/analytics/screen_view_observer.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
+import 'package:campus_mate/core/offline/offline_screen.dart';
 import 'package:campus_mate/core/router/app_router.dart';
+import 'package:campus_mate/auth/gate/model/repository/verification_gate_repository_provider.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable.dart';
 import 'package:campus_mate/core/supabase/auth_session_listenable_provider.dart';
@@ -109,6 +111,7 @@ import '../../profile/onboarding/model/repository/fake_kakao_id_repository.dart'
 import '../../profile/bio/model/repository/fake_bio_repository.dart';
 import '../../profile/ideal/model/repository/fake_ideal_note_repository.dart';
 import '../../profile/onboarding/model/repository/fake_onboarding_repository.dart';
+import '../../auth/gate/model/repository/fake_verification_gate_repository.dart';
 import '../../profile/traits/model/repository/fake_survey_repository.dart';
 import '../analytics/fake_analytics_service.dart';
 import '../../safety/model/repository/fake_safety_repository.dart';
@@ -255,6 +258,53 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(HomeScreen), findsOneWidget);
+    expect(visited, isNot(contains(AppRoutes.onboardingBasicInfo)));
+  });
+
+  // 최종 점검 ⑦: 앱을 켤 때 단계 조회만 실패하면(15초 초과 · 서버 오류) 가입을 마친 사람도 04-1 에 갇혔다.
+  testWidgets('켤 때 단계 조회만 실패하면 04-1 이 아니라 01-1 을 띄우고, 다시 시도에 성공하면 홈으로 간다', (tester) async {
+    final steps = FakeOnboardingRepository()..nextResult = const FailureResult(NetworkFailure());
+    final stepCache = OnboardingStepListenable(steps);
+    addTearDown(stepCache.dispose);
+    final router = AppRouter.create(
+      isAuthenticated: () => true,
+      verificationGate: _passedGate,
+      onboardingStep: () => stepCache.value,
+      isOnboardingUnreachable: () => stepCache.isUnreachable,
+      refreshListenable: stepCache,
+    );
+    addTearDown(router.dispose);
+    final visited = <String>[];
+    router.routerDelegate.addListener(() => visited.add(router.state.matchedLocation));
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authSessionListenableProvider.overrideWithValue(FakeAuthSession(signedIn: true).listenable),
+          socialLoginRepositoryProvider.overrideWithValue(FakeSocialLoginRepository()),
+          onboardingStepListenableProvider.overrideWithValue(stepCache),
+          verificationGateRepositoryProvider.overrideWithValue(FakeVerificationGateRepository()),
+          cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
+          chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
+          homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+          notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
+        ],
+        child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router, theme: AppTheme.light()),
+      ),
+    );
+    await stepCache.refresh(); // 앱을 켤 때의 첫 조회(main.dart)
+    await tester.pumpAndSettle();
+
+    expect(find.byType(OfflineScreen), findsOneWidget);
+    expect(find.byType(BasicInfoScreen), findsNothing);
+    expect(steps.fetchCount, 1); // 혼자 다시 묻지 않는다 — 다시 시도를 눌러야 묻는다
+
+    steps.nextResult = const Success(OnboardingStep.complete);
+    await tester.tap(find.text('다시 시도'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(steps.fetchCount, 2);
     expect(visited, isNot(contains(AppRoutes.onboardingBasicInfo)));
   });
 
