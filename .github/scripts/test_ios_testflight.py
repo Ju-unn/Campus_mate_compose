@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 import contextlib
 import io
+import json
 import os
 import plistlib
 import re
@@ -346,19 +347,103 @@ class WorkflowTest(unittest.TestCase):
         self.assertEqual(list(triggers), ["workflow_dispatch"])
 
     def test_owner_only_read_only_serialized_environment(self):
-        self.assertEqual(self.wf["permissions"], {"contents": "read"})
+        # actions: read 는 첫 단계가 이 커밋의 Flutter 워크플로 실행 결과를 읽는 데만 쓴다.
+        self.assertEqual(self.wf["permissions"], {"contents": "read", "actions": "read"})
         self.assertEqual(self.job["if"], "github.triggering_actor == github.repository_owner")
         self.assertEqual(self.job["environment"], "ios-release")
         self.assertIs(self.wf["concurrency"]["cancel-in-progress"], False)
         self.assertEqual(self.job["runs-on"], "macos-latest")
         self.assertLessEqual(self.job["timeout-minutes"], 90)
 
-    def test_build_name_is_an_input_defaulting_to_the_release_version(self):
+    def test_build_name_is_a_required_input_without_a_default(self):
         # 앱 버전 이름(CFBundleShortVersionString)은 pubspec 의 version(1.0.0+1, 저장소 규칙)을 건드리지 않고 이 입력으로 정한다.
+        # 기본값을 두지 않는다 — 옛 버전 이름이 남아 있으면 그대로 눌러 이미 낸 버전으로 올리게 된다.
         build_name = self.wf[True]["workflow_dispatch"]["inputs"]["build_name"]
-        self.assertEqual(build_name["default"], "1.0.2")
+        self.assertNotIn("default", build_name)
         self.assertIs(build_name["required"], True)
         self.assertEqual(self.job["env"]["BUILD_NAME"], "${{ inputs.build_name }}")
+
+    # 첫 단계: 이 커밋에서 Flutter 워크플로(flutter.yml)가 돌았고 그 실행이 전부 끝나 success 일 때만 다음으로 간다.
+    # 검사 이름(analyze-test)으로 보지 않는다 — admin-web.yml 에도 같은 이름의 잡이 있어 그쪽만 초록이어도 통과하게 된다.
+    GATE_URL = "repos/$GITHUB_REPOSITORY/actions/workflows/flutter.yml/runs?head_sha=$GITHUB_SHA"
+    GATE_FILTER = (
+        'runs = json.load(sys.stdin.buffer)["workflow_runs"]',
+        'states = [r["status"] if r["status"] != "completed" else str(r["conclusion"]) for r in runs]',
+        'sys.exit(0 if states and set(states) == {"success"} else 1)',
+    )
+
+    # runs: 실행마다 (status, conclusion). 가짜 gh 는 GitHub 가 주는 모양의 JSON 을 거르지 않고 그대로 낸다 — 거르는 식은 단계의 진짜 코드가 돈다.
+    def run_gate(self, runs: list, gh_exit: int = 0) -> subprocess.CompletedProcess:
+        gate = self.steps[0]
+
+        def populate(work: Path) -> None:
+            gh = work / "bin" / "gh"
+            gh.write_text(
+                f'#!/bin/sh\necho "$@" >> "{(work / "calls.txt").as_posix()}"\ncat "{(work / "runs.json").as_posix()}"\nexit {gh_exit}\n',
+                encoding="utf-8",
+                newline="\n",
+            )
+            gh.chmod(0o755)
+            # 진짜 응답에는 한글 · 그림 문자가 든 커밋 제목이 섞여 온다 — 거르는 쪽이 글자 인코딩에 걸려 넘어지지 않아야 한다.
+            body = {
+                "total_count": len(runs),
+                "workflow_runs": [
+                    {"id": i, "name": "Flutter", "display_title": "✨ 한글 제목", "status": status, "conclusion": conclusion}
+                    for i, (status, conclusion) in enumerate(runs)
+                ],
+            }
+            (work / "runs.json").write_text(json.dumps(body, ensure_ascii=False), encoding="utf-8")
+
+        env = {"GITHUB_REPOSITORY": "owner/repo", "GITHUB_SHA": "abc123"}
+        with mock.patch.dict(os.environ, env):
+            done, files = self.run_step(gate, populate)
+        self.assertEqual(files["calls.txt"], "api repos/owner/repo/actions/workflows/flutter.yml/runs?head_sha=abc123\n")
+        return done
+
+    def test_first_step_reads_the_flutter_workflow_runs_before_anything_is_fetched(self):
+        gate = self.steps[0]
+        self.assertNotIn("uses", gate)
+        self.assertEqual(gate["env"], {"GH_TOKEN": "${{ github.token }}"})
+        # checkout 전이라 잡 기본 폴더(frontend)가 아직 없다.
+        self.assertEqual(gate["working-directory"], "${{ github.workspace }}")
+        # 건너뛰거나(if) 실패를 눈감는(continue-on-error) 설정이 붙으면 관문이 아니다.
+        self.assertNotIn("if", gate)
+        self.assertNotIn("continue-on-error", gate)
+        self.assertIn(f'gh api "{self.GATE_URL}" | python3 -c', gate["run"])
+        for line in self.GATE_FILTER:
+            self.assertIn(line + "\n", gate["run"])
+
+    def test_gate_passes_only_when_every_flutter_run_of_this_commit_succeeded(self):
+        for runs in ([("completed", "success")], [("completed", "success"), ("completed", "success")]):
+            done = self.run_gate(runs)
+            self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+
+    def test_gate_fails_on_a_failed_running_or_missing_flutter_run(self):
+        cases = (
+            [],
+            [("completed", "failure")],
+            [("completed", "success"), ("completed", "failure")],
+            [("completed", "cancelled")],
+            [("completed", "skipped")],
+            [("completed", None)],
+            [("in_progress", None)],
+            [("queued", None)],
+            [("completed", "success"), ("in_progress", None)],
+        )
+        for runs in cases:
+            done = self.run_gate(runs)
+            self.assertEqual(done.returncode, 1, runs)
+            self.assertIn("::error::", done.stdout)
+
+    def test_gate_fails_when_the_runs_cannot_be_read(self):
+        # gh 가 실패하면(권한 · 네트워크) 받은 내용이 멀쩡해 보여도 통과시키지 않는다.
+        done = self.run_gate([("completed", "success")], gh_exit=1)
+        self.assertEqual(done.returncode, 1)
+        self.assertIn("::error::", done.stdout)
+
+    def test_pub_get_follows_the_lockfile(self):
+        self.assertIn("flutter pub get --enforce-lockfile", self.runs)
+        self.assertNotIn("flutter pub get", self.runs)
 
     def test_build_name_shape_is_checked_before_the_build(self):
         build = self.step("flutter build ipa")["run"]
