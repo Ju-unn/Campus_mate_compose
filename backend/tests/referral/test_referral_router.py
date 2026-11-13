@@ -1,5 +1,6 @@
 """추천 코드 API(화면 20 · 홈탭 19). 검사 · 행 넣기 · 지급은 DB 함수가 하고 서버는 오류 코드만 HTTP 로 바꾼다."""
 import json
+import logging
 from uuid import UUID
 
 import httpx
@@ -151,3 +152,17 @@ def test_redeem_refuses_before_the_phone_is_saved(phone_rows, review_requests):
     assert response.status_code == 422
     assert response.json()["detail"] == errors.REFERRAL_CODE_NOT_ALLOWED
     assert called == [] and review_requests == []
+
+
+@pytest.mark.parametrize(("phone_rows", "rpc", "line"), [
+    pytest.param([], None, f"초대 코드 거절 reason=no_phone_hash profile={PROFILE_ID}", id="no-phone"),
+    pytest.param(SAVED_PHONE, "CM422", f"초대 코드 거절 reason=db_cm422 profile={PROFILE_ID}", id="db"),
+])
+def test_a_refused_code_logs_why_with_the_profile_id_only(phone_rows, rpc, line, caplog):
+    """두 거절은 사용자에게 같은 문구다(D4) — 운영 기록만 이유를 가른다. 코드 값은 남기지 않는다."""
+    with caplog.at_level(logging.WARNING, logger="app.referral"):
+        _wire(lambda r: _rpc_error(rpc), phone_rows=phone_rows).post(
+            "/referral/redeem", headers=AUTH_HEADERS, json={"code": "K7QMX2"})
+
+    assert [r.getMessage() for r in caplog.records if r.name.startswith("app.referral")] == [line]
+    assert "K7QMX2" not in caplog.text

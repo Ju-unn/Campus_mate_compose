@@ -11,6 +11,7 @@ from app.chat.realtime import Broadcaster
 from app.chat.repository import ChatRepository
 from app.core.batch_auth import verify_oidc_token
 from app.core.deps import get_client, get_settings
+from app.core.logs import show_info
 from app.core.time import SEOUL
 from app.graduate_verification.repository import GraduateRequestRepository
 from app.graduate_verification.retention import purge_graduate_photos
@@ -23,6 +24,8 @@ from app.student_verification.retention import purge_student_id_photos
 from app.student_verification.storage import StudentIdStorage
 
 logger = logging.getLogger(__name__)
+# 매시 요약(INFO)이 Cloud Run 로그에 보이게 한다 — core/logs.py.
+show_info(logger)
 
 router = APIRouter()
 
@@ -41,9 +44,12 @@ async def run_chat_gate(repo: ChatRepository, push_repo: CardRepository, sender:
     reminded = 0
     closed = 0
     passed = 0
-    for match in await repo.fetch_open_matches():
+    gone = 0
+    matches = await repo.fetch_open_matches()
+    for match in matches:
         participants = match["match_participants"]
         if any(gate.is_gone(p) for p in participants):
+            gone += 1
             continue
 
         if gate.is_passed([p["trust_response"] for p in participants]):
@@ -77,6 +83,8 @@ async def run_chat_gate(repo: ChatRepository, push_repo: CardRepository, sender:
             # 알림을 끈 사람은 0 이 돌아온다 — 보낸 사람만 센다.
             reminded += 1 if sent else 0
 
+    logger.info("매시 채팅 배치 열린 방=%s 건너뜀(나감·정지)=%s 도장=%s 닫음=%s 리마인드=%s",
+                len(matches), gone, passed, closed, reminded)
     return {"reminded": reminded, "closed": closed, "passed": passed}
 
 

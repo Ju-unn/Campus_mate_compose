@@ -4,7 +4,7 @@ import logging
 import httpx
 import pytest
 
-from app.core.postgrest import PostgrestRepository
+from app.core.postgrest import POSTGREST_MAX_ROWS, PostgrestRepository, read_all_pages
 
 URL = "https://x.supabase.co/rest/v1"
 KEY = "enc-key-SECRET"
@@ -33,3 +33,28 @@ async def test_a_decrypt_failure_is_logged_with_only_the_profile_id_and_status_t
     assert line == f"profile_private 복호화 실패 profile_id={PROFILE} status=500"
     for secret in (KEY, PLAINTEXT, "supabase.co", "service-key"):
         assert secret not in caplog.text
+
+
+async def test_read_all_pages_logs_how_many_pages_and_rows_it_read(caplog):
+    """db-max-rows 넘김 읽기가 운영에서 실제로 몇 쪽 · 몇 줄을 읽었는지 한 줄(배치 하나에 한 번)."""
+    pages = [[{"id": i} for i in range(POSTGREST_MAX_ROWS)], [{"id": POSTGREST_MAX_ROWS}], []]
+
+    async def fetch(_params: dict) -> list[dict]:
+        return pages.pop(0)
+
+    with caplog.at_level(logging.INFO, logger="app.core.postgrest"):
+        rows = await read_all_pages(fetch, "id")
+
+    assert len(rows) == POSTGREST_MAX_ROWS + 1
+    assert [r.getMessage() for r in caplog.records if r.name == "app.core.postgrest"] == [
+        f"쪽 넘김 읽기 key=id 쪽=3 줄={POSTGREST_MAX_ROWS + 1}"]
+
+
+@pytest.mark.parametrize("name", ["app.billing.router", "app.cards.issuing", "app.chat.batch_router",
+                                  "app.core.postgrest"])
+def test_info_lines_of_these_loggers_reach_cloud_run(name):
+    """운영 루트 로거는 WARNING 이라 INFO 는 로거가 직접 수준 · 핸들러를 달아야 보인다(core/logs.show_info)."""
+    import app.main  # noqa: F401 — 라우터 모듈을 모두 불러온다
+
+    logger = logging.getLogger(name)
+    assert logger.level == logging.INFO and logger.handlers

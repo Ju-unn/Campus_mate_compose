@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime, timedelta
 
 import httpx
@@ -192,6 +193,18 @@ async def test_a_room_someone_left_is_skipped_by_both_passes():
     quiet = {"reminded": 0, "closed": 0, "passed": 0}
     assert await _Run([gone]).at(datetime(2026, 9, 21, 14, 0, tzinfo=SEOUL)) == quiet
     assert await _Run([gone]).at(MATCHED_AT + timedelta(hours=49)) == quiet
+
+
+async def test_the_run_logs_one_summary_line(caplog):
+    gone = _match(participants=[
+        {"profile_id": A, "trust_response": None, "left_at": "2026-09-20T20:00:00+09:00", "last_read_at": None},
+        {"profile_id": B, "trust_response": None, "left_at": None, "last_read_at": None},
+    ])
+    caplog.set_level(logging.INFO, logger="app.chat.batch_router")
+    await _Run([_match(), gone]).at(MATCHED_AT + timedelta(hours=49))
+
+    assert [r.getMessage() for r in caplog.records if r.name == "app.chat.batch_router"] == [
+        "매시 채팅 배치 열린 방=2 건너뜀(나감·정지)=1 도장=0 닫음=1 리마인드=0"]
 
 
 async def test_a_failing_push_does_not_stop_the_rest_of_the_run():

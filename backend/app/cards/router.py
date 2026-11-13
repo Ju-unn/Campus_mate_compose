@@ -325,7 +325,10 @@ async def get_acceptances(wiring: _Wiring = Depends(_wire)) -> dict:
             accepter = await wiring.repo.fetch_card_profile(accepter_id)
             # 수락 응답(respond_to_acceptance)과 같은 관문 — 그사이 차단 · 정지 · 탈퇴 · 가림이면 조용히 건너뛴다.
             if accepter and not _hidden_from_cards(accepter_id, accepter, blocked):
-                await _make_match(wiring, accepter_id, accepter, now)
+                match = await _make_match(wiring, accepter_id, accepter, now)
+                # 평소에는 안 나와야 하는 줄이다 — 나오면 수락 응답 뒤 매칭 쓰기가 끊긴 일이 있었다.
+                logger.warning("끊긴 매칭 이어 만듦 card=%s match=%s profile=%s accepter=%s",
+                               row["card_id"], match["id"], wiring.profile_id, accepter_id)
         except Exception as exc:
             # 이어 만들기는 덤이다 — 실패해도 목록은 그대로 내려가고 다음에 읽을 때 다시 해 본다. 카드 번호와 예외 종류만 남긴다.
             logger.warning("매칭 이어 만들기 실패 card=%s | %s", row["card_id"], type(exc).__name__)

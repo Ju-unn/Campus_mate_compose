@@ -147,6 +147,55 @@ def test_logs_never_contain_the_token_or_order_id(google, rpc, consume, caplog):
     assert TOKEN not in caplog.text and ORDER not in caplog.text
 
 
+# L1 · 운영 기록 — 구글이 productId 를 실제로 주는지 기록으로 판단한다(값은 찍지 않는다) ------------------
+
+def _info(caplog, prefix: str) -> str:
+    (message,) = [r.getMessage() for r in caplog.records if r.levelno == logging.INFO and r.getMessage().startswith(prefix)]
+    return message
+
+
+def _assert_no_purchase_values(caplog):
+    for secret in (TOKEN, ORDER, account_token(PROFILE_ID)):
+        assert secret not in caplog.text, secret
+
+
+def test_the_google_answer_is_logged_by_key_names_when_product_id_is_missing(caplog):
+    caplog.set_level(logging.INFO)
+    google = _purchase()
+    del google["productId"]
+    test_client, _ = _wire(google, rpc=GRANTED)
+    assert _verify(test_client).status_code == 200
+
+    message = _info(caplog, "구글 구매 조회 응답")
+    assert f"profile={PROFILE_ID}" in message and "product=heart_100" in message
+    assert f"keys={sorted(google)}" in message
+    assert "has_product_id=False" in message and "product_match=None" in message
+    assert "state=0" in message and "consumption=0" in message
+    _assert_no_purchase_values(caplog)
+
+
+@pytest.mark.parametrize("google_product, match", [("heart_100", True), ("heart_50", False)])
+def test_the_google_answer_says_whether_its_product_id_matches(google_product, match, caplog):
+    caplog.set_level(logging.INFO)
+    test_client, _ = _wire(_purchase(productId=google_product), rpc=GRANTED)
+    _verify(test_client)
+
+    message = _info(caplog, "구글 구매 조회 응답")
+    assert "has_product_id=True" in message and f"product_match={match}" in message
+    _assert_no_purchase_values(caplog)
+
+
+def test_a_grant_is_logged_with_its_result_and_hearts(caplog):
+    caplog.set_level(logging.INFO)
+    test_client, _ = _wire(_purchase(), rpc=GRANTED)
+    _verify(test_client)
+
+    message = _info(caplog, "구글 구매 지급")
+    assert f"profile={PROFILE_ID}" in message and "product=heart_100" in message
+    assert "result=granted" in message and "hearts=100" in message and "bonus_hearts=50" in message
+    _assert_no_purchase_values(caplog)
+
+
 # V3 · 재전송 ------------------------------------------------------------------------------------
 
 def test_the_same_token_already_consumed_is_answered_without_consuming_again():

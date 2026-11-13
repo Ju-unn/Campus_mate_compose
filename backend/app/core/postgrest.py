@@ -8,9 +8,12 @@ from collections.abc import Awaitable, Callable
 
 import httpx
 
+from app.core.logs import show_info
 from app.profile_onboarding.encryption import decrypt_profile_private
 
 logger = logging.getLogger(__name__)
+# 배치가 읽은 쪽 · 줄 수(INFO)가 Cloud Run 로그에 보이게 한다 — core/logs.py.
+show_info(logger)
 
 # PostgREST 의 db-max-rows(supabase/config.toml max_rows = 1000). 몇 줄을 달라 해도 한 번에 이만큼만 주고, 잘랐다고 알리지 않는다.
 POSTGREST_MAX_ROWS = 1000
@@ -21,12 +24,16 @@ async def read_all_pages(fetch_page: Callable[[dict], Awaitable[list[dict]]], ke
     key(유일한 칸) 순으로 정렬하고 앞 쪽 마지막 값 뒤부터(keyset) 읽는다 — offset 과 달리 읽는 사이 줄이 빠져도 건너뛰는 사람이 없다.
     빈 쪽이 와야 끝이다 — 덜 찬 쪽에서 멈추면 운영 max_rows 가 limit 보다 작게 설정됐을 때 다시 조용히 잘린다(요청이 한 번 는다)."""
     rows: list[dict] = []
+    pages = 0
     while True:
         params = {"order": f"{key}.asc", "limit": str(POSTGREST_MAX_ROWS)}
         if rows:
             params[key] = f"gt.{rows[-1][key]}"
         page = await fetch_page(params)
+        pages += 1
         if not page:
+            # 쪽 수가 줄 수/1000 보다 크면 운영 max_rows 가 limit 보다 작다는 뜻이다(위 설명).
+            logger.info("쪽 넘김 읽기 key=%s 쪽=%s 줄=%s", key, pages, len(rows))
             return rows
         rows += page
 

@@ -59,18 +59,21 @@ def apple_api_dependency(settings: Settings = Depends(get_settings),
     return AppleApi(client, *keys) if all(keys) else None
 
 
-def _vouches(transaction: dict, body: AppleVerifyRequest) -> bool:
-    """애플이 서명한 거래가 '이 요청의 상품을 결제한 소모품 한 개'인가. 환불 여부(있으면 422 purchase_revoked) ·
-    계정(다르면 409)은 따로 본다."""
-    return (transaction.get("environment") in _ENVIRONMENTS
-            and transaction.get("transactionId") == body.transaction_id
-            and transaction.get("bundleId") == apple.BUNDLE_ID
-            # 지급량은 요청의 상품으로 정한다 — 애플의 상품과 같아야 한다.
-            and transaction.get("productId") == body.product_id
-            and transaction.get("type") == "Consumable"
-            and transaction.get("inAppOwnershipType") == "PURCHASED"
-            and transaction.get("quantity", 1) == 1
-            and isinstance(transaction.get("purchaseDate"), int))
+def _failed_checks(transaction: dict, body: AppleVerifyRequest) -> list[str]:
+    """애플이 서명한 거래가 '이 요청의 상품을 결제한 소모품 한 개'인가 — 못 넘은 검사 이름(비면 통과). 이름은 운영 기록에 남는다.
+    환불 여부(있으면 422 purchase_revoked) · 계정(다르면 409)은 따로 본다."""
+    checks = {
+        "environment": transaction.get("environment") in _ENVIRONMENTS,
+        "transaction": transaction.get("transactionId") == body.transaction_id,
+        "bundle": transaction.get("bundleId") == apple.BUNDLE_ID,
+        # 지급량은 요청의 상품으로 정한다 — 애플의 상품과 같아야 한다.
+        "product": transaction.get("productId") == body.product_id,
+        "type": transaction.get("type") == "Consumable",
+        "ownership": transaction.get("inAppOwnershipType") == "PURCHASED",
+        "quantity": transaction.get("quantity", 1) == 1,
+        "purchase_date": isinstance(transaction.get("purchaseDate"), int),
+    }
+    return [name for name, passed in checks.items() if not passed]
 
 
 @router.post("/billing/apple/verify", response_model=None)
@@ -97,9 +100,10 @@ async def verify_apple_purchase(
         # 거절(422)하지 않고 503 으로 둔다. 앱은 거래를 끝내지 않고 나중에 다시 보낸다.
         logger.error("애플 거래 서명 검증 실패 profile=%s product=%s reason=%s", caller.profile_id, body.product_id, exc)
         return _error(503, errors.BILLING_UNAVAILABLE, errors.CODE_BILLING_UNAVAILABLE)
-    if transaction is None or not _vouches(transaction, body):
-        logger.warning("확인되지 않는 애플 거래 profile=%s product=%s found=%s",
-                       caller.profile_id, body.product_id, transaction is not None)
+    failed = [] if transaction is None else _failed_checks(transaction, body)
+    if transaction is None or failed:
+        logger.warning("확인되지 않는 애플 거래 profile=%s product=%s found=%s failed=%s",
+                       caller.profile_id, body.product_id, transaction is not None, failed)
         return _error(422, errors.PURCHASE_INVALID, errors.CODE_PURCHASE_INVALID)
     if transaction.get("revocationDate") is not None:
         # 환불된 거래 — 누구에게도 줄 하트가 없어 계정 대조보다 먼저 본다. 앱은 이 code 에서만 거래를 끝낸다(하트 없음).
@@ -122,6 +126,9 @@ async def verify_apple_purchase(
     if result not in ("granted", "already_granted"):
         # 지급 여부를 모르면 성공이라 하지 않는다 — 앱은 500 을 받고 거래를 끝내지 않는다(다음에 다시 보낸다).
         raise RuntimeError(f"grant_store_purchase 가 계약 밖의 결과를 돌려줬다: {result!r}")
+    logger.info("애플 구매 지급 profile=%s product=%s environment=%s result=%s hearts=%s bonus_hearts=%s",
+                caller.profile_id, body.product_id, transaction["environment"], result,
+                outcome.get("hearts"), outcome.get("bonus_hearts"))
     return {key: outcome[key] for key in ("result", "hearts", "bonus_hearts", "heart_balance")}
 
 

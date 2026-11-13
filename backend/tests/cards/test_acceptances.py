@@ -345,6 +345,14 @@ def test_reading_the_list_finishes_a_match_whose_write_was_cut_off():
     assert [b["event"] for b in world.broadcasts] == ["room_changed", "room_changed"]
 
 
+def test_a_finished_match_is_logged_once_with_ids_only(caplog):
+    with caplog.at_level(logging.WARNING, logger="app.cards.router"):
+        _Unfinished().read_list()
+
+    assert [record.getMessage() for record in caplog.records if record.name == "app.cards.router"] == [
+        f"끊긴 매칭 이어 만듦 card=card-1 match=match-1 profile={PROFILE_ID} accepter={OTHER_ID}"]
+
+
 def test_reading_the_list_twice_makes_one_match_and_notifies_once():
     world = _Unfinished()
 
