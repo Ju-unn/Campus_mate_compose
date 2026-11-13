@@ -372,6 +372,24 @@ def test_sending_stores_the_message_and_pushes_once():
     assert calls.pushes[0]["notification"]["body"] == "안녕하세요"
 
 
+def test_a_failing_nickname_read_does_not_leave_a_stored_message_behind_an_error():
+    """내 닉네임 읽기(푸시 제목)가 실패하면 오류 응답이다 — 그때 메시지가 이미 저장돼 있으면 앱이 다시 보내 두 줄이 된다.
+    그래서 저장보다 먼저 읽는다: 오류면 아무것도 남지 않는다."""
+    calls = _Calls()
+    handler = _handler(calls, _match())
+
+    def nickname_down(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/rest/v1/profiles" and request.url.params.get("select") == "nickname":
+            return httpx.Response(503, json={})
+        return handler(request)
+
+    response = _wire(nickname_down).post(
+        f"/chat/matches/{MATCH_ID}/messages", json={"body": "안녕하세요"}, headers=AUTH_HEADERS)
+
+    assert response.status_code >= 500
+    assert (calls.messages, calls.pushes, calls.broadcasts) == ([], [], [])
+
+
 def test_no_push_when_the_partner_is_looking_at_the_room():
     """결정 5: 방을 보고 있으면 보내지 않는다. 방금 읽음이 찍힌 것으로 판정한다."""
     looking = _match(participants=[
@@ -650,6 +668,45 @@ def test_read_mark_patches_my_participant_row():
 
     assert response.status_code == 200
     assert any("last_read_at" in patch for _, patch in calls.patches)
+
+
+def test_read_mark_after_i_left_is_404_and_patches_nothing():
+    """나간 사람에게는 방이 없는 것과 같다(방 머리말 · 메시지 읽기와 같은 판단) — 읽음 시각도 더 움직이지 않는다."""
+    calls = _Calls()
+    left = _match(participants=[
+        {"profile_id": PROFILE_ID, "trust_response": None, "left_at": "2026-09-22T13:40:00+09:00",
+         "last_read_at": None},
+        {"profile_id": PARTNER_ID, "trust_response": None, "left_at": None, "last_read_at": None},
+    ])
+
+    response = _wire(_handler(calls, left)).patch(f"/chat/matches/{MATCH_ID}/read", headers=AUTH_HEADERS)
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "대화를 찾을 수 없어요"
+    assert (calls.patches, calls.broadcasts) == ([], [])
+
+
+@pytest.mark.parametrize(("method", "path", "body"), [
+    ("GET", "/messages", None),
+    ("POST", "/messages", {"body": "안녕하세요"}),
+    ("PATCH", "/read", None),
+    ("POST", "/leave", None),
+    ("POST", "/trust", None),
+])
+def test_someone_elses_room_is_404_on_every_path_and_nothing_is_written(method, path, body):
+    """남의 방 id 를 찍어 보는 시도 — 메시지 읽기 · 보내기 · 읽음 · 나가기 · 신뢰 수락 모두 방이 없는 것처럼 답하고 아무것도 남기지 않는다."""
+    calls = _Calls()
+    stranger = _match(participants=[
+        {"profile_id": "other-a", "trust_response": None, "left_at": None, "last_read_at": None},
+        {"profile_id": "other-b", "trust_response": None, "left_at": None, "last_read_at": None},
+    ])
+
+    response = _wire(_handler(calls, stranger, messages=[{"id": "msg-1", "body": "남의 대화"}])).request(
+        method, f"/chat/matches/{MATCH_ID}{path}", json=body, headers=AUTH_HEADERS)
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "대화를 찾을 수 없어요"}
+    assert (calls.messages, calls.patches, calls.pushes, calls.kept, calls.broadcasts) == ([], [], [], [], [])
 
 
 # 조각 6: 상대 정지 --------------------------------------------------------------------
