@@ -1,4 +1,4 @@
--- 문의하기(inquiries) 검증: 권한(default deny) · check 제약 · 탈퇴 시 set null · 답변 완료 1년 정리 조건.
+-- 문의하기(inquiries) 검증: 권한(default deny) · check 제약 · 탈퇴 시 set null · 1년 정리 조건(답변 완료 · 답 안 한 문의 접수).
 -- 마이그레이션 20261110200000_create_inquiries. 로컬 스택에서 `supabase test db` 로 돌린다.
 -- 트랜잭션 안에서만 돌고 rollback 으로 흔적을 남기지 않는다.
 begin;
@@ -138,26 +138,32 @@ select is(
   true, '탈퇴하면 문의 행은 남고 profile_id 만 null 이 된다'
 );                                                                                                   -- 21
 
--- 4. 보관 정리: 답변 완료 후 1년 (배치가 보내는 delete 조건과 같다) -----------------------
+-- 4. 보관 정리: 답변 완료 후 1년 · 답 안 한 문의는 접수 후 1년 (배치가 보내는 delete 조건과 같다) ---------
 insert into public.inquiries (id, reason, body, reply_email, status, answered_at, created_at) values
   ('00000000-0000-0000-0000-00000000b001', 'bug', '오래전 답변', 'x@example.com', 'answered',
    now() - interval '400 days', now() - interval '401 days'),
   ('00000000-0000-0000-0000-00000000b002', 'bug', '최근 답변', 'x@example.com', 'answered',
    now() - interval '10 days', now() - interval '500 days'),
   ('00000000-0000-0000-0000-00000000b003', 'bug', '오래전 미답변', 'x@example.com', 'new',
-   null, now() - interval '500 days');
+   null, now() - interval '500 days'),
+  ('00000000-0000-0000-0000-00000000b004', 'bug', '최근 미답변', 'x@example.com', 'in_progress',
+   null, now() - interval '10 days');
 
 set local role service_role;
--- 배치(delete_inquiries_before)가 보내는 조건과 같다. 문장으로 먼저 실행한 뒤 남은 행을 센다.
-delete from public.inquiries where answered_at < now() - interval '365 days';
+-- 배치(delete_inquiries_before)가 보내는 or 조건과 같다(2026-11-13 부터 답 안 한 문의도 접수 1년 뒤 지운다).
+-- 문장으로 먼저 실행한 뒤 남은 행을 센다.
+delete from public.inquiries
+ where answered_at < now() - interval '365 days'
+    or (answered_at is null and created_at < now() - interval '365 days');
 select is(
-  (select count(*) from public.inquiries where id = '00000000-0000-0000-0000-00000000b001'),
-  0::bigint, '답변 완료 후 1년이 지난 행만 지워진다'
+  (select count(*) from public.inquiries
+    where id in ('00000000-0000-0000-0000-00000000b001', '00000000-0000-0000-0000-00000000b003')),
+  0::bigint, '답변 완료 후 1년 지난 문의와 접수 1년 넘은 답 안 한 문의는 지워진다'
 );                                                                                                   -- 22
 select is(
   (select count(*) from public.inquiries
-    where id in ('00000000-0000-0000-0000-00000000b002', '00000000-0000-0000-0000-00000000b003')),
-  2::bigint, '최근 답변과 아직 답하지 않은 오래된 문의는 남는다'
+    where id in ('00000000-0000-0000-0000-00000000b002', '00000000-0000-0000-0000-00000000b004')),
+  2::bigint, '최근 답변 문의(접수는 오래전)와 접수 1년 안 된 답 안 한 문의는 남는다'
 );                                                                                                   -- 23
 reset role;
 select is(
