@@ -150,11 +150,17 @@ done
 
 `DISCORD_REPORT_WEBHOOK_URL`(`discord-report-webhook-url`, 신고 전용 채널 — 비어 있으면 신고 알림만 건너뛰고 경고 로그) · `KAKAO_ADMIN_KEY` · `VERIFICATION_HOOK_SECRET`(`verification-hook-secret`, 학생증 검토 결과 훅의 공유 비밀 — 비어 있으면 `/hooks/verification-reviewed` 가 모든 요청을 막는다)은 비어도 서버는 뜬다(그 기능만 건너뛰거나 닫힌다). **`PHONE_ENCRYPTION_KEY` 는 전화번호 · 실명 · 카카오톡 아이디 암호화에 같이 쓴다**(같은 키, §4-4 · `docs/SUPABASE.md` §8) — 이 키를 바꾸면 전화번호 · 실명 · 카톡 암호문을 모두 다시 암호화해야 한다
 
-### 그 밖의 배포 규칙 (업로드 제외 목록 · Auth OTP · 인증 없는 배포)
+### 그 밖의 배포 규칙 (업로드 제외 목록 · Auth OTP · 인증 메일 발송 · 인증 없는 배포)
 
 **업로드는 `.gcloudignore`, 이미지는 `.dockerignore` — 둘 다 맞춘다.** `gcloud run deploy --source .` 는 제외 목록을 두 군데에서 본다. ① PC 에서 클라우드로 올리는 **업로드** 단계는 `backend/.gcloudignore`, ② 올라간 뒤 **이미지를 만드는**(Dockerfile `COPY`) 단계는 `backend/.dockerignore` 다. 서로 다른 파일이라 **한쪽만 고치면 다른 단계에는 반영되지 않는다 — 제외할 것을 바꿀 때는 두 파일을 같이 맞춘다.** `.gcloudignore` 는 `.gcloudignore` · `.git` · `.gitignore` · `.venv/` · `__pycache__/` · `*.pyc` · `.pytest_cache/` · `*.egg-info/` · `tests/` · `.env` · `.env.*`(가상환경 · 시험 · 비밀값 파일)를 뺀다. `Dockerfile` · `pyproject.toml` · `constraints.txt`(2026-11-13 #726, 의존성 버전 고정, §4-29) · `app/` 은 이미지에 필요하니 **어느 쪽 목록에도 넣지 않는다.** **배포 뒤 확인**: Cloud Build 로그(콘솔 또는 `gcloud builds log <빌드 ID>`)에 `inflating: /workspace/.venv` 가 한 줄도 없어야 한다 — 보이면 `.gcloudignore` 가 빠졌거나 어긋난 것이다(정상이면 업로드가 170 파일 · 1MB 안팎이다, §3). 이미 쌓인 업로드 zip · 이미지는 §4-24 의 자동 삭제 규칙(업로드 버킷 30일, 이미지 창고 최근 15개 보존)이 맡고, 되돌릴 수 있는 리비전의 하한도 거기서 정해진다.
 
 **Auth OTP expiry — Supabase 대시보드 Authentication 설정의 OTP 유효시간을 300초(5분)로 맞춘다.** 기본값(3600초)과 앱의 인증 코드 화면 카운트다운(5분)이 어긋나 있었다(운영에서는 아직 3600초, 승인 대기 중).
+
+**학교 메일 인증번호 발송 — 우리 서버가 아니라 Supabase Auth 가 직접 보낸다(2026-11-13 발송 방식 변경, 대장 전달 값).** 그래서 서버 Secret Manager · env 와 무관하다(문의 알림 메일 `INQUIRY_SMTP_*` 와도 따로다, §4-25). Supabase 대시보드 Authentication 의 SMTP 를 **Google Workspace 발신 전용 계정**(`smtp.gmail.com` 포트 465, 앱 비밀번호)으로 바꿨고, 메일 도메인의 DNS(Vercel)에 SPF(`v=spf1 include:_spf.google.com ~all`) · DKIM(`google._domainkey` 이름의 레코드) · DMARC(`v=DMARC1; p=none`)를 등록했다. 받은편지함에 도착하는 것을 확인했다. 발신 계정 주소 · 비밀번호 · 도메인 이름은 이 문서에 적지 않는다. 대시보드 설정이라 마이그레이션 파일이 없다(`docs/SUPABASE.md` §9).
+
+- **주의 — 그 발신 계정의 비밀번호를 바꾸거나 2단계 인증을 끄면 앱 비밀번호가 무효가 되어 인증 메일이 멈춘다**(학교 메일 가입 · 로그인이 막힌다). 계정을 만지기 전에 새 앱 비밀번호를 만들어 Supabase SMTP 설정에 바로 넣을 수 있게 준비한다.
+- **한도**: Supabase 의 메일 시간당 한도는 100 이다. 300 으로 올리길 권했고 **올렸는지는 확인하지 못했다(확인 필요)** — 가입이 몰리면 한도에 걸려 메일이 안 간다.
+- **점검**: 새 계정으로 학교 메일 인증번호를 받아 받은편지함(스팸함이 아니라)에 오는지 본다. 이 문서 담당은 메일을 보내 보지 않았다.
 
 `--allow-unauthenticated` 로 배포한다 — Supabase HTTP Auth Hook은 GCP IAM 아이덴티티 토큰을 발급할 수 없어서, IAM 인증을 걸면 훅 호출 자체가 막힌다. 대신 요청 인증은 Standard Webhooks HMAC 서명 검증 + timestamp ±5분 범위 검사(코드에 구현됨)가 담당한다.
 

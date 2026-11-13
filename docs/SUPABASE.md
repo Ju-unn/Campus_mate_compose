@@ -79,3 +79,7 @@
 - **키 로그 노출 점검**: `pg_stat_statements` · Postgres 로그에 `pgp_sym_encrypt` / `pgp_sym_decrypt` 의 키 인자가 `$1` 같은 자리표시자로만 보이는지, `log_statement` · `auto_explain` 이 인자 값을 남기지 않는지 본다. 운영 점검 결과: RPC 문장은 본문이 파라미터라 키가 평문으로 남지 않았고, 운영 `log_statement` 는 `ddl` 이다
 - **대시보드에서 손으로 복호화해야 할 때**: `select * from public.decrypt_profile_private('<profile_id>', '<키>');` — 키를 SQL 창에 붙여넣는 일 자체가 감사 대상이라 실행 전후로 사유를 운영 기록에 남긴다. 평소 원칙은 "운영자는 `profile_private` 를 FastAPI 관리 기능으로만 본다"(ERD_DECISIONS §11-18)
 - M2(평문 열 · 백필 함수 삭제)는 되돌릴 수 없다. 실행 기록 · 롤백 주의는 `backend/DEPLOY.md` §4-4 "M2 실행 기록"
+
+## 9. Auth 인증 메일 발송(SMTP) — 대시보드 설정
+
+학교 메일 인증번호 메일은 Supabase Auth 가 직접 보낸다(우리 서버 · Secret Manager 와 무관). 2026-11-13 에 Authentication 의 SMTP 를 Google Workspace 발신 전용 계정(`smtp.gmail.com` 465, 앱 비밀번호)으로 바꿨고, 도메인 DNS 에 SPF · DKIM · DMARC 를 등록했다(대장 전달 값). 대시보드 설정이라 마이그레이션 파일이 없고, 값 · 주소 · 비밀번호는 문서에 적지 않는다. **발신 계정의 비밀번호 변경 · 2단계 인증 끄기는 앱 비밀번호를 무효로 만들어 인증 메일을 멈춘다.** 시간당 메일 한도(100, 300 으로 올릴지는 확인 필요)와 레코드 값 · 점검 방법은 `backend/DEPLOY.md` §2 "그 밖의 배포 규칙".
