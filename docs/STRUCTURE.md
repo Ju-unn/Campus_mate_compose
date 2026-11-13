@@ -18,6 +18,7 @@
 | `e2e/` | 통합 시험 하네스(파이썬). 로컬 시험에 쓴다. `E2E_ENV` 의 `SUPABASE_URL` 이 운영이 아니면 gcloud(운영 프로젝트)를 부르는 길을 모두 막는다(`e2e/tools.py` `require_cloud`). 04-1 문자 인증을 거치는 기기 E2E 7건은 로컬 서버의 가짜 발송기 로그에서 인증번호를 읽는다(`e2e/phone_sms.py`, 준비물은 `frontend/run.md`). 점수 기준 모델의 흡연 규칙은 옛 규칙 그대로다(e2e 계정은 `accepts_smoker` 가 null 이라 결과는 같다, `frontend/run.md`). |
 | `site/` | 소개 페이지(홈페이지 `campus-mates.com`). `site/privacy/` 는 노션 개인정보 처리방침의 **사본**이라, **노션 방침을 고치면 이 사본도 같이 고친다**(`docs/decisions/2026-10-20-launch-day-decisions.md` §3). 바닥글 사업자 정보(`site/index.html`, 2026-10-27 에 채움)는 방침 맨 아래 회사 정보와 같은 값이어야 한다 |
 | `docs/` | 앱·서버가 공통으로 참조하는 설계 문서 |
+| `.github/workflows/` | CI(2026-11-13 #726 에서 서버 · DB 를 더했다). `flutter.yml`(잡 `analyze-test`) · `backend.yml`(잡 `backend-test`, `constraints.txt` 로 깔고 pytest) · `db.yml`(잡 `db-test`, 로컬 Supabase 로 마이그레이션 + pgTAP, `supabase/` 가 바뀔 때만) · `ios-build.yml` · `ios-testflight.yml`(그 커밋의 `flutter.yml` 이 성공해야 진행) · `admin-web.yml` · `site.yml`. **main 보호 규칙의 필수 검사는 `analyze-test` · `backend-test`**(관리자 포함, force push · 삭제 금지). 자세한 것은 `backend/DEPLOY.md` §4-29 |
 
 ## 기술 스택
 
