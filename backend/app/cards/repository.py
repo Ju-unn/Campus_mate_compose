@@ -158,7 +158,7 @@ class CardRepository(PostgrestRepository):
         rows = await self._rows("daily_cards", {
             "id": f"eq.{card_id}",
             "select": "id,owner_id,target_id,source,issued_at,expires_at,"
-                      "card_decisions(decision,decided_at),acceptance_responses(responder_id)",
+                      "card_decisions(decision,decided_at),acceptance_responses(responder_id,decision)",
         })
         return rows[0] if rows else None
 
@@ -236,20 +236,25 @@ class CardRepository(PostgrestRepository):
 
     # 받은 수락함 -------------------------------------------------------------
     async def fetch_pending_acceptances(self, profile_id: UUID | str, days: int = 7,
-                                        *, now: datetime) -> list[dict]:
-        """내가 받은 수락 중 7일이 지나지 않았고 아직 답하지 않은 것(설계 §2.2, 2026-09-21 확정).
+                                        *, now: datetime) -> tuple[list[dict], list[dict]]:
+        """(아직 답하지 않은 것, 내가 수락으로 답한 것) — 내가 받은 수락 중 7일이 지나지 않은 것(설계 §2.2, 2026-09-21 확정).
+        둘째는 목록에 보이지 않는다. 수락 응답만 저장되고 매칭 쓰기가 끊긴 카드를 부르는 쪽이 이어 만들 때 쓴다 —
+        같은 한 번의 읽기에 decision 만 실어, 이어 만들 것이 없으면 읽기가 늘지 않는다.
         건수가 1인당 하루 0.3~0.5건이라 응답 여부는 파이썬에서 거른다 — 전용 SQL 함수를 만들지 않는다.
         card_decisions 와 acceptance_responses 사이에는 FK 가 없어(둘 다 daily_cards 만 가리킨다)
         곧바로 임베드하면 PGRST200 이다 — daily_cards 를 거쳐서 붙인다."""
         since = now.astimezone(timezone.utc) - timedelta(days=days)
         rows = await self._rows("card_decisions", {
             "select": "card_id,decided_at,"
-                      "daily_cards!inner(id,owner_id,target_id,acceptance_responses(card_id))",
+                      "daily_cards!inner(id,owner_id,target_id,acceptance_responses(card_id,decision))",
             "decision": "eq.accept",
             "decided_at": f"gte.{since.isoformat()}", "daily_cards.target_id": f"eq.{profile_id}",
             "order": "decided_at.desc",
         })
-        return [row for row in rows if not row["daily_cards"]["acceptance_responses"]]
+        pending = [row for row in rows if not row["daily_cards"]["acceptance_responses"]]
+        accepted = [row for row in rows
+                    if (row["daily_cards"]["acceptance_responses"] or {}).get("decision") == "accept"]
+        return pending, accepted
 
     async def fetch_sent_acceptances(self, profile_id: UUID | str, since: datetime, limit: int) -> list[dict]:
         """보낸 신청 — 내가 수락한 카드와 상대의 응답(거절도 행으로 남는다), 최신 순. 받은 수락함과 같은 길로

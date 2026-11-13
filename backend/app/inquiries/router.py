@@ -5,13 +5,14 @@
 """
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, field_validator
 
 from app.core import errors
 from app.core.deps import Caller, get_caller, get_now
+from app.core.rate_window import SlidingWindow
 from app.inquiries import mailer
 from app.inquiries.reasons import BODY_MAX, DAILY_INQUIRY_LIMIT, EMAIL_MAX, REPLY_EMAIL, Reason
 from app.inquiries.repository import InquiryRepository
@@ -24,6 +25,10 @@ router = APIRouter()
 MAIL_WAIT_SECONDS = 15
 # 그 안에서 쓴 사람 닉네임 읽기를 기다리는 최대 시간. 늦으면 '알 수 없음' 으로 보내 메일 보낼 시간을 남긴다.
 AUTHOR_WAIT_SECONDS = 3
+# 계정 번호로 한 번 더 세는 하루 상한. profiles 행이 없는 계정의 문의는 profile_id 없이 저장돼(repository.insert) 아래 DB 로
+# 세는 상한이 늘 0 이다. 키에 날짜를 넣어 DB 상한처럼 한국 시간 0시에 다시 센다.
+# shortcut: 프로세스 안 dict 라 한도가 인스턴스별이다(core/rate_window) — Cloud Run 이 N 대면 N 배까지 느슨하다, 실제로 뚫리면 DB 카운터로.
+_ACCOUNT_DAILY = SlidingWindow(DAILY_INQUIRY_LIMIT, timedelta(hours=24), errors.INQUIRY_DAILY_LIMIT)
 
 
 class InquiryRequest(BaseModel):
@@ -64,7 +69,13 @@ async def create_inquiry(
     if await repo.count_since(account_id, today, DAILY_INQUIRY_LIMIT) >= DAILY_INQUIRY_LIMIT:
         raise HTTPException(status_code=429, detail=errors.INQUIRY_DAILY_LIMIT)
 
-    inquiry_id = await repo.insert(account_id, body.reason, body.body, body.reply_email)
+    slot = f"{account_id}|{today.date()}"
+    _ACCOUNT_DAILY.hold(slot, now)
+    try:
+        inquiry_id = await repo.insert(account_id, body.reason, body.body, body.reply_email)
+    except Exception:
+        _ACCOUNT_DAILY.release(slot, now)  # 저장이 안 된 시도는 세지 않는다
+        raise
     try:
         # 닉네임 읽기까지 합쳐 MAIL_WAIT_SECONDS 하나 안에서 끝낸다.
         await asyncio.wait_for(_notify(settings, repo, inquiry_id, body, str(account_id), now), MAIL_WAIT_SECONDS)

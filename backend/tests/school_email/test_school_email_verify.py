@@ -9,6 +9,7 @@ import httpx
 import pytest
 
 from app.core import errors
+from app.school_email.router import _caller_provider
 from app.signup_policy import bytea_literal, hash_email
 from verify_world import (AUTH, IDENTITY_KEY, ME, NOW, OTHER, OTHER_TOKEN, SNU, TEMP, TEMP_TOKEN, VerifyWorld, jwt,
                           settings, social_user, temp_email_user)
@@ -47,6 +48,32 @@ def test_the_callers_social_provider_goes_to_the_db_function(client, world, prov
 
     assert _verify(client).status_code == 200
     assert world.rpc_bodies[0]["p_provider"] == provider
+
+
+@pytest.mark.parametrize(("app_metadata", "expected"), [
+    ({"provider": "kakao", "providers": ["kakao"]}, "kakao"),
+    ({"provider": "apple"}, "apple"),
+    # 이메일로 먼저 생긴 계정에 소셜을 연결하면 GoTrue 는 provider 를 email 로 두고 providers 에만 소셜을 붙인다.
+    ({"provider": "email", "providers": ["email", "google"]}, "google"),
+    ({"provider": "email", "providers": ["email", "github", "apple", "kakao"]}, "apple"),
+    ({"providers": ["kakao"]}, "kakao"),
+    ({"provider": "email", "providers": ["email"]}, None),
+    ({"provider": "email", "providers": None}, None),
+    ({"provider": "email", "providers": "google"}, None),
+    ({"provider": "email", "providers": [None, 7, {"provider": "google"}]}, None),
+    ({"provider": "email"}, None),
+    ({}, None),
+])
+def test_the_callers_social_login_is_the_provider_or_else_the_first_social_in_providers(app_metadata, expected):
+    assert _caller_provider({"app_metadata": app_metadata}) == expected
+
+
+def test_an_email_first_account_with_a_linked_social_login_can_verify(client, world):
+    """연결 계정(provider=email, providers 에 google)이 '소셜 계정만'(403)으로 막히지 않는다 — DB 함수에는 연결한 소셜이 간다."""
+    world.tokens["user-token"]["app_metadata"] = {"provider": "email", "providers": ["email", "google"]}
+
+    assert _verify(client).status_code == 200
+    assert world.rpc_bodies[0]["p_provider"] == "google"
 
 
 def test_case_and_spaces_in_the_school_email_give_the_same_hash(client, world):
@@ -573,15 +600,29 @@ async def test_the_delete_helper_rechecks_the_identities(identities):
     assert world.deleted_users == []
 
 
-@pytest.mark.parametrize("created_at", ["2026-10-08T02:00:00Z", None, "어제"])
-async def test_the_delete_helper_rechecks_that_it_was_created_just_now(created_at):
-    """③ 30분보다 오래됐거나 생성 시각을 못 읽으면 임시 계정이 아니다."""
+@pytest.mark.parametrize(("email_confirmed_at", "created_at"), [
+    ("2026-10-08T02:00:00Z", "2026-10-08T02:58:00Z"),   # 번호를 맞힌 지 30분이 넘었다
+    ("어제", "2026-10-08T02:58:00Z"),                    # 맞힌 시각을 못 읽는다 — 생성 시각으로 물러나지 않는다
+    (None, "2026-10-08T02:00:00Z"),                     # 맞힌 시각이 없으면 생성 시각을 본다 — 오래됐다
+    (None, None), (None, "어제"),
+])
+async def test_the_delete_helper_rechecks_that_the_code_was_confirmed_just_now(email_confirmed_at, created_at):
+    """③ 번호를 처음 맞힌 지 30분이 넘었거나 그 시각을 못 읽으면 임시 계정이 아니다."""
     world = VerifyWorld()
-    world.tokens[TEMP_TOKEN]["created_at"] = created_at
+    world.tokens[TEMP_TOKEN].update(email_confirmed_at=email_confirmed_at, created_at=created_at)
 
     await _run_delete_helper(world)
 
     assert world.deleted_users == []
+
+
+async def test_the_delete_helper_deletes_a_temp_account_made_long_before_its_code_was_confirmed():
+    world = VerifyWorld()
+    world.tokens[TEMP_TOKEN]["created_at"] = "2026-10-08T02:00:00Z"   # 만든 지 60분, 번호는 1분 전에 맞혔다
+
+    await _run_delete_helper(world)
+
+    assert world.deleted_users == [TEMP]
 
 
 async def test_the_delete_helper_rechecks_that_there_is_no_profile():
@@ -620,7 +661,9 @@ OLD_TOKEN = jwt({"sub": "99999999-9999-9999-9999-999999999999", "amr": [{"method
 
 
 def _old_email_account(world: VerifyWorld, created_at: str = "2026-03-02T00:00:00Z", with_profile: bool = True) -> None:
-    world.tokens[OLD_TOKEN] = temp_email_user(user_id=OLD_EMAIL_USER, created_at=created_at)
+    """옛 이메일 가입 계정 — 가입하던 때(created_at) 번호도 맞혔다."""
+    world.tokens[OLD_TOKEN] = temp_email_user(user_id=OLD_EMAIL_USER, created_at=created_at,
+                                              email_confirmed_at=created_at)
     if with_profile:
         world.profiles[OLD_EMAIL_USER] = {"status": "active", "university_id": SNU,
                                           "school_email_verified_at": "2026-03-02T00:00:00+00:00"}
@@ -653,11 +696,21 @@ def test_an_unreadable_profile_check_counts_as_a_profile(client, world):
     _assert_taken_by_an_email_account_and_untouched(_verify(client, OLD_TOKEN), world)
 
 
-@pytest.mark.parametrize("created_at", ["2026-10-08T02:00:00Z", "2026-10-08T02:29:00Z", None, "모름"])
-def test_an_email_account_older_than_30_minutes_is_409_and_never_deleted(client, world, created_at):
-    _old_email_account(world, created_at=created_at, with_profile=False)
+@pytest.mark.parametrize("confirmed_at", ["2026-10-08T02:00:00Z", "2026-10-08T02:29:00Z", "모름"])
+def test_an_email_account_confirmed_more_than_30_minutes_ago_is_409_and_never_deleted(client, world, confirmed_at):
+    """프로필이 없어도, 번호를 처음 맞힌 지 30분이 넘은 이메일 계정은 임시 계정이 아니라 실제 계정으로 본다."""
+    _old_email_account(world, created_at=confirmed_at, with_profile=False)
 
     _assert_taken_by_an_email_account_and_untouched(_verify(client, OLD_TOKEN), world)
+
+
+def test_a_code_entered_long_after_it_was_requested_still_verifies(client, world):
+    """임시 계정은 번호를 **요청한** 때 생긴다. 메일을 늦게 보거나 다시 받아 30분 넘겨 입력해도, 번호를 맞힌 지
+    얼마 안 됐으면 임시 계정이다 — 예전에는 생성 시각을 봐서 409 로 막히고 정리 배치가 지울 때까지 하루를 기다렸다."""
+    world.tokens[TEMP_TOKEN]["created_at"] = "2026-10-08T02:00:00Z"   # 요청한 지 60분, 번호는 1분 전에 맞혔다
+
+    assert _verify(client).status_code == 200
+    assert world.deleted_users == [TEMP]
 
 
 def test_a_fresh_temp_account_still_verifies_and_is_deleted_once(client, world):

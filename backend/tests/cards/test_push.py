@@ -784,6 +784,57 @@ async def test_a_bug_in_the_sender_is_not_swallowed():
         await notify(repo, _sender(handler), "p1", "new_message", "제", "본", {}, now=NOON)
 
 
+class _BrokenRepo(_FakeRepo):
+    """broken 에 적힌 저장소 호출 하나가 DB 장애처럼 터진다."""
+
+    def __init__(self, broken: str, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        async def down(*_):
+            raise RuntimeError("db down https://x.supabase.co/rest/v1/secret-path")
+
+        setattr(self, broken, down)
+
+    async def insert_notification(self, *_):
+        """알림함 기록은 된다 — 그 실패는 _record 가 따로 삼킨다(test_push_inbox)."""
+
+
+@pytest.mark.parametrize("broken", [
+    "fetch_profile_status", "fetch_notification_settings", "insert_pending_push", "fetch_push_tokens",
+])
+async def test_a_database_error_while_preparing_a_push_does_not_break_notify(broken, caplog):
+    """알림 준비(상태 · 스위치 · 보류 · 기기 읽기)가 실패해도 예외가 올라가지 않는다 — 메시지 · 수락은 이미 저장됐는데
+    500 이 나가면 앱이 다시 보내 두 번 저장된다. 0 을 돌려주고 받는 사람 id · kind · 예외 종류만 한 줄 남긴다."""
+    caplog.set_level(logging.WARNING, logger="app.cards.push")
+    # 밤 + 방해 금지 + 보류되는 kind 라 네 호출을 모두 지난다(기기 읽기는 낮에만 — 아래에서 시각을 고른다).
+    repo = _BrokenRepo(broken, ["tok"], {"acceptance_received": True, "quiet_hours": True})
+    sender, pushes = _recording_sender()
+
+    sent = await notify(repo, sender, "p1", "acceptance_received", "제목-비밀", "본문-비밀", {},
+                        now=NOON if broken == "fetch_push_tokens" else NIGHT)
+
+    assert sent == 0
+    assert pushes == []
+    assert [(record.levelno, record.getMessage()) for record in caplog.records] == [
+        (logging.WARNING, "알림 준비 실패 profile=p1 kind=acceptance_received | RuntimeError"),
+    ]
+    for secret in ("제목-비밀", "본문-비밀", "supabase"):
+        assert secret not in caplog.text, secret
+
+
+async def test_a_failing_dead_token_cleanup_does_not_break_notify(caplog):
+    """죽은 토큰 지우기도 덤이다 — 실패해도 이미 간 알림 수를 그대로 돌려준다(다음 알림 때 다시 지운다)."""
+    caplog.set_level(logging.WARNING, logger="app.cards.push")
+    repo = _BrokenRepo("delete_push_token", ["dead", "tok"], _ON)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        dead = json.loads(request.content)["message"]["token"] == "dead"
+        return httpx.Response(404 if dead else 200, json={})
+
+    assert await notify(repo, _sender(handler), "p1", "new_message", "제", "본", {}, now=NOON) == 1
+    assert [record.getMessage() for record in caplog.records] == ["죽은 토큰 정리 실패 profile=p1 kind=new_message | RuntimeError"]
+
+
 # ---- 죽은 토큰 정리 기록(L7) ---------------------------------------------------------------------------------------
 
 async def test_cleaning_a_dead_token_leaves_one_info_line_without_the_raw_token(caplog):

@@ -123,15 +123,20 @@ async def test_pending_acceptances_drop_already_answered_ones():
                              "acceptance_responses": None}},
             {"card_id": "c2", "decided_at": "2026-09-20T07:00:00+00:00",
              "daily_cards": {"id": "c2", "owner_id": "o2", "target_id": "me",
-                             "acceptance_responses": {"card_id": "c2"}}},
+                             "acceptance_responses": {"card_id": "c2", "decision": "accept"}}},
+            {"card_id": "c3", "decided_at": "2026-09-20T07:00:00+00:00",
+             "daily_cards": {"id": "c3", "owner_id": "o3", "target_id": "me",
+                             "acceptance_responses": {"card_id": "c3", "decision": "reject"}}},
         ])
 
     repo, _ = _repo(handler)
-    pending = await repo.fetch_pending_acceptances("me", now=NOW)
+    pending, accepted = await repo.fetch_pending_acceptances("me", now=NOW)
 
     assert [p["card_id"] for p in pending] == ["c1"]
+    # 내가 수락으로 답한 것은 따로 돌려준다 — 매칭 쓰기가 끊긴 카드를 목록을 읽을 때 이어 만든다. 거절한 것은 어디에도 없다.
+    assert [p["card_id"] for p in accepted] == ["c2"]
     # card_decisions 에서 acceptance_responses 로 바로 가면 PGRST200 이라 daily_cards 를 거쳐야 한다.
-    assert "daily_cards!inner(id,owner_id,target_id,acceptance_responses(card_id))" in select[0]
+    assert "daily_cards!inner(id,owner_id,target_id,acceptance_responses(card_id,decision))" in select[0]
     # 기한은 "7일"이 아니라 실제 시각으로 나가야 한다 — 숫자를 그대로 보내면 PostgREST 가 전부 돌려준다.
     cutoff = datetime.fromisoformat(seen[0].removeprefix("gte."))
     assert cutoff == NOW.astimezone(timezone.utc) - timedelta(days=7)

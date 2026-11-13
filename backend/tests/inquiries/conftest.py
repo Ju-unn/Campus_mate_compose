@@ -5,6 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.deps import get_client, get_now, get_settings
+from app.inquiries.router import _ACCOUNT_DAILY
 from app.main import app
 from inquiry_world import NOW, InquiryWorld, settings
 
@@ -62,5 +63,6 @@ def client(world: InquiryWorld):
     app.dependency_overrides[get_settings] = lambda: settings()
     app.dependency_overrides[get_client] = lambda: http
     app.dependency_overrides[get_now] = lambda: NOW
+    _ACCOUNT_DAILY.times.clear()  # 계정별 하루 상한은 프로세스 안에 산다 — 앞 시험의 문의가 뒤 시험을 429 로 만들지 않게 비운다
     yield TestClient(app)
     app.dependency_overrides.clear()

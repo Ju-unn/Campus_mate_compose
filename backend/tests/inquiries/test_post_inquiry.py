@@ -1,10 +1,14 @@
 """문의하기 `POST /inquiries`. 저장이 기준이다 — 메일 알림은 덤이라 실패해도 201 이다."""
 import json
+from datetime import timedelta
 
 import pytest
 
 from app.core import errors
-from inquiry_world import ME, STRANGER, USER_AUTH, row
+from app.core.deps import get_now
+from app.inquiries.router import _ACCOUNT_DAILY
+from app.main import app
+from inquiry_world import ME, NOW, STRANGER, USER_AUTH, row
 
 GOOD = {"reason": "bug", "body": "앱이 멈춰요", "reply_email": "me@example.com"}
 
@@ -107,6 +111,38 @@ def test_the_limit_is_per_person(client, world):
     assert _post(client).status_code == 201
 
 
+def test_a_person_without_a_profile_row_is_limited_to_five_a_day_too(client, world):
+    """프로필 행이 없으면 문의가 profile_id 없이 저장돼 DB 로 세는 한도가 늘 0 이다 — 계정 번호로 한 번 더 센다."""
+    world.profile_ids.discard(ME)
+    for _ in range(5):
+        assert _post(client).status_code == 201
+
+    response = _post(client)
+
+    assert response.status_code == 429
+    assert response.json()["detail"] == errors.INQUIRY_DAILY_LIMIT
+    assert len(world.inquiries) == 5
+
+
+def test_the_account_count_starts_over_at_midnight_too(client, world):
+    world.profile_ids.discard(ME)
+    for _ in range(5):
+        _post(client)
+    app.dependency_overrides[get_now] = lambda: NOW + timedelta(hours=10)   # 다음 날 0시(한국)
+
+    assert _post(client).status_code == 201
+
+
+def test_a_failed_save_does_not_use_up_the_account_count(client, world):
+    world.profile_ids.discard(ME)
+    world.insert_status, world.insert_code = 400, "23514"
+    for _ in range(5):
+        assert _post(client).status_code == 422
+    world.insert_status = 201
+
+    assert _post(client).status_code == 201
+
+
 def test_a_blocked_attempt_does_not_store_or_mail(client, world, smtp, password_settings):
     for _ in range(5):
         _post(client)
@@ -152,7 +188,8 @@ def test_exactly_1000_characters_is_accepted(client, world):
 
 def test_every_reason_is_accepted(client, world):
     for reason in ("account", "payment", "matching", "safety", "bug", "other"):
-        world.inquiries.clear()
+        world.inquiries.clear()        # 사유가 여섯이라 하루 5건에 걸린다 — DB 로 세는 쪽과
+        _ACCOUNT_DAILY.times.clear()   # 계정 번호로 세는 쪽을 둘 다 비운다
         assert _post(client, reason=reason).status_code == 201
 
 

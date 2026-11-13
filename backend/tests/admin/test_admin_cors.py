@@ -28,9 +28,9 @@ def _app_with(origins: list[str]) -> TestClient:
     return TestClient(app)
 
 
-def _preflight(client: TestClient, origin: str):
+def _preflight(client: TestClient, origin: str, method: str = "POST"):
     return client.options("/ping", headers={
-        "Origin": origin, "Access-Control-Request-Method": "POST",
+        "Origin": origin, "Access-Control-Request-Method": method,
         "Access-Control-Request-Headers": "authorization,content-type",
     })
 
@@ -61,16 +61,24 @@ def test_the_admin_web_origin_gets_cors_headers():
     assert "access-control-allow-credentials" not in response.headers
 
 
-def test_the_admin_web_preflight_allows_get_post_and_the_two_headers_only():
+def test_the_admin_web_preflight_allows_get_post_patch_and_the_two_headers_only():
     response = _preflight(_app_with([ADMIN_WEB]), ADMIN_WEB)
 
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == ADMIN_WEB
     methods = {m.strip() for m in response.headers["access-control-allow-methods"].split(",")}
-    assert methods == {"GET", "POST"}
+    assert methods == {"GET", "POST", "PATCH"}
     headers = {h.strip().lower() for h in response.headers["access-control-allow-headers"].split(",")}
     assert {"authorization", "content-type"} <= headers
     assert "access-control-allow-credentials" not in response.headers
+
+
+def test_the_admin_web_may_preflight_a_patch():
+    # 문의 처리(PATCH /admin/inquiries/{id})는 브라우저가 사전 요청을 먼저 보낸다 — 여기서 400 이면 본 요청이 나가지 않는다.
+    response = _preflight(_app_with([ADMIN_WEB]), ADMIN_WEB, method="PATCH")
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == ADMIN_WEB
 
 
 def test_another_origin_gets_no_cors_headers():
