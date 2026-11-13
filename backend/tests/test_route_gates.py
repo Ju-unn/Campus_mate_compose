@@ -15,6 +15,7 @@ PUBLIC = {
     ("POST", "/hooks/before-user-created"),      # Supabase 가입 훅 — 웹훅 서명
     ("POST", "/hooks/verification-reviewed"),    # 학생증 검토 트리거(pg_net) — 공유 비밀
     ("POST", "/billing/apple/notifications"),    # 애플 서버 알림 — 애플 서명(JWS)
+    ("POST", "/billing/play/notifications"),     # 구글 플레이 알림(Pub/Sub push) — 배치와 같은 구글 OIDC 토큰
     ("POST", "/batch/daily-cards"),              # 아래 배치 넷과 작업 하나는 구글 OIDC 토큰
     ("POST", "/batch/chat-gate"),
     ("POST", "/batch/cleanup"),
