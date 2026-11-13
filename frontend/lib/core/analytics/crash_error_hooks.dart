@@ -6,10 +6,16 @@ import 'package:flutter/foundation.dart';
 ///
 /// 이미 걸려 있던 처리기는 덮어쓰지 않고 이어서 부른다 — 디버그 콘솔에 오류가 찍히는 기존 동작을 지킨다.
 abstract final class CrashErrorHooks {
+  /// Flutter 가 그림 로딩 오류에 붙이는 이름(`ImageStreamCompleter.reportError` 의 `library`).
+  static const String _imageErrorLibrary = 'image resource service';
+
   static void install(CrashReporter reporter) {
     final previousFlutterHandler = FlutterError.onError;
     FlutterError.onError = (details) {
       previousFlutterHandler?.call(details);
+      // 그림 로딩 실패는 보내지 않는다 — 예외 글자와 덧붙는 정보(Image provider)에 서명된 사진 주소(토큰 포함)가 들어 있다.
+      // 앱이 죽는 오류도 아니다(그림 자리에 대체 그림이 나온다).
+      if (details.library == _imageErrorLibrary) return;
       reporter.recordFlutterFatalError(details);
     };
     final previousPlatformHandler = PlatformDispatcher.instance.onError;

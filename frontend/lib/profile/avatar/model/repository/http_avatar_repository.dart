@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/core/http/http_send.dart';
 import 'package:campus_mate/profile/avatar/model/data/avatar_generation_outcome.dart';
 import 'package:campus_mate/profile/avatar/model/repository/avatar_repository.dart';
 
@@ -11,7 +12,7 @@ class HttpAvatarRepository implements AvatarRepository {
 
   @override
   Future<Result<AvatarGenerationOutcome>> generateAvatar() =>
-      _api.send('POST', '/profile-onboarding/avatar/generate', _toOutcome);
+      _api.send('POST', '/profile-onboarding/avatar/generate', _toOutcome, timeout: longWriteTimeout);
 
   @override
   Future<Result<AvatarGenerationOutcome>> fetchAvatarStatus() =>
@@ -19,7 +20,7 @@ class HttpAvatarRepository implements AvatarRepository {
 
   @override
   Future<Result<AvatarGenerationOutcome>> regenerateAvatar() =>
-      _api.send('POST', '/me/avatar/regenerate', _toOutcome);
+      _api.send('POST', '/me/avatar/regenerate', _toOutcome, timeout: longWriteTimeout);
 
   /// 세 엔드포인트가 같은 모양으로 답하므로 파서도 하나다 — 한쪽만 고치면 그 길에서만 터진다.
   AvatarGenerationOutcome _toOutcome(Object body) {

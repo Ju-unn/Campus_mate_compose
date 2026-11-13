@@ -11,11 +11,18 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// 연결에 나간 요청은 실패도 성공도 없이 영영 기다릴 수 있다 — 그러면 읽는 중 합치기(`_inFlight`)를 쓰는 뷰모델은
 /// 앱을 껐다 켤 때까지 폴링 · 탭 진입 · 복귀 · 푸시 갱신을 모두 그 요청에 묶는다(10-13 아이폰 대화 목록이 멈춤).
 /// 앱 GET 의 지난 30일 최장 응답이 11.6초(Cloud Run 콜드 스타트)라 그보다 넉넉히 둔다.
-/// 쓰기는 끊지 않는다 — 아바타 생성(POST)은 60초까지 걸리고, 메시지 보내기는 끊었다 다시 보내면 두 번 갈 수 있다.
 const Duration readTimeout = Duration(seconds: 15);
 
+/// 쓰기(POST · PUT · PATCH · DELETE)의 기본 상한. 상한이 없던 때는 응답이 끝내 안 오면 버튼이 "진행 중" 에서 풀리지 않았다
+/// (11-13 출시 전 점검). 끊긴 뒤에도 서버가 그 쓰기를 마쳤을 수 있다 — 화면은 실패로 보이고 사용자가 다시 누른다.
+const Duration writeTimeout = Duration(seconds: 30);
+
+/// 오래 걸리는 것이 정상인 쓰기의 상한 — 사진 올리기(multipart 는 [sendHttpRequest] 가 알아서 쓴다)와, 서버가 외부 AI 를
+/// 기다리는 호출(자기소개 초안 · 아바타 · 저장 뒤 매칭 벡터를 다시 만드는 프로필 저장). 이런 호출부가 `timeout:` 으로 넘긴다.
+const Duration longWriteTimeout = Duration(seconds: 90);
+
 /// 모든 기능의 HTTP Repository(인증·온보딩·매칭)가 공유하는 요청-전송·상태코드 분류.
-/// 네트워크 예외(연결 실패 · 조회 시간 초과)와 비정상 응답 바디(파싱 실패)를 모두 [Failure] 로 감싸
+/// 네트워크 예외(연결 실패 · 시간 초과)와 비정상 응답 바디(파싱 실패)를 모두 [Failure] 로 감싸
 /// [Result] 를 벗어나 예외가 그대로 튀는 일이 없게 한다.
 ///
 /// [onHandledError] 는 앱이 버틴 오류(서버 5xx · 연결 실패 · 시간 초과)를 오류 수집에 알린다. 4xx(사용자 입력 오류 · 401 · 429)는
@@ -24,11 +31,12 @@ Future<Result<http.Response>> sendHttpRequest(
   http.Client client,
   http.BaseRequest request, {
   HandledErrorSink? onHandledError,
+  Duration? timeout,
 }) async {
   try {
     final pending = client.send(request).then(http.Response.fromStream);
     // TimeoutException 도 Exception 이라 아래에서 NetworkFailure 가 된다.
-    final response = await (request.method == 'GET' ? pending.timeout(readTimeout) : pending);
+    final response = await pending.timeout(timeout ?? _defaultTimeout(request));
     if (response.statusCode >= 500) {
       _tell(onHandledError, HandledApiError.fromStatus(response.statusCode, request.url));
     }
@@ -40,6 +48,11 @@ Future<Result<http.Response>> sendHttpRequest(
     }
     return const FailureResult(NetworkFailure());
   }
+}
+
+Duration _defaultTimeout(http.BaseRequest request) {
+  if (request.method == 'GET') return readTimeout;
+  return request is http.MultipartRequest ? longWriteTimeout : writeTimeout;
 }
 
 /// 앱이 버틴 API 오류를 받는 곳(오류 수집). 요청 흐름을 막지 않으므로 이 함수가 던져서는 안 된다.
@@ -150,12 +163,18 @@ Future<Result<http.Response>> sendAuthorizedRequest(
   GoTrueClient auth,
   FutureOr<http.BaseRequest> Function(String accessToken) buildRequest, {
   HandledErrorSink? onHandledError,
+  Duration? timeout,
 }) async {
   final session = auth.currentSession;
   if (session == null) {
     return const FailureResult(SessionExpiredFailure());
   }
-  final result = await sendHttpRequest(client, await buildRequest(session.accessToken), onHandledError: onHandledError);
+  final result = await sendHttpRequest(
+    client,
+    await buildRequest(session.accessToken),
+    onHandledError: onHandledError,
+    timeout: timeout,
+  );
   final rejected = result.when(onSuccess: (_) => false, onFailure: (f) => f is SessionRejectedFailure);
   if (!rejected) {
     return result;
@@ -173,5 +192,5 @@ Future<Result<http.Response>> sendAuthorizedRequest(
   if (refreshed == null) {
     return const FailureResult(SessionRejectedFailure());
   }
-  return sendHttpRequest(client, await buildRequest(refreshed), onHandledError: onHandledError);
+  return sendHttpRequest(client, await buildRequest(refreshed), onHandledError: onHandledError, timeout: timeout);
 }

@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/core/http/http_send.dart';
 import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
 import 'package:campus_mate/profile/traits/model/repository/survey_repository.dart';
 
@@ -20,5 +21,6 @@ class HttpSurveyRepository implements SurveyRepository {
           'religion': religion.name,
           'is_smoker': isSmoker,
         },
+        timeout: longWriteTimeout,
       );
 }

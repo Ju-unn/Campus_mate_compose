@@ -151,9 +151,25 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
     _queue = _queue.then((_) async {
       for (final event in fresh) {
         if (!ref.mounted) return;
-        await _handle(event);
+        await _handleGuarded(event);
       }
     });
+  }
+
+  /// 저장소 · 분석은 던지지 않기로 했지만, 계약 밖 오류 하나가 줄(_queue)을 실패로 끝내면 그 뒤 결제가 이 로그인 내내
+  /// 서버로 가지 않는다(실패한 Future 에 건 then 은 돌지 않는다) — 그 건만 접고 다음으로 간다(돈이 걸린 길이라 넓게 잡는다).
+  /// 토큰을 풀어 다음 복구 때 다시 보내고, 확인 중에 멈췄으면 지급 지연으로 둔다.
+  Future<void> _handleGuarded(StorePurchaseEvent event) async {
+    try {
+      await _handle(event);
+    } catch (error) {
+      debugPrint('결제 결과 처리 실패: ${error.runtimeType}');
+      if (event is! StorePurchased) return;
+      _inFlight.remove(event.purchaseToken);
+      if (ref.mounted && state.phase == HeartPurchasePhase.verifying) {
+        _onRejected(event.purchaseToken, const UnknownFailure());
+      }
+    }
   }
 
   bool _claim(String token) => !_finished.contains(token) && _inFlight.add(token);
@@ -195,16 +211,8 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
   Future<void> _verify(StorePurchased purchase) async {
     final token = purchase.purchaseToken;
     state = state.copyWith(phase: HeartPurchasePhase.verifying);
-    final Result<PurchaseOutcome> result;
-    try {
-      result = await _send(purchase);
-    } catch (_) {
-      // 저장소는 Result 로만 답하기로 했지만, 계약 밖 오류 하나가 줄(_queue)을 끊으면 이 뒤 결제가 모두 멈춘다 —
-      // 지급 지연으로 두고 토큰을 풀어 다음 복구 때 다시 보낸다(돈이 걸린 길이라 넓게 잡는다).
-      _inFlight.remove(token);
-      if (ref.mounted) _onRejected(token, const UnknownFailure());
-      return;
-    }
+    // 계약 밖 오류(던짐)는 [_handleGuarded] 가 받는다 — 토큰을 풀고 지급 지연으로 둔다.
+    final result = await _send(purchase);
     if (!ref.mounted) return;
     await result.when(
       onSuccess: (outcome) => _onVerified(token, purchase.productId, outcome),

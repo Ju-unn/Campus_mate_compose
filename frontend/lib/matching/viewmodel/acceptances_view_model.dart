@@ -45,6 +45,8 @@ class AcceptancesViewModel extends Notifier<AcceptancesUiState> {
 
   Future<void> _load({required bool quiet}) async {
     final result = await ref.read(cardRepositoryProvider).fetchAcceptances();
+    // 읽는 사이 로그아웃으로 버려졌으면(SessionScope 가 컨테이너째 버린다) 늦게 온 답은 버린다 — 상태를 건드리면 던진다.
+    if (!ref.mounted) return;
     // 목록을 다시 읽는다고 해서 방금 성사된 매칭을 지우지는 않는다 — [respond] 가 목록 갱신으로 끝나기 때문에
     // 여기서 지우면 12 화면으로 보낼 재료가 화면에 닿지 못한다. 오류 문구는 읽기가 성공하면 지운다.
     state = result.when(
