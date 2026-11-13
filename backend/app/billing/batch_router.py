@@ -36,6 +36,13 @@ def _seoul_time(millis) -> str:
         return "-"
 
 
+def _warn_shortfall(outcome: dict) -> None:
+    if outcome.get("shortfall"):
+        # 환불 전에 이미 쓴 하트(결정 I-1: 남은 만큼만 회수). 반복되면 운영자가 약관 제6조로 판단한다. 번호와 숫자만 남긴다.
+        # ponytail: 경고 로그만. 환불이 실제로 생기기 시작하면 신고 채널(discord_report_webhook_url)에 붙인다.
+        logger.warning("환불 회수 부족 profile=%s shortfall=%s", outcome.get("profile_id"), outcome["shortfall"])
+
+
 @router.post("/batch/billing-voided")
 async def run_billing_voided(
     authorization: str | None = Header(default=None),
@@ -67,10 +74,7 @@ async def run_billing_voided(
                         "result=%s", str(item.get("orderId") or "-")[:12], _seoul_time(item.get("voidedTimeMillis")),
                         _seoul_time(item.get("purchaseTimeMillis")), item.get("voidedSource"),
                         item.get("voidedReason"), outcome["result"])
-        if outcome.get("shortfall"):
-            # 환불 전에 이미 쓴 하트(결정 I-1: 남은 만큼만 회수). 반복되면 운영자가 약관 제6조로 판단한다. 번호와 숫자만 남긴다.
-            # ponytail: 경고 로그만. 환불이 실제로 생기기 시작하면 신고 채널(discord_report_webhook_url)에 붙인다.
-            logger.warning("환불 회수 부족 profile=%s shortfall=%s", outcome.get("profile_id"), outcome["shortfall"])
+        _warn_shortfall(outcome)
     # matched = DB 에 그 영수증이 있었다(회수 · 이미 회수). skipped = 할 일이 없었다(이미 회수 · DB 에 없음).
     logger.info("환불 회수 배치 voided=%d matched=%d refunded=%d skipped=%d startTime=%s", len(voided),
                 counts["refunded"] + counts["already_refunded"], counts["refunded"],
