@@ -11,16 +11,6 @@ import 'package:flutter/material.dart';
 const double mosaicTileWidth = 112;
 const double _height = 140;
 
-/// 기본 상태 예시 — 사진이 아니라 아바타 변환 일러스트(사용자 10-16 "Node ID: jReRU 실사진이 아니라 아바타 변환이야").
-/// 04-2 `photo_example.dart` 의 아바타 일러스트 예시와 같은 그림이다(실존 인물 아님). 한 벌에 이 순서로 둔다 — 단발머리 여학생 → 안경 쓴 남학생.
-const List<String> mosaicExampleAvatars = [
-  'assets/images/example-illust-b-v1.webp',
-  'assets/images/example-illust-a-v1.webp',
-];
-
-/// 예시 그림을 칸보다 사방으로 더 크게 그리는 거리(음수) — 112×140 칸이면 pen 그림 136×170. 칸 틀이 가장자리를 잘라 낸다.
-const Offset _exampleBleed = Offset((mosaicTileWidth - 136) / 2, (_height - 170) / 2);
-
 /// mosaic-rail 사람 칸(pen `O5FCD9` Home Rail Tile · Blur Avatar). 서버가 실제 가입자 아바타를 줄이기만 한 그림(224×280,
 /// 블러 없음 — 사용자 10-17)을 칸에 덮어 그린다 — 앱도 흐리지 않는다. 이름 · 학교 · 배지 · 누름이 없는 장식이라 화면 읽기에서 뺀다.
 class MosaicPersonTile extends StatelessWidget {
@@ -41,49 +31,15 @@ class MosaicPersonTile extends StatelessWidget {
         // 레일이 다시 그려져도(같은 그림) 빈칸으로 깜빡이지 않는다.
         gaplessPlayback: true,
         excludeFromSemantics: true,
-        // 그림을 못 풀면 예시 칸으로 둔다 — 레일에 구멍을 내지 않는다.
-        errorBuilder: (context, error, stackTrace) => const MosaicDefaultTile(),
+        // 그림을 못 풀면 토끼 칸으로 둔다 — 레일에 구멍을 내지 않고, 없는 사람 그림도 넣지 않는다(사용자 11-13).
+        errorBuilder: (context, error, stackTrace) => const MosaicMascotTile(),
       ),
     );
   }
 }
 
-/// 사람 칸 자리의 기본 상태 칸(pen 10-16 campus-pen 확정) — 인원이 모자라(서버 빈 목록) · 못 받았거나 · 받는 중일 때.
-/// 아바타 변환 예시 그림([mosaicExampleAvatars])을 112×140 · 모서리 14 로 잘라 흐리지 않고 둔다(사용자 10-16 "블러 처리 빼줘").
-/// 실제 가입자가 아니다 — 장식이라 화면 읽기에서 뺀다.
-class MosaicDefaultTile extends StatelessWidget {
-  const MosaicDefaultTile({this.asset = 'assets/images/example-illust-b-v1.webp', super.key});
-
-  /// 그릴 예시 그림(에셋 경로).
-  final String asset;
-
-  @override
-  Widget build(BuildContext context) {
-    // 칸 틀(폭 112 · 높이 140 이상)은 빈 상자가 정하고, 그림은 사방으로 더 크게(pen 136×170) 깔아 가장자리를 틀 밖으로 보낸다.
-    // 레일은 IntrinsicHeight 로 칸 높이를 재므로 그림 크기가 높이에 끼어들지 않게 Positioned 로 둔다.
-    return SizedBox(
-      width: mosaicTileWidth,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        child: Stack(
-          children: [
-            const SizedBox(width: mosaicTileWidth, height: _height),
-            Positioned(
-              left: _exampleBleed.dx,
-              right: _exampleBleed.dx,
-              top: _exampleBleed.dy,
-              bottom: _exampleBleed.dy,
-              child: Image.asset(asset, fit: BoxFit.cover, excludeFromSemantics: true),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 기본 상태 한 벌 끝의 마스코트 칸(pen 10-16 campus-pen 확정) — primary-wash 바탕 가운데 기다리는 토끼(`mascot-male-waiting`) 88.
-/// 사람 칸이 있을 때 끝에 붙는 [MosaicEmptyTile] 자리를 기본 상태에서는 이 칸이 맡는다. 장식이라 화면 읽기에서 뺀다.
+/// 기본 상태(사람 칸 없음)와 사람 그림을 못 푼 칸의 마스코트 칸(pen 10-16 campus-pen 확정) — primary-wash 바탕 가운데 기다리는 토끼(`mascot-male-waiting`) 88.
+/// 사용자 결정 11-13: 없는 사람 그림을 내보내지 않는다 — 기본 상태 레일은 이 칸만 되풀이한다. 장식이라 화면 읽기에서 뺀다.
 class MosaicMascotTile extends StatelessWidget {
   const MosaicMascotTile({super.key});
 
