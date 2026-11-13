@@ -1,4 +1,5 @@
 """추천 코드 저장소. 검사 · 행 넣기 · 새 사람 50 · 코드 주인 25하트는 DB 함수 redeem_referral 한 트랜잭션이 한다."""
+import logging
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -6,6 +7,8 @@ from fastapi import HTTPException
 from app.core import errors
 from app.core.http import error_code, raise_for_status
 from app.core.postgrest import PostgrestRepository
+
+logger = logging.getLogger(__name__)
 
 
 class ReferralRepository(PostgrestRepository):
@@ -24,6 +27,7 @@ class ReferralRepository(PostgrestRepository):
             case "CM404":
                 raise HTTPException(status_code=404, detail=errors.REFERRAL_CODE_NOT_FOUND)
             case "CM422":
+                logger.warning("초대 코드 거절 reason=db_cm422 profile=%s", referee_id)
                 raise HTTPException(status_code=422, detail=errors.REFERRAL_CODE_NOT_ALLOWED)
         # 23505 = 이 사람이 이미 입력했다(referrals PK) → 409.
         raise_for_status(response, conflict_detail=errors.REFERRAL_ALREADY_REDEEMED)

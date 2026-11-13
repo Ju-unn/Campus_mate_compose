@@ -1,4 +1,5 @@
 """추천 코드: 내 코드 조회(홈탭 19) · 코드 입력(화면 20). 계획서 docs/superpowers/plans/2026-09-28-referral.md"""
+import logging
 from datetime import datetime
 from typing import Annotated
 
@@ -15,6 +16,7 @@ from app.friend_reviews.router import notify_review_request
 from app.referral.repository import ReferralRepository
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 class RedeemRequest(BaseModel):
@@ -42,6 +44,7 @@ async def redeem_referral_code(body: RedeemRequest, caller: Caller = Depends(get
     # 문구는 같은 번호 거절과 같다(D4 — 거절 이유를 드러내지 않는다).
     phones = FriendReviewRepository(caller.settings.postgrest_url, caller.settings.supabase_service_role_key, caller.client)
     if not await phones.fetch_phone_hmac(caller.profile_id):
+        logger.warning("초대 코드 거절 reason=no_phone_hash profile=%s", caller.profile_id)
         raise HTTPException(status_code=422, detail=errors.REFERRAL_CODE_NOT_ALLOWED)
     referrer_id = await _repo(caller).redeem(caller.profile_id, body.code)
     # 추천인에게 "가입했어요, 리뷰를 남겨 주세요" — 누르면 20b(지인 리뷰 결정 8). 푸시가 죽어도 redeem 은 성공이다.
