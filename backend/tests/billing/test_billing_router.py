@@ -53,8 +53,20 @@ def _filtered(rows: list, params) -> list:
     return rows
 
 
-def _wire(google=None, rpc: dict | None = None, consume: int = 200, purchases: list | None = None):
-    """google: 구매 조회 답(dict = 200 본문, int = 그 상태 코드, 예외 = 던짐). seen 에는 관문 밖 요청만 쌓인다."""
+def _answer(value) -> httpx.Response:
+    """dict = 200 본문, int = 그 상태 코드, 예외 = 던짐."""
+    if isinstance(value, Exception):
+        raise value
+    return httpx.Response(value, json={"error": {}}) if isinstance(value, int) else httpx.Response(200, json=value)
+
+
+def _line_items(product_ids: list[str]) -> dict:
+    return {"productLineItem": [{"productId": p, "productOfferDetails": {"quantity": 1}} for p in product_ids]}
+
+
+def _wire(google=None, rpc: dict | None = None, consume: int = 200, purchases: list | None = None,
+          v2=_line_items(["heart_100"])):
+    """google: v1 구매 조회 답, v2: v2(productsv2) 조회 답 — 둘 다 _answer 모양. seen 에는 관문 밖 요청만 쌓인다."""
     seen: list[httpx.Request] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -68,9 +80,9 @@ def _wire(google=None, rpc: dict | None = None, consume: int = 200, purchases: l
         if request.url.host == "androidpublisher.googleapis.com":
             if request.url.path.endswith(":consume"):
                 return httpx.Response(consume)
-            if isinstance(google, Exception):
-                raise google
-            return httpx.Response(google, json={"error": {}}) if isinstance(google, int) else httpx.Response(200, json=google)
+            if "/purchases/productsv2/" in request.url.path:
+                return _answer(v2)
+            return _answer(google)
         if request.url.path == "/rest/v1/rpc/grant_store_purchase":
             return httpx.Response(200, json=rpc)
         if request.url.path == "/rest/v1/purchases" and request.method == "GET":
@@ -104,6 +116,10 @@ def _google(seen):
     return [r for r in seen if r.url.host == "androidpublisher.googleapis.com"]
 
 
+def _v2_calls(seen):
+    return [r for r in seen if "/purchases/productsv2/" in r.url.path]
+
+
 # V1 ---------------------------------------------------------------------------------------------
 
 def test_first_purchase_grants_hearts_with_bonus_and_consumes():
@@ -124,6 +140,63 @@ def test_first_purchase_grants_hearts_with_bonus_and_consumes():
     assert len(_consumes(seen)) == 1
     # 소비는 지급이 끝난 뒤다(순서가 반대면 지급 실패 때 구매가 사라진다).
     assert seen.index(_consumes(seen)[0]) > seen.index(rpc)
+    # 산 상품 대조(v2)는 지급 전이다.
+    (v2,) = _v2_calls(seen)
+    assert seen.index(v2) < seen.index(rpc)
+
+
+# P1 · 산 상품 = 지급 상품 — v1 답에는 productId 가 없어(운영 11-13) v2 productLineItem 으로 대조한다 ------------
+
+@pytest.mark.parametrize("v2", [
+    _line_items(["heart_50"]),  # 50하트를 사고 800하트… 가 아니라 100하트 주소로 확인 요청
+    _line_items(["heart_100", "heart_100"]),
+    _line_items(["heart_100", "heart_800"]),
+    _line_items([]),
+    {},
+    400, 404, 410,  # v1 은 알지만 v2 는 모르는 토큰 — v1 과 같게 "확인되지 않는 구매"
+])
+def test_a_purchase_whose_v2_products_are_not_exactly_the_requested_one_is_invalid(v2):
+    test_client, seen = _wire(_purchase(), rpc=GRANTED, v2=v2)
+    response = _verify(test_client)
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": errors.PURCHASE_INVALID, "code": "purchase_invalid"}
+    assert _rpc_calls(seen) == [] and _consumes(seen) == []
+
+
+@pytest.mark.parametrize("v2", [500, 503, 429, 401, 403, httpx.ConnectTimeout("slow")])
+def test_a_v2_outage_is_503_and_nothing_is_granted(v2):
+    test_client, seen = _wire(_purchase(), rpc=GRANTED, v2=v2)
+    response = _verify(test_client)
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": errors.BILLING_UNAVAILABLE, "code": "billing_unavailable"}
+    assert _rpc_calls(seen) == [] and _consumes(seen) == []
+
+
+def test_a_resent_token_is_still_checked_against_v2_before_already_granted():
+    already = {**GRANTED, "result": "already_granted"}
+    test_client, seen = _wire(_purchase(consumptionState=1), rpc=already, v2=_line_items(["heart_50"]))
+
+    assert _verify(test_client).status_code == 422
+    assert _rpc_calls(seen) == []
+
+
+@pytest.mark.parametrize("v2", [_line_items(["heart_100"]), _line_items(["heart_50"]), 404, 500])
+def test_the_v2_products_are_logged_with_a_match_flag(v2, caplog):
+    caplog.set_level(logging.INFO)
+    test_client, _ = _wire(_purchase(), rpc=GRANTED, v2=v2)
+    _verify(test_client)
+
+    lines = [r.getMessage() for r in caplog.records if r.getMessage().startswith("구글 구매 상품 대조")]
+    if v2 == 500:
+        assert lines == []  # 조회 실패는 기존 "구글 구매 조회 실패" 경고 한 줄
+        return
+    (message,) = lines
+    products = [i["productId"] for i in v2["productLineItem"]] if isinstance(v2, dict) else None  # 404 → None
+    assert f"profile={PROFILE_ID}" in message and "product=heart_100" in message
+    assert f"v2_products={products}" in message and f"match={products == ['heart_100']}" in message
+    _assert_no_purchase_values(caplog)
 
 
 # V2 ---------------------------------------------------------------------------------------------
@@ -139,6 +212,21 @@ def test_first_purchase_grants_hearts_with_bonus_and_consumes():
 def test_logs_never_contain_the_token_or_order_id(google, rpc, consume, caplog):
     caplog.set_level(logging.DEBUG)
     test_client, _ = _wire(google, rpc=rpc, consume=consume)
+    _verify(test_client)
+
+    assert caplog.records, "실패 경로는 경고 한 줄을 남긴다 — 비면 이 시험이 아무것도 보지 않는다"
+    for record in caplog.records:
+        assert TOKEN not in record.getMessage() and ORDER not in record.getMessage(), record.getMessage()
+    assert TOKEN not in caplog.text and ORDER not in caplog.text
+
+
+@pytest.mark.parametrize("v2", [
+    500, 404, httpx.ReadTimeout(f"timed out .../productsv2/tokens/{TOKEN}"),
+    {**_line_items(["heart_800"]), "orderId": ORDER}, _line_items(["heart_100"]),
+])
+def test_logs_of_the_v2_lookup_never_contain_the_token_or_order_id(v2, caplog):
+    caplog.set_level(logging.DEBUG)
+    test_client, _ = _wire(_purchase(), rpc=GRANTED, v2=v2)
     _verify(test_client)
 
     assert caplog.records, "실패 경로는 경고 한 줄을 남긴다 — 비면 이 시험이 아무것도 보지 않는다"
@@ -223,6 +311,8 @@ def test_pending_purchase_is_not_granted():
 
     assert response.status_code == 202 and response.json() == {"result": "pending"}
     assert _rpc_calls(seen) == [] and _consumes(seen) == []
+    # 대기는 지금처럼 v1 답만으로 202 — v2 가 멈춰도 대기 응답이 바뀌지 않는다.
+    assert _v2_calls(seen) == []
 
 
 # V5 · V6 ----------------------------------------------------------------------------------------

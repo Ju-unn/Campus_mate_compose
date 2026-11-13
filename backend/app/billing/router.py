@@ -94,6 +94,20 @@ async def verify_google_purchase(
             or purchase.get("productId", body.product_id) != body.product_id):
         logger.warning("확인되지 않는 구매 profile=%s product=%s state=%s", caller.profile_id, body.product_id, state)
         return _error(422, errors.PURCHASE_INVALID, errors.CODE_PURCHASE_INVALID)
+    # v1 답에는 productId 가 오지 않아(운영 11-13) 위 대조는 실제로 거르지 못한다. 산 상품은 v2 가 알려 준다 —
+    # 정확히 주소의 상품 하나여야 지급한다(싼 상품을 사고 비싼 상품 id 로 확인 요청하는 것을 막는다). 모르면 주지 않는다.
+    try:
+        product_ids = await play_api.get_product_ids(body.purchase_token)
+    except PlayUnavailable as exc:
+        logger.warning("구글 구매 조회 실패 profile=%s product=%s status=%s api=v2",
+                       caller.profile_id, body.product_id, exc.args[0] if exc.args else "transport")
+        return _error(503, errors.BILLING_UNAVAILABLE, errors.CODE_BILLING_UNAVAILABLE)
+    logger.info("구글 구매 상품 대조 profile=%s product=%s v2_products=%s match=%s",
+                caller.profile_id, body.product_id, product_ids, product_ids == [body.product_id])
+    if product_ids != [body.product_id]:
+        logger.warning("확인되지 않는 구매 profile=%s product=%s v2_products=%s",
+                       caller.profile_id, body.product_id, product_ids)
+        return _error(422, errors.PURCHASE_INVALID, errors.CODE_PURCHASE_INVALID)
     if purchase.get("obfuscatedExternalAccountId") != account_token(caller.profile_id):
         # 소비하지 않는다 — 원래 계정으로 로그인하면 이어서 받고, 3일 안에 안 오면 구글이 돈을 돌려준다.
         logger.warning("다른 계정의 구매 profile=%s product=%s", caller.profile_id, body.product_id)
