@@ -19,9 +19,12 @@ from app.billing.play import PlayApi, PlayUnavailable, account_token, token_hash
 from app.billing.repository import BillingRepository
 from app.core import errors
 from app.core.deps import Caller, get_client, get_verified_caller
+from app.core.logs import show_info
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+# 구글 응답 모양 · 지급 결과(INFO)가 Cloud Run 로그에 보이게 한다 — core/logs.py.
+show_info(logger)
 
 # 화면에 보여 줄 값만(첫 구매 보너스, 2026-10-13 사용자 확정). 실제 지급은 DB 함수 grant_store_purchase 의 상수다 —
 # 유료 카드 가격과 같은 방식. 바꿀 때 둘을 같이 바꾼다.
@@ -78,6 +81,12 @@ async def verify_google_purchase(
                        caller.profile_id, body.product_id, exc.args[0] if exc.args else "transport")
         return _error(503, errors.BILLING_UNAVAILABLE, errors.CODE_BILLING_UNAVAILABLE)
     state = purchase.get("purchaseState") if purchase else None
+    # 구글이 productId 를 실제로 주는지 보려는 기록 — 키 이름 · 상태만, 값(토큰 · 주문 번호 · 계정 표시)은 찍지 않는다.
+    has_product_id = bool(purchase) and "productId" in purchase
+    logger.info("구글 구매 조회 응답 profile=%s product=%s keys=%s has_product_id=%s product_match=%s state=%s consumption=%s",
+                caller.profile_id, body.product_id, sorted(purchase or {}), has_product_id,
+                purchase["productId"] == body.product_id if has_product_id else None,
+                state, purchase.get("consumptionState") if purchase else None)
     if state == play.PENDING:
         return JSONResponse(status_code=202, content={"result": "pending"})
     # 구글이 상품을 알려 주면 주소의 상품과 같아야 한다 — 지급량은 body 의 상품으로 정해서다.
@@ -102,6 +111,8 @@ async def verify_google_purchase(
     if result not in ("granted", "already_granted"):
         # 지급 여부를 모르면 소비하지 않는다(반쪽 성공 금지). 앱은 500 을 받고 구매를 끝내지 않는다.
         raise RuntimeError(f"grant_store_purchase 가 계약 밖의 결과를 돌려줬다: {result!r}")
+    logger.info("구글 구매 지급 profile=%s product=%s result=%s hearts=%s bonus_hearts=%s",
+                caller.profile_id, body.product_id, result, outcome.get("hearts"), outcome.get("bonus_hearts"))
 
     if purchase.get("consumptionState") == play.NOT_CONSUMED:
         if not await play_api.consume(body.product_id, body.purchase_token):
