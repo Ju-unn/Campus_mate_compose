@@ -666,3 +666,32 @@ def test_apple_info_logs_reach_stderr_in_a_fresh_process():
     backend = pathlib.Path(__file__).resolve().parents[2]
     done = subprocess.run([sys.executable, "-c", code], cwd=backend, capture_output=True, text=True, timeout=60)
     assert "apple-probe" in done.stderr, done.stderr
+
+
+# 운영 기록 ----------------------------------------------------------------------------------------
+
+def _lines(caplog, level: int) -> list[str]:
+    return [r.getMessage() for r in caplog.records if r.name == "app.billing.apple_router" and r.levelno == level]
+
+
+def test_a_grant_is_logged_with_its_result_and_environment(caplog):
+    caplog.set_level(logging.INFO)
+    test_client, _ = _wire(production=sign(_transaction()), rpc=GRANTED)
+    _verify(test_client)
+
+    assert _lines(caplog, logging.INFO) == [
+        f"애플 구매 지급 profile={PROFILE_ID} product=heart_100 environment=Production result=granted hearts=100 bonus_hearts=50"]
+
+
+@pytest.mark.parametrize("changed, failed", [
+    ({"productId": "heart_50"}, ["product"]),
+    ({"inAppOwnershipType": "FAMILY_SHARED", "quantity": 2}, ["ownership", "quantity"]),
+    ({"environment": "Xcode"}, ["environment"]),
+])
+def test_an_unvouched_transaction_logs_which_checks_failed(changed, failed, caplog):
+    caplog.set_level(logging.INFO)
+    test_client, _ = _wire(production=sign(_transaction(**changed)), rpc=GRANTED)
+    _verify(test_client)
+
+    assert _lines(caplog, logging.WARNING) == [
+        f"확인되지 않는 애플 거래 profile={PROFILE_ID} product=heart_100 found=True failed={failed}"]
