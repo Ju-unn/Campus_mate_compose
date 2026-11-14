@@ -120,7 +120,6 @@ a { color: inherit; }
 .hero-copy > :nth-child(3) { animation-delay: 0.16s; }
 .hero-copy > :nth-child(4) { animation-delay: 0.24s; }
 .hero-copy > :nth-child(5) { animation-delay: 0.32s; }
-.hero-copy > :nth-child(6) { animation-delay: 0.4s; }
 
 .badge {
   display: inline-flex;
@@ -147,9 +146,11 @@ a { color: inherit; }
   background: var(--color-primary);
   animation: ping 1.8s ease-out infinite;
 }
-/* 로고는 바탕 상자 없이 그림만 둔다(사용자 11-14) */
-.logo-box { margin-top: 14px; }
-.logo-box img { width: 150px; height: auto; }
+/* 로고는 바탕 상자 없이 그림만 두고, 폭을 제목 첫 줄에 맞춘다(사용자 11-14).
+   묶음은 내용 폭(= 제목의 가장 긴 줄)만큼만 차지한다. 로고는 width: 0 으로 그 계산에서 빠지고 min-width 로 묶음을 채운다.
+   104.4% · -2%: logo.svg 안쪽 여백(왼쪽 2% · 오른쪽 2.4%)만큼 넓혀 글자 끝과 제목 끝을 맞춘다. */
+.hero-lockup { width: fit-content; max-width: 100%; margin-top: 14px; }
+.hero-logo { width: 0; min-width: 104.4%; height: auto; margin-left: -2%; }
 .hero h1 {
   margin-top: 18px;
   font-size: 34px;
@@ -466,8 +467,7 @@ a { color: inherit; }
   .hero::before { width: 620px; height: 620px; }
   .hero::after { width: 520px; height: 520px; }
   .badge { font-size: 16px; line-height: 22px; }
-  .logo-box { margin-top: 20px; }
-  .logo-box img { width: 210px; }
+  .hero-lockup { margin-top: 20px; }
   .hero h1 { margin-top: 24px; font-size: 56px; line-height: 1.2; }
   .hero-desc { margin-top: 24px; max-width: 500px; font-size: 20px; }
   .store-buttons { flex-direction: row; gap: 16px; margin-top: 28px; }
