@@ -40,8 +40,11 @@ jobs:
               def handle_starttag(self, tag, attrs):
                   a = dict(attrs)
                   attrs_seen.append((tag, a))
-                  if 'style' in a or tag in ('style', 'script'):
+                  # 우리 파일을 가리키는 <script src> 는 CSP(script-src 'self')가 허용한다.
+                  if 'style' in a or tag == 'style' or (tag == 'script' and not a.get('src')):
                       errors.append(f'{self.getpos()[0]}행: 인라인 style/script 는 CSP 에 막힌다 ({tag})')
+                  if tag == 'script' and re.match(r'(https?:|//|data:)', a.get('src') or ''):
+                      errors.append(f'{self.getpos()[0]}행: 바깥 주소의 script 는 CSP 에 막힌다 ({a["src"]})')
                   for k in ('href', 'src'):
                       if a.get(k):
                           refs.append(a[k])
