@@ -83,30 +83,6 @@
       </div>
     </section>
 
-    <!-- 흐르는 띠: 아래 내용을 되풀이하는 꾸밈이라 화면 낭독기에는 숨긴다. -->
-    <div class="marquee" aria-hidden="true">
-      <div class="marquee-track">
-        <ul class="marquee-list">
-          <li>학교 메일 인증</li>
-          <li>아바타로 먼저 만나기</li>
-          <li>아침 7시, 새로운 카드</li>
-          <li>서로 수락하면 대화</li>
-          <li>48시간 대화</li>
-          <li>신고와 차단</li>
-          <li>익명 커뮤니티 투표</li>
-        </ul>
-        <ul class="marquee-list">
-          <li>학교 메일 인증</li>
-          <li>아바타로 먼저 만나기</li>
-          <li>아침 7시, 새로운 카드</li>
-          <li>서로 수락하면 대화</li>
-          <li>48시간 대화</li>
-          <li>신고와 차단</li>
-          <li>익명 커뮤니티 투표</li>
-        </ul>
-      </div>
-    </div>
-
     <section class="how" aria-labelledby="how-title">
       <div class="container">
         <h2 id="how-title" class="reveal">이렇게 만나요</h2>
@@ -151,21 +127,30 @@
     <section class="features" aria-labelledby="features-title">
       <div class="container">
         <h2 id="features-title" class="reveal">CampusMate는 이렇게 달라요</h2>
-        <ul class="feature-list">
-          <li class="feature-card reveal">
-            <span class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="m16 19 2 2 4-4"/></svg></span>
-            <h3>학교 메일 인증</h3>
-            <p>대학생과 졸업생이 가입할 수 있어요. 학교 메일로 인증하고, 학교 메일이 없는 졸업생은 졸업증명서로 인증해요.</p>
+        <ul class="feature-rows">
+          <li class="feature-row reveal">
+            <div class="feature-copy">
+              <p class="feature-label">학교 메일 인증</p>
+              <h3>인증한 대학생·졸업생만<br>만날 수 있어요</h3>
+              <p class="feature-desc">대학생과 졸업생이 가입할 수 있어요. 학교 메일로 인증하고, 학교 메일이 없는 졸업생은 졸업증명서로 인증해요.</p>
+            </div>
+            <div class="feature-art feature-art-verify" aria-hidden="true"><span class="feature-img"></span></div>
           </li>
-          <li class="feature-card reveal d1">
-            <span class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg></span>
-            <h3>아바타로 먼저 만나기</h3>
-            <p>매칭 전에는 AI가 그려 준 아바타만 보여요. 서로 수락한 뒤 신뢰 확인을 마치면 실제 사진이 공개돼요.</p>
+          <li class="feature-row reveal">
+            <div class="feature-copy">
+              <p class="feature-label">아바타로 먼저 만나기</p>
+              <h3>사진보다 먼저,<br>아바타로 만나요</h3>
+              <p class="feature-desc">매칭 전에는 AI가 그려 준 아바타만 보여요. 서로 수락한 뒤 신뢰 확인을 마치면 실제 사진이 공개돼요.</p>
+            </div>
+            <div class="feature-art feature-art-avatar" aria-hidden="true"><span class="feature-img"></span></div>
           </li>
-          <li class="feature-card reveal d2">
-            <span class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg></span>
-            <h3>안전한 만남</h3>
-            <p>불편한 사람은 신고와 차단으로 바로 막을 수 있어요. 운영팀이 신고를 확인해요.</p>
+          <li class="feature-row reveal">
+            <div class="feature-copy">
+              <p class="feature-label">안전한 만남</p>
+              <h3>불편한 사람은<br>바로 막을 수 있어요</h3>
+              <p class="feature-desc">불편한 사람은 신고와 차단으로 바로 막을 수 있어요. 운영팀이 신고를 확인해요.</p>
+            </div>
+            <div class="feature-art feature-art-safe" aria-hidden="true"><span class="feature-img"></span></div>
           </li>
         </ul>
       </div>
