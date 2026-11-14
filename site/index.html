@@ -21,12 +21,17 @@
   <link rel="icon" href="assets/icon-32.png" type="image/png" sizes="32x32">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="stylesheet" href="styles.css">
+  <!-- 움직임(스크롤 등장 · 폰 기울기)만 맡는다. 없어도 내용은 다 보인다. -->
+  <script src="script.js"></script>
 </head>
 <body>
   <header class="site-header">
     <div class="container header-inner">
       <p class="wordmark">CampusMate</p>
-      <p class="header-tagline">인증된 대학생·졸업생과의 소중한 인연</p>
+      <div class="header-right">
+        <p class="header-tagline">인증된 대학생·졸업생과의 소중한 인연</p>
+        <a class="header-cta" href="#download">앱 받기</a>
+      </div>
     </div>
   </header>
 
@@ -34,55 +39,155 @@
     <section class="hero" aria-labelledby="hero-title">
       <div class="container hero-inner">
         <div class="hero-copy">
-          <p class="badge">곧 출시</p>
+          <p class="badge"><span class="badge-dot" aria-hidden="true"></span>정식 출시</p>
           <div class="logo-box">
             <img src="assets/logo.svg" width="202" height="104" alt="CampusMate 로고">
           </div>
-          <h1 id="hero-title">인증된 대학생·졸업생과의<br>소중한 인연</h1>
+          <h1 id="hero-title">인증된 대학생·졸업생과의<br><span class="hl">소중한 인연</span></h1>
           <p class="hero-desc">인증한 대학생·졸업생끼리, 정해진 요일 아침 7시에 새로운 한 명의 카드가 도착해요.<br>서로 수락하면 48시간 동안 대화할 수 있어요.</p>
 
-          <!--
-            스토어 단추 (이 한 곳만 고치면 됨)
-            지금: href 가 없어서 누를 수 없는 "곧 출시" 모양이다.
-            출시 뒤: 각 <a> 에 href="스토어 주소" 만 넣으면 styles.css 의 .store-btn[href] 가 누를 수 있는 모양으로 바꾼다.
-                     "곧 출시" 줄(class="store-soon")과 아래 안내 한 줄은 그때 지운다.
-          -->
+          <!-- 스토어 단추: 주소는 여기와 맨 아래 "앱 받기" 두 곳에 있다. 바꿀 때 둘 다 고친다. -->
           <div class="store-buttons">
-            <a class="store-btn">
+            <a class="store-btn" href="https://apps.apple.com/kr/app/campusmate/id6821955396" target="_blank" rel="noopener">
               <svg class="store-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 20.94c1.5 0 2.75 1.06 4 1.06 3 0 6-8 6-12.22A4.91 4.91 0 0 0 17 5c-2.22 0-4 1.44-5 2-1-.56-2.78-2-5-2a4.9 4.9 0 0 0-5 4.78C2 14 5 22 8 22c1.25 0 2.5-1.06 4-1.06Z"/><path d="M10 2c1 .5 2 2 2 5"/></svg>
-              <span class="store-text"><span class="store-soon">곧 출시</span><span class="store-name">App Store</span></span>
+              <span class="store-text"><span class="store-soon">지금 받기</span><span class="store-name">App Store</span></span>
             </a>
-            <a class="store-btn">
+            <a class="store-btn" href="https://play.google.com/store/apps/details?id=io.github.juunn.campusmate" target="_blank" rel="noopener">
               <svg class="store-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></svg>
-              <span class="store-text"><span class="store-soon">곧 출시</span><span class="store-name">Google Play</span></span>
+              <span class="store-text"><span class="store-soon">지금 받기</span><span class="store-name">Google Play</span></span>
             </a>
           </div>
-          <p class="hero-note">출시되면 App Store와 Google Play에서 만나요.</p>
+          <p class="hero-note">App Store와 Google Play에서 받을 수 있어요.</p>
         </div>
-        <img class="hero-phone" src="assets/phone.webp" width="300" height="600" alt="CampusMate 앱 메인 화면. 오늘 카드를 모두 확인했고 다음 카드까지 남은 시간이 보이며, 다음 카드는 월요일 오전 7시에 온다고 안내한다.">
+
+        <div class="phone-stage">
+          <span class="stage-glow" aria-hidden="true"></span>
+          <div class="phone-tilt">
+            <div class="phone phone-back">
+              <img src="assets/screen-profile.webp" width="600" height="1300" alt="카드 상세 화면. 아바타 그림과 소개 글, 키 · MBTI · 학번, 성향 막대가 보인다.">
+            </div>
+            <div class="phone phone-front">
+              <img src="assets/screen-card.webp" width="600" height="1300" alt="오늘의 카드 화면. 학교 인증 표시가 붙은 한 명의 카드가 도착해 있고, 아래에 하트로 여는 추가 카드가 있다.">
+            </div>
+          </div>
+          <div class="float-layer" aria-hidden="true">
+            <span class="chip chip-a"><svg viewBox="0 0 24 24" focusable="false"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>오늘의 카드가 도착했어요</span>
+            <span class="chip chip-b"><svg viewBox="0 0 24 24" focusable="false"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"/></svg>대화가 시작됐어요</span>
+            <span class="mascot mascot-f"></span>
+            <span class="mascot mascot-m"></span>
+            <svg class="heart heart-1" viewBox="0 0 24 24" focusable="false"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 2.7 4.5 6.4 4.5c2.2 0 3.9 1.2 5.6 3.2 1.7-2 3.4-3.2 5.6-3.2 3.7 0 5.5 3.9 4 7.3C19.5 16.4 12 21 12 21z"/></svg>
+            <svg class="heart heart-2" viewBox="0 0 24 24" focusable="false"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 2.7 4.5 6.4 4.5c2.2 0 3.9 1.2 5.6 3.2 1.7-2 3.4-3.2 5.6-3.2 3.7 0 5.5 3.9 4 7.3C19.5 16.4 12 21 12 21z"/></svg>
+            <svg class="heart heart-3" viewBox="0 0 24 24" focusable="false"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 2.7 4.5 6.4 4.5c2.2 0 3.9 1.2 5.6 3.2 1.7-2 3.4-3.2 5.6-3.2 3.7 0 5.5 3.9 4 7.3C19.5 16.4 12 21 12 21z"/></svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 흐르는 띠: 아래 내용을 되풀이하는 꾸밈이라 화면 낭독기에는 숨긴다. -->
+    <div class="marquee" aria-hidden="true">
+      <div class="marquee-track">
+        <ul class="marquee-list">
+          <li>학교 메일 인증</li>
+          <li>아바타로 먼저 만나기</li>
+          <li>아침 7시, 새로운 카드</li>
+          <li>서로 수락하면 대화</li>
+          <li>48시간 대화</li>
+          <li>신고와 차단</li>
+          <li>익명 커뮤니티 투표</li>
+        </ul>
+        <ul class="marquee-list">
+          <li>학교 메일 인증</li>
+          <li>아바타로 먼저 만나기</li>
+          <li>아침 7시, 새로운 카드</li>
+          <li>서로 수락하면 대화</li>
+          <li>48시간 대화</li>
+          <li>신고와 차단</li>
+          <li>익명 커뮤니티 투표</li>
+        </ul>
+      </div>
+    </div>
+
+    <section class="how" aria-labelledby="how-title">
+      <div class="container">
+        <h2 id="how-title" class="reveal">이렇게 만나요</h2>
+        <p class="section-sub reveal">카드가 도착하고, 서로 수락하면 대화가 열려요.</p>
+        <ol class="steps" tabindex="0" aria-label="만나는 순서">
+          <li class="step reveal">
+            <div class="phone phone-step">
+              <img src="assets/screen-card.webp" width="600" height="1300" loading="lazy" alt="오늘의 카드 화면. 학교 인증 표시가 붙은 한 명의 카드가 도착해 있다.">
+            </div>
+            <p class="step-num">01</p>
+            <h3>인증된 사람의 카드가 도착해요</h3>
+            <p class="step-desc">학교 메일이나 졸업증명서로 확인한 분만</p>
+          </li>
+          <li class="step reveal d1">
+            <div class="phone phone-step">
+              <img src="assets/screen-profile.webp" width="600" height="1300" loading="lazy" alt="카드 상세 화면. 아바타 그림과 소개 글, 성향 막대가 보인다.">
+            </div>
+            <p class="step-num">02</p>
+            <h3>프로필과 성향을 보고 정해요</h3>
+            <p class="step-desc">관심사 · 성향이 잘 맞는 사람을 추천해요</p>
+          </li>
+          <li class="step reveal d2">
+            <div class="phone phone-step">
+              <img src="assets/screen-chat.webp" width="600" height="1300" loading="lazy" alt="채팅방 화면. 매칭된 두 사람이 인사를 나누고 주말 약속을 잡고 있다.">
+            </div>
+            <p class="step-num">03</p>
+            <h3>서로 수락하면 대화가 시작돼요</h3>
+            <p class="step-desc">카카오톡 아이디는 서로 원할 때 공개돼요</p>
+          </li>
+          <li class="step reveal d3">
+            <div class="phone phone-step">
+              <img src="assets/screen-community.webp" width="600" height="1300" loading="lazy" alt="커뮤니티 화면. 익명 투표 글에 찬성 62%, 반대 38%가 막대로 보인다.">
+            </div>
+            <p class="step-num">04</p>
+            <h3>투표로 가볍게 이야기해요</h3>
+            <p class="step-desc">익명 커뮤니티에서 다른 사람의 생각을 들어 봐요</p>
+          </li>
+        </ol>
       </div>
     </section>
 
     <section class="features" aria-labelledby="features-title">
       <div class="container">
-        <h2 id="features-title">CampusMate는 이렇게 달라요</h2>
+        <h2 id="features-title" class="reveal">CampusMate는 이렇게 달라요</h2>
         <ul class="feature-list">
-          <li class="feature-card">
+          <li class="feature-card reveal">
             <span class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="m16 19 2 2 4-4"/></svg></span>
             <h3>학교 메일 인증</h3>
             <p>대학생과 졸업생이 가입할 수 있어요. 학교 메일로 인증하고, 학교 메일이 없는 졸업생은 졸업증명서로 인증해요.</p>
           </li>
-          <li class="feature-card">
+          <li class="feature-card reveal d1">
             <span class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg></span>
             <h3>아바타로 먼저 만나기</h3>
             <p>매칭 전에는 AI가 그려 준 아바타만 보여요. 서로 수락한 뒤 신뢰 확인을 마치면 실제 사진이 공개돼요.</p>
           </li>
-          <li class="feature-card">
+          <li class="feature-card reveal d2">
             <span class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg></span>
             <h3>안전한 만남</h3>
             <p>불편한 사람은 신고와 차단으로 바로 막을 수 있어요. 운영팀이 신고를 확인해요.</p>
           </li>
         </ul>
+      </div>
+    </section>
+
+    <section class="download" id="download" aria-labelledby="download-title">
+      <div class="container">
+        <div class="download-panel reveal">
+          <span class="download-mascot" aria-hidden="true"></span>
+          <h2 id="download-title">지금 CampusMate에서<br>새로운 인연을 만나 보세요</h2>
+          <p class="download-desc">App Store와 Google Play에서 받을 수 있어요.</p>
+          <div class="store-buttons">
+            <a class="store-btn store-btn-light" href="https://apps.apple.com/kr/app/campusmate/id6821955396" target="_blank" rel="noopener">
+              <svg class="store-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 20.94c1.5 0 2.75 1.06 4 1.06 3 0 6-8 6-12.22A4.91 4.91 0 0 0 17 5c-2.22 0-4 1.44-5 2-1-.56-2.78-2-5-2a4.9 4.9 0 0 0-5 4.78C2 14 5 22 8 22c1.25 0 2.5-1.06 4-1.06Z"/><path d="M10 2c1 .5 2 2 2 5"/></svg>
+              <span class="store-text"><span class="store-soon">지금 받기</span><span class="store-name">App Store</span></span>
+            </a>
+            <a class="store-btn store-btn-light" href="https://play.google.com/store/apps/details?id=io.github.juunn.campusmate" target="_blank" rel="noopener">
+              <svg class="store-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></svg>
+              <span class="store-text"><span class="store-soon">지금 받기</span><span class="store-name">Google Play</span></span>
+            </a>
+          </div>
+        </div>
       </div>
     </section>
   </main>
