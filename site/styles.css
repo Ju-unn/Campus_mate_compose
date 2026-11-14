@@ -126,12 +126,9 @@ a { color: inherit; }
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 14px;
-  border-radius: 999px;
-  background: var(--color-primary-text);
-  color: var(--color-white);
-  font-size: 13px;
-  line-height: 18px;
+  color: var(--color-primary-text);
+  font-size: 14px;
+  line-height: 20px;
   font-weight: 700;
 }
 .badge-dot {
@@ -139,26 +136,19 @@ a { color: inherit; }
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--color-white);
+  background: var(--color-primary);
 }
 .badge-dot::after {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: var(--color-white);
+  background: var(--color-primary);
   animation: ping 1.8s ease-out infinite;
 }
-.logo-box {
-  width: 150px;
-  height: 80px;
-  margin-top: 16px;
-  border-radius: 16px;
-  background: var(--color-white);
-  overflow: hidden;
-  box-shadow: 0 12px 30px -18px rgba(196, 34, 75, 0.5);
-}
-.logo-box img { width: 144px; height: auto; margin: 1px 0 0 1px; }
+/* 로고는 바탕 상자 없이 그림만 둔다(사용자 11-14) */
+.logo-box { margin-top: 14px; }
+.logo-box img { width: 150px; height: auto; }
 .hero h1 {
   margin-top: 18px;
   font-size: 34px;
@@ -474,9 +464,9 @@ a { color: inherit; }
   .hero { padding: 56px 0 72px; }
   .hero::before { width: 620px; height: 620px; }
   .hero::after { width: 520px; height: 520px; }
-  .badge { font-size: 14px; line-height: 20px; }
-  .logo-box { width: 210px; height: 112px; margin-top: 24px; border-radius: 22px; }
-  .logo-box img { width: 202px; margin: 2px 0 0 1px; }
+  .badge { font-size: 16px; line-height: 22px; }
+  .logo-box { margin-top: 20px; }
+  .logo-box img { width: 210px; }
   .hero h1 { margin-top: 24px; font-size: 56px; line-height: 1.2; }
   .hero-desc { margin-top: 24px; max-width: 500px; font-size: 20px; }
   .store-buttons { flex-direction: row; gap: 16px; margin-top: 28px; }
