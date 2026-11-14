@@ -12,7 +12,7 @@
 - 로컬 스택(Docker)에서 `supabase db reset` · `supabase test db`(pgTAP)로 먼저 검증한다. 모든 작업 폴더가 같은 로컬 DB 를 쓰므로 한 번에 한 작업만 돌린다(`frontend/CLAUDE.md` §10 · `.claude/team/COMMON.md` §4).
 - 적용 순서가 서버 배포와 얽힌 기능의 순서는 `backend/DEPLOY.md` §4 가 기준이다(보통 DB → 서버 → 관리자 웹 → 앱).
 - **마이그레이션 파일이 없는 운영 데이터 변경 두 가지가 남아 있다.**
-  - 서울 학교 64곳의 `universities.card_opens_at` 을 2026-11-02 07:00 에서 null(열림)로 바꿨다(`execute_sql`, 사용자 승인). 저장소 `20261020110000` 은 그대로라 새 DB 는 11-02 로 닫힌 채 만들어진다. 스토어 심사 통과 뒤 날짜를 정해 다시 막는다(`backend/DEPLOY.md` §4-17).
+  - 서울 학교 64곳의 `universities.card_opens_at` 을 2026-11-02 07:00 에서 null(열림)로 바꿨다(`execute_sql`, 사용자 승인). 저장소 `20261020110000` 은 그대로라 새 DB 는 11-02 로 닫힌 채 만들어진다. 스토어 심사 통과 뒤 날짜를 정해 다시 막는다(`backend/DEPLOY.md` §4-17). **2026-11-14 개정: 지금은 서울 묶음 149곳(서울 64 + 새 학교 85)이 모두 운영 DB 에서 2026-11-23 07:00 KST 로 막혀 있다**(11-13 밤 다시 막았고, 서울대 카드 오픈을 임시로 풀었던 것도 11-14 에 다시 막았다 — 대장 전달 값, 해제 경위는 확인 필요). 열려 있는 곳은 테스트대학(e2e) 1곳이다. 이 변경도 마이그레이션 파일이 없다(`backend/DEPLOY.md` §4-26 · §5).
   - 구글 심사용 시험 데이터(가상 계정 20 · 카드 1 · 채팅방 3)가 일회성 스크립트로 들어 있다. 심사 통과를 확인한 뒤 사용자에게 먼저 묻고 제거하며, 그 전에는 하네스 전체 cleanup 을 돌리지 않는다(`backend/DEPLOY.md` §4-16).
 - 마이그레이션별 적용 날짜 · 원격 버전 · 승인 원문 · 적용 뒤 확인(advisor 등)은 `docs/history/erd-log-2026.md` 에 있다.
 
@@ -79,3 +79,7 @@
 - **키 로그 노출 점검**: `pg_stat_statements` · Postgres 로그에 `pgp_sym_encrypt` / `pgp_sym_decrypt` 의 키 인자가 `$1` 같은 자리표시자로만 보이는지, `log_statement` · `auto_explain` 이 인자 값을 남기지 않는지 본다. 운영 점검 결과: RPC 문장은 본문이 파라미터라 키가 평문으로 남지 않았고, 운영 `log_statement` 는 `ddl` 이다
 - **대시보드에서 손으로 복호화해야 할 때**: `select * from public.decrypt_profile_private('<profile_id>', '<키>');` — 키를 SQL 창에 붙여넣는 일 자체가 감사 대상이라 실행 전후로 사유를 운영 기록에 남긴다. 평소 원칙은 "운영자는 `profile_private` 를 FastAPI 관리 기능으로만 본다"(ERD_DECISIONS §11-18)
 - M2(평문 열 · 백필 함수 삭제)는 되돌릴 수 없다. 실행 기록 · 롤백 주의는 `backend/DEPLOY.md` §4-4 "M2 실행 기록"
+
+## 9. Auth 인증 메일 발송(SMTP) — 대시보드 설정
+
+학교 메일 인증번호 메일은 Supabase Auth 가 직접 보낸다(우리 서버 · Secret Manager 와 무관). 2026-11-13 에 Authentication 의 SMTP 를 Google Workspace 발신 전용 계정(`smtp.gmail.com` 465, 앱 비밀번호)으로 바꿨고, 도메인 DNS 에 SPF · DKIM · DMARC 를 등록했다(대장 전달 값). 대시보드 설정이라 마이그레이션 파일이 없고, 값 · 주소 · 비밀번호는 문서에 적지 않는다. **발신 계정의 비밀번호 변경 · 2단계 인증 끄기는 앱 비밀번호를 무효로 만들어 인증 메일을 멈춘다.** 시간당 메일 한도(100, 300 으로 올릴지는 확인 필요)와 레코드 값 · 점검 방법은 `backend/DEPLOY.md` §2 "그 밖의 배포 규칙".
