@@ -315,27 +315,6 @@ a { color: inherit; }
 .heart-2 { right: 10%; bottom: 34%; width: 16px; height: 16px; animation-delay: 2s; }
 .heart-3 { left: 46%; bottom: 8%; width: 14px; height: 14px; animation-delay: 4s; }
 
-/* 흐르는 띠 */
-.marquee { overflow: hidden; background: var(--color-ink); color: var(--color-white); padding: 14px 0; }
-.marquee-track { display: flex; width: max-content; animation: marquee 32s linear infinite; }
-.marquee-list { display: flex; flex: none; }
-.marquee-list li {
-  display: flex;
-  align-items: center;
-  font-size: 15px;
-  line-height: 22px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-.marquee-list li::after {
-  content: "";
-  width: 8px;
-  height: 8px;
-  margin: 0 22px;
-  border-radius: 50%;
-  background: var(--color-primary);
-}
-
 /* 스크롤하면 아래에서 올라오며 나타난다. script.js 가 없으면(.js 없음) 처음부터 보인다. */
 /* transition 이 아니라 animation 으로 한다: 끝난 뒤에는 카드의 가리킴 효과(transform)를 건드리지 않는다. */
 .js .reveal { opacity: 0; }
@@ -535,9 +514,6 @@ a { color: inherit; }
   .heart-2 { width: 22px; height: 22px; }
   .heart-3 { width: 18px; height: 18px; }
 
-  .marquee { padding: 18px 0; }
-  .marquee-list li { font-size: 17px; }
-
   .how { padding: 104px 0 40px; }
   .how h2, .features h2 { font-size: 40px; }
   .section-sub { margin-top: 14px; font-size: 18px; }
@@ -594,7 +570,6 @@ a { color: inherit; }
   .store-btn:hover { transform: translateY(-4px); box-shadow: 0 20px 34px -16px rgba(34, 34, 34, 0.75); }
   .store-btn:hover::after { transform: translateX(120%); transition: transform 0.7s ease; }
   .store-btn:hover .store-icon { transform: scale(1.15) rotate(-6deg); }
-  .marquee:hover .marquee-track { animation-play-state: paused; }
   .step:hover .phone-step { transform: translateY(-12px) rotate(0deg) scale(1.03); box-shadow: 0 40px 70px -30px rgba(196, 34, 75, 0.7); }
   .feature-card:hover { transform: translateY(-8px); border-color: rgba(255, 56, 92, 0.45); box-shadow: var(--shadow-pink); }
   .feature-card:hover .feature-icon { background: var(--color-primary-text); transform: rotate(-8deg) scale(1.08); }
@@ -614,7 +589,6 @@ a { color: inherit; }
   15% { opacity: 0.9; }
   100% { opacity: 0; transform: translateY(-220px) scale(1.15) rotate(18deg); }
 }
-@keyframes marquee { to { transform: translateX(-50%); } }
 
 /* 움직임 줄이기를 켠 사람에게는 모든 움직임을 끈다 */
 @media (prefers-reduced-motion: reduce) {
