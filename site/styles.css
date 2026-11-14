@@ -16,7 +16,7 @@
 
 :root {
   --color-primary: #FF385C;
-  /* 앱 AppColors.primaryText 와 같은 값. 흰 글자를 얹는 바탕에 쓴다(대비 5.7:1). */
+  /* 앱 AppColors.primaryText 와 같은 값. 흰 글자를 얹는 바탕과 강조 글자색에 쓴다(흰색과 대비 5.7:1). */
   --color-primary-text: #C4224B;
   --color-tint: #FFF0F2;
   --color-ink: #222222;
@@ -126,7 +126,8 @@ a { color: inherit; }
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--color-primary-text);
+  /* 머리줄 단추의 가리킴 색과 같은 값. 분홍 빛 번짐이 겹쳐도 대비 4.5:1 을 넘긴다(가장 밝게 겹칠 때 5.3). */
+  color: #A81B3F;
   font-size: 14px;
   line-height: 20px;
   font-weight: 700;
