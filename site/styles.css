@@ -119,37 +119,11 @@ a { color: inherit; }
 .hero-copy > :nth-child(2) { animation-delay: 0.08s; }
 .hero-copy > :nth-child(3) { animation-delay: 0.16s; }
 .hero-copy > :nth-child(4) { animation-delay: 0.24s; }
-.hero-copy > :nth-child(5) { animation-delay: 0.32s; }
 
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  /* 머리줄 단추의 가리킴 색과 같은 값. 분홍 빛 번짐이 겹쳐도 대비 4.5:1 을 넘긴다(가장 밝게 겹칠 때 5.3). */
-  color: #A81B3F;
-  font-size: 14px;
-  line-height: 20px;
-  font-weight: 700;
-}
-.badge-dot {
-  position: relative;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--color-primary);
-}
-.badge-dot::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: var(--color-primary);
-  animation: ping 1.8s ease-out infinite;
-}
 /* 로고는 바탕 상자 없이 그림만 두고, 폭을 제목 첫 줄에 맞춘다(사용자 11-14).
    묶음은 내용 폭(= 제목의 가장 긴 줄)만큼만 차지한다. 로고는 width: 0 으로 그 계산에서 빠지고 min-width 로 묶음을 채운다.
    103.1% · -1.8%: logo.svg 안쪽 여백(양쪽 약 2%)에서 제목 끝 글자의 옆 여백을 뺀 만큼 넓혀 글자 끝과 제목 끝을 맞춘다. */
-.hero-lockup { width: fit-content; max-width: 100%; margin-top: 14px; }
+.hero-lockup { width: fit-content; max-width: 100%; }
 .hero-logo { width: 0; min-width: 103.1%; height: auto; margin-left: -1.8%; }
 .hero h1 {
   margin-top: 18px;
@@ -467,8 +441,6 @@ a { color: inherit; }
   .hero { padding: 56px 0 72px; }
   .hero::before { width: 620px; height: 620px; }
   .hero::after { width: 520px; height: 520px; }
-  .badge { font-size: 16px; line-height: 22px; }
-  .hero-lockup { margin-top: 20px; }
   .hero h1 { margin-top: 24px; font-size: 56px; line-height: 1.2; }
   .hero-desc { margin-top: 24px; max-width: 500px; font-size: 20px; }
   .store-buttons { flex-direction: row; gap: 16px; margin-top: 28px; }
@@ -559,7 +531,6 @@ a { color: inherit; }
 
 @keyframes rise { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
 @keyframes underline { to { background-size: 100% 0.32em; } }
-@keyframes ping { from { transform: scale(1); opacity: 0.7; } to { transform: scale(3); opacity: 0; } }
 @keyframes drift { from { transform: translate(0, 0) scale(1); } to { transform: translate(-40px, 30px) scale(1.12); } }
 @keyframes breathe { 0%, 100% { transform: scale(1); opacity: 0.9; } 50% { transform: scale(1.12); opacity: 1; } }
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
