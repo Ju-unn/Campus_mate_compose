@@ -148,12 +148,13 @@ a { color: inherit; }
 }
 /* 로고는 바탕 상자 없이 그림만 두고, 폭을 제목 첫 줄에 맞춘다(사용자 11-14).
    묶음은 내용 폭(= 제목의 가장 긴 줄)만큼만 차지한다. 로고는 width: 0 으로 그 계산에서 빠지고 min-width 로 묶음을 채운다.
-   104.4% · -2%: logo.svg 안쪽 여백(왼쪽 2% · 오른쪽 2.4%)만큼 넓혀 글자 끝과 제목 끝을 맞춘다. */
+   103.1% · -1.8%: logo.svg 안쪽 여백(양쪽 약 2%)에서 제목 끝 글자의 옆 여백을 뺀 만큼 넓혀 글자 끝과 제목 끝을 맞춘다. */
 .hero-lockup { width: fit-content; max-width: 100%; margin-top: 14px; }
-.hero-logo { width: 0; min-width: 104.4%; height: auto; margin-left: -2%; }
+.hero-logo { width: 0; min-width: 103.1%; height: auto; margin-left: -1.8%; }
 .hero h1 {
   margin-top: 18px;
-  font-size: 34px;
+  /* 좁은 폰(320~380)에서도 첫 줄이 한 줄에 들어가야 로고 폭과 맞는다 */
+  font-size: min(34px, 8.6vw);
   line-height: 1.25;
   font-weight: 700;
 }
