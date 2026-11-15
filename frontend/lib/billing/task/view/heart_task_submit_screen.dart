@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:campus_mate/billing/task/model/data/everytime_form_link.dart';
 import 'package:campus_mate/billing/task/model/data/heart_task.dart';
+import 'package:campus_mate/billing/task/model/data/kakao_share_form_link.dart';
 import 'package:campus_mate/billing/task/view/heart_task_photo_slots.dart';
 import 'package:campus_mate/billing/task/view/heart_task_text.dart';
 import 'package:campus_mate/billing/task/viewmodel/heart_task_submit_ui_state.dart';
@@ -34,7 +34,8 @@ String? _criteria(AppLocalizations l10n, HeartTaskKind kind) => switch (kind) {
       HeartTaskKind.pollVote => null,
     };
 
-// 에브리타임 18b · 18b-2 보조 버튼(pen `F15q0W` · `DMrAI` TextButton, 대장 전달 값 10-17)은 화살표가 아이콘이 아니라 글자다
+// 18b · 18b-2 양식 보조 버튼(pen `F15q0W` · `DMrAI` TextButton, 대장 전달 값 10-17)은 화살표가 아이콘이 아니라 글자다
+// 처음엔 에브리타임 양식이었고, 2026-11-15 에브리타임을 빼면서 같은 자리 · 같은 모양으로 단톡방 공유 양식을 연다.
 // (billingTaskSubmitFormLink). 낭독기는 화살표 대신 어디로 열리는지 읽는다(billingTaskSubmitFormLinkLabel).
 
 /// 18b 경로. 반려 뒤 다시 낼 때는 사유를 `reason` 으로 실어 18b-2 알림을 띄운다.
@@ -81,7 +82,7 @@ class _HeartTaskSubmitScreenState extends ConsumerState<HeartTaskSubmitScreen> {
     _openingForm = true;
     var opened = false;
     try {
-      opened = await ref.read(openUrlProvider)(everytimeFormLink);
+      opened = await ref.read(openUrlProvider)(kakaoShareFormLink);
     } catch (_) {
       // 기기 쪽 오류 — 아래에서 안내한다.
     } finally {
@@ -162,17 +163,15 @@ class _HeartTaskSubmitScreenState extends ConsumerState<HeartTaskSubmitScreen> {
               onRemove: viewModel.removePhoto,
             ),
             const SizedBox(height: AppSpacing.md),
-            // 단톡방에는 양식이 없다. 버튼 높이 48 은 MutedTextButton 최소값 — 글자를 키우면 늘어난다.
-            if (widget.kind == HeartTaskKind.everytimePost) ...[
-              Semantics(
-                button: true,
-                label: l10n.billingTaskSubmitFormLinkLabel,
-                excludeSemantics: true,
-                onTap: _openForm,
-                child: MutedTextButton(label: l10n.billingTaskSubmitFormLink, onPressed: _openForm),
-              ),
-              const SizedBox(height: AppSpacing.md),
-            ],
+            // 단톡방 공유 양식(인증샷을 내는 항목은 단톡방뿐이라 늘 보인다). 버튼 높이 48 은 MutedTextButton 최소값 — 글자를 키우면 늘어난다.
+            Semantics(
+              button: true,
+              label: l10n.billingTaskSubmitFormLinkLabel,
+              excludeSemantics: true,
+              onTap: _openForm,
+              child: MutedTextButton(label: l10n.billingTaskSubmitFormLink, onPressed: _openForm),
+            ),
+            const SizedBox(height: AppSpacing.md),
             if (toast != null) ...[
               Center(
                 child: AppToast(

@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:campus_mate/auth/media/model/repository/image_compressor_provider.dart';
-import 'package:campus_mate/billing/task/model/data/everytime_form_link.dart';
 import 'package:campus_mate/billing/task/model/data/heart_task.dart';
+import 'package:campus_mate/billing/task/model/data/kakao_share_form_link.dart';
 import 'package:campus_mate/billing/task/model/repository/heart_task_repository_provider.dart';
 import 'package:campus_mate/billing/task/view/heart_task_photo_slots.dart';
 import 'package:campus_mate/billing/task/view/heart_task_submit_screen.dart';
@@ -29,13 +29,13 @@ import '../../../auth/media/model/repository/fake_image_compressor.dart';
 import '../../store/view/pretendard.dart';
 import '../model/repository/fake_heart_task_repository.dart';
 
-/// 무료 하트 인증 기준(사용자 결정 10-12 — pen 동기화 대기). 에브리타임은 옛 "날짜가 보이게 찍어 주세요" 를 합쳤다.
+/// 무료 하트 인증 기준(사용자 결정 10-12 — pen 동기화 대기). 인증샷을 내는 항목은 단톡방 공유뿐이다(에브리타임은 2026-11-15 삭제).
 /// 단톡방 인원은 10-16 사용자 확정으로 5명 → 3명(앱 문구만 — 서버 · DB 는 인원을 검사하지 않는다).
-const _everytimeCriteria = '앱 이름(CampusMate)이 들어간 홍보 글을 올리고, 올린 날짜가 보이게 찍어 주세요';
 const _kakaoCriteria = '3명 이상이 있는 단톡방에 공유한 글과 단톡방 인원 수가 보이게 찍어 주세요';
 
-/// 에브리타임 18b · 18b-2 의 보조 버튼(pen 18b `F15q0W` · 18b-2 `DMrAI` TextButton, 대장 전달 값 10-17).
-const _formLabel = '에브리타임 양식 보기 →';
+/// 18b · 18b-2 의 양식 보조 버튼(pen 18b `F15q0W` · 18b-2 `DMrAI` TextButton, 대장 전달 값 10-17). 2026-11-15 사용자
+/// 「단톡방 공유 "에브리타임 양식 보기" 처럼 "단톡방 공유 양식 보기" 링크 버튼이 없음」으로 단톡방 18b 에 옮겼다.
+const _formLabel = '단톡방 공유 양식 보기 →';
 
 void main() {
   // 시험 기본 글꼴(Ahem)은 글자 폭이 실제와 달라 개수 줄("0/3장" + 힌트)이 접힌다 — 실제 글꼴로 pen 치수를 잰다.
@@ -117,7 +117,7 @@ void main() {
     return router;
   }
 
-  testWidgets('18b — 안내 · 단톡방 인증 기준 · 업로더 · 꺼진 "제출하기", 반려 알림 · 에브리타임 기준은 없다', (tester) async {
+  testWidgets('18b — 안내 · 단톡방 인증 기준 · 업로더 · 꺼진 "제출하기", 반려 알림 · 에브리타임 글자는 없다', (tester) async {
     await pump(tester);
 
     expect(find.text('인증샷 제출'), findsOneWidget);
@@ -127,36 +127,23 @@ void main() {
     expect(find.text('스크린샷 첨부하기'), findsNothing);
     expect(find.text('0/3장'), findsOneWidget);
     expect(find.text('사진 추가'), findsNWidgets(3));
-    expect(find.text(_everytimeCriteria), findsNothing);
+    expect(find.textContaining('에브리타임'), findsNothing);
     expect(find.textContaining('반려 사유'), findsNothing);
     expect(tester.widget<ElevatedButton>(find.byType(ElevatedButton)).onPressed, isNull);
     expect(find.text('제출하기'), findsOneWidget);
   });
 
-  testWidgets('에브리타임은 앱 이름 · 날짜 기준 한 덩어리 — 옛 "날짜가 보이게 찍어 주세요" 는 합쳐져 따로 없다', (tester) async {
-    await pump(tester, kind: HeartTaskKind.everytimePost);
+  testWidgets('단톡방 기준 — 12/400 muted 줄높이 1.4, 안내 → 4 → 기준 → 16 → 사진 블록(옛 업로더 자리 그대로)', (tester) async {
+    await pump(tester);
 
-    expect(find.text(_everytimeCriteria), findsOneWidget);
-    expect(find.text('날짜가 보이게 찍어 주세요'), findsNothing);
-    expect(find.text(_kakaoCriteria), findsNothing);
+    final text = find.text(_kakaoCriteria);
+    final style = tester.widget<Text>(text).style!;
+    expect((style.fontSize, style.fontWeight, style.height, style.color), (12, FontWeight.w400, 1.4, AppColors.muted));
+    final guide = tester.getRect(find.text('스크린샷을 첨부하면 확인 후 하트를 드려요'));
+    final rect = tester.getRect(text);
+    expect(rect.top - guide.bottom, 4);
+    expect(tester.getRect(find.byKey(heartTaskPhotoBlockKey)).top - rect.bottom, 16);
   });
-
-  for (final (kind, criteria) in [
-    (HeartTaskKind.everytimePost, _everytimeCriteria),
-    (HeartTaskKind.kakaoShare, _kakaoCriteria),
-  ]) {
-    testWidgets('${kind.code} 기준 — 12/400 muted 줄높이 1.4, 안내 → 4 → 기준 → 16 → 사진 블록(옛 업로더 자리 그대로)', (tester) async {
-      await pump(tester, kind: kind);
-
-      final text = find.text(criteria);
-      final style = tester.widget<Text>(text).style!;
-      expect((style.fontSize, style.fontWeight, style.height, style.color), (12, FontWeight.w400, 1.4, AppColors.muted));
-      final guide = tester.getRect(find.text('스크린샷을 첨부하면 확인 후 하트를 드려요'));
-      final rect = tester.getRect(text);
-      expect(rect.top - guide.bottom, 4);
-      expect(tester.getRect(find.byKey(heartTaskPhotoBlockKey)).top - rect.bottom, 16);
-    });
-  }
 
   testWidgets('18b-2 — 사유 알림과 "다시 제출하기", pen 배치 16 · 99 · 138 · 374', (tester) async {
     await pump(tester, reason: HeartTaskRejectReason.dateMissing);
@@ -184,7 +171,8 @@ void main() {
     expect(block.top - body, 138 + 4 + caption.height);
     // 사진 블록 = 개수 줄 20 + 간격 8 + 칸(pen uvkY2 · r7wOTV 104 — 본문 폭 328 에서. 이 시험은 화면을 420 으로 넓혔으니 칸은 (388 − 16) ÷ 3).
     expect(block.height, 20 + 8 + (420 - 32 - 16) / 3);
-    expect(tester.getRect(find.byType(ElevatedButton)).top - block.bottom, 16);
+    // 사진 블록 → 16 → 양식 버튼 → 16 → 제출 버튼(양식 버튼이 단톡방에도 붙었다 2026-11-15 — 아래 "양식 보기" 묶음이 잰다).
+    expect(tester.getRect(find.widgetWithText(MutedTextButton, _formLabel)).top - block.bottom, 16);
   });
 
   testWidgets('사진을 고르면 버튼이 켜지고, 제출하면 18c 로 바뀌며 뒤로 가면 18a 다', (tester) async {
@@ -389,13 +377,9 @@ void main() {
       expect(addTiles(), findsNothing);
     });
 
-    for (final (kind, reason) in [
-      (HeartTaskKind.everytimePost, null),
-      (HeartTaskKind.everytimePost, HeartTaskRejectReason.dateMissing),
-      (HeartTaskKind.kakaoShare, HeartTaskRejectReason.reused),
-    ]) {
-      testWidgets('${kind.code} 반려 $reason — 같은 사진 칸(에브리타임 · 18b-2 도 같은 블록)', (tester) async {
-        await pump(tester, kind: kind, reason: reason);
+    for (final reason in [null, HeartTaskRejectReason.dateMissing, HeartTaskRejectReason.reused]) {
+      testWidgets('반려 $reason — 같은 사진 칸(18b-2 도 같은 블록)', (tester) async {
+        await pump(tester, reason: reason);
 
         expect(addTiles(), findsNWidgets(3));
         expect(find.text('0/3장'), findsOneWidget);
@@ -456,39 +440,31 @@ void main() {
     });
   });
 
-  for (final (kind, criteria) in [
-    (HeartTaskKind.everytimePost, _everytimeCriteria),
-    (HeartTaskKind.kakaoShare, _kakaoCriteria),
-  ]) {
-    testWidgets('${kind.code} — 글자 2배에서도 넘침 예외가 없고 말줄임으로 잘린 글자도 없다(기준 캡션 포함)', (tester) async {
-      tester.platformDispatcher.textScaleFactorTestValue = 2;
-      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-      await pump(tester, kind: kind, reason: HeartTaskRejectReason.notVerified);
+  testWidgets('글자 2배에서도 넘침 예외가 없고 말줄임으로 잘린 글자도 없다(기준 캡션 포함)', (tester) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await pump(tester, reason: HeartTaskRejectReason.notVerified);
 
-      expect(tester.takeException(), isNull);
-      expect(find.text(criteria), findsOneWidget);
-      // 넘침 예외가 없어도 maxLines 로 조용히 잘릴 수 있다(DESIGN §11.2) — 화면 글자를 전부 본다.
-      for (final paragraph in tester.renderObjectList<RenderParagraph>(find.byType(RichText))) {
-        expect(paragraph.didExceedMaxLines, isFalse, reason: paragraph.text.toPlainText());
-      }
-      // 캡션 아래 간격 규칙도 2배에서 그대로다.
-      expect(tester.getRect(find.byKey(heartTaskPhotoBlockKey)).top - tester.getRect(find.text(criteria)).bottom, 16);
-    });
-  }
+    expect(tester.takeException(), isNull);
+    expect(find.text(_kakaoCriteria), findsOneWidget);
+    // 넘침 예외가 없어도 maxLines 로 조용히 잘릴 수 있다(DESIGN §11.2) — 화면 글자를 전부 본다.
+    for (final paragraph in tester.renderObjectList<RenderParagraph>(find.byType(RichText))) {
+      expect(paragraph.didExceedMaxLines, isFalse, reason: paragraph.text.toPlainText());
+    }
+    // 캡션 아래 간격 규칙도 2배에서 그대로다.
+    expect(tester.getRect(find.byKey(heartTaskPhotoBlockKey)).top - tester.getRect(find.text(_kakaoCriteria)).bottom, 16);
+  });
 
-  group('에브리타임 양식 보기(pen `F15q0W` · `DMrAI` TextButton)', () {
+  group('단톡방 공유 양식 보기(pen `F15q0W` · `DMrAI` TextButton)', () {
     Finder formButton() => find.widgetWithText(MutedTextButton, _formLabel);
 
-    testWidgets('에브리타임 18b 에만 있다 — 단톡방 18b 에는 없다', (tester) async {
-      await pump(tester, kind: HeartTaskKind.everytimePost);
-      expect(formButton(), findsOneWidget);
-
+    testWidgets('단톡방 18b 에 있다', (tester) async {
       await pump(tester);
-      expect(find.text(_formLabel), findsNothing);
+      expect(formButton(), findsOneWidget);
     });
 
-    testWidgets('반려 뒤 다시 내는 에브리타임 18b-2 에도 있다', (tester) async {
-      await pump(tester, kind: HeartTaskKind.everytimePost, reason: HeartTaskRejectReason.dateMissing);
+    testWidgets('반려 뒤 다시 내는 단톡방 18b-2 에도 있다', (tester) async {
+      await pump(tester, reason: HeartTaskRejectReason.dateMissing);
 
       expect(find.text('반려 사유: 날짜가 안 보여요'), findsOneWidget);
       expect(formButton(), findsOneWidget);
@@ -496,7 +472,7 @@ void main() {
 
     for (final reason in [null, HeartTaskRejectReason.dateMissing]) {
       testWidgets('사진 블록 → 16 → 버튼 328×48(본문 폭) → 16 → 제출 버튼, 14/600 muted 가운데(반려 $reason)', (tester) async {
-        await pump(tester, kind: HeartTaskKind.everytimePost, reason: reason);
+        await pump(tester, reason: reason);
 
         final uploader = tester.getRect(find.byKey(heartTaskPhotoBlockKey));
         final button = tester.getRect(formButton());
@@ -512,12 +488,12 @@ void main() {
     }
 
     testWidgets('누르면 양식 노션 주소를 앱 안 브라우저(openUrlProvider)로 연다 — 기기 브라우저는 0번(10-16 사용자 결정)', (tester) async {
-      await pump(tester, kind: HeartTaskKind.everytimePost);
+      await pump(tester);
 
       await tester.tap(formButton());
       await tester.pump();
 
-      expect(openedInApp, [everytimeFormLink]);
+      expect(openedInApp, [kakaoShareFormLink]);
       expect(openedExternal, isEmpty);
       expect(find.text(failureText(AppLocalizationsKo(), const UnknownFailure())), findsNothing);
     });
@@ -525,18 +501,18 @@ void main() {
     testWidgets('여는 호출이 끝나기 전에 다시 눌러도 한 번만 연다', (tester) async {
       final pending = Completer<bool>();
       open = (uri) => pending.future;
-      await pump(tester, kind: HeartTaskKind.everytimePost);
+      await pump(tester);
 
       await tester.tap(formButton());
       await tester.tap(formButton());
       await tester.pump();
-      expect(openedInApp, [everytimeFormLink]);
+      expect(openedInApp, [kakaoShareFormLink]);
 
       pending.complete(true);
       await tester.pump();
       await tester.tap(formButton());
       await tester.pump();
-      expect(openedInApp, [everytimeFormLink, everytimeFormLink]);
+      expect(openedInApp, [kakaoShareFormLink, kakaoShareFormLink]);
     });
 
     // openInApp 은 연 것 · 사용자가 닫은 것을 true, 예외를 false 로 돌려준다(open_url.dart:18-30) — false 가 "못 열었다".
@@ -547,7 +523,7 @@ void main() {
           if (throws) throw StateError('기기 쪽 오류');
           return false;
         };
-        await pump(tester, kind: HeartTaskKind.everytimePost);
+        await pump(tester);
 
         await tester.tap(formButton());
         await tester.pump();
@@ -558,12 +534,12 @@ void main() {
       }
     });
 
-    testWidgets('낭독기 — "에브리타임 양식 보기, 브라우저로 열려요" 버튼으로 읽고(화살표는 읽지 않는다) 누를 수 있다', (tester) async {
+    testWidgets('낭독기 — "단톡방 공유 양식 보기, 브라우저로 열려요" 버튼으로 읽고(화살표는 읽지 않는다) 누를 수 있다', (tester) async {
       final handle = tester.ensureSemantics();
-      await pump(tester, kind: HeartTaskKind.everytimePost);
+      await pump(tester);
 
       final data = tester.getSemantics(formButton()).getSemanticsData();
-      expect(data.label, '에브리타임 양식 보기, 브라우저로 열려요');
+      expect(data.label, '단톡방 공유 양식 보기, 브라우저로 열려요');
       expect(data.flagsCollection.isButton, isTrue);
       expect(data.hasAction(SemanticsAction.tap), isTrue);
       handle.dispose();
@@ -573,7 +549,7 @@ void main() {
       testWidgets('작은 화면 360×640 · 글자 2배 — 넘침 · 말줄임 없고, 스크롤하면 제출 버튼이 다 보인다(반려 $reason)', (tester) async {
         tester.platformDispatcher.textScaleFactorTestValue = 2;
         addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-        await pump(tester, kind: HeartTaskKind.everytimePost, reason: reason, size: const Size(360, 640));
+        await pump(tester, reason: reason, size: const Size(360, 640));
 
         expect(tester.takeException(), isNull);
         for (final paragraph in tester.renderObjectList<RenderParagraph>(find.byType(RichText))) {
