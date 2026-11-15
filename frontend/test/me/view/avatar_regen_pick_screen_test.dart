@@ -255,7 +255,7 @@ void main() {
       expect(tester.getSize(find.byType(AvatarSourceTile)), const Size(158, 158));
       expect(tester.widget<AppButton>(cta).onPressed, isNotNull);
       // 압축 · 얼굴 검사를 거친 파일이다.
-      expect(faces.hasFaceCalls, hasLength(1));
+      expect(faces.scanCalls, hasLength(1));
     });
 
     testWidgets('고른 뒤 칸을 다시 누르면 다른 사진으로 바꾼다', (tester) async {
@@ -283,6 +283,44 @@ void main() {
       expect(find.text('얼굴이 보이는 사진을 골라 주세요'), findsOneWidget);
       expect(find.byType(AddPhotoTile), findsOneWidget);
       expect(tester.widget<AppButton>(cta).onPressed, isNull);
+    });
+
+    // 사용자 결정 2026-11-15 — 이 사진이 곧 아바타 원본이다. 가장 큰 얼굴 폭 ÷ 사진 폭 ≥ 0.15.
+    testWidgets('얼굴 폭 0.14 인 사진은 칸에 넣지 않고 "얼굴이 크게 나온 사진을 골라 주세요"(얼굴 없음과 같은 자리)', (tester) async {
+      await pump(tester);
+      faces.nextWidthRatio = 0.14;
+
+      await choosePhoto(tester);
+
+      expect(find.text('얼굴이 크게 나온 사진을 골라 주세요'), findsOneWidget);
+      expect(find.byType(AddPhotoTile), findsOneWidget);
+      expect(tester.widget<AppButton>(cta).onPressed, isNull);
+    });
+
+    testWidgets('얼굴 폭 0.15 이면 칸에 넣는다', (tester) async {
+      await pump(tester);
+      faces.nextWidthRatio = 0.15;
+
+      await choosePhoto(tester);
+
+      expect(find.byType(AvatarSourceTile), findsOneWidget);
+      expect(find.text('얼굴이 크게 나온 사진을 골라 주세요'), findsNothing);
+    });
+
+    testWidgets('고른 사진이 있을 때 얼굴이 작은 사진으로 바꾸려 하면 먼저 고른 사진이 그대로 남는다', (tester) async {
+      await pump(tester);
+      await choosePhoto(tester);
+      faces.nextWidthRatio = 0.05;
+
+      await tester.runAsync(() async {
+        await tester.tap(find.byType(AvatarSourceTile));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      });
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AvatarSourceTile), findsOneWidget);
+      expect(find.text('얼굴이 크게 나온 사진을 골라 주세요'), findsOneWidget);
+      expect(tester.widget<AppButton>(cta).onPressed, isNotNull);
     });
 
     testWidgets('고르지 않고 닫거나 갤러리가 열리지 않아도(권한 거부 등) 아무 일도 없다', (tester) async {

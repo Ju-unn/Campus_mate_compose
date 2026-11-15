@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:campus_mate/auth/media/model/data/face_scan.dart';
 import 'package:campus_mate/auth/media/model/repository/face_detector_provider.dart';
 import 'package:campus_mate/auth/media/model/repository/image_compressor_provider.dart';
 import 'package:campus_mate/common/failure.dart';
@@ -101,12 +102,9 @@ class AvatarRegenPickViewModel extends Notifier<AvatarRegenPickUiState> {
     var accepted = state.photo;
     Failure? failure;
     try {
-      final checked = await _checked(file);
-      if (checked == null) {
-        failure = const AppErrorFailure(AppError.noFace);
-      } else {
-        accepted = checked;
-      }
+      final (checked, refusal) = await _checked(file);
+      failure = refusal;
+      accepted = checked ?? accepted;
     } finally {
       // 새 사진으로 바꾸면 서버에 이미 올린 사진은 이 사진이 아니다 — 다시 올려야 한다.
       state = state.copyWith(
@@ -127,18 +125,26 @@ class AvatarRegenPickViewModel extends Notifier<AvatarRegenPickUiState> {
     }
   }
 
-  /// 압축한 사진. 얼굴이 없거나 사진을 처리하지 못하면 null. 얼굴 검사가 예외를 던지면 통과시킨다(04-2 와 같다 —
-  /// 기기 안 검사는 1차 필터이고 서버 SafeSearch 가 다시 본다).
-  Future<File?> _checked(File file) async {
+  /// 압축한 사진, 또는 칸에 넣지 않는 이유. 얼굴이 없거나 사진을 처리하지 못하면 얼굴 없음, 이 사진이 곧 아바타 원본이라
+  /// 얼굴이 작으면(폭 비율 0.15 미만, 사용자 결정 2026-11-15) 작은 얼굴 문구다. 얼굴 검사가 예외를 던지면 크기도 모르는 채로
+  /// 통과시킨다(04-2 와 같다 — 기기 안 검사는 1차 필터이고 서버 SafeSearch 가 다시 본다).
+  Future<(File?, Failure?)> _checked(File file) async {
     try {
       final compressed = await ref.read(imageCompressorProvider).compressToJpeg(file);
-      try {
-        return await ref.read(faceDetectorProvider).hasFace(compressed) ? compressed : null;
-      } on Exception {
-        return compressed;
-      }
+      final scan = await _scan(compressed);
+      if (!scan.hasFace) return (null, const AppErrorFailure(AppError.noFace));
+      if (scan.isTooSmallForAvatar) return (null, const AppErrorFailure(AppError.faceTooSmall));
+      return (compressed, null);
     } on Exception {
-      return null;
+      return (null, const AppErrorFailure(AppError.noFace));
+    }
+  }
+
+  Future<FaceScan> _scan(File compressed) async {
+    try {
+      return await ref.read(faceDetectorProvider).scan(compressed);
+    } on Exception {
+      return const FaceScan.found();
     }
   }
 

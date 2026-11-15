@@ -622,6 +622,30 @@ void main() {
       expect((restored.file!.path, restored.isAvatarSource, restored.sourceHash), (files[0].path, true, null));
     });
 
+    test('얼굴 크기도 남겨 되살린 뒤에도 작은 원본을 막는다', () async {
+      faceDetector.queuedWidthRatios.addAll([0.1, 0.5, 0.5]);
+      await pickThree(open(), avatar: 0);
+
+      final restored = open().read(photosViewModelProvider);
+
+      expect([for (final photo in restored.photos) photo.faceWidthRatio], [0.1, 0.5, 0.5]);
+      expect(restored.canSubmit, isFalse);
+    });
+
+    test('얼굴 크기가 없는 옛 임시 저장은 크기 모름(통과)으로 되살린다', () async {
+      drafts.write(DraftScreen.photos, {
+        'photos': [
+          {'path': files[0].path, 'isAvatarSource': true},
+          {'path': files[1].path, 'isAvatarSource': false},
+        ],
+      });
+
+      final restored = open().read(photosViewModelProvider);
+
+      expect(restored.photos.first.faceWidthRatio, isNull);
+      expect(restored.canSubmit, isTrue);
+    });
+
     test('복원한 사진은 얼굴 확인 · 압축을 다시 하지 않는다', () async {
       await pickThree(open());
       final compressedBefore = imageCompressor.compressedSources.length;
@@ -755,7 +779,128 @@ void main() {
     });
   });
 
+  // 사용자 결정 2026-11-15 — 전신 사진은 아바타가 원본 구도를 따라가 얼굴이 아주 작게 나온다. 가장 큰 얼굴 폭 ÷ 사진 폭 ≥ 0.15.
+  group('아바타 원본 얼굴 크기', () {
+    /// [ratios] 순서대로 얼굴 크기를 재는 사진을 한 번에 고른다.
+    Future<PhotosViewModel> pickWithRatios(List<double?> ratios) async {
+      faceDetector.queuedWidthRatios.addAll(ratios);
+      final viewModel = container.read(photosViewModelProvider.notifier)
+        ..pickFromGallery = (limit) async => [for (var i = 0; i < ratios.length; i++) File('p$i.jpg')];
+      await viewModel.addPhoto();
+      return viewModel;
+    }
+
+    PhotosUiState state() => container.read(photosViewModelProvider);
+    List<bool> sources() => [for (final photo in state().photos) photo.isAvatarSource];
+
+    test('04-2 에서 잰 얼굴 크기를 사진에 담아 04-3 이 다시 검출하지 않는다', () async {
+      final viewModel = await pickWithRatios([0.3, 0.05]);
+
+      viewModel.prepareAvatarSource();
+
+      expect([for (final photo in state().photos) photo.faceWidthRatio], [0.3, 0.05]);
+      expect(faceDetector.scanCalls, hasLength(2));
+    });
+
+    test('얼굴이 작아도 04-2 칸에는 들어간다 — 프로필 사진은 얼굴만 있으면 된다', () async {
+      await pickWithRatios([0.05, 0.04]);
+
+      expect(state().photos, hasLength(2));
+      expect(state().error, isNull);
+      expect(state().canProceed, isTrue);
+    });
+
+    test('얼굴 폭 0.14 인 사진을 원본으로 고르면 다음으로 갈 수 없고 문구가 나온다', () async {
+      final viewModel = await pickWithRatios([0.14, 0.5]);
+
+      viewModel.setAvatarSource(0);
+
+      expect(state().canSubmit, isFalse);
+      expect(state().avatarSourceFailure, _faceTooSmall);
+    });
+
+    test('얼굴 폭 0.15 이면 원본으로 쓸 수 있다', () async {
+      final viewModel = await pickWithRatios([0.15, 0.5]);
+
+      viewModel.setAvatarSource(0);
+
+      expect(state().canSubmit, isTrue);
+      expect(state().avatarSourceFailure, isNull);
+    });
+
+    test('얼굴이 없으면 크기 문구가 아니라 종전 얼굴 없음 문구다', () async {
+      faceDetector.queuedResults.addAll([false]);
+
+      await pickWithRatios([0.05]);
+
+      expect(state().photos, isEmpty);
+      expect(state().error, _noFace);
+    });
+
+    test('얼굴 검사가 예외를 던져 크기를 모르면 원본으로 통과시킨다', () async {
+      faceDetector.nextError = Exception('ML Kit 이 사진을 읽지 못했다');
+      final viewModel = await pickWithRatios([0.05, 0.05]);
+
+      viewModel.setAvatarSource(0);
+
+      expect(state().photos.first.faceWidthRatio, isNull);
+      expect(state().canSubmit, isTrue);
+    });
+
+    test('크기를 잴 수 없었던(null) 사진도 원본으로 통과시킨다', () async {
+      final viewModel = await pickWithRatios([null, 0.05]);
+
+      viewModel.setAvatarSource(0);
+
+      expect(state().canSubmit, isTrue);
+    });
+
+    test('04-3 으로 넘어갈 때 기준을 넘는 첫 사진을 원본으로 골라 둔다', () async {
+      final viewModel = await pickWithRatios([0.1, 0.05, 0.4, 0.3]);
+
+      viewModel.prepareAvatarSource();
+
+      expect(sources(), [false, false, true, false]);
+      expect(state().canSubmit, isTrue);
+    });
+
+    test('기준을 넘는 사진이 없으면 지금처럼 첫 장을 고르고 문구를 보인다 — 04-2 토스트(error)는 띄우지 않는다', () async {
+      final viewModel = await pickWithRatios([0.1, 0.05]);
+
+      viewModel.prepareAvatarSource();
+
+      expect(sources(), [true, false]);
+      expect(state().canSubmit, isFalse);
+      expect(state().avatarSourceFailure, _faceTooSmall);
+      expect(state().error, isNull);
+    });
+
+    test('작은 원본인 채로 04-2 에 돌아가 큰 사진을 더하면, 다시 넘어갈 때 큰 사진으로 바꿔 둔다', () async {
+      final viewModel = await pickWithRatios([0.1, 0.05]);
+      viewModel.prepareAvatarSource();
+      faceDetector.queuedWidthRatios.add(0.4);
+      viewModel.pickFromGallery = (limit) async => [File('big.jpg')];
+      await viewModel.addPhoto();
+
+      viewModel.prepareAvatarSource();
+
+      expect(sources(), [false, false, true]);
+      expect(state().canSubmit, isTrue);
+    });
+
+    test('작은 원본이면 "다음" 을 눌러도 올리지 않는다', () async {
+      final viewModel = await pickWithRatios([0.1, 0.5]);
+      viewModel.setAvatarSource(0);
+
+      await viewModel.submit();
+
+      expect(repository.uploads, isEmpty);
+      expect(state().completed, isFalse);
+    });
+  });
 }
+
+final _faceTooSmall = isA<AppErrorFailure>().having((failure) => failure.error, 'error', AppError.faceTooSmall);
 
 final _noFace = isA<AppErrorFailure>().having((failure) => failure.error, 'error', AppError.noFace);
 
