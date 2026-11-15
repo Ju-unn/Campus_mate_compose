@@ -288,7 +288,9 @@ class _HeartTaskReviewScreenState extends ConsumerState<HeartTaskReviewScreen> {
   }
 }
 
-/// 칩 줄(K29dnK): 전체 · 에브리타임 · 단톡방, 사이 8. 같은 칩을 다시 눌러도 새로 받는다.
+/// 칩 줄(K29dnK): 전체 · 단톡방, 사이 8. 같은 칩을 다시 눌러도 새로 받는다.
+/// 에브리타임 홍보는 2026-11-15 앱 · 서버에서 뺐다 — 새 제출이 없어 칩도 뺀다. 옛 제출은 "전체" 에서 그대로 보인다
+/// ([HeartTaskKind.everytimePost] 는 그 줄을 읽으려고 남긴다).
 class _FilterChips extends StatelessWidget {
   const _FilterChips({required this.selected, required this.onSelect});
 
@@ -297,7 +299,7 @@ class _FilterChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final options = <(String, HeartTaskKind?)>[('전체', null), for (final kind in HeartTaskKind.values) (kind.listLabel, kind)];
+    final options = <(String, HeartTaskKind?)>[('전체', null), (HeartTaskKind.kakaoShare.listLabel, HeartTaskKind.kakaoShare)];
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [

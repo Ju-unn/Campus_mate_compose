@@ -98,24 +98,25 @@ void main() {
       expect(rectOf(tester, find.byKey(const ValueKey('submit-info'))), const Rect.fromLTWH(1080, 96, 328, 372));
     });
 
-    testWidgets('칩 3개(xL1CC · wEkG9): 높이 36 · 사이 8 · 좌우 14 · 14/600 · 켜짐 web-ink 바탕, 꺼짐 web-surface + web-outline 1', (tester) async {
+    // 에브리타임 홍보 항목은 2026-11-15 앱 · 서버에서 뺐다 — 걸러 보기 칩도 "전체 · 단톡방" 둘(사용자 「에브리타임 검수 사라졌으니깐
+    // 사이트도 똑같이 수정」). 옛 에브리타임 제출은 "전체" 에서 그대로 보인다(아래 목록 줄 시험의 e1).
+    testWidgets('칩 2개(xL1CC · wEkG9) 전체 · 단톡방: 높이 36 · 사이 8 · 좌우 14 · 14/600 · 켜짐 web-ink 바탕, 꺼짐 web-surface + web-outline 1', (tester) async {
       await openA3(tester);
 
       final all = find.widgetWithText(AdminChip, '전체');
-      final everytime = find.widgetWithText(AdminChip, '에브리타임');
       final kakao = find.widgetWithText(AdminChip, '단톡방');
-      expect(find.byType(AdminChip), findsNWidgets(3));
+      expect(find.byType(AdminChip), findsNWidgets(2));
+      expect(find.widgetWithText(AdminChip, '에브리타임'), findsNothing);
       expect(rectOf(tester, all).height, 36);
-      expect(rectOf(tester, everytime).left - rectOf(tester, all).right, 8);
-      expect(rectOf(tester, kakao).left - rectOf(tester, everytime).right, 8);
-      expect(rectOf(tester, find.descendant(of: everytime, matching: find.text('에브리타임'))).left - rectOf(tester, everytime).left, 14);
+      expect(rectOf(tester, kakao).left - rectOf(tester, all).right, 8);
+      expect(rectOf(tester, find.descendant(of: kakao, matching: find.text('단톡방'))).left - rectOf(tester, kakao).left, 14);
 
       expect(materialOf(tester, all).color, AdminColors.ink);
       expect(shapeOf(tester, all).side, BorderSide.none);
       expect(styleOf(tester, find.descendant(of: all, matching: find.text('전체'))).color, AdminColors.onPrimary);
-      expect(materialOf(tester, everytime).color, AdminColors.surface);
-      expect(shapeOf(tester, everytime).side, const BorderSide(color: AdminColors.outline));
-      final off = styleOf(tester, find.descendant(of: everytime, matching: find.text('에브리타임')));
+      expect(materialOf(tester, kakao).color, AdminColors.surface);
+      expect(shapeOf(tester, kakao).side, const BorderSide(color: AdminColors.outline));
+      final off = styleOf(tester, find.descendant(of: kakao, matching: find.text('단톡방')));
       expect((off.fontSize, off.fontWeight, off.color), (14, FontWeight.w600, AdminColors.body));
     });
 
@@ -330,7 +331,7 @@ void main() {
       expect(find.text('새 제출이 들어오면 여기에 보여요'), findsOneWidget);
       expect(tester.widget<Icon>(find.descendant(of: empty, matching: find.byType(Icon))).icon, LucideIcons.inbox);
       expect(rectOf(tester, find.descendant(of: empty, matching: find.byType(Icon))).size, const Size(32, 32));
-      expect(find.byType(AdminChip), findsNWidgets(3), reason: '빈 목록에도 칩 줄은 남는다');
+      expect(find.byType(AdminChip), findsNWidgets(2), reason: '빈 목록에도 칩 줄은 남는다');
       expect(find.byKey(const ValueKey('submit-info')), findsNothing);
       await letToastGo(tester);
     });
