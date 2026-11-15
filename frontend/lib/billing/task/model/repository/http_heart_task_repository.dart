@@ -18,8 +18,11 @@ class HttpHeartTaskRepository implements HeartTaskRepository {
   Future<Result<List<HeartTask>>> fetchTasks() => _api.send(
         'GET',
         '/heart-tasks',
+        // 앱이 모르는 항목 줄(옛 서버의 everytime_post 등)은 건너뛴다 — 한 줄 때문에 목록 전체가 실패하지 않게.
         (body) => ((body as Map<String, dynamic>)['tasks'] as List<dynamic>)
-            .map((item) => HeartTask.fromJson(item as Map<String, dynamic>))
+            .cast<Map<String, dynamic>>()
+            .where((item) => HeartTaskKind.tryParse(item['task'] as String?) != null)
+            .map(HeartTask.fromJson)
             .toList(),
       );
 

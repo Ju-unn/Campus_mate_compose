@@ -150,11 +150,11 @@ void main() {
 
     await viewModel.addPhotos();
     expect(container.read(heartTaskSubmitViewModelProvider).canSubmit, isTrue);
-    await viewModel.submit(HeartTaskKind.everytimePost);
+    await viewModel.submit(HeartTaskKind.kakaoShare);
     await pumpEventQueue();
 
     expect(compressor.compressedSources, [photo]);
-    expect(repository.submitted, [(HeartTaskKind.everytimePost, 'compressed.jpg')]);
+    expect(repository.submitted, [(HeartTaskKind.kakaoShare, 'compressed.jpg')]);
     expect(container.read(heartTaskSubmitViewModelProvider).submitted, isTrue);
     expect(repository.fetchCount, 2);
   });
@@ -170,7 +170,7 @@ void main() {
       final viewModel = submitViewModel();
 
       await viewModel.addPhotos();
-      await viewModel.submit(HeartTaskKind.everytimePost);
+      await viewModel.submit(HeartTaskKind.kakaoShare);
 
       expect(compressor.discardedPaths, ['compressed.jpg']);
     });

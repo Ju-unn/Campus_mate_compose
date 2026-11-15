@@ -914,12 +914,13 @@ void main() {
   });
 
   group('무료로 모으기(18a 와 같은 줄)', () {
-    testWidgets('서버 목록 세 줄을 기존 HeartTaskRow 로 그린다 — 328×64, 사이 4', (tester) async {
+    // 에브리타임 홍보 줄은 2026-11-15 사용자 결정으로 뺐다(서버 목록에서 빠짐).
+    testWidgets('서버 목록 두 줄(단톡방 · 투표)을 기존 HeartTaskRow 로 그린다 — 328×64, 사이 4, 에브리타임 줄은 없다', (tester) async {
       await pump(tester);
 
       final rows = find.byType(HeartTaskRow);
-      expect(rows, findsNWidgets(3));
-      expect(find.text('에브리타임 홍보'), findsOneWidget);
+      expect(rows, findsNWidgets(2));
+      expect(find.textContaining('에브리타임'), findsNothing);
       expect(find.text('단톡방 공유'), findsOneWidget);
       expect(find.text('커뮤니티 투표'), findsOneWidget);
       expect(tester.getSize(rows.at(0)), const Size(328, 64));
@@ -957,14 +958,14 @@ void main() {
     testWidgets('투표 줄 — "하루 1번" 배지가 길어져도(Pretendard) 줄은 328×64, 제목 · 배지 모두 한 줄', (tester) async {
       await pump(tester);
 
-      final vote = find.byType(HeartTaskRow).at(2);
+      final vote = find.byType(HeartTaskRow).at(1);
       expect(tester.getSize(vote), const Size(328, 64));
       expect(tester.getSize(find.descendant(of: vote, matching: find.text('커뮤니티 투표'))).height, 20);
       final badge = find.ancestor(of: find.text('하루 1번'), matching: find.byType(Container)).first;
       expect(tester.getSize(badge).height, 20);
     });
 
-    // pen FreeSection(투어 6/6 · 제목 켜짐, 대장 전달 값 10-17): 328×243 · 간격 4 — 제목 27 → 4 → 투명 여백 8 → 4 → 줄 3개(사이 4).
+    // pen FreeSection(투어 6/6 · 제목 켜짐, 대장 전달 값 10-17): 간격 4 — 제목 27 → 4 → 투명 여백 8 → 4 → 줄 2개(사이 4, 2026-11-15 전에는 3개).
     // 제목에서 첫 줄까지 4 + 8 + 4 = 16(종전 12 는 여백 뒤 간격 4 를 빠뜨린 값).
     testWidgets('내부용 보상 기준 안내는 없다 — 제목 → 16 → 첫 줄', (tester) async {
       await pump(tester);
@@ -986,12 +987,12 @@ void main() {
     }
 
     testWidgets('투표 미완료 줄을 누르면 커뮤니티로, 인증 미완료 줄을 누르면 제출(18b)로 간다', (tester) async {
-      tasks.tasks = Success(sampleHeartTasks(everytime: HeartTaskState.open));
+      tasks.tasks = Success(sampleHeartTasks(kakao: HeartTaskState.open));
       await pump(tester);
 
-      await tester.tap(find.text('에브리타임 홍보'));
+      await tester.tap(find.text('단톡방 공유'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('제출 /heart-tasks/submit/everytime_post'), findsOneWidget);
+      expect(find.textContaining('제출 /heart-tasks/submit/kakao_share'), findsOneWidget);
     });
 
     testWidgets('투표 줄 → 커뮤니티 탭', (tester) async {
@@ -1014,7 +1015,7 @@ void main() {
       expect(find.byType(HeartTaskRow), findsNothing);
       slow.release.complete();
       await tester.pumpAndSettle();
-      expect(find.byType(HeartTaskRow), findsNWidgets(3));
+      expect(find.byType(HeartTaskRow), findsNWidgets(2));
     });
 
     testWidgets('읽기에 실패하면 섹션에만 문구 + "다시 시도", 누르면 다시 읽는다(pen 에 없는 상태)', (tester) async {
@@ -1032,7 +1033,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tasks.fetchCount, asked + 1);
-      expect(find.byType(HeartTaskRow), findsNWidgets(3));
+      expect(find.byType(HeartTaskRow), findsNWidgets(2));
     });
 
     testWidgets('읽기 실패 문구는 실패 종류의 글자다(네트워크 → "네트워크 연결을 확인해 주세요")', (tester) async {
@@ -1065,15 +1066,16 @@ void main() {
     });
   }
 
-  testWidgets('앱 투어 6단계 표식 — "무료로 모으기" 제목 · 안내 · 작업 줄 3개 전체, 스크롤 손잡이는 맨 위 그림', (tester) async {
+  testWidgets('앱 투어 6단계 표식 — "무료로 모으기" 제목 · 작업 줄 2개 전체, 스크롤 손잡이는 맨 위 그림', (tester) async {
     await pump(tester);
     await tester.pumpAndSettle();
 
     final free = find.byWidgetPredicate((w) => w is TourTarget && w.id == TourTargetId.heartStoreFree, skipOffstage: false);
     expect(find.descendant(of: free, matching: find.text('무료로 모으기', skipOffstage: false)), findsOneWidget);
-    expect(find.descendant(of: free, matching: find.byType(HeartTaskRow, skipOffstage: false)), findsNWidgets(3));
-    // 투어가 감싸는 묶음 = pen FreeSection 328×243(제목 27). 앱은 제목 28 이라 244 — app_tour_host_test 6단계가 이 높이로 잰다.
-    expect(tester.getSize(free), const Size(328, 244));
+    expect(find.descendant(of: free, matching: find.byType(HeartTaskRow, skipOffstage: false)), findsNWidgets(2));
+    // 투어가 감싸는 묶음 = pen FreeSection(2026-11-15 줄 2개, 구멍 183 − 사방 4 = 175, 제목 27). 앱은 제목 28 이라 176
+    // (종전 줄 3개 244 − 줄 64 − 사이 4) — app_tour_host_test 6단계가 이 높이로 잰다.
+    expect(tester.getSize(free), const Size(328, 176));
     final top = find.byWidgetPredicate((w) => w is TourTarget && w.id == TourTargetId.heartStoreTop);
     expect(find.descendant(of: top, matching: find.byType(Image)), findsOneWidget);
     // 6단계가 무료로 모으기를 앱바 아래로 올릴 수 있게 목록 맨 끝에 빈자리를 둔다 — 투어가 없으면 높이 0(화면 그대로).

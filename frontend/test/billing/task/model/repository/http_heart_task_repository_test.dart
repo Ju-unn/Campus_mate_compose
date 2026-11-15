@@ -48,16 +48,15 @@ void main() {
   http.Response json(Object body, [int status = 200]) =>
       http.Response(jsonEncode(body), status, headers: {'content-type': 'application/json; charset=utf-8'});
 
-  test('목록은 GET /heart-tasks 의 세 줄을 순서대로 읽는다', () async {
+  test('목록은 GET /heart-tasks 의 줄을 순서대로 읽는다', () async {
     final client = MockClient((request) async {
       expect(request.method, 'GET');
       expect(request.url.toString(), 'https://api.test/heart-tasks');
       expect(request.headers['Authorization'], 'Bearer token-abc');
       return json({
         'tasks': [
-          _task('everytime_post', 'reviewing', reward: 50, limit: 1),
           _task('kakao_share', 'done'),
-          _task('poll_vote', 'open', reward: 10),
+          _task('poll_vote', 'open', reward: 5),
         ],
       });
     });
@@ -66,7 +65,23 @@ void main() {
 
     final tasks = result.when(onSuccess: (tasks) => tasks, onFailure: (_) => <HeartTask>[]);
     expect(tasks.map((task) => task.kind), HeartTaskKind.values);
-    expect(tasks.map((task) => task.state), [HeartTaskState.reviewing, HeartTaskState.done, HeartTaskState.open]);
+    expect(tasks.map((task) => task.state), [HeartTaskState.done, HeartTaskState.open]);
+  });
+
+  // 옛 서버(2026-11-15 전)는 에브리타임 줄까지 세 줄을 준다 — 앱이 모르는 줄만 건너뛰고 나머지는 그린다.
+  test('모르는 항목 줄(옛 서버의 everytime_post)은 건너뛰고 나머지 줄을 읽는다', () async {
+    final client = MockClient((request) async => json({
+          'tasks': [
+            _task('everytime_post', 'reviewing', reward: 40, limit: 1),
+            _task('kakao_share', 'done'),
+            _task('poll_vote', 'open', reward: 5),
+          ],
+        }));
+
+    final result = await build(client).fetchTasks();
+
+    final tasks = result.when(onSuccess: (tasks) => tasks, onFailure: (_) => null);
+    expect(tasks?.map((task) => task.kind), [HeartTaskKind.kakaoShare, HeartTaskKind.pollVote]);
   });
 
   test('사진 한 장은 옛 서버도 읽는 photo 칸 하나로 보내고 새 줄을 돌려준다', () async {
@@ -110,7 +125,7 @@ void main() {
   test('월 한도 429 는 RateLimitedFailure 로 온다 — 문구는 ViewModel 이 바꾼다', () async {
     final client = MockClient((request) async => json({'detail': '이번 달에는 더 인증할 수 없어요'}, 429));
 
-    final result = await build(client).submit(HeartTaskKind.everytimePost, [photo]);
+    final result = await build(client).submit(HeartTaskKind.kakaoShare, [photo]);
 
     expect(result.when(onSuccess: (_) => null, onFailure: (failure) => failure), isA<RateLimitedFailure>());
   });
@@ -118,7 +133,7 @@ void main() {
   test('검수 중 409 는 서버 문구를 그대로 보여 준다', () async {
     final client = MockClient((request) async => json({'detail': '이미 확인 중이에요, 결과를 기다려 주세요'}, 409));
 
-    final result = await build(client).submit(HeartTaskKind.everytimePost, [photo]);
+    final result = await build(client).submit(HeartTaskKind.kakaoShare, [photo]);
 
     expect(
       result.when(onSuccess: (_) => '', onFailure: (failure) => failureText(AppLocalizationsKo(), failure)),

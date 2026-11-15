@@ -22,7 +22,7 @@ const Key heartTaskRejectLineKey = ValueKey('heart-task-reject-line');
 /// 쓴 횟수(1/3) · "이번 주" 는 pen 에 없어 보이지 않는다(대장 09-28).
 /// 검수 중인 제출이 있으면 줄 아래에 "검수 대기" 블록이 붙는다(pen 18a `pVxvl` · `tYwTB`, 인증샷 여러 장 2026-10-19).
 /// 월 한도가 여럿인 항목(단톡방)은 검수 중이어도 한도까지 이어 낸다 — 줄 문구가 "이번 달 n회 남음 / 한도 도달" 이 되고
-/// 칩은 "검수 중" 대신 "제출하기"(남았으면 활성, 한도면 비활성)다. 에브리타임(월 1회)은 지금처럼 검수 중 칩.
+/// 칩은 "검수 중" 대신 "제출하기"(남았으면 활성, 한도면 비활성)다. 월 1회 항목이면 검수 중 칩(지금은 없다 — 에브리타임 2026-11-15 삭제).
 class HeartTaskRow extends StatelessWidget {
   const HeartTaskRow({required this.task, required this.onTap, this.pendingGap = AppSpacing.xs, super.key});
 
@@ -119,13 +119,11 @@ class HeartTaskRow extends StatelessWidget {
   HeartTaskRejectReason? get _reason => task.state == HeartTaskState.rejected ? task.rejectReason : null;
 
   AppIcon3d get _icon => switch (task.kind) {
-        HeartTaskKind.everytimePost => AppIcon3d.megaphone,
         HeartTaskKind.kakaoShare => AppIcon3d.share,
         HeartTaskKind.pollVote => AppIcon3d.vote,
       };
 
   String _title(AppLocalizations l10n) => switch (task.kind) {
-        HeartTaskKind.everytimePost => l10n.billingTaskEverytimePost,
         HeartTaskKind.kakaoShare => l10n.billingTaskKakaoShare,
         HeartTaskKind.pollVote => l10n.billingTaskPollVote,
       };

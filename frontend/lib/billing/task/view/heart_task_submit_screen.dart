@@ -24,19 +24,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// 안내 아래 인증 기준 캡션(12/400 muted). 종전엔 에브리타임만 "날짜가 보이게 찍어 주세요"(대장 09-28 (가), 계획서 편차 6) —
-/// 사용자 결정 10-12 로 항목마다 기준을 적고, 날짜 안내는 에브리타임 기준에 합쳤다. pen 은 아직 옛 글자다(동기화 대기).
+/// 안내 아래 인증 기준 캡션(12/400 muted). 사용자 결정 10-12 로 항목마다 기준을 적는다. pen 은 아직 옛 글자다(동기화 대기).
 /// 승인은 운영자가 눈으로 본다 — 서버는 이 기준을 검사하지 않는다. 단톡방 인원은 10-16 사용자 확정으로 5명 → 3명.
+/// 인증샷을 내는 항목은 단톡방뿐이다(에브리타임 홍보는 2026-11-15 삭제).
 String? _criteria(AppLocalizations l10n, HeartTaskKind kind) => switch (kind) {
-      HeartTaskKind.everytimePost => l10n.billingTaskSubmitCriteriaEverytime,
       HeartTaskKind.kakaoShare => l10n.billingTaskSubmitCriteriaKakaoShare,
       // 투표는 제출 화면이 없다(라우터가 18a 로 돌려보낸다).
       HeartTaskKind.pollVote => null,
     };
 
 // 18b · 18b-2 양식 보조 버튼(pen `F15q0W` · `DMrAI` TextButton, 대장 전달 값 10-17)은 화살표가 아이콘이 아니라 글자다
-// 처음엔 에브리타임 양식이었고, 2026-11-15 에브리타임을 빼면서 같은 자리 · 같은 모양으로 단톡방 공유 양식을 연다.
 // (billingTaskSubmitFormLink). 낭독기는 화살표 대신 어디로 열리는지 읽는다(billingTaskSubmitFormLinkLabel).
+// 처음엔 에브리타임 양식이었고, 2026-11-15 에브리타임을 빼면서 같은 자리 · 같은 모양으로 단톡방 공유 양식을 연다.
 
 /// 18b 경로. 반려 뒤 다시 낼 때는 사유를 `reason` 으로 실어 18b-2 알림을 띄운다.
 String heartTaskSubmitLocation(HeartTaskKind kind, [HeartTaskRejectReason? reason]) => Uri(

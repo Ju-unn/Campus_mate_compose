@@ -4,18 +4,18 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('서버 한 줄을 읽는다', () {
     final task = HeartTask.fromJson({
-      'task': 'everytime_post',
-      'reward_hearts': 50,
+      'task': 'kakao_share',
+      'reward_hearts': 25,
       'state': 'rejected',
       'used': 0,
-      'limit': 1,
+      'limit': 3,
       'reject_reason': 'date_missing',
     });
 
-    expect(task.kind, HeartTaskKind.everytimePost);
-    expect(task.rewardHearts, 50);
+    expect(task.kind, HeartTaskKind.kakaoShare);
+    expect(task.rewardHearts, 25);
     expect(task.state, HeartTaskState.rejected);
-    expect(task.limit, 1);
+    expect(task.limit, 3);
     expect(task.rejectReason, HeartTaskRejectReason.dateMissing);
   });
 
@@ -70,8 +70,11 @@ void main() {
     );
   });
 
-  test('인증샷을 내는 항목은 둘뿐이다', () {
-    expect(HeartTaskKind.values.where((kind) => kind.needsProof), [HeartTaskKind.everytimePost, HeartTaskKind.kakaoShare]);
+  // 에브리타임 홍보는 2026-11-15 사용자 결정으로 뺐다 — 앱은 그 항목을 모른다(옛 서버가 내려 줘도 목록이 거른다).
+  test('항목은 단톡방 · 투표 둘이고, 인증샷을 내는 항목은 단톡방뿐이다', () {
+    expect(HeartTaskKind.values, [HeartTaskKind.kakaoShare, HeartTaskKind.pollVote]);
+    expect(HeartTaskKind.values.where((kind) => kind.needsProof), [HeartTaskKind.kakaoShare]);
+    expect(HeartTaskKind.tryParse('everytime_post'), isNull);
     expect(HeartTaskKind.tryParse('kakao_share'), HeartTaskKind.kakaoShare);
     expect(HeartTaskKind.tryParse('nope'), isNull);
   });

@@ -59,19 +59,19 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('pen 18a — 제목 · 세 줄의 글자와 상태 칩, 내부용 보상 기준 안내는 없다', (tester) async {
+  // 에브리타임 홍보 줄은 2026-11-15 사용자 결정으로 뺐다 — 18a 는 단톡방 · 투표 두 줄이다.
+  testWidgets('pen 18a — 제목 · 두 줄의 글자와 상태 칩, 에브리타임 줄 · 내부용 보상 기준 안내는 없다', (tester) async {
     await pump(tester);
 
     expect(find.text('무료로 하트 모으기'), findsOneWidget);
     expect(find.textContaining(_removedNotice), findsNothing);
     expect(find.textContaining('100명 이후'), findsNothing);
     expect(find.text('무료로 모으기'), findsNothing);
-    expect(find.text('에브리타임 홍보'), findsOneWidget);
-    expect(find.text('40 · 월 1회'), findsOneWidget);
-    expect(find.text('검수 중'), findsOneWidget);
+    expect(find.textContaining('에브리타임'), findsNothing);
+    expect(find.byType(HeartTaskRow), findsNWidgets(2));
     expect(find.text('단톡방 공유'), findsOneWidget);
     expect(find.text('25 · 월 3회'), findsOneWidget);
-    expect(find.text('완료'), findsOneWidget);
+    expect(find.text('검수 중'), findsOneWidget);
     expect(find.text('커뮤니티 투표'), findsOneWidget);
     // 투표 배지 글자는 "하루 1번"(사용자 결정 10-12, 종전 pen "매일" — pen 동기화 대기).
     expect(find.text('하루 1번'), findsOneWidget);
@@ -80,12 +80,13 @@ void main() {
     expect(tester.getSize(find.ancestor(of: find.text('하루 1번'), matching: find.byType(Container)).first).height, 20);
     expect(find.text('5 · 주 최대 15'), findsOneWidget);
     expect(find.text('참여'), findsOneWidget);
-    expect(find.image(const AssetImage('assets/images/heart-flat-vector-v3.webp')), findsNWidgets(3));
+    expect(find.image(const AssetImage('assets/images/heart-flat-vector-v3.webp')), findsNWidgets(2));
   });
 
-  // pen 18a FreeSection(대장 전달 값 10-17): 제목은 꺼졌고 투명 여백 8 은 켜져 있다 — 섹션 시작 +16(여백 8 + 간격 8) · +88 · +160.
+  // pen 18a FreeSection(대장 전달 값 10-17): 제목은 꺼졌고 투명 여백 8 은 켜져 있다 — 섹션 시작 +16(여백 8 + 간격 8) · +88.
   // 본문 안쪽 위 8 이라 첫 줄은 y 56 + 8 + 16 = 80.
   testWidgets('pen 치수 — 줄 328×64 · 줄 사이 8 · 첫 줄 y80(앱바 56 + 위 8 + 여백 8 + 간격 8) · 칩 72×28', (tester) async {
+    repository.tasks = Success(sampleHeartTasks(kakao: HeartTaskState.done));
     await pump(tester);
 
     final rows = find.byType(HeartTaskRow);
@@ -94,7 +95,7 @@ void main() {
     expect(first.left, 16);
     expect(first.size, const Size(328, 64));
     expect(second.top - first.bottom, 8);
-    expect([for (var i = 0; i < 3; i++) tester.getTopLeft(rows.at(i)).dy - (56 + 8)], [16, 88, 160]);
+    expect([for (var i = 0; i < 2; i++) tester.getTopLeft(rows.at(i)).dy - (56 + 8)], [16, 88]);
     // 시계 칩은 시험 글꼴 글자가 Pretendard 보다 넓어 72 를 넘는다 — 폭은 완료 칩으로 잰다.
     final chip = find.ancestor(of: find.text('완료'), matching: find.byType(ConstrainedBox)).first;
     expect(tester.getSize(chip), const Size(72, 28));
@@ -114,7 +115,7 @@ void main() {
 
     Finder icon3d(AppIcon3d icon) => find.byWidgetPredicate((w) => w is Icon3d && w.icon == icon);
     final rows = find.byType(HeartTaskRow);
-    for (final (i, icon) in [AppIcon3d.megaphone, AppIcon3d.share, AppIcon3d.vote].indexed) {
+    for (final (i, icon) in [AppIcon3d.share, AppIcon3d.vote].indexed) {
       final row = tester.getRect(rows.at(i));
       final rect = tester.getRect(find.descendant(of: rows.at(i), matching: icon3d(icon)));
       expect(rect.size, const Size(28, 28));
@@ -126,6 +127,8 @@ void main() {
     expect(tester.getSize(find.descendant(of: chip, matching: icon3d(AppIcon3d.clock))), const Size(16, 16));
     expect(tester.getSize(chip).height, 28);
     // 완료 칩은 그대로 lucide check 12 primaryText.
+    repository.tasks = Success(sampleHeartTasks(kakao: HeartTaskState.done));
+    await pump(tester);
     final done = find.ancestor(of: find.text('완료'), matching: find.byType(ConstrainedBox)).first;
     final check = tester.widget<Icon>(find.descendant(of: done, matching: find.byIcon(AppIcons.check)));
     expect((check.size, check.color), (12.0, AppColors.primaryText));
@@ -141,27 +144,27 @@ void main() {
   });
 
   testWidgets('미완료 인증 항목은 "인증하기" 이고 누르면 18b', (tester) async {
-    repository.tasks = Success(sampleHeartTasks(everytime: HeartTaskState.open));
+    repository.tasks = Success(sampleHeartTasks(kakao: HeartTaskState.open));
     await pump(tester);
 
     expect(find.text('인증하기'), findsOneWidget);
-    await tester.tap(find.text('에브리타임 홍보'));
+    await tester.tap(find.text('단톡방 공유'));
     await tester.pumpAndSettle();
 
-    expect(find.text('제출 /heart-tasks/submit/everytime_post'), findsOneWidget);
+    expect(find.text('제출 /heart-tasks/submit/kakao_share'), findsOneWidget);
   });
 
   testWidgets('반려 줄은 "다시 제출" 글자가 아니라 줄 전체가 눌리고 사유를 18b-2 로 넘긴다', (tester) async {
     repository.tasks = Success(
-      sampleHeartTasks(everytime: HeartTaskState.rejected, everytimeReason: HeartTaskRejectReason.dateMissing),
+      sampleHeartTasks(kakao: HeartTaskState.rejected, kakaoReason: HeartTaskRejectReason.dateMissing),
     );
     await pump(tester);
 
     expect(find.text('다시 제출'), findsOneWidget);
-    await tester.tap(find.byWidgetPredicate((w) => w is Icon3d && w.icon == AppIcon3d.megaphone));
+    await tester.tap(find.byWidgetPredicate((w) => w is Icon3d && w.icon == AppIcon3d.share));
     await tester.pumpAndSettle();
 
-    expect(find.text('제출 /heart-tasks/submit/everytime_post?reason=date_missing'), findsOneWidget);
+    expect(find.text('제출 /heart-tasks/submit/kakao_share?reason=date_missing'), findsOneWidget);
   });
 
   // 10-18 인증샷 결과 알림 — pen 18a 반려 줄 사유(마스터 TW2ki 안 ReasonRow `ydq0k` · 아이콘 `RiCqn` · 글자 `QiLmA`,
@@ -199,17 +202,15 @@ void main() {
   });
 
   group('반려 줄 사유 한 줄', () {
-    const rewardOf = {HeartTaskKind.everytimePost: '40 · 월 1회', HeartTaskKind.kakaoShare: '25 · 월 3회'};
-
-    /// 반려 줄 하나만 둔다(나머지는 pen 목록 그대로 검수중 · 완료 · 투표).
-    void reject(HeartTaskKind kind, HeartTaskRejectReason? reason) {
+    /// 단톡방 반려 줄 하나와 투표 줄.
+    void reject(HeartTaskRejectReason? reason) {
       repository.tasks = Success([
         HeartTask(
-          kind: kind,
-          rewardHearts: kind == HeartTaskKind.everytimePost ? 40 : 25,
+          kind: HeartTaskKind.kakaoShare,
+          rewardHearts: 25,
           state: HeartTaskState.rejected,
           used: 0,
-          limit: kind == HeartTaskKind.everytimePost ? 1 : 3,
+          limit: 3,
           rejectReason: reason,
         ),
         const HeartTask(kind: HeartTaskKind.pollVote, rewardHearts: 5, state: HeartTaskState.open, used: 0, limit: 3),
@@ -221,8 +222,8 @@ void main() {
       (HeartTaskRejectReason.notVerified, '반려 · 게시글·공유가 확인되지 않아요'),
       (HeartTaskRejectReason.reused, '반려 · 이미 쓴 캡처예요'),
     ]) {
-      testWidgets('에브리타임 반려 줄에 "$text" 가 보이고, 18b-2 의 사유 글자와 같은 문구다', (tester) async {
-        reject(HeartTaskKind.everytimePost, reason);
+      testWidgets('단톡방 반려 줄에 "$text" 가 보이고, 18b-2 의 사유 글자와 같은 문구다', (tester) async {
+        reject(reason);
         await pump(tester);
 
         expect(find.text(text), findsOneWidget);
@@ -231,7 +232,7 @@ void main() {
     }
 
     testWidgets('단톡방 반려 줄에도 사유가 붙는다(pen `x8OCS4` 두 번째 줄)', (tester) async {
-      reject(HeartTaskKind.kakaoShare, HeartTaskRejectReason.notVerified);
+      reject(HeartTaskRejectReason.notVerified);
       await pump(tester);
 
       final row = find.byType(HeartTaskRow).first;
@@ -244,11 +245,11 @@ void main() {
       expect(find.textContaining('반려 ·'), findsNothing);
       expect(find.byKey(heartTaskRejectLineKey), findsNothing);
 
-      repository.tasks = Success(sampleHeartTasks(everytime: HeartTaskState.open));
+      repository.tasks = Success(sampleHeartTasks(kakao: HeartTaskState.open));
       await pump(tester);
       expect(find.textContaining('반려 ·'), findsNothing);
 
-      reject(HeartTaskKind.everytimePost, null);
+      reject(null);
       await pump(tester);
       expect(find.textContaining('반려 ·'), findsNothing);
       expect(find.byKey(heartTaskRejectLineKey), findsNothing);
@@ -256,17 +257,17 @@ void main() {
     });
 
     testWidgets('pen 높이 — 사유 있는 줄 328×72, 사유 없는 반려 줄 328×64', (tester) async {
-      reject(HeartTaskKind.everytimePost, HeartTaskRejectReason.dateMissing);
+      reject(HeartTaskRejectReason.dateMissing);
       await pump(tester);
       expect(tester.getSize(find.byType(HeartTaskRow).first), const Size(328, 72)); // TW2ki 인스턴스 X4X2C · Ckrfi · Q6Olj
 
-      reject(HeartTaskKind.everytimePost, null);
+      reject(null);
       await pump(tester);
       expect(tester.getSize(find.byType(HeartTaskRow).first), const Size(328, 64)); // 일반 줄
     });
 
     testWidgets('pen 사유 줄 — 아이콘 triangle-alert 12 error · 사이 4 · 글자 12/600 줄높이 1.3 error · 보상 줄 아래 2', (tester) async {
-      reject(HeartTaskKind.everytimePost, HeartTaskRejectReason.dateMissing);
+      reject(HeartTaskRejectReason.dateMissing);
       await pump(tester);
 
       final line = find.byKey(heartTaskRejectLineKey);
@@ -283,15 +284,15 @@ void main() {
       // 1줄 폭 약 210 은 Pretendard 기준이라 시험 글꼴로는 재지 않는다 — 1줄에 들어가는지만 본다.
       expect(tester.getSize(text).height, lessThan(12 * 1.3 * 1.5));
 
-      final title = find.descendant(of: find.byType(HeartTaskRow).first, matching: find.text('에브리타임 홍보'));
+      final title = find.descendant(of: find.byType(HeartTaskRow).first, matching: find.text('단톡방 공유'));
       expect(tester.getTopLeft(icon).dx, tester.getTopLeft(title).dx); // 같은 글 칸 왼쪽(MidCol)
-      final reward = find.ancestor(of: find.text(rewardOf[HeartTaskKind.everytimePost]!), matching: find.byType(Row)).first;
+      final reward = find.ancestor(of: find.text('25 · 월 3회'), matching: find.byType(Row)).first;
       expect(tester.getTopLeft(line).dy - tester.getBottomLeft(reward).dy, 2);
     });
 
     for (final scale in [1.3, 2.0]) {
       testWidgets('글자 배율 $scale — 긴 사유는 말줄임 없이 줄바꿈하고 줄이 자라며 넘치지 않는다', (tester) async {
-        reject(HeartTaskKind.kakaoShare, HeartTaskRejectReason.notVerified);
+        reject(HeartTaskRejectReason.notVerified);
         await pump(tester, textScale: scale);
 
         final text = find.text('반려 · 게시글·공유가 확인되지 않아요');
@@ -309,7 +310,7 @@ void main() {
 
     // 글자가 두 줄이 돼도 아이콘은 첫 줄 옆에 붙어 있다(가운데로 내려가지 않는다). 1.0 배에서는 pen 처럼 첫 줄 가운데다.
     testWidgets('글자 배율 2.0 — 두 줄이 돼도 아이콘은 글자 첫 줄 위쪽에 붙는다', (tester) async {
-      reject(HeartTaskKind.kakaoShare, HeartTaskRejectReason.notVerified);
+      reject(HeartTaskRejectReason.notVerified);
       await pump(tester, textScale: 2);
 
       final line = find.byKey(heartTaskRejectLineKey);
@@ -321,7 +322,7 @@ void main() {
     });
 
     testWidgets('글자 배율 1.0 — 아이콘은 한 줄 글자의 세로 가운데(pen 그대로)', (tester) async {
-      reject(HeartTaskKind.everytimePost, HeartTaskRejectReason.dateMissing);
+      reject(HeartTaskRejectReason.dateMissing);
       await pump(tester);
 
       final line = find.byKey(heartTaskRejectLineKey);
@@ -333,7 +334,7 @@ void main() {
 
     testWidgets('낭독 — 사유 글자가 읽히고 경고 아이콘이 따로 읽히지 않는다', (tester) async {
       final handle = tester.ensureSemantics();
-      reject(HeartTaskKind.everytimePost, HeartTaskRejectReason.reused);
+      reject(HeartTaskRejectReason.reused);
       await pump(tester);
 
       expect(find.bySemanticsLabel(RegExp('반려 · 이미 쓴 캡처예요')), findsOneWidget);
@@ -344,10 +345,11 @@ void main() {
   });
 
   testWidgets('검수중 · 완료 줄은 누를 수 없다', (tester) async {
-    await pump(tester);
+    for (final state in [HeartTaskState.reviewing, HeartTaskState.done]) {
+      repository.tasks = Success(sampleHeartTasks(kakao: state));
+      await pump(tester);
 
-    for (final title in ['에브리타임 홍보', '단톡방 공유']) {
-      expect(find.ancestor(of: find.text(title), matching: find.byType(InkWell)), findsNothing);
+      expect(find.ancestor(of: find.text('단톡방 공유'), matching: find.byType(InkWell)), findsNothing, reason: '$state');
     }
   });
 
@@ -378,13 +380,13 @@ void main() {
     await tester.tap(find.text('다시 시도'));
     await tester.pumpAndSettle();
 
-    expect(find.text('에브리타임 홍보'), findsOneWidget);
+    expect(find.text('단톡방 공유'), findsOneWidget);
     expect(repository.fetchCount, 2);
   });
 
   testWidgets('글자 2배에서도 넘침 예외가 없다(반려 줄 포함)', (tester) async {
     repository.tasks = Success(
-      sampleHeartTasks(everytime: HeartTaskState.rejected, everytimeReason: HeartTaskRejectReason.reused),
+      sampleHeartTasks(kakao: HeartTaskState.rejected, kakaoReason: HeartTaskRejectReason.reused),
     );
     await pump(tester, textScale: 2);
 
@@ -413,15 +415,6 @@ void main() {
           createdAt: createdAt,
           photoUrls: [for (var i = 0; i < photos; i++) 'https://signed.test/$id-$i'],
         );
-    final everytimeWaiting = HeartTask(
-      kind: HeartTaskKind.everytimePost,
-      rewardHearts: 40,
-      state: HeartTaskState.reviewing,
-      used: 1,
-      limit: 1,
-      maxPhotos: 3,
-      pending: [queued('e', at(14, 20), 3)],
-    );
     // pen pVxvl: 대기 1 + 승인 1 → 이번 달 1회 남음.
     final kakaoOpen = HeartTask(
       kind: HeartTaskKind.kakaoShare,
@@ -449,19 +442,17 @@ void main() {
     BoxDecoration decorationOf(WidgetTester tester, String label) =>
         tester.widget<DecoratedBox>(find.ancestor(of: find.text(label), matching: find.byType(DecoratedBox)).first).decoration as BoxDecoration;
 
-    testWidgets('대기 1건 · 제출 가능 — 줄마다 "검수 대기 1건", 단톡방 문구 "이번 달 1회 남음", 칩은 "제출하기"(검수중 아님)', (tester) async {
-      repository.tasks = Success([everytimeWaiting, kakaoOpen, poll]);
+    testWidgets('대기 1건 · 제출 가능 — "검수 대기 1건", 단톡방 문구 "이번 달 1회 남음", 칩은 "제출하기"(검수중 아님)', (tester) async {
+      repository.tasks = Success([kakaoOpen, poll]);
       await pump(tester);
 
-      expect(find.text('검수 대기 1건'), findsNWidgets(2));
-      expect(find.text('40 · 월 1회'), findsOneWidget);
+      expect(find.text('검수 대기 1건'), findsOneWidget);
       expect(find.text('25 · 월 3회 · 이번 달 1회 남음'), findsOneWidget);
       expect(find.text('제출하기'), findsOneWidget);
       expect(find.text('완료'), findsNothing);
       expect(find.text('인증하기'), findsNothing);
-      // 검수중: 에브리타임 줄 칩 1 + 대기 블록 배지 2.
-      expect(find.text('검수 중'), findsNWidgets(3));
-      expect(find.text('오늘 14:20 제출'), findsOneWidget);
+      // 검수중은 대기 블록 배지 하나뿐 — 줄 칩은 "제출하기"다.
+      expect(find.text('검수 중'), findsOneWidget);
       expect(find.text('오늘 14:35 제출'), findsOneWidget);
     });
 
@@ -476,7 +467,7 @@ void main() {
     });
 
     testWidgets('검수 중이어도 한도가 남은 단톡방 줄을 누르면 18b 로 간다', (tester) async {
-      repository.tasks = Success([everytimeWaiting, kakaoOpen, poll]);
+      repository.tasks = Success([kakaoOpen, poll]);
       await pump(tester);
 
       await tester.tap(find.byWidgetPredicate((w) => w is Icon3d && w.icon == AppIcon3d.share));
@@ -485,18 +476,8 @@ void main() {
       expect(find.text('제출 /heart-tasks/submit/kakao_share'), findsOneWidget);
     });
 
-    testWidgets('에브리타임 대기 1건은 지금처럼 검수중 칩(누를 수 없음) + 대기 블록 1줄 — "제출하기" · "남음" 은 없다', (tester) async {
-      repository.tasks = Success([everytimeWaiting]);
-      await pump(tester);
-
-      expect(find.text('검수 중'), findsNWidgets(2));
-      expect(find.text('제출하기'), findsNothing);
-      expect(find.textContaining('이번 달'), findsNothing);
-      expect(find.ancestor(of: find.text('에브리타임 홍보'), matching: find.byType(InkWell)), findsNothing);
-    });
-
     testWidgets('블록은 줄 아래 8(줄 64 → 간격 8 → 블록), 왼쪽 40 안쪽, 다음 줄과 사이 8', (tester) async {
-      repository.tasks = Success([everytimeWaiting, kakaoOpen, poll]);
+      repository.tasks = Success([kakaoOpen, poll]);
       await pump(tester);
 
       final rows = find.byType(HeartTaskRow);
@@ -512,7 +493,7 @@ void main() {
     });
 
     testWidgets('한도 도달 — "한도 도달" 문구 · 비활성 "제출하기"(F2F2F2 · 929292) · 대기 2건 · 안내 문구, 줄은 눌러지지 않는다', (tester) async {
-      repository.tasks = Success([everytimeWaiting, kakaoFull, poll]);
+      repository.tasks = Success([kakaoFull, poll]);
       await pump(tester);
 
       expect(find.text('25 · 월 3회 · 이번 달 한도 도달'), findsOneWidget);
@@ -556,8 +537,8 @@ void main() {
     for (final scale in [1.3, 2.0]) {
       testWidgets('글자 배율 $scale — 대기 1건 · 한도 도달 모두 넘침 · 말줄임 없다', (tester) async {
         for (final tasks in [
-          [everytimeWaiting, kakaoOpen, poll],
-          [everytimeWaiting, kakaoFull, poll],
+          [kakaoOpen, poll],
+          [kakaoFull, poll],
         ]) {
           repository.tasks = Success(tasks);
           await pump(tester, textScale: scale);
