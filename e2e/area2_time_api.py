@@ -12,14 +12,13 @@ from datetime import timedelta
 
 from e2e import area2, tools
 from e2e.area1 import SEOUL, Check, _api, _at, _detail, _patch, _rows, _test_university
-from e2e.area2 import _ONCE, TAGS, _candidates, _card, _drop_polls, _grant, _guard, _home, _insert, _ledger, _person, _poll, _submit
+from e2e.area2 import _ONCE, TAGS, _candidates, _card, _drop_polls, _grant, _guard, _home, _insert, _ledger, _person, _poll
 from e2e.tools import Blocked
 
 STALE_DAYS = 15  # match_candidates: last_active_at > now() − 15 days (20260928050000:94)
 DECIDED_REST_DAYS = 90  # 결정 · 수락 응답 뒤 쉬는 날(:113 · :126)
 EXPIRED_REST_DAYS = 14  # 무응답 만료 뒤 쉬는 날(:114-115)
 ACCEPTANCE_DAYS = 7  # cards/router.py ACCEPTANCE_TTL_DAYS
-IN_REVIEW = '이미 확인 중이에요, 결과를 기다려 주세요'  # errors.HEART_TASK_IN_REVIEW — heart_07 과 같은 문구
 OWNER = {'is_smoker': False, 'religion': 'none', 'mbti': 'ENFP', 'preferred_mbti_flags': {'E': True}, 'preferred_height_min': 170,
          'preferred_height_max': 180, 'preferred_age_min': 22, 'preferred_age_max': 24, **TAGS}  # area2._world 의 오너와 같다
 CLONE = {'is_smoker': False, 'religion': 'none', **TAGS}  # area2 의 C0(만점 상대)와 같다
@@ -479,31 +478,31 @@ def _past_submission(run, account, task, created_at, status, **extra):
 
 
 def heart_17(run):
-    """heart_task_status 의 이번 달 = 서울 1일 0시~(:16-17,35-44). 지난달 말일 23:59:59 승인은 안 세고, 이번 달 1일 0시 승인은 센다(대조)."""
+    """heart_task_status 의 이번 달 = 서울 1일 0시~(:16-17,35-44). 지난달 말일 23:59:59 승인은 안 세고, 이번 달 1일 0시 승인은 센다(대조).
+    에브리타임 홍보가 빠져(2026-11-15) 두 줄 모두 단톡방에 넣는다 — 둘이 다 세지면 2, 이번 달 것만 세지면 1."""
     _refuse_near(month_end_refusal(now_seoul()))
     check = Check()
     account = _home(run)
     start = seoul_month_start(_now())
-    _past_submission(run, account, 'everytime_post', start - timedelta(seconds=1), 'approved', reviewed_at=(start - timedelta(seconds=1)).isoformat())
+    _past_submission(run, account, 'kakao_share', start - timedelta(seconds=1), 'approved', reviewed_at=(start - timedelta(seconds=1)).isoformat())
     _past_submission(run, account, 'kakao_share', start, 'approved', reviewed_at=start.isoformat())
-    everytime, kakao = _heart_task(run, account, 'everytime_post'), _heart_task(run, account, 'kakao_share')
-    check.that((everytime['used'], everytime['state']) == (0, 'open'), f'에브리타임 used {everytime["used"]} state {everytime["state"]}(기대 0 · open)')
-    check.that(kakao['used'] == 1, f'단톡방 used {kakao["used"]}(기대 1 — 이번 달 1일 0시 승인은 센다)')
+    kakao = _heart_task(run, account, 'kakao_share')
+    check.that(kakao['used'] == 1, f'단톡방 used {kakao["used"]}(기대 1 — 지난달 말일 승인은 안 세고 이번 달 1일 0시 승인만 센다)')
     return check.result()
 
 
 def heart_18(run):
-    """검수 중은 달과 상관없이 본다(:19,46-47). 지난달에 낸 제출이 아직 submitted 면 이번 달에도 reviewing 이고 새 제출은 409."""
+    """검수 중은 달과 상관없이 본다(:19,46-47). 지난달에 낸 단톡방 제출이 아직 submitted 면 이번 달에도 reviewing 이고 대기 목록에 있다.
+    에브리타임(월 1회)이 빠져(2026-11-15) "새 제출 409" 는 볼 수 없다 — 단톡방은 이번 달 한도(3)가 남아 이어 낼 수 있다(can_submit)."""
     check = Check()
     account = _home(run)
     sid = area2._new_id()
     when = seoul_month_start(_now()) - timedelta(days=1)
-    _past_submission(run, account, 'everytime_post', when, 'submitted', storage_paths=[f"{account['id']}/{sid}-1.jpg"])
-    task = _heart_task(run, account, 'everytime_post')
+    row_id = _past_submission(run, account, 'kakao_share', when, 'submitted', storage_paths=[f"{account['id']}/{sid}-1.jpg"])
+    task = _heart_task(run, account, 'kakao_share')
     check.that((task['state'], task['used']) == ('reviewing', 0), f'state {task["state"]} used {task["used"]}(기대 reviewing · 0)')
-    check.reply('새 제출', _submit(run, account), 409, IN_REVIEW)
-    check.that(len(area2._submission_rows(run, account)) == 1, '제출 행이 늘어남')
-    check.that(area2._proofs(run, account) == 0, f'버킷 파일 {area2._proofs(run, account)}개(기대 0)')
+    check.that([p['id'] for p in task.get('pending', [])] == [row_id], f'대기 목록 {task.get("pending")}(기대 지난달 제출 하나)')
+    check.that(task.get('can_submit') is True, f'can_submit {task.get("can_submit")}(기대 True — 이번 달 한도가 남았다)')
     return check.result()
 
 

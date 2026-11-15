@@ -228,15 +228,19 @@ def p_poll_31(run, phone):
 
 # ── 하트 제출 흐름 ──────────────────────────────────────────────────────────────────────────────────
 
-def _reviewing(run, account, task='everytime_post'):
-    """API 로 제출해 검수 중 줄 하나를 만들고 그 id 를 돌려준다. 안 되면 준비 실패(blocked)."""
+def _reviewing(run, account, task='kakao_share'):
+    """API 로 제출해 검수 중 줄 하나를 새로 만들고 그 id 를 돌려준다. 안 되면 준비 실패(blocked).
+    단톡방은 검수 중에도 이어 내므로(한도 3) 이미 있는 검수 중 줄과 섞이지 않게 새로 생긴 줄만 고른다."""
+    def submitted():
+        return {r['id'] for r in _submission_rows(run, account, task) if r['status'] == 'submitted'}
+    before = submitted()
     reply = _submit(run, account, task)
     if reply[0] != 201:
         raise Blocked(f'제출 준비 {reply[0]} {_detail(reply[1])}')
-    rows = [r for r in _submission_rows(run, account, task) if r['status'] == 'submitted']
-    if len(rows) != 1:
-        raise Blocked(f'제출 준비 뒤 검수 중 줄 {len(rows)}개(기대 1)')
-    return rows[0]['id']
+    new = submitted() - before
+    if len(new) != 1:
+        raise Blocked(f'제출 준비 뒤 새 검수 중 줄 {len(new)}개(기대 1)')
+    return new.pop()
 
 
 def _decide(run, account, sid, **fields):
@@ -266,7 +270,7 @@ def p_heart_04(run, phone):
         check.that(len(rows) == 1, f'제출 {len(rows)}행(기대 1)')
         row = rows[0] if rows else {}
         got = (row.get('status'), row.get('task'), row.get('reward_hearts'))
-        check.that(got == ('submitted', 'everytime_post', 40), f'제출 줄 {got}(기대 submitted · everytime_post · 40)')
+        check.that(got == ('submitted', 'kakao_share', 25), f'제출 줄 {got}(기대 submitted · kakao_share · 25)')
         path = f"{account['id']}/{row.get('id')}-1.jpg"
         check.that(row.get('storage_paths') == [path], f"storage_paths {row.get('storage_paths')!r}(기대 {[path]})")
         files = set(tools.storage_paths(run.cfg, run.key, 'heart-task-proofs', account['id']))
@@ -275,18 +279,22 @@ def p_heart_04(run, phone):
 
 
 def p_heart_05(run, phone):
+    """검수 중 2건을 미리 넣어 두고 앱이 3번째를 낸다 — 한도(3)가 차서 18a 줄을 눌러도 18b 로 가지 않는다."""
     check = Check()
     account, token = _signed_in(run, 'home')
+    for _ in range(2):
+        _reviewing(run, account)
     said = _app(check, phone(token_hash=token))
     if _passed(said):
         rows = _submission_rows(run, account)
-        check.that([r['status'] for r in rows] == ['submitted'], f'제출 줄 {[r["status"] for r in rows]}(기대 submitted 하나)')
+        check.that([r['status'] for r in rows] == ['submitted'] * 3, f'제출 줄 {[r["status"] for r in rows]}(기대 submitted 셋)')
     return check.result()
 
 
 def p_heart_09(run, phone):
-    """검수 중 줄을 만들어 두고, 앱이 18a 에서 "검수중" 을 본 뒤 멈춘 사이에 승인한다 — 앱은 18a 를 다시 열어 "완료" 를 본다.
-    원장 +40 한 줄(ref = 제출 id) · 잔액 +40(에브리타임, 10-16 확정 · 종전 50) · 승인 뒤 60초 동안 우리 앱 알림이 새로 생기지 않는다."""
+    """검수 중 줄을 만들어 두고, 앱이 18a 에서 "검수중" 을 본 뒤 멈춘 사이에 승인한다 — 앱은 18a 를 다시 열어 "인증하기" 를 본다.
+    원장 +25 한 줄(ref = 제출 id) · 잔액 +25(단톡방) · 승인 뒤 60초 동안 우리 앱 알림이 새로 생기지 않는다.
+    승인 1건이라 한도(3)가 남아 앱 줄은 "완료" 가 아니라 "인증하기" 다."""
     check = Check()
     account, token = _signed_in(run, 'home')
     sid = _reviewing(run, account)
@@ -305,8 +313,8 @@ def p_heart_09(run, phone):
     fresh = Counter(_notices(phone)) - Counter(seen['notices'])
     check.that(not fresh, f'승인 뒤 {NOTICE_SECONDS}초 안에 새 알림: {sorted(fresh)}')
     ledger = [(r['amount'], r['ref_id']) for r in _rows(run, f"heart_transactions?profile_id=eq.{account['id']}&reason=eq.free_task&select=amount,ref_id")]
-    check.that(ledger == [(40, sid)], f'원장 {ledger}(기대 [(40, {sid})])')
-    check.that(_balance(run, account) == before + 40, f'잔액 {before} → {_balance(run, account)}(기대 +40)')
+    check.that(ledger == [(25, sid)], f'원장 {ledger}(기대 [(25, {sid})])')
+    check.that(_balance(run, account) == before + 25, f'잔액 {before} → {_balance(run, account)}(기대 +25)')
     return check.result()
 
 
