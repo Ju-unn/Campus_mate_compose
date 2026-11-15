@@ -66,6 +66,7 @@ void main() {
     (const BirthYearFailure(2007), '2007년생부터 가입할 수 있어요'),
     (const AppErrorFailure(AppError.saveFailed), '저장하지 못했어요. 잠시 후 다시 시도해 주세요'),
     (const AppErrorFailure(AppError.noFace), '얼굴이 보이는 사진을 골라 주세요'),
+    (const AppErrorFailure(AppError.faceTooSmall), '얼굴이 크게 나온 사진을 골라 주세요'),
     (const AppErrorFailure(AppError.meLoad), '잠시 후 다시 시도해 주세요'),
     (const AppErrorFailure(AppError.heartTaskMonthlyLimit), '이번 달에는 더 인증할 수 없어요'),
     (const AppErrorFailure(AppError.cardsLoad), '카드를 불러오지 못했어요'),
