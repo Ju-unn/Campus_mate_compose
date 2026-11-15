@@ -101,7 +101,7 @@ void main() {
     expect(style.decoration, isNot(TextDecoration.underline));
   });
 
-  testWidgets('탈퇴하기는 일시중지 제안 없이 정지 중 탈퇴 시트(pen XHGTs) 한 장을 연다', (tester) async {
+  testWidgets('탈퇴하기는 일시중지 제안 없이 정지 중 탈퇴 확인 팝업(위험) 한 장을 연다', (tester) async {
     await pump(tester);
 
     await tester.tap(find.text('탈퇴하기'));
@@ -111,8 +111,11 @@ void main() {
     expect(find.text('정지 중에 탈퇴할까요?'), findsOneWidget);
     expect(account.withdrawCalls, 0);
 
-    await tester.tap(find.descendant(of: find.byType(WithdrawFinalSheet), matching: find.text('정말 영구 삭제')));
-    await tester.pumpAndSettle();
+    expect(find.text('정지 중에 탈퇴하면 다시 가입할 수 없어요'), findsOneWidget);
+    await tester.tap(find.descendant(of: find.byType(WithdrawFinalPopup), matching: find.text('정말 영구 삭제')));
+    // 성공하면 앱은 로그아웃 → 라우터가 화면을 바꾼다. 시험에는 라우터가 없어 도는 표시인 채 남으므로 시간만 넘긴다.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(account.withdrawCalls, 1);
     // 로그아웃은 main.dart 리스너 한 곳이 한다 — 화면은 상태만 바꾼다.

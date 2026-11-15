@@ -38,7 +38,7 @@ class AccountSuspendedScreen extends ConsumerWidget {
               const SizedBox(height: _gap),
               // pen `r3KNbz` 312×44, 모서리 14, 14/700 muted, 밑줄 없음.
               TextButton(
-                onPressed: () => showSuspendedWithdrawSheet(context),
+                onPressed: () => showSuspendedWithdrawPopup(context),
                 style: TextButton.styleFrom(
                   // 44 는 pen 의 target.compact — 기본 48 터치 여백을 붙이지 않는다.
                   minimumSize: const Size(double.infinity, 44),

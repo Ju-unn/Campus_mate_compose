@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/failure.dart';
-import 'package:campus_mate/common/widgets/delete_confirm_sheet.dart';
+import 'package:campus_mate/common/widgets/app_bottom_sheet.dart';
+import 'package:campus_mate/common/widgets/confirm_popup.dart';
 import 'package:campus_mate/common/widgets/sheet_handle.dart';
 import 'package:campus_mate/community/view/poll_toast.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
@@ -69,8 +70,9 @@ Future<PollToast?> showPollMenu(BuildContext context, WidgetRef ref, String poll
   );
 }
 
-/// 확인 시트 → 지우기 → 결과 토스트. 지우는 동안 확인 시트는 열린 채 "삭제하기" 만 꺼지고, 끝나면 닫고 "삭제했어요" 또는 오류 토스트.
-/// 도중에 시트를 닫아도 요청이 끝나면 결과를 알린다. 지우지 않았으면(취소) null. 글 삭제(15d-2)와 댓글 삭제(18e)가 같이 쓴다.
+/// 확인 팝업(위험) → 지우기 → 결과 토스트. 지우는 동안 팝업은 열린 채 "삭제하기" 가 빨강 그대로 도는 표시가 되고,
+/// 끝나면 닫고 "삭제했어요" 또는 오류 토스트. 도중에 팝업을 닫아도 요청이 끝나면 결과를 알린다. 지우지 않았으면(취소) null.
+/// 글 삭제(15d-2)와 댓글 삭제(18e)가 같이 쓴다.
 Future<PollToast?> confirmAndDelete(
   BuildContext context, {
   required String title,
@@ -79,16 +81,15 @@ Future<PollToast?> confirmAndDelete(
   double toastBottomInset = 0,
 }) async {
   Future<Failure?>? deleting;
-  await showPollSheet<void>(
+  await showConfirmPopup(
     context,
-    DeleteConfirmSheet(
-      title: title,
-      body: body,
-      confirmLabel: context.l10n.communityDelete,
-      onDelete: () async {
-        await (deleting = delete());
-      },
-    ),
+    title: title,
+    body: body,
+    confirmLabel: context.l10n.communityDelete,
+    danger: true,
+    onConfirm: () async {
+      await (deleting = delete());
+    },
   );
   if (deleting == null) return null; // "삭제하기" 를 누르지 않고 닫았다.
   final failure = await deleting;
@@ -102,12 +103,9 @@ Future<PollToast?> confirmAndDelete(
 }
 
 Future<T?> showPollSheet<T>(BuildContext context, Widget sheet) {
-  return showModalBottomSheet<T>(
+  return showAppBottomSheet<T>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    // 기본 딤(0.8)은 시안보다 어둡다 — 모달 딤 토큰(0.5)을 쓴다(채팅 시트와 같다).
-    barrierColor: AppColors.scrim,
     builder: (_) => sheet,
   );
 }
