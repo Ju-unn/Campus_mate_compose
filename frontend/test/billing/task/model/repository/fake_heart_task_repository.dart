@@ -5,25 +5,25 @@ import 'package:campus_mate/billing/task/model/data/heart_task.dart';
 import 'package:campus_mate/billing/task/model/repository/heart_task_repository.dart';
 import 'package:campus_mate/common/result.dart';
 
-/// pen 18a 세 줄(에브리타임 검수중 · 단톡방 완료 · 투표 미완료)과 같은 상태. [everytime] 으로 첫 줄 상태만 바꾼다.
-/// 하트 수는 2026-10-16 사용자 확정 서버 값(에브리타임 40 · 단톡방 25 · 투표 5) — pen 글자(50 · 10)는 갱신 대기.
+/// 18a 두 줄(단톡방 · 투표 미완료 — 에브리타임 줄은 2026-11-15 삭제). [kakao] 로 단톡방 줄 상태만 바꾼다.
+/// 기본은 검수 중 · 한도 찬 줄(누를 수 없음, 대기 블록 없음). 열린 줄 · 반려 줄은 한도가 남아 낼 수 있다.
+/// 하트 수는 2026-10-16 사용자 확정 서버 값(단톡방 25 · 투표 5).
 List<HeartTask> sampleHeartTasks({
-  HeartTaskState everytime = HeartTaskState.reviewing,
-  HeartTaskRejectReason? everytimeReason,
+  HeartTaskState kakao = HeartTaskState.reviewing,
+  HeartTaskRejectReason? kakaoReason,
 }) {
-  final canSubmit = everytime == HeartTaskState.rejected || everytime == HeartTaskState.open;
+  final canSubmit = kakao == HeartTaskState.rejected || kakao == HeartTaskState.open;
   return [
     HeartTask(
-      kind: HeartTaskKind.everytimePost,
-      rewardHearts: 40,
-      state: everytime,
-      used: canSubmit ? 0 : 1,
-      limit: 1,
-      rejectReason: everytimeReason,
+      kind: HeartTaskKind.kakaoShare,
+      rewardHearts: 25,
+      state: kakao,
+      used: canSubmit ? 0 : 3,
+      limit: 3,
+      rejectReason: kakaoReason,
       canSubmit: canSubmit,
       maxPhotos: 3,
     ),
-    const HeartTask(kind: HeartTaskKind.kakaoShare, rewardHearts: 25, state: HeartTaskState.done, used: 3, limit: 3, maxPhotos: 3),
     const HeartTask(kind: HeartTaskKind.pollVote, rewardHearts: 5, state: HeartTaskState.open, used: 0, limit: 3),
   ];
 }
@@ -32,7 +32,7 @@ List<HeartTask> sampleHeartTasks({
 class FakeHeartTaskRepository implements HeartTaskRepository {
   Result<List<HeartTask>> tasks = Success(sampleHeartTasks());
   Result<HeartTask> submitResult = const Success(
-    HeartTask(kind: HeartTaskKind.everytimePost, rewardHearts: 40, state: HeartTaskState.reviewing, used: 1, limit: 1),
+    HeartTask(kind: HeartTaskKind.kakaoShare, rewardHearts: 25, state: HeartTaskState.reviewing, used: 1, limit: 3),
   );
 
   int fetchCount = 0;

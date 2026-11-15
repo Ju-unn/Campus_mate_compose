@@ -1,8 +1,9 @@
 import 'package:campus_mate/billing/task/model/data/heart_task_pending.dart';
 
 /// 18a 한 줄의 항목. [code] 는 서버 값 그대로다.
+/// 에브리타임 홍보(`everytime_post`)는 2026-11-15 사용자 결정으로 뺐다(에타에 올리면 홍보물 정지 대상) — 옛 서버가 그 줄을
+/// 내려 줘도 목록 읽기(`HttpHeartTaskRepository.fetchTasks`)가 건너뛰고, 옛 반려 알림은 18a 로 간다(`PushRoute`).
 enum HeartTaskKind {
-  everytimePost('everytime_post'),
   kakaoShare('kakao_share'),
   pollVote('poll_vote');
 

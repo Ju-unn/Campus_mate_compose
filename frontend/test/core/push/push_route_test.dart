@@ -71,10 +71,18 @@ void main() {
     });
 
     test('반려(heart_task_retry)는 사유를 실은 18b-2 로 간다 — 18a 줄을 눌렀을 때와 같은 경로', () {
-      final path = PushRoute.resolve({'route': 'heart_task_retry', 'task': 'everytime_post', 'reason': 'date_missing'});
+      final path = PushRoute.resolve({'route': 'heart_task_retry', 'task': 'kakao_share', 'reason': 'date_missing'});
 
-      expect(path, '/heart-tasks/submit/everytime_post?reason=date_missing');
-      expect(path, heartTaskSubmitLocation(HeartTaskKind.everytimePost, HeartTaskRejectReason.dateMissing));
+      expect(path, '/heart-tasks/submit/kakao_share?reason=date_missing');
+      expect(path, heartTaskSubmitLocation(HeartTaskKind.kakaoShare, HeartTaskRejectReason.dateMissing));
+    });
+
+    // 에브리타임 홍보는 2026-11-15 에 뺐다 — 알림함에 남은 옛 반려 알림은 다시 낼 수 없는 제출 화면 대신 18a 를 연다.
+    test('옛 에브리타임 반려 알림(everytime_post)은 18a 로 간다', () {
+      expect(
+        PushRoute.resolve({'route': 'heart_task_retry', 'task': 'everytime_post', 'reason': 'date_missing'}),
+        AppRoutes.heartTasks,
+      );
     });
 
     test('사유가 없거나 모르는 값이면 사유 알림 없는 18b 로 간다', () {

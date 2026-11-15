@@ -105,7 +105,7 @@ def _wire(handler: Callable[[httpx.Request], httpx.Response], seen: list[httpx.R
     return TestClient(app)
 
 
-def _post(client: TestClient, task: str = "everytime_post", data: bytes = JPEG, files=None):
+def _post(client: TestClient, task: str = "kakao_share", data: bytes = JPEG, files=None):
     """files 가 없으면 옛 앱처럼 `photo` 한 장. 새 앱은 `photos` 여러 파트를 보낸다(_photos)."""
     files = files if files is not None else {"photo": ("proof.jpg", data)}
     return client.post(f"/heart-tasks/{task}/submissions", files=files, headers=AUTH_HEADERS)
@@ -119,31 +119,45 @@ def _storage_calls(seen: list[httpx.Request]) -> list[httpx.Request]:
     return [r for r in seen if "/storage/v1/object/heart-task-proofs" in r.url.path]
 
 
-def test_list_gives_three_rows_in_fixed_order_with_old_six_keys_plus_new_three():
+def test_list_gives_two_rows_in_fixed_order_with_old_six_keys_plus_new_three():
+    # 에브리타임 홍보는 목록에서 뺐다(2026-11-15 사용자 결정). DB 는 그 줄도 주지만 서버가 내리지 않는다 —
+    # 깔린 옛 앱에서도 줄이 바로 사라진다.
     rows = _status(everytime_post={"reviewing": True, "used": 1}, kakao_share={"used": 3}, poll_vote={"used": 1})
     response = _wire(_backend([rows])).get("/heart-tasks", headers=AUTH_HEADERS)
     assert response.status_code == 200
     tasks = response.json()["tasks"]
-    assert [t["task"] for t in tasks] == ["everytime_post", "kakao_share", "poll_vote"]
+    assert [t["task"] for t in tasks] == ["kakao_share", "poll_vote"]
     assert all(set(t) == TASK_KEYS for t in tasks)
     assert all(OLD_TASK_KEYS <= set(t) for t in tasks)  # 옛 앱이 읽는 여섯 칸은 그대로 있다
-    assert [t["state"] for t in tasks] == ["reviewing", "done", "open"]
-    assert [t["reward_hearts"] for t in tasks] == [40, 25, 5]
-    assert [(t["used"], t["limit"]) for t in tasks] == [(1, 1), (3, 3), (1, 3)]
+    assert [t["state"] for t in tasks] == ["done", "open"]
+    assert [t["reward_hearts"] for t in tasks] == [25, 5]
+    assert [(t["used"], t["limit"]) for t in tasks] == [(3, 3), (1, 3)]
+
+
+def test_everytime_post_is_no_longer_submittable():
+    seen: list[httpx.Request] = []
+    response = _post(_wire(_backend([_status()]), seen), task="everytime_post")
+    assert response.status_code == 422
+    assert seen == []
 
 
 def test_reject_reason_only_on_rejected_row():
-    rows = _status(everytime_post={"last_status": "rejected", "last_reject_reason": "date_missing"},
-                   kakao_share={"used": 1, "last_status": "approved"})
+    rows = _status(kakao_share={"used": 1, "last_status": "rejected", "last_reject_reason": "date_missing"})
     tasks = _wire(_backend([rows])).get("/heart-tasks", headers=AUTH_HEADERS).json()["tasks"]
     assert (tasks[0]["state"], tasks[0]["reject_reason"]) == ("rejected", "date_missing")
-    # 한 번 승인되고 한도가 남은 단톡방은 다시 "인증하기" 다.
     assert (tasks[1]["state"], tasks[1]["reject_reason"]) == ("open", None)
 
 
+def test_approved_kakao_under_the_limit_is_open_again():
+    # 한 번 승인되고 한도가 남은 단톡방은 다시 "인증하기" 다.
+    rows = _status(kakao_share={"used": 1, "last_status": "approved"})
+    task = _wire(_backend([rows])).get("/heart-tasks", headers=AUTH_HEADERS).json()["tasks"][0]
+    assert (task["state"], task["reject_reason"]) == ("open", None)
+
+
 def test_resubmitted_after_reject_shows_reviewing_without_old_reason():
-    rows = _status(everytime_post={"reviewing": True, "used": 1, "last_status": "submitted",
-                                   "last_reject_reason": "date_missing"})
+    rows = _status(kakao_share={"reviewing": True, "used": 1, "last_status": "submitted",
+                                "last_reject_reason": "date_missing"})
     task = _wire(_backend([rows])).get("/heart-tasks", headers=AUTH_HEADERS).json()["tasks"][0]
     assert (task["state"], task["reject_reason"]) == ("reviewing", None)
 
@@ -168,7 +182,7 @@ def test_submit_reads_at_most_one_byte_past_the_size_limit(upload_read_sizes):
 
 def test_submit_while_reviewing_is_409_without_upload():
     seen: list[httpx.Request] = []
-    response = _post(_wire(_backend([_status(everytime_post={"reviewing": True, "used": 1})]), seen))
+    response = _post(_wire(_backend([_status(kakao_share={"reviewing": True, "used": 3})]), seen))
     assert response.status_code == 409
     assert response.json()["detail"] == errors.HEART_TASK_IN_REVIEW
     assert _storage_calls(seen) == []
@@ -184,7 +198,7 @@ def test_submit_at_monthly_limit_is_429_without_upload():
 
 def test_submit_uploads_records_and_alerts_with_ids_only():
     seen: list[httpx.Request] = []
-    after = _status(everytime_post={"reviewing": True, "used": 1, "last_status": "submitted"})
+    after = _status(kakao_share={"reviewing": True, "used": 1, "last_status": "submitted"})
     response = _post(_wire(_backend([_status(), after]), seen))
 
     assert response.status_code == 201
@@ -198,11 +212,11 @@ def test_submit_uploads_records_and_alerts_with_ids_only():
 
     rpc = next(r for r in seen if r.url.path.endswith("/rpc/submit_heart_task"))
     body = json.loads(rpc.content)
-    assert body == {"p_id": match.group(1), "p_profile": PROFILE_ID, "p_task": "everytime_post",
-                    "p_paths": [path], "p_reward": 40}
+    assert body == {"p_id": match.group(1), "p_profile": PROFILE_ID, "p_task": "kakao_share",
+                    "p_paths": [path], "p_reward": 25}
 
     alert = json.loads(next(r for r in seen if r.url.host == "discord.com").content)["content"]
-    assert match.group(1) in alert and PROFILE_ID in alert and "everytime_post" in alert
+    assert match.group(1) in alert and PROFILE_ID in alert and "kakao_share" in alert
     # 경로 · 파일 이름은 싣지 않는다(Global Constraint 6).
     assert ".jpg" not in alert and "heart-task-proofs" not in alert
     # ADMIN_BASE_URL 이 없으면 관리자 웹이 없는 배포다 — 지금처럼 Supabase 대시보드로 안내한다.
@@ -212,7 +226,7 @@ def test_submit_uploads_records_and_alerts_with_ids_only():
 def test_alert_links_the_admin_dashboard_when_its_address_is_set():
     app.dependency_overrides[get_settings] = lambda: _settings(admin_base_url="https://admin.example.com/")
     seen: list[httpx.Request] = []
-    after = _status(everytime_post={"reviewing": True, "used": 1, "last_status": "submitted"})
+    after = _status(kakao_share={"reviewing": True, "used": 1, "last_status": "submitted"})
     _post(_wire(_backend([_status(), after]), seen))
 
     alert = json.loads(next(r for r in seen if r.url.host == "discord.com").content)["content"]
@@ -220,7 +234,7 @@ def test_alert_links_the_admin_dashboard_when_its_address_is_set():
     # 끝의 '/' 는 떼고 붙인다 — 관리자 웹 /heart-tasks/{id} 가 그 건을 연다.
     assert alert.endswith(f"대시보드: https://admin.example.com/heart-tasks/{submission_id}")
     assert "Supabase" not in alert
-    assert PROFILE_ID in alert and "everytime_post" in alert
+    assert PROFILE_ID in alert and "kakao_share" in alert
     assert ".jpg" not in alert and "heart-task-proofs" not in alert
 
 
@@ -250,7 +264,7 @@ def test_db_says_no_after_upload_then_file_is_removed(code, status, detail):
 
 
 def test_discord_failure_still_201():
-    after = _status(everytime_post={"reviewing": True, "used": 1})
+    after = _status(kakao_share={"reviewing": True, "used": 1})
     response = _post(_wire(_backend([_status(), after], discord=httpx.Response(500))))
     assert response.status_code == 201
 
@@ -309,7 +323,7 @@ def test_submit_keeps_the_order_of_the_photos():
 
 
 def test_legacy_photo_field_still_works_and_answers_with_the_old_six_keys():
-    after = _status(everytime_post={"reviewing": True, "used": 1, "last_status": "submitted"})
+    after = _status(kakao_share={"reviewing": True, "used": 1, "last_status": "submitted"})
     seen: list[httpx.Request] = []
     response = _post(_wire(_backend([_status(), after]), seen))  # 옛 앱: 파트 이름 photo 한 장
     assert response.status_code == 201
@@ -406,11 +420,12 @@ def test_no_answer_from_db_keeps_all_three_files():
     assert [r.method for r in _storage_calls(seen)] == ["POST", "POST", "POST"]
 
 
-def test_can_submit_is_true_only_for_proof_tasks_under_the_limit():
-    rows = _status(everytime_post={"used": 1}, kakao_share={"reviewing": True, "used": 2})
+@pytest.mark.parametrize(("used", "can_submit"), [(2, True), (3, False)])
+def test_can_submit_is_true_only_for_proof_tasks_under_the_limit(used, can_submit):
+    rows = _status(kakao_share={"reviewing": True, "used": used})
     tasks = {t["task"]: t for t in _wire(_backend([rows])).get("/heart-tasks", headers=AUTH_HEADERS).json()["tasks"]}
-    assert [(tasks[n]["can_submit"], tasks[n]["max_photos"]) for n in ("everytime_post", "kakao_share", "poll_vote")] \
-        == [(False, 3), (True, 3), (False, 0)]
+    assert [(tasks[n]["can_submit"], tasks[n]["max_photos"]) for n in ("kakao_share", "poll_vote")] \
+        == [(can_submit, 3), (False, 0)]
 
 
 def test_state_stays_reviewing_while_a_pending_exists_even_if_it_can_submit():
@@ -433,7 +448,7 @@ def test_pending_lists_signed_urls_in_photo_order_and_null_for_a_failed_sign():
          "photo_urls": [f"{SIGN_PREFIX}{PROFILE_ID}/s1-1.jpg?token=t", None, f"{SIGN_PREFIX}{PROFILE_ID}/s1-3.jpg?token=t"]},
         {"id": "s2", "created_at": CREATED_AT, "photo_urls": [f"{SIGN_PREFIX}{PROFILE_ID}/s2-1.jpg?token=t"]},
     ]
-    assert [p["id"] for p in tasks["everytime_post"]["pending"]] == ["s3"]  # 항목별로 나뉜다
+    assert "everytime_post" not in tasks  # 목록에서 뺀 항목의 옛 대기 건은 싣지 않는다(운영 대기 0건, 11-15)
     assert tasks["poll_vote"]["pending"] == []
     assert "storage_path" not in response.text  # 경로 원문은 서명 URL 안에만 있다
 

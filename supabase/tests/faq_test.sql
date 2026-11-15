@@ -4,7 +4,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(23);
+select plan(25);
 
 -- 1~3 표 · RLS · enum
 select has_table('public', 'faq', 'faq 표가 있다');
@@ -58,12 +58,13 @@ select ok((select answer like '%appmailerl4538@gmail.com 으로 가입한 학교
            from public.faq where question = '이용이 제한됐다고 나와요.'),
   '이용 제한 답변은 새 문의 메일을 안내한다');
 
--- 18~19 무료 하트 값(2026-10-16 사용자 확정 "무료하트조정 확정"): 에브리타임 40 · 투표 5 / 주 15, 단톡방 25 · 친구 초대 50(새 사람) · 25(코드 주인, 20261110120000).
+-- 18~19 무료 하트 값(2026-10-16 사용자 확정 "무료하트조정 확정"): 투표 5 / 주 15, 단톡방 25 · 친구 초대 50(새 사람) · 25(코드 주인, 20261110120000).
+-- 에브리타임 홍보 구절은 20261115130000 에서 뺐다(2026-11-15 사용자 결정).
 select is((select answer from public.faq where question = '하트를 무료로 얻는 방법이 있나요?'),
   '네. 설정 → 무료로 하트 모으기에서 받을 수 있어요. 친구의 추천 코드를 넣으면 나는 50하트, 코드를 알려 준 친구는 25하트를 받고, '
-  || '에브리타임 홍보 글 인증은 월 1회 40하트, 단톡방 공유 인증은 월 3회 25하트씩이에요. '
+  || '단톡방 공유 인증은 월 3회 25하트씩이에요. '
   || '커뮤니티 투표에 참여하면 하루 한 번 5하트, 한 주에 최대 15하트를 받아요.',
-  '무료 하트 답변은 에브리타임 40 · 단톡방 25 · 투표 하루 5 / 주 15 · 친구 초대 50 · 25 이고 "학교 단톡방" 이 아니다');
+  '무료 하트 답변은 단톡방 25 · 투표 하루 5 / 주 15 · 친구 초대 50 · 25 이고 "학교 단톡방" · 에브리타임이 없다');
 select is_empty(
   $$select id from public.faq
      where answer like '%월 1회 50하트%' or answer like '%하루 한 번 10하트%' or answer like '%최대 30하트%'
@@ -87,6 +88,15 @@ select is((select answer from public.faq where question = '추천 코드는 어�
 select is_empty(
   $$select id from public.faq where answer like '%각각 50하트%'$$,
   '"나와 친구가 각각 50하트" 옛 문장이 든 답변이 없다');
+
+-- 24~25 에브리타임 홍보 삭제(20261115130000, 2026-11-15 사용자 결정 「에타 올리면 서비스 홍보물 정지 대상」).
+select is((select answer from public.faq where question = '무료 하트 인증은 어떻게 하고, 반려되면 어떻게 하나요?'),
+  '단톡방 공유 화면을 캡처해 올리면 운영팀이 확인한 뒤 하트를 드려요. 확인은 보통 영업일 1~2일 걸려요. '
+  || '3명 이상이 있는 단톡방에 공유한 글과 단톡방 인원 수가 보이게 찍어 주세요. '
+  || '기준에 맞지 않거나 이미 쓴 캡처면 반려되는데, 사유를 확인하고 다시 찍어 올리면 돼요.',
+  '무료 하트 인증 답변은 단톡방(3명 이상)만 안내한다');
+select is_empty($$select id from public.faq where answer like '%에브리타임%'$$,
+  '에브리타임이 든 답변이 없다');
 
 select * from finish();
 rollback;

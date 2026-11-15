@@ -50,7 +50,7 @@ void main() {
   // 꺼진 앱(시작 위치 오늘 탭 등 아무 데나) · 앱이 떠 있을 때 모두 같은 함수를 지난다.
   for (final path in [
     AppRoutes.heartTasks,
-    '${AppRoutes.heartTaskSubmit}/everytime_post?reason=date_missing',
+    '${AppRoutes.heartTaskSubmit}/kakao_share?reason=date_missing',
     AppRoutes.friendReviews,
   ]) {
     testWidgets('$path 를 알림으로 열면 홈 위에 쌓여 뒤로가기가 홈으로 간다', (tester) async {
