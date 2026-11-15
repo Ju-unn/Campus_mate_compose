@@ -14,8 +14,8 @@ abstract final class ApiRoutePattern {
   /// (`test/core/analytics/api_route_pattern_test.dart` 가 서버를 부르는 소스의 글자 조각을 읽어 빠진 것을 알려 준다).
   /// 값이 들어가는 칸(id · 토큰 · 코드)에서 오는 글자는 절대 더하지 않는다. 값을 경로에 넣는 새 API 는 이 목록으로 못 막는다
   /// (값이 우연히 목록 낱말과 같으면 그대로 나간다) — 값은 쿼리 · 본문으로 보낸다.
-  /// `interests` · `my-traits` · `ideal-traits` 는 `TagPickerKind.endpoint`, `everytime_post` · `kakao_share` ·
-  /// `poll_vote` 는 `HeartTaskKind.code` 로 경로에 끼워 넣는 고정 값이다.
+  /// `interests` · `my-traits` · `ideal-traits` 는 `TagPickerKind.endpoint`, `kakao_share` · `poll_vote` 는
+  /// `HeartTaskKind.code` 로 경로에 끼워 넣는 고정 값이다(`everytime_post` 는 2026-11-15 항목을 빼며 지웠다 — 앱이 더 부르지 않는다).
   static const Set<String> routeWords = {
     'about',
     'acceptances',
@@ -40,7 +40,6 @@ abstract final class ApiRoutePattern {
     'contact-blocks',
     'conversations',
     'decision',
-    'everytime_post',
     'friend-reviews',
     'generate',
     'google',

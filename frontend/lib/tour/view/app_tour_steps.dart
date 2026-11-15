@@ -25,7 +25,8 @@ enum TourTargetId {
   /// 하트 스토어 맨 위 그림 — 늘 그려져 있어 목록을 스크롤할 손잡이로 쓴다
   heartStoreTop,
 
-  /// 하트 스토어 "무료로 모으기" 제목 + 작업 줄 3개(pen 구멍이 둘 다 감싼다 — 제목 아래 안내는 10-16 에 지웠다)
+  /// 하트 스토어 "무료로 모으기" 제목 + 작업 줄 2개(단톡방 · 투표 — 에브리타임 줄은 2026-11-15 삭제. pen 구멍이 둘 다 감싼다 —
+  /// 제목 아래 안내는 10-16 에 지웠다)
   heartStoreFree,
 }
 
@@ -172,7 +173,8 @@ const List<TourStep> appTourSteps = [
     targets: [TourTargetId.heartStoreFree],
     holePadding: EdgeInsets.all(AppSpacing.xxs),
     scrollAnchor: TourTargetId.heartStoreTop,
-    // pen(campus-pen 10-16, 360×780): 무료로 모으기를 앱바 아래 12 로 올린 모습 — 구멍 x12 · y68 · 336×306, 말풍선 x24 · y426.
+    // pen(2026-11-15 줄 2개로 다시 그림, 360×780): 무료로 모으기를 앱바 아래 12 로 올린 모습 — 구멍 x12 · y68 · 336×183,
+    // 말풍선 x24 · y303(= 68 + 183 + 선 52). 구멍 크기 · 말풍선 위치는 대상을 재서 정하므로 줄 수가 바뀌어도 고칠 값이 없다.
     alignTop: 12,
     copy: TourCopy.heartFree,
   ),
