@@ -242,7 +242,7 @@
   "chatIntroSummary": "48시간 안에 두 분이 모두 수락해야 카카오톡 아이디·실사진이 공개되고 대화가 이어져요. 위쪽의 '수락하기'를 누르면 먼저 공개할 수 있어요.",
   "chatIntroTitle": "대화를 시작하기 전에 알아 두세요",
   "chatLeave": "나가기",
-  "chatLeaveConfirmBody": "나가면 이 대화를 다시 볼 수 없고, 상대에게는 나갔다고 표시돼요.",
+  "chatLeaveConfirmBody": "나가면 이 대화를 다시 볼 수 없어요.",
   "chatLeaveConfirmTitle": "채팅방을 나갈까요?",
   "chatLeaveRoom": "채팅방 나가기",
   "chatListNoMessages": "아직 메시지가 없어요",

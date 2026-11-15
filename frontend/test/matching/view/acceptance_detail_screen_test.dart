@@ -4,6 +4,7 @@ import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart'
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/university_logos.dart';
+import 'package:campus_mate/common/widgets/confirm_popup.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -240,7 +241,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repository.decisions.single, (cardId: 'card-1', decision: CardDecision.accept));
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byKey(confirmPopupCardKey), findsNothing); // 확인 팝업 없이 바로 간다
       expect(find.text('매칭 초코라떼 m-1'), findsOneWidget);
       expect(find.byType(AcceptanceDetailScreen), findsNothing);
       // 12 가 이 화면 자리를 바꿔 들어왔다 — 한 번 닫으면 목록이다.
@@ -271,7 +272,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repository.decisions.single, (cardId: 'card-1', decision: CardDecision.reject));
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byKey(confirmPopupCardKey), findsNothing); // 확인 팝업 없이 바로 간다
       expect(find.text('목록'), findsOneWidget);
       expect(repository.fetchAcceptancesCount, readsBefore + 1);
     });
