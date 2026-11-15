@@ -178,9 +178,9 @@ void main() {
 
     for (final (platform, url) in [
       (TargetPlatform.android, 'https://play.google.com/store/apps/details?id=io.github.juunn.campusmate'),
-      (TargetPlatform.iOS, 'https://apps.apple.com/app/id6821955396'),
+      (TargetPlatform.iOS, 'https://apps.apple.com/app/id6821955396?action=write-review'),
     ]) {
-      testWidgets('$platform — 누르면 그 기기 스토어 페이지를 연다', (tester) async {
+      testWidgets('$platform — 누르면 리뷰 쓰기 창(아이폰) · 스토어 상세(안드로이드)를 연다', (tester) async {
         final opened = await pump(tester, store: StoreListing(platform));
         await toStrip(tester);
 
