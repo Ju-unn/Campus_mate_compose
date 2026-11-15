@@ -15,15 +15,16 @@ from app.student_verification.image_validation import MAX_IMAGE_BYTES, student_i
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-# 제출 때 약속하는 하트(DESIGN §8.10, 2026-10-16 사용자 확정 — 에브리타임 50 → 40, 단톡방 25 그대로). 값을 바꾸는 날
-# 이 줄만 고친다 — 이미 낸 제출은 줄에 적힌 금액으로 승인된다.
-REWARD_HEARTS = {"everytime_post": 40, "kakao_share": 25}
+# 제출 때 약속하는 하트(DESIGN §8.10, 2026-10-16 사용자 확정 — 단톡방 25). 값을 바꾸는 날 이 줄만 고친다 —
+# 이미 낸 제출은 줄에 적힌 금액으로 승인된다(옛 에브리타임 제출도 적힌 40 으로).
+REWARD_HEARTS = {"kakao_share": 25}
 # 투표 보상은 여기서 주지 않는다(DB cast_poll_vote 5하트 · 주 15, 20261016144525). 18a 에 보여 주기만 한다.
 POLL_VOTE_REWARD = 5
-# 18a 줄 순서(DESIGN §8.10 표).
-TASK_ORDER = ("everytime_post", "kakao_share", "poll_vote")
+# 18a 줄 순서(DESIGN §8.10 표). 에브리타임 홍보는 2026-11-15 사용자 결정으로 뺐다(에타에 올리면 홍보물 정지 대상) —
+# DB enum · 한도 함수 · 관리자 검수 · 승인 알림은 이미 낸 제출을 위해 그대로 둔다.
+TASK_ORDER = ("kakao_share", "poll_vote")
 # 인증샷을 내는 항목(투표는 커뮤니티 탭에서 저절로 쌓인다).
-PROOF_TASKS = ("everytime_post", "kakao_share")
+PROOF_TASKS = ("kakao_share",)
 # 제출 1건당 인증샷 1~3장(대장 결정 2026-10-19). DB check(`heart_task_submissions_paths_max`)와 같은 수.
 MAX_PHOTOS = 3
 # 18a 검수 대기 목록의 썸네일 서명 URL 유효 시간. 18a 에 들어올 때마다 새로 받는다.
@@ -145,7 +146,7 @@ async def _notify_review(webhook_url: str, client: httpx.AsyncClient,
 
 @router.get("/heart-tasks")
 async def list_heart_tasks(caller: Caller = Depends(get_verified_caller)) -> dict:
-    """18a 목록. 세 줄을 늘 같은 순서로. 검수 중인 제출은 항목별 `pending` 에 사진 서명 URL 과 함께 싣는다."""
+    """18a 목록. TASK_ORDER 의 줄을 늘 같은 순서로. 검수 중인 제출은 항목별 `pending` 에 사진 서명 URL 과 함께 싣는다."""
     repo = _repo(caller)
     rows, pending_rows = await asyncio.gather(repo.fetch_status(caller.profile_id), repo.fetch_pending(caller.profile_id))
     pending = await _pending_by_task(_storage(caller), pending_rows)
@@ -154,7 +155,7 @@ async def list_heart_tasks(caller: Caller = Depends(get_verified_caller)) -> dic
 
 @router.post("/heart-tasks/{task}/submissions", status_code=201)
 async def submit_heart_task(
-    task: Literal["everytime_post", "kakao_share"],
+    task: Literal["kakao_share"],  # 그 밖(everytime_post · poll_vote)은 422
     photo: UploadFile | None = File(default=None),
     photos: list[UploadFile] = File(default=[]),
     caller: Caller = Depends(get_verified_caller),
