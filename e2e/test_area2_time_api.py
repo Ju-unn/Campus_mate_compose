@@ -21,7 +21,6 @@ from e2e.tools import Reply
 UTC = timezone.utc
 FROZEN = datetime(2026, 10, 6, 12, 0, tzinfo=SEOUL)  # 화요일 낮
 MONDAY = datetime(2026, 10, 5, 10, 0, tzinfo=SEOUL)
-IN_REVIEW = '이미 확인 중이에요, 결과를 기다려 주세요'
 
 # 표 → 열. 출처: 20260913054544_create_profiles · 20260920043514 · 20260920160537_create_daily_cards · 20260920160544_create_matches ·
 # 20260920043832_create_heart_ledger · 20260927020000_create_polls · 20260928030000_create_heart_task_submissions ·
@@ -83,7 +82,7 @@ class Server(TableFake):
                 ('POST', r'/rest/v1/rpc/region_active_counts', self._counts), ('POST', r'/rest/v1/rpc/poll_vote_reward_due', self._reward_due), ('POST', r'/rest/v1/rpc/grant_hearts', self._grant),
                 ('POST', r'/community/polls', self._new_poll), ('DELETE', r'/community/polls/[^/]+', self._drop_poll),
                 ('POST', r'/community/polls/[^/]+/votes', self._vote), ('GET', r'/heart-tasks', self._tasks),
-                ('POST', r'/heart-tasks/[^/]+/submissions', self._submit), ('GET', r'/home/summary', self._home)):
+                ('GET', r'/home/summary', self._home)):
             self.on(method, pattern, handler)
 
     def __call__(self, method, url, headers=None, body=None, raw=None, **options):
@@ -308,24 +307,18 @@ class Server(TableFake):
         if r['month_window'] == 'seoul':
             mhi = (mlo + timedelta(days=32)).replace(day=1)
         out = []
-        for task, limit in (('everytime_post', 1), ('kakao_share', 3)):
+        # 서버 목록은 단톡방 · 투표 두 줄이다(에브리타임 홍보는 2026-11-15 #746 에서 뺐다). 검수 대기(pending)는 달과 상관없이 싣는다.
+        for task, limit in (('kakao_share', 3),):
             mine = [s for s in self.rows('heart_task_submissions') if s['profile_id'] == me and s['task'] == task]
             used = len([s for s in mine if s['status'] in ('submitted', 'approved') and mlo <= at(s['created_at']) < mhi])
             reviewing = any(s['status'] == 'submitted' and (r['reviewing_any_month'] or mlo <= at(s['created_at']) < mhi) for s in mine)
             state = 'reviewing' if reviewing else 'done' if used >= limit else 'open'
-            out.append({'task': task, 'state': state, 'used': used, 'limit': limit})
+            pending = [{'id': s['id']} for s in mine if s['status'] == 'submitted']
+            out.append({'task': task, 'state': state, 'used': used, 'limit': limit, 'can_submit': used < limit, 'pending': pending})
         wlo, whi = self._window(r['week_window'], week_start, now, timedelta(days=7))
         votes = len([t for t in self._votes(me, now) if wlo <= at(t['created_at']) < whi])
         out.append({'task': 'poll_vote', 'state': 'open', 'used': votes, 'limit': 3})
         return Reply(200, {'tasks': out})
-
-    def _submit(self, sent):
-        task, me = sent['path'].split('/')[2], self.who(sent)
-        if any(s['profile_id'] == me and s['task'] == task and s['status'] == 'submitted' for s in self.rows('heart_task_submissions')):
-            return Reply(409, {'detail': IN_REVIEW})
-        self.rows('heart_task_submissions').append({'id': str(uuid.uuid4()), 'profile_id': me, 'task': task, 'status': 'submitted',
-                                                    'created_at': self.now().isoformat()})
-        return Reply(201, {'task': {}})
 
     # ── 홈 ──
     def _home(self, sent):
@@ -810,16 +803,15 @@ class MonthTest(TimeBase):
         fake = self.server()
         self.case('E-HEART-17')
         rows = fake.rows('heart_task_submissions')
-        self.assertEqual({r['task'] for r in rows}, {'everytime_post', 'kakao_share'})
-        by_task = {r['task']: r for r in rows}
-        self.assertEqual(at(by_task['everytime_post']['created_at']), datetime(2026, 9, 30, 23, 59, 59, tzinfo=SEOUL))
-        self.assertEqual(at(by_task['kakao_share']['created_at']), datetime(2026, 10, 1, 0, 0, 0, tzinfo=SEOUL))
+        self.assertEqual([r['task'] for r in rows], ['kakao_share', 'kakao_share'])
+        self.assertEqual([at(r['created_at']) for r in rows],
+                         [datetime(2026, 9, 30, 23, 59, 59, tzinfo=SEOUL), datetime(2026, 10, 1, 0, 0, 0, tzinfo=SEOUL)])
         for row in rows:
             self.assertEqual((row['status'], row['reward_hearts']), ('approved', 50))
             self.assertIsNotNone(row['reviewed_at'])  # heart_task_submissions_reviewed_at check
             self.assertIsNone(row.get('storage_paths'))  # 승인 줄은 파일 칸이 null 이어도 된다(60일 정리 뒤 모양)
 
-    def test_18_a_submitted_row_from_last_month_still_reads_reviewing_and_blocks_a_new_one(self):
+    def test_18_a_submitted_row_from_last_month_still_reads_reviewing_and_stays_in_the_pending_list(self):
         self.passes('E-HEART-18')
 
     def test_18_fails_when_last_months_review_stops_blocking(self):
@@ -960,7 +952,7 @@ class SentOnceTest(TimeBase):
     def test_votes_polls_decisions_responses_and_grants_are_sent_once(self):
         for number, method, piece in (('E-POLL-07', 'POST', '/votes'), ('E-POLL-16', 'POST', '/community/polls'),
                                       ('E-CARD-50', 'POST', '/decision'), ('E-CARD-53', 'POST', '/cards/acceptances/'),
-                                      ('E-POLL-08', 'POST', 'rpc/grant_hearts'), ('E-HEART-18', 'POST', '/submissions')):
+                                      ('E-POLL-08', 'POST', 'rpc/grant_hearts')):  # E-HEART-18 은 2026-11-15 뒤 제출을 보내지 않는다
             with self.subTest(number):
                 self.assertTrue(all(o == {'retry': False} for o in self.sent_options(number, method, piece)), number)
 

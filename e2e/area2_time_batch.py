@@ -521,8 +521,9 @@ def _cleanup_scene(run):
     if scene is None:
         batch_gate.check('cleanup')
         account = area2._home(run)
-        scene = {'account': account, 'old': area2._seed_proof(run, account, 'everytime_post', 61),
-                 'fresh': area2._seed_proof(run, account, 'kakao_share', 59), 'review': _seed_reviewing(run, account, 'everytime_post', 61)}
+        # 에브리타임 홍보가 빠져(2026-11-15) 세 줄 모두 단톡방이다(DB 에 직접 넣어 한도와 상관없다).
+        scene = {'account': account, 'old': area2._seed_proof(run, account, 'kakao_share', 61),
+                 'fresh': area2._seed_proof(run, account, 'kakao_share', 59), 'review': _seed_reviewing(run, account, 'kakao_share', 61)}
         _batch('cleanup')
         scene['cleared'] = area2_phone3._wait_for(lambda: area2._proof_state(run, account, *scene['old'])[0] is None, FIRST_BATCH_WAIT)
         run._area2_cleanup = scene
