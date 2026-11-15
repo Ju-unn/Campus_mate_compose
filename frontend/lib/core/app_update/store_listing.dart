@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart' show TargetPlatform;
 
-/// 이 앱이 올라가 있는 스토어 상세 주소 — "업데이트해 주세요" 안내가 여는 곳.
+/// 이 앱이 올라가 있는 스토어 상세 주소 — "업데이트해 주세요" 안내 · 홈 리뷰 띠가 여는 곳.
 class StoreListing {
   const StoreListing(this._platform);
 
@@ -19,5 +19,12 @@ class StoreListing {
         TargetPlatform.android => 'https://play.google.com/store/apps/details?id=$_androidPackage',
         TargetPlatform.iOS => 'https://apps.apple.com/app/id$_appStoreId',
         _ => null,
+      };
+
+  /// 홈 리뷰 띠 "리뷰 남기기" 가 여는 주소(사용자 「아이폰 , 안드로이드 각각 리뷰 작성으로 들어가게」 11-16).
+  /// 아이폰은 애플 안내대로 `action=write-review` 를 붙여 리뷰 쓰기 창을 바로 연다. 플레이에는 그런 주소가 없어 상세 페이지 그대로다.
+  String? reviewUrl() => switch (_platform) {
+        TargetPlatform.iOS => '${url()}?action=write-review',
+        _ => url(),
       };
 }

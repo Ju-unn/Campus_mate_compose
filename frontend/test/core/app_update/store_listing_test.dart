@@ -14,6 +14,16 @@ void main() {
     expect(const StoreListing(TargetPlatform.iOS).url(), 'https://apps.apple.com/app/id6821955396');
   });
 
+  test('리뷰 주소 — 아이폰은 리뷰 쓰기 창(action=write-review), 안드로이드는 상세 그대로, 스토어 없는 곳은 null', () {
+    expect(const StoreListing(TargetPlatform.iOS).reviewUrl(), 'https://apps.apple.com/app/id6821955396?action=write-review');
+    expect(
+      const StoreListing(TargetPlatform.android).reviewUrl(),
+      'https://play.google.com/store/apps/details?id=io.github.juunn.campusmate',
+    );
+    expect(const StoreListing(null).reviewUrl(), isNull);
+    expect(const StoreListing(TargetPlatform.windows).reviewUrl(), isNull);
+  });
+
   test('스토어가 없는 곳(웹 · 데스크톱)은 null 이다 — 막을 이유가 없다', () {
     expect(const StoreListing(null).url(), isNull);
     expect(const StoreListing(TargetPlatform.windows).url(), isNull);

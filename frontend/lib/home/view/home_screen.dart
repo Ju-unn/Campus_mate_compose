@@ -241,8 +241,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
     required bool animate,
     required String? mySchool,
   }) {
-    // 리뷰 띠가 여는 기기 스토어 상세(강제 업데이트 안내와 같은 주소). 스토어가 없는 웹 · 데스크톱은 null — 띠를 그리지 않는다.
-    final storeUrl = ref.watch(storeListingProvider).url();
+    // 리뷰 띠가 여는 기기 스토어(아이폰은 리뷰 쓰기 창). 스토어가 없는 웹 · 데스크톱은 null — 띠를 그리지 않는다.
+    final storeUrl = ref.watch(storeListingProvider).reviewUrl();
     final blocks = <Widget>[
       Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
