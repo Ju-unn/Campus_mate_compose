@@ -11,7 +11,7 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/safety/model/data/report_target.dart';
 import 'package:campus_mate/safety/model/repository/safety_repository_provider.dart';
-import 'package:campus_mate/safety/view/block_confirm_sheet.dart';
+import 'package:campus_mate/safety/view/block_confirm.dart';
 import 'package:campus_mate/safety/view/report_sheet.dart';
 import 'package:campus_mate/safety/viewmodel/report_ui_state.dart';
 import 'package:flutter/material.dart';
@@ -91,7 +91,7 @@ Future<Failure?> blockThenLeave(
 }) async {
   final repository = ref.read(safetyRepositoryProvider);
   final conversations = ref.read(conversationsViewModelProvider.notifier);
-  if (!await showBlockConfirmSheet(context, nickname) || !context.mounted) {
+  if (!await confirmBlock(context, nickname) || !context.mounted) {
     return null;
   }
   final result = await repository.block(profileId);

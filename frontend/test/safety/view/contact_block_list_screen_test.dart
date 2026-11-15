@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/common/widgets/confirm_popup.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -12,7 +13,6 @@ import 'package:campus_mate/safety/model/repository/device_contacts.dart';
 import 'package:campus_mate/safety/view/contact_block_list_screen.dart';
 import 'package:campus_mate/safety/view/contact_picker_screen.dart';
 import 'package:campus_mate/safety/view/contact_row.dart';
-import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -122,13 +122,13 @@ void main() {
     expect(icon.right, tester.getRect(row('김지은')).right);
   });
 
-  testWidgets('16b trash → confirm sheet → remove', (tester) async {
+  testWidgets('16b trash → confirm popup → remove', (tester) async {
     await pump(tester);
 
     await tester.tap(trash('김지은'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(SafetyConfirmSheet), findsOneWidget);
+    expect(find.byKey(confirmPopupCardKey), findsOneWidget);
     expect(find.text('차단을 해제할까요?'), findsOneWidget);
     expect(find.text('이 연락처가 다시 카드에 나타날 수 있어요.'), findsOneWidget);
 

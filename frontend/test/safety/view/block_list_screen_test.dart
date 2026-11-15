@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/common/widgets/confirm_popup.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/safety/model/repository/safety_repository_provider.dart';
 import 'package:campus_mate/safety/view/block_list_screen.dart';
-import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -117,14 +117,14 @@ void main() {
   });
 
   group('해제', () {
-    testWidgets('해제 → 확인 시트(pen FzXZ4) → 해제하면 그 줄이 빠진다', (tester) async {
+    testWidgets('해제 → 확인 팝업(일반) → 해제하면 그 줄이 빠진다', (tester) async {
       await pump(tester);
 
       await tester.tap(unblockButton('토끼'));
       await tester.pumpAndSettle();
       expect(find.text('차단을 해제할까요?'), findsOneWidget);
       expect(find.text('이 상대가 다시 카드에 나타날 수 있어요. 사라진 대화는 돌아오지 않아요.'), findsOneWidget);
-      await tester.tap(find.widgetWithText(SafetySheetButton, '해제'));
+      await tester.tap(find.descendant(of: find.byKey(confirmPopupCardKey), matching: find.text('해제')));
       await tester.pumpAndSettle();
 
       expect(repository.unblocked, ['p2']);
@@ -150,7 +150,7 @@ void main() {
 
       await tester.tap(unblockButton('토끼'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(SafetySheetButton, '해제'));
+      await tester.tap(find.descendant(of: find.byKey(confirmPopupCardKey), matching: find.text('해제')));
       await tester.pumpAndSettle();
 
       expect(tester.widget<TextButton>(unblockButton('봄바람')).onPressed, isNull);
@@ -165,7 +165,7 @@ void main() {
 
       await tester.tap(unblockButton('토끼'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(SafetySheetButton, '해제'));
+      await tester.tap(find.descendant(of: find.byKey(confirmPopupCardKey), matching: find.text('해제')));
       await tester.pumpAndSettle();
 
       expect(find.text('토끼'), findsOneWidget);

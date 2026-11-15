@@ -8,14 +8,15 @@ import 'package:campus_mate/auth/school_email/viewmodel/verify_code_view_model.d
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/confirm_popup.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
-import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 import '../../../billing/store/view/pretendard.dart';
 import '../model/repository/fake_school_email_repository.dart';
@@ -249,7 +250,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('로그아웃할까요?'), findsOneWidget);
 
-      await tester.tap(find.descendant(of: find.byType(SafetyConfirmSheet), matching: find.text('로그아웃')));
+      await tester.tap(find.descendant(of: find.byKey(confirmPopupCardKey), matching: find.text('로그아웃')));
       await tester.pumpAndSettle();
 
       expect(signOutCalls, 1);
@@ -276,6 +277,7 @@ void main() {
 
       await tester.pump(const Duration(seconds: 3));
 
+      await tester.pump(AppMotion.disappear + const Duration(milliseconds: 1)); // 흐려지며 사라지는 시간(사용자 2026-11-16)
       expect(find.byType(AppToast), findsNothing);
     });
 

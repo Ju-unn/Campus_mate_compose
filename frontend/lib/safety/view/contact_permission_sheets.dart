@@ -69,8 +69,8 @@ Future<bool?> _showPermissionSheet(
   );
 }
 
-/// 8a · 8a-2 는 16f 해제 확인과 같은 틀이다(여백 [12,20,28,20] · 20/700 제목 · 16 설명 1.5 · 52 버튼 둘).
-/// 회색 버튼 글자가 "취소"가 아니라 `SafetyConfirmSheet` 대신 내용만 같은 모양으로 넘긴다.
+/// 8a · 8a-2 는 옛 16f 해제 확인 시트와 같은 틀이다(여백 [12,20,28,20] · 20/700 제목 · 16 설명 1.5 · 52 버튼 둘).
+/// 회색 버튼 글자가 "취소"가 아니라서 공용 확인 팝업 대신 여기서 같은 모양으로 그린다(해제 확인은 2026-11-16 팝업으로 옮겼다).
 class _PermissionSheet extends StatelessWidget {
   const _PermissionSheet({
     required this.title,
