@@ -597,7 +597,12 @@ def _poll_24(run, author, leaver, other):
 
 # ── 무료 하트 모으기 ────────────────────────────────────────────────────────────────────────────────
 
-def _submit(run, account, task='everytime_post', data=TINY_JPEG):
+# 인증샷을 내는 항목은 단톡방뿐이다(에브리타임 홍보는 2026-11-15 #746 에서 뺐다 — 서버가 422). 단톡방은 한 달 3회 · 검수 중에도 이어 낸다.
+KAKAO_LIMIT = 3
+KAKAO_REWARD = 25
+
+
+def _submit(run, account, task='kakao_share', data=TINY_JPEG):
     return _form(run, f'/heart-tasks/{task}/submissions', account['token'], {}, ('photo', 'proof.jpg', data), **_ONCE)
 
 
@@ -618,23 +623,28 @@ def _review(run, account, submission, **fields):
 
 
 def heart_07(run):
+    """단톡방은 검수 중에도 한도(3)까지 이어 낸다 — 3건이 모두 검수 중이면 4번째는 409(올리기 전에 막아 파일이 늘지 않는다)."""
     check = Check()
     account = _home(run)
-    check.reply('첫 제출', _submit(run, account), 201)
+    for n in range(1, KAKAO_LIMIT + 1):
+        check.reply(f'{n}번째 제출', _submit(run, account), 201)
     files = _proofs(run, account)
-    check.reply('같은 항목 다시', _submit(run, account), 409, '이미 확인 중이에요, 결과를 기다려 주세요')
-    check.that(len(_submission_rows(run, account)) == 1, '행이 1이 아님')
+    check.reply('한도 찬 뒤 다시', _submit(run, account), 409, '이미 확인 중이에요, 결과를 기다려 주세요')
+    check.that(len(_submission_rows(run, account)) == KAKAO_LIMIT, f'행이 {KAKAO_LIMIT} 이 아님')
     check.that(_proofs(run, account) == files, f'버킷 파일 {files} → {_proofs(run, account)}')
     return check.result()
 
 
 def heart_08(run):
+    """한도 한 칸 남은 상태(검수 중 2)에서 둘이 동시에 내면 하나만 들어간다 — DB 락이 가른다."""
     check = Check()
     account = _home(run)
+    for n in range(1, KAKAO_LIMIT):
+        check.reply(f'준비 {n}번째 제출', _submit(run, account), 201)
     replies = _parallel(lambda: _submit(run, account), lambda: _submit(run, account))
     check.that(sorted(r[0] for r in replies) == [201, 409], f'상태 {[r[0] for r in replies]}(기대 201 · 409)')
-    check.that(len(_submission_rows(run, account)) == 1, '행이 1이 아님')
-    check.that(_proofs(run, account) == 1, f'버킷 파일 {_proofs(run, account)}(기대 1 — 진 쪽 파일은 지워진다)')
+    check.that(len(_submission_rows(run, account)) == KAKAO_LIMIT, f'행이 {KAKAO_LIMIT} 이 아님')
+    check.that(_proofs(run, account) == KAKAO_LIMIT, f'버킷 파일 {_proofs(run, account)}(기대 {KAKAO_LIMIT} — 진 쪽 파일은 지워진다)')
     return check.result()
 
 
@@ -645,26 +655,26 @@ def heart_10(run):
     sid = _submission_rows(run, account)[0]['id']
     status, body = _review(run, account, sid, status='approved')
     check.that(status < 300, f'승인 저장 {status} {_detail(body)}')
-    check.that(_ledger(run, account, 'free_task') == [40], f'승인 뒤 원장 {_ledger(run, account, "free_task")}(기대 [40])')
+    check.that(_ledger(run, account, 'free_task') == [KAKAO_REWARD], f'승인 뒤 원장 {_ledger(run, account, "free_task")}(기대 [{KAKAO_REWARD}])')
     _review(run, account, sid, status='approved')  # 같은 값으로 한 번 더 — 거절돼도 되고, 하트만 다시 안 나가면 된다
-    check.that(_ledger(run, account, 'free_task') == [40], f'다시 저장 뒤 원장 {_ledger(run, account, "free_task")}(기대 [40])')
+    check.that(_ledger(run, account, 'free_task') == [KAKAO_REWARD], f'다시 저장 뒤 원장 {_ledger(run, account, "free_task")}(기대 [{KAKAO_REWARD}])')
     return check.result()
 
 
 def heart_11(run):
     check = Check()
     account = _home(run)
-    check.reply('에브리타임 제출', _submit(run, account, 'everytime_post'), 201)
-    check.reply('단톡방 제출', _submit(run, account, 'kakao_share'), 201)
-    approved = _submission_rows(run, account, 'everytime_post')[0]['id']
-    rejected = _submission_rows(run, account, 'kakao_share')[0]['id']
+    # 단톡방 두 건(검수 중에도 이어 낸다) — 하나는 승인, 하나는 반려한 뒤 서로 뒤집어 본다.
+    check.reply('단톡방 첫 제출', _submit(run, account), 201)
+    check.reply('단톡방 둘째 제출', _submit(run, account), 201)
+    approved, rejected = (row['id'] for row in _submission_rows(run, account, 'kakao_share')[:2])
     _review(run, account, approved, status='approved')
     _review(run, account, rejected, status='rejected', reject_reason='date_missing')
     to_rejected = _review(run, account, approved, status='rejected', reject_reason='date_missing')
     to_approved = _review(run, account, rejected, status='approved', reject_reason=None)
     check.that(to_rejected[0] >= 400, f'승인 → 반려가 {to_rejected[0]} 로 받아들여짐')
     check.that(to_approved[0] >= 400, f'반려 → 승인이 {to_approved[0]} 로 받아들여짐')
-    check.that(_ledger(run, account, 'free_task') == [40], f'원장 {_ledger(run, account, "free_task")}(기대 [40] — 변화 0)')
+    check.that(_ledger(run, account, 'free_task') == [KAKAO_REWARD], f'원장 {_ledger(run, account, "free_task")}(기대 [{KAKAO_REWARD}] — 변화 0)')
     return check.result(f'거절 코드 {_detail(to_rejected[1])} / {_detail(to_approved[1])}')
 
 
@@ -694,6 +704,9 @@ def heart_20(run):
     check = Check()
     account = _home(run)
     check.reply('없는 항목', _submit(run, account, 'poll_vote'), 422)
+    # 에브리타임 홍보는 2026-11-15 에 뺐다 — 서버가 새 제출을 받지 않는다(DB enum 은 옛 제출 때문에 남아 있다).
+    check.reply('뺀 항목(에브리타임)', _submit(run, account, 'everytime_post'), 422)
+    check.that(not _submission_rows(run, account), '행이 생김')
     return check.result()
 
 
@@ -732,7 +745,7 @@ def heart_24(run):
     스케줄러 호출이라 응답의 deleted_heart_proofs 는 못 읽는다 — 61일 · 59일 두 줄의 DB · 파일 상태로 같은 것을 본다."""
     check = Check()
     account = _home(run)
-    old, old_path = _seed_proof(run, account, 'everytime_post', 61)
+    old, old_path = _seed_proof(run, account, 'kakao_share', 61)
     fresh, fresh_path = _seed_proof(run, account, 'kakao_share', 59)
     _batch('cleanup')
     deadline = time.monotonic() + FIRST_BATCH_WAIT
