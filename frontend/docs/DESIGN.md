@@ -1591,7 +1591,8 @@ fontFamilyFallback: ['Apple SD Gothic Neo', 'Noto Sans KR', 'sans-serif']
 | `photo_slider.dart` | 실사진 가로 슬라이더 + 점 인디케이터(화면 15 · 14c) — §5.2 |
 | `school_label.dart` | 학교 로고 + 학교 이름 — §8.1 |
 | `trait_slider.dart` · `trait_bar.dart` | 입력용 성향 5점 슬라이더 · 표시 전용 성향 바 — §8.5 · §8.1 |
-| `sheet_handle.dart` · `alert_sheet.dart` · `delete_confirm_sheet.dart` | 시트 손잡이 · 시트 틀 · 삭제 확인 시트(pen AlertSheet `D0TvG`) — §12.1 (2026-11-11 B3) |
+| `sheet_handle.dart` · `alert_sheet.dart` | 시트 손잡이 · 시트 틀(pen AlertSheet `D0TvG`) — §12.1 (2026-11-11 B3) |
+| `confirm_popup.dart` · `app_dialog_route.dart` · `app_bottom_sheet.dart` · `app_snack_bar.dart` | "~할까요?" 확인 팝업(pen 일반 `v14xI` · 위험 `xCdlQ` · 설명 없음 `BDVsY`) · 팝업 · 바텀시트 · 스낵바 진입점(움직임을 한 곳이 정한다, 지킴 시험 `motion_entry_points_test.dart`) — §12.1 (2026-11-16, 옛 `delete_confirm_sheet.dart` · 안전 확인 시트는 지웠다) |
 | `section_header.dart` | 구역 머리 `SectionHeader`(목록형 `Ymhdq`) · `SettingsSectionHeader`(설정형) — §12.1 |
 | `empty_notice.dart` · `full_screen_notice.dart` · `retry_notice.dart` | 빈 화면(pen Empty `TVc8b`) · 큰 안내 화면 틀 · 불러오기 실패 "다시 시도" 안내 — §12.1 |
 | `reason_radio_row.dart` | 사유 라디오 한 줄(pen RadioRow `M7E1k` / `SlAif`, 신고 시트 `yl8gX` · 문의 사유 시트 `Ywu44`) — 2026-11-11 PR #700 으로 `safety/view` 에서 옮겼다 |
@@ -1609,7 +1610,7 @@ fontFamilyFallback: ['Apple SD Gothic Neo', 'Noto Sans KR', 'sans-serif']
 | `SheetHandle` (`sheet_handle.dart`) | 아래에서 올라오는 시트 맨 위 손잡이 | 인자 없음. 36×4 `{colors.hairline}` 모서리 8(pen `L3Bec` 등). 위아래 여백은 주지 않는다 — 시트마다 달라 호출쪽이 정한다 |
 | `SheetFrame` (`alert_sheet.dart`) | 시트의 겉틀만 필요할 때(손잡이가 고정인 시트 · 같이 스크롤하는 시트) | `child`. 캔버스 · 위 모서리 24 · `AppElevation.top` · 폭 전체 · `SafeArea(top: false)`. 안쪽 내용과 스크롤은 쓰는 쪽 |
 | `AlertSheet` (`alert_sheet.dart`) | pen AlertSheet `D0TvG` 모양의 확인 · 안내 시트 | `children`. `SheetFrame` 안에 손잡이 칸(위아래 12) → 내용 [8,16,32,16](가로로 꽉 참). 글자를 키워 길어지면 통째로 스크롤. 요소 사이 간격은 `children` 안에 넣는다 |
-| `DeleteConfirmSheet` (`delete_confirm_sheet.dart`) | 글 · 댓글(15d-2) · 쓴 리뷰(20e-2) 삭제 확인 | `title` · `body` · `confirmLabel` · `onDelete`(`Future<void> Function()`). 제목 20/700 → 16 → 설명 14 muted → 16 → 확인(danger 52) → 8 → 취소(text 48). 지우는 중엔 확인 버튼만 꺼진 회색(도는 표시 없음), `onDelete` 가 끝나면 시트를 닫는다. 실패 알림 · 토스트는 `onDelete` 안에서 정한다 |
+| `showConfirmPopup` (`confirm_popup.dart`) | 앱의 모든 "~할까요?" 확인(삭제 · 차단 · 로그아웃 · 유료 카드 열기 · 닉네임 변경 등). 무엇을 고르는 시트(하트 구매 · 신고 사유 · 탈퇴 1차 등)는 시트로 둔다 | `title` · `body`(없으면 제목만) · `confirmLabel` · `danger`(빨강 채움) · `confirmLeading`(확인 라벨 앞 그림) · `onConfirm`(주면 끝날 때까지 팝업 안에서 기다린다 — 확인은 색 그대로 흰 도는 표시). 확인 true · 취소 · 바깥 탭 · 뒤로 false. 카드 320 · 모서리 24 · `AppElevation.popup`, 제목 · 설명 가운데, 버튼은 같은 폭 둘(왼쪽 취소 · 오른쪽 확인). 상태를 뷰모델이 쥔 팝업(탈퇴 최종)은 `ConfirmPopupCard` 를 직접 그린다 |
 | `SectionHeader` (`section_header.dart`) | 목록형 구역 머리(pen `Ymhdq`) | `title`(18/700 ink, 렌더 25) · `trailing`(선택, 오른쪽 14/400 muted — null 이면 글자를 그리지 않는다, pen `A8LX2` 꺼짐). 배경 · 최소 높이 · 좌우 여백은 쓰는 쪽. 글자를 키워 안 들어가면 오른쪽 글자가 줄을 바꾸고 제목은 밀리지 않는다 |
 | `SettingsSectionHeader` (`section_header.dart`) | 설정형 구역 머리(계정 16e · 알림 설정 16d, pen `GsxGU`) | `label` 하나. 14/700 muted, 줄높이 20/14. 아래 간격 8 은 쓰는 쪽이 둔다(머리 20 + 8 = pen 28) |
 | `EmptyNotice` (`empty_notice.dart`) | 빈 화면 · 큰 안내 화면의 안내(pen Empty `TVc8b`) | `image`(120×120 상자에 놓는다) · `title` · `description` 또는 `descriptionWidget`(여러 줄 + 링크) · `action`(+ `actionGap` 기본 32) · `align`(`center` = 칸 한가운데 + 넘치면 스크롤, `top` = 위에서부터 안쪽 여백만큼) · `padding`(기본 [세로 48, 가로 24]) · `scrollPadding` · `titleStyle`. 그림 → 24 → 제목 18/600 ink(렌더 25) → 8 → 설명 14 muted 1.55. 큰 안내 화면 3곳만 `EmptyNotice.largeTitleStyle`(20/700, 줄높이 1.5)을 넘긴다 |
