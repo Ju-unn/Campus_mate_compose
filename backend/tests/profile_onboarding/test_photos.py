@@ -37,7 +37,7 @@ def make_client(
 
 # 10-16 실측(사용자 시험 사진, 학생증풍)의 라벨 — 글자는 291자였다.
 ID_CARD_LABELS = (("Paper Product", 0.85), ("Paper", 0.84), ("Identity document", 0.82), ("Document", 0.56))
-# 10-16 실측(얼굴 3개 든 검색 화면 캡처)의 라벨 — 라벨로는 안 걸리고 글자 73자로 걸렸다.
+# 10-16 실측(얼굴 3개 든 검색 화면 캡처)의 라벨 — 글자는 73자였다. 글자 수 규칙을 뺀 11-15 부터는 통과한다.
 FACE_LABELS = (("Facial expression", 0.94), ("Hair", 0.93), ("Hime cut", 0.8), ("Bangs", 0.78))
 
 
@@ -86,17 +86,18 @@ async def test_check_photo_asks_safe_search_text_and_labels_in_one_request():
     assert label_feature["max_results"] == 15
 
 
-# 문서형 사진(학생증 · 신분증 · 글자 많은 캡처) -------------------------------------------------
+# 문서형 사진(학생증 · 신분증) -------------------------------------------------
 
-async def test_check_photo_rejects_a_photo_with_a_lot_of_text():
-    text = "가" * 12 + "\n" + "A" * 12  # 공백 · 줄바꿈 빼고 24자
+async def test_check_photo_lets_a_photo_with_a_lot_of_background_text_through():
+    # 11-15 운영: 간판 · 포스터 · 현수막이 배경인 평범한 사진이 64~130자로 잡혀 막혔다 — 글자 수만으로는 막지 않는다.
+    text = "가" * 65 + "\n" + "A" * 65  # 공백 · 줄바꿈 빼고 130자, 문서 낱말 없음
 
-    assert await check_photo(make_client(text=text), b"img", source="onboarding") is PhotoVerdict.DOCUMENT
+    assert await check_photo(make_client(text=text, labels=FACE_LABELS), b"img", source="onboarding") is PhotoVerdict.SAFE
 
 
 async def test_check_photo_does_not_count_spaces_and_line_breaks():
-    # 23자 사이사이에 공백 22개 + 줄바꿈 — 공백을 세면 24자를 넘어 거절된다.
-    text = " ".join("가" * 23) + "\n"
+    # 낱말은 있지만 공백 · 줄바꿈을 빼면 7자다 — 공백을 세면 8자를 넘어 거절된다.
+    text = "학 생 증 홍 길 동 2\n"
 
     assert await check_photo(make_client(text=text), b"img", source="onboarding") is PhotoVerdict.SAFE
 
@@ -118,14 +119,14 @@ async def test_check_photo_matches_english_keywords_in_any_case_and_across_lines
 
 async def test_check_photo_lets_short_text_like_a_tshirt_logo_through():
     assert await check_photo(make_client(text="NIKE"), b"img", source="onboarding") is PhotoVerdict.SAFE
-    # 키워드가 없으면 8자를 넘어도 24자 전까지는 통과한다(간판 · 티셔츠 문구).
+    # 키워드가 없으면 8자를 넘어도 통과한다(간판 · 티셔츠 문구).
     assert await check_photo(make_client(text="JUST DO IT\nSEOUL CAFE"), b"img", source="onboarding") is PhotoVerdict.SAFE
 
 
 # 이미지 라벨 — 글자가 적게 잡힌 신분증(흐림 · 반사 · 기울기)도 Vision 이 "Identity document" 로 알아본다 ----------------
 
 async def test_check_photo_rejects_an_identity_document_label_with_little_text():
-    client = make_client(text="홍길동 20", labels=ID_CARD_LABELS)  # 공백 빼고 5자 — 글자 규칙 · 키워드 규칙 둘 다 못 잡는다
+    client = make_client(text="홍길동 20", labels=ID_CARD_LABELS)  # 공백 빼고 5자 — 키워드 규칙은 못 잡는다
 
     assert await check_photo(client, b"img", source="onboarding") is PhotoVerdict.DOCUMENT
 
