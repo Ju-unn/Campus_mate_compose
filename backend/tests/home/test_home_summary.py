@@ -8,7 +8,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.deps import get_client, get_settings
-from app.home.completion import completion_percent
+from app.home import router as home_router
+from app.home.completion import completion_missing, completion_percent
+from app.home.store_ratings import EMPTY, StoreRatings
 from app.main import app
 from app.settings import Settings
 
@@ -40,9 +42,16 @@ def _settings(**extra: str) -> Settings:
     )
 
 
+async def _fake_token() -> str:
+    return "token-abc"
+
+
 @pytest.fixture(autouse=True)
-def overrides():
+def overrides(monkeypatch):
     app.dependency_overrides[get_settings] = lambda: _settings()
+    # 스토어 별점은 프로세스 캐시라 시험마다 새로 — 구글 자격(ADC)도 가짜로 바꿔 바깥으로 나가지 않게 한다.
+    monkeypatch.setattr(home_router, "STORE_RATINGS", StoreRatings(access_token=_fake_token))
+    monkeypatch.delenv("PLAY_REPORTS_BUCKET", raising=False)
     yield
     app.dependency_overrides.clear()
 
@@ -63,8 +72,14 @@ def _wire(handler: Callable[[httpx.Request], httpx.Response], verification: str 
 
 
 def _handler(profile: dict, seen: list[httpx.Request] | None = None, touch_status: int = 204,
-             banners: list[dict] | None = None, banner_status: int = 200):
+             banners: list[dict] | None = None, banner_status: int = 200, apple: httpx.Response | None = None,
+             play_report: bytes | None = None):
     def handler(request: httpx.Request) -> httpx.Response:
+        # 스토어 별점 바깥 호출 — 애플 공개 조회 · Cloud Storage. 주지 않으면 못 읽은 것처럼 404.
+        if request.url.host == "itunes.apple.com":
+            return apple or httpx.Response(404)
+        if request.url.host == "storage.googleapis.com":
+            return httpx.Response(200, content=play_report) if play_report is not None else httpx.Response(404)
         if seen is not None:
             seen.append(request)
         if request.method == "GET" and request.url.path.endswith("/home_banners"):
@@ -91,10 +106,31 @@ def test_summary_returns_service_stats_and_my_completion():
         "delivered_cards": 1280, "signups": 342, "conversations_started": 57,
         "campuses": ["고려대학교", "서울대학교", "연세대학교"],
         "profile_completion_percent": 100,
+        "profile_completion_missing": [],
         "cohort": None,
         "store_rating": 0.0, "store_rating_count": 0,
+        "store_ratings": {"ios": EMPTY, "android": EMPTY},
         "banners": [],
     }
+
+
+# 홈 완성도 카드 칩(2026-11-15 사용자 「~더 채우기 칩 모양으로」): 안 채운 항목을 고정 순서로 내려 준다 --------
+
+def test_summary_lists_what_is_still_missing_in_a_fixed_order():
+    empty = {**FULL_PROFILE, "mbti": None, "preferred_height_min": None, "interest_tags": ["영화"],
+             "profile_photos": [{"count": 2}]}
+    body = _wire(_handler(empty)).get("/home/summary", headers=AUTH_HEADERS).json()
+
+    assert body["profile_completion_missing"] == ["photos", "mbti", "preferred_height", "interest_tags"]
+    assert body["profile_completion_percent"] == 60
+
+
+def test_summary_lists_only_the_unfilled_items():
+    partial = {**FULL_PROFILE, "mbti": None, "profile_photos": [{"count": 1}]}
+    body = _wire(_handler(partial)).get("/home/summary", headers=AUTH_HEADERS).json()
+
+    assert body["profile_completion_missing"] == ["photos", "mbti"]
+    assert body["profile_completion_percent"] == 80
 
 
 # 초반 숫자 숨기기(회의 결정): 가입 수가 기준 미만이면 세 숫자를 0 으로 내린다 — 앱은 0 인 칸을 숨기고 셋 다 0 이면 행 전체를 숨긴다 ----
@@ -130,33 +166,44 @@ def test_the_threshold_defaults_to_300_signups():
     assert _settings().home_stats_min_signups == 300
 
 
-# 스토어 평점(review-strip): 사람이 env 로 넣은 실제 값만 싣는다. 넣지 않았거나 잘못 넣었으면 0 — 앱이 띠를 숨긴다 ----
+# 스토어 평점(review-strip, 2026-11-16 사용자 결정): 실제 스토어 값만 — 아이폰은 애플 공개 조회, 안드로이드는 플레이 별점 보고서.
+# 사람이 넣는 env(STORE_RATING · STORE_RATING_COUNT)는 더 읽지 않는다. 옛 두 칸은 옛 앱(1.0.0 ~ 1.0.2) 호환으로 늘 0 — 띠가 숨는다 ----
 
-def _store_rating(**extra: str) -> tuple:
-    app.dependency_overrides[get_settings] = lambda: _settings(**extra)
-    response = _wire(_handler(FULL_PROFILE)).get("/home/summary", headers=AUTH_HEADERS)
+def _summary(**handler_extra) -> dict:
+    response = _wire(_handler(FULL_PROFILE, **handler_extra)).get("/home/summary", headers=AUTH_HEADERS)
     assert response.status_code == 200
-    body = response.json()
-    return body["store_rating"], body["store_rating_count"]
+    return response.json()
 
 
-def test_store_rating_is_zero_when_not_configured():
-    assert _store_rating() == (0.0, 0)
+def test_store_ratings_carry_the_real_apple_value_per_platform():
+    apple = httpx.Response(200, json={"resultCount": 1, "results": [{"averageUserRating": 5, "userRatingCount": 1}]})
+    body = _summary(apple=apple)
+
+    assert body["store_ratings"] == {"ios": {"rating": 5.0, "count": 1}, "android": EMPTY}
 
 
-def test_store_rating_reports_the_configured_values():
-    assert _store_rating(store_rating="5.0", store_rating_count="1") == (5.0, 1)
-    assert _store_rating(store_rating=" 4.3 ", store_rating_count="27") == (4.3, 27)
+def test_store_ratings_read_the_play_report_when_the_bucket_is_set(monkeypatch):
+    monkeypatch.setenv("PLAY_REPORTS_BUCKET", "reports-bucket")
+    report = ("Date,Package Name,Daily Average Rating,Total Average Rating\n"
+              "2026-11-01,io.github.juunn.campusmate,,4.50\n").encode("utf-16")
+    body = _summary(play_report=report)
+
+    assert body["store_ratings"]["android"] == {"rating": 4.5, "count": None}
 
 
-@pytest.mark.parametrize(("rating", "count"), [
-    ("five", "1"), ("5.0", "many"), ("", "1"), ("5.0", ""),  # 숫자가 아니다
-    ("5.1", "1"), ("-0.5", "1"), ("nan", "1"), ("inf", "1"),  # 평점은 0~5
-    ("4.5", "-1"), ("4.5", "1.5"),  # 평가 수는 0 이상 정수
-    ("0", "1"), ("0.9", "3"),  # 평가가 있는데 1점 미만 — 스토어 별점은 1~5 라 평점을 빠뜨린 설정이다
-])
-def test_a_bad_store_rating_setting_falls_back_to_zero_instead_of_failing(rating, count):
-    assert _store_rating(store_rating=rating, store_rating_count=count) == (0.0, 0)
+def test_store_ratings_are_zero_when_nothing_can_be_read():
+    assert _summary()["store_ratings"] == {"ios": EMPTY, "android": EMPTY}
+
+
+def test_old_store_rating_fields_stay_zero_even_with_a_real_rating_and_the_old_env(monkeypatch):
+    # 옛 칸은 플랫폼을 모르는 값이라 아이폰 별점을 안드로이드 옛 앱에 보일 수 있다 — 늘 0 으로 띠를 숨긴다.
+    # 사람이 넣던 env 가 운영에 남아 있어도 읽지 않는다(Settings 에서 칸을 지웠다).
+    monkeypatch.setenv("STORE_RATING", "5.0")
+    monkeypatch.setenv("STORE_RATING_COUNT", "1")
+    apple = httpx.Response(200, json={"resultCount": 1, "results": [{"averageUserRating": 5, "userRatingCount": 1}]})
+    body = _summary(apple=apple)
+
+    assert (body["store_rating"], body["store_rating_count"]) == (0.0, 0)
 
 
 def test_summary_reads_my_profile_and_photo_count_in_one_request():
@@ -350,6 +397,25 @@ def test_two_photos_do_not_count_but_three_do():
 def test_four_tags_do_not_count_but_five_do():
     assert _percent(interest_tags=["a", "b", "c", "d"]) == 90
     assert _percent(interest_tags=["a", "b", "c", "d", "e"]) == 100
+
+
+def _missing(**overrides) -> list[str]:
+    values = {"photo_count": 3, "mbti": "INFP", "preferred_height_min": 170,
+              "preferred_height_max": 185, "interest_tags": ["a", "b", "c", "d", "e"]}
+    return completion_missing(**{**values, **overrides})
+
+
+def test_missing_and_percent_come_from_the_same_four_conditions():
+    # 퍼센트 = 60 + 10 × (넷 − 안 채운 수) — 조건을 두 곳에 적지 않는다.
+    for overrides in [{}, {"photo_count": 2}, {"mbti": None, "interest_tags": []},
+                      {"photo_count": 0, "mbti": None, "preferred_height_min": None,
+                       "preferred_height_max": None, "interest_tags": None}]:
+        assert _percent(**overrides) == 60 + 10 * (4 - len(_missing(**overrides))), overrides
+
+
+def test_missing_preferred_height_only_when_both_sides_are_empty():
+    assert _missing(preferred_height_min=None) == []
+    assert _missing(preferred_height_min=None, preferred_height_max=None) == ["preferred_height"]
 
 
 def test_either_side_of_preferred_height_counts():

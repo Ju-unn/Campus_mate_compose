@@ -33,15 +33,17 @@ def test_a_leftover_card_batch_secret_env_does_not_stop_boot(monkeypatch):
     assert "card_batch_secret" not in Settings().model_dump()
 
 
-def test_a_bad_store_rating_env_does_not_stop_boot(monkeypatch):
-    """홈 리뷰 띠 평점 두 값은 사람이 Cloud Run 에 손으로 넣는다. 숫자가 아니어도 `Settings()` 가 죽으면 서버가
-    아예 안 뜬다 — 부팅은 그대로 하고, 값 검사는 홈 요약이 한다(어긋나면 0 이라 띠가 숨는다)."""
+def test_leftover_store_rating_env_does_not_stop_boot(monkeypatch):
+    """홈 리뷰 띠 평점은 이제 실제 스토어에서 읽는다(home/store_ratings.py) — 사람이 넣던 `STORE_RATING` ·
+    `STORE_RATING_COUNT` 칸은 지웠다. 운영 Cloud Run 에 두 env 가 남아 있어도 서버는 떠야 한다.
+    Settings 는 extra='forbid' 지만 env_file 이 없고, env 원천은 선언한 칸 이름만 읽어 모르는 env 는 무시한다."""
+    assert Settings.model_config.get("extra") == "forbid" and Settings.model_config.get("env_file") is None
     monkeypatch.setenv("STORE_RATING", "five")
     monkeypatch.setenv("STORE_RATING_COUNT", "1.5")
 
     settings = Settings()
 
-    assert (settings.store_rating, settings.store_rating_count) == ("five", "1.5")
+    assert not hasattr(settings, "store_rating") and not hasattr(settings, "store_rating_count")
 
 
 def test_settings_requires_all_values(monkeypatch):

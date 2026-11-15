@@ -8,8 +8,9 @@ from fastapi import APIRouter, Depends
 from app.cards.paid_preview import cached_preview
 from app.cards.repository import CardRepository
 from app.core.deps import Caller, get_verified_caller
-from app.home.completion import completion_percent
+from app.home.completion import completion_missing, completion_percent
 from app.home.repository import HomeRepository
+from app.home.store_ratings import StoreRatings, StoreRatingSettings
 from app.profile_onboarding.storage import AvatarStorage
 from app.settings import Settings
 
@@ -32,18 +33,13 @@ HOME_PEOPLE_COUNT = 12
 HOME_PEOPLE_MIN = 5
 
 
-def _store_rating(settings: Settings) -> dict:
-    """review-strip 의 실제 스토어 평점 · 평가 수(env `STORE_RATING` · `STORE_RATING_COUNT`). 하나라도 어긋나면 둘 다 0 —
-    앱은 평가 수 0 이면 띠를 숨긴다(가짜 숫자를 보이지 않는다)."""
-    none = {"store_rating": 0.0, "store_rating_count": 0}
-    try:
-        rating, count = float(settings.store_rating), int(settings.store_rating_count)
-    except ValueError:
-        return none
-    # `0 <= rating` 이 NaN 도 거른다. 스토어 별점은 1~5 라 평가가 있는데 1 미만이면 평점을 빠뜨린 설정이다.
-    if count < 0 or not 0 <= rating <= 5 or (count > 0 and rating < 1):
-        return none
-    return {"store_rating": rating, "store_rating_count": count}
+# 리뷰 띠의 실제 스토어 별점(home/store_ratings.py) — 프로세스에 하나라 몇 시간 캐시된다. 시험이 바꿔 끼운다.
+STORE_RATINGS = StoreRatings()
+
+# 옛 앱(1.0.0 ~ 1.0.2)이 읽는 두 칸은 늘 0 이다(띠가 숨는다). 사람이 env(STORE_RATING · STORE_RATING_COUNT)로 넣던 값은
+# 더 읽지 않는다 — 손으로 넣는 숫자의 길을 없앴다(2026-11-16 사용자 「실제 스토어 값만」). 옛 칸은 플랫폼을 몰라
+# 아이폰 별점을 안드로이드 옛 앱에 보일 수 있어 실제 값도 싣지 않는다.
+_OLD_STORE_RATING = {"store_rating": 0.0, "store_rating_count": 0}
 
 
 async def _banners(repo: HomeRepository, supabase_url: str) -> list[dict]:
@@ -130,11 +126,21 @@ async def get_home_summary(caller: Caller = Depends(get_verified_caller)) -> dic
     except Exception:
         logger.exception("last_active_at 갱신 실패 profile=%s", profile_id)
 
+    # 스토어 별점은 DB 읽기와 겹쳐 받는다(캐시가 비었을 때만 바깥으로 나가고, 길어도 몇 초 안에 끝난다).
+    ratings = asyncio.create_task(STORE_RATINGS.get(client, StoreRatingSettings().play_reports_bucket))
     stats = await repo.fetch_stats()
     # 초반엔 작은 숫자가 오히려 휑해 보인다 — 앱이 0 인 칸을 숨기니(셋 다 0 이면 행 전체) 0 으로 내린다. DB 값은 그대로다.
     if stats["signups"] < settings.home_stats_min_signups:
         stats = {**stats, "delivered_cards": 0, "signups": 0, "conversations_started": 0}
     me = await repo.fetch_completion_materials(profile_id)
+    materials = {
+        # embed count 는 [{"count": n}] 모양이다.
+        "photo_count": me["profile_photos"][0]["count"],
+        "mbti": me["mbti"],
+        "preferred_height_min": me["preferred_height_min"],
+        "preferred_height_max": me["preferred_height_max"],
+        "interest_tags": me["interest_tags"],
+    }
 
     # 코호트(19): 학교가 아직 첫 카드를 안 열었으면 앱이 메인 대신 대기 화면을 그린다. null 은 이미 열린 학교다.
     cohort = None
@@ -147,15 +153,12 @@ async def get_home_summary(caller: Caller = Depends(get_verified_caller)) -> dic
         "signups": stats["signups"],
         "conversations_started": stats["conversations_started"],
         "campuses": stats["campuses"],
-        "profile_completion_percent": completion_percent(
-            # embed count 는 [{"count": n}] 모양이다.
-            photo_count=me["profile_photos"][0]["count"],
-            mbti=me["mbti"],
-            preferred_height_min=me["preferred_height_min"],
-            preferred_height_max=me["preferred_height_max"],
-            interest_tags=me["interest_tags"],
-        ),
+        # 퍼센트는 옛 앱이 읽는다(그대로). 새 앱은 안 채운 항목 목록으로 칩을 그린다(2026-11-15).
+        "profile_completion_percent": completion_percent(**materials),
+        "profile_completion_missing": completion_missing(**materials),
         "cohort": cohort,
-        **_store_rating(settings),
+        **_OLD_STORE_RATING,
+        # 새 앱이 자기 플랫폼 값만 읽는다. count None = 그 스토어가 평가 수를 주지 않는다(안드로이드 보고서).
+        "store_ratings": await ratings,
         "banners": await _banners(repo, settings.supabase_url),
     }
