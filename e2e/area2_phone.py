@@ -139,7 +139,7 @@ def p_home_06(run, phone):
 
 
 def p_home_12(run, phone):
-    """리뷰 띠는 홈 v3(11-12)에서 빠졌다. 레일 그림은 앱이 말한 출처가 서버가 흐려 준 바이트(`memory`, `/home/people`)이거나
+    """리뷰 띠는 11-16 v3.1 에서 실제 스토어 값으로 돌아왔다(목값 아님 — 값은 backend/tests/home/test_store_ratings.py). 레일 그림은 앱이 말한 출처가 서버가 흐려 준 바이트(`memory`, `/home/people`)이거나
     앱 안 에셋(인원 부족 기본 그림 칸)인지 여기서 본다 — 네트워크 주소(원본 아바타)면 fail."""
     check = Check()
     _, token = _signed_in(run, 'home')

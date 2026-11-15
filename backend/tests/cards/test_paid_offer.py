@@ -333,6 +333,17 @@ async def test_an_unbought_offer_from_the_last_cycle_expires():
     assert offer["cycle_started_at"] == THURSDAY_7AM.isoformat()
 
 
+async def test_an_unbought_target_can_be_offered_again_next_cycle():
+    """안 산 제안은 쉼 기간을 만들지 않는다(사용자 11-16 질문) — 지난 주기에 안 산 사람도 새 주기에 다시 뽑힐 수 있다."""
+    store = OfferStore(offers=[_offer("c00", cycle=MONDAY_7AM)])
+    ranked = _ranked(50, unpickable=set(range(1, 10)))  # 상위 20%(10명) 중 뽑을 수 있는 사람은 c00 뿐
+
+    offer = await ensure_offer(store, owner_row(), ranked, THURSDAY_7AM, random.Random(1), THURSDAY_7AM)
+
+    assert offer["id"] != "offer-old"  # 지난 주기 제안을 그대로 돌려준 것이 아니라 새로 뽑았다
+    assert offer["target_id"] == "c00"
+
+
 async def test_after_buying_this_cycle_no_new_offer_is_made():
     store = OfferStore(offers=[_offer("c03", status="purchased", purchased_card_id="card-9")])
 

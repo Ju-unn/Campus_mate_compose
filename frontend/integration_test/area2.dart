@@ -29,9 +29,11 @@ const _heroCta = '지금 확인하기'; // :179
 /// 레일 제목(_RailHeader) — 요약을 받아야 그려지는 첫 줄. 사람 칸이 없으면(인원 부족 · 받는 중) 둘째 제목이다.
 const _railTitles = ['지금 함께 있는 사람들', '곧 더 많은 사람들이 모여요'];
 const _campusTitle = '참여 중인 대학'; // :109
-// 홈 v3(pen `kkKiZ`, 11-12): 숫자 3칸 · 리뷰 띠 · 이벤트 · 곧 열려요 칸은 없다(사용자 결정). 링크 칸 2개만 남았다.
-const _goneLabels = ['전달된 카드', '가입 수', '시작된 대화', '리뷰 남기기', '이벤트', '곧 열려요']; // 홈 v3 에서 빠진 글 — 0개여야 한다
-const _linkTiles = ['인스타그램', '에브리타임']; // home_grid.dart — 요약을 받으면 늘 있다
+// 홈 v3(pen `kkKiZ`, 11-12): 숫자 3칸 · 이벤트 · 곧 열려요 칸은 없다(사용자 결정).
+// 홈 v3.1(11-16): 에브리타임 칸 자리에 문의하기, 리뷰 띠는 되살렸다(안드로이드 폰은 스토어가 있어 늘 보인다).
+const _goneLabels = ['전달된 카드', '가입 수', '시작된 대화', '이벤트', '곧 열려요', '에브리타임']; // 빠진 글 — 0개여야 한다
+const _linkTiles = ['인스타그램', '문의하기']; // home_grid.dart — 요약을 받으면 늘 있다
+const _reviewCta = '리뷰 남기기'; // home_screen.dart _ReviewStrip homeReviewButton
 const _completionLead = '프로필 완성도'; // home_screen.dart _ProfileNudge '프로필 완성도 $percent%'
 const _cohortLead = '첫 카드까지'; // cohort_wait_view.dart:208 '첫 카드까지 · $dayLabel'
 const _todayTitle = '오늘의 카드'; // today_cards_screen.dart:36 앱바
@@ -223,10 +225,10 @@ Future<void> _openSubmit(WidgetTester tester, String row) async {
 int _count(Finder finder) => finder.evaluate().length;
 
 final Map<String, Area1Case> area2Cases = {
-  // hero 글 · 참여 대학 · 링크 칸 둘 각 하나, 빠진 칸(숫자 3칸 · 리뷰 띠 · 이벤트 · 곧 열려요) 글 0, 19 대기 화면 글 0.
+  // hero 글 · 참여 대학 · 링크 칸 둘 · 리뷰 띠 버튼 각 하나, 빠진 칸(숫자 3칸 · 이벤트 · 곧 열려요 · 에브리타임) 글 0, 19 대기 화면 글 0.
   'E-HOME-01': _session((tester, job) async {
     must(!await _homeLoaded(tester), '학교가 열렸는데 19 대기 화면이 보임');
-    final always = [..._heroLines, _heroCta, _campusTitle, ..._linkTiles];
+    final always = [..._heroLines, _heroCta, _campusTitle, ..._linkTiles, _reviewCta];
     final words = {for (final text in [...always, ..._goneLabels]) text: _inHome(find.text(text))};
     final seen = await _sweep(tester, {...words, 'cohort': find.textContaining(_cohortLead, skipOffstage: false)});
     for (final text in always) {
@@ -273,7 +275,7 @@ final Map<String, Area1Case> area2Cases = {
     must(seen['image'] == 0, '하트 재화 그림 ${seen['image']}개');
     return null;
   }),
-  // 레일 그림 출처를 말한다 — 판정은 PC. 리뷰 띠는 홈 v3 에서 빠졌다(사용자 결정 11-12).
+  // 레일 그림 출처를 말한다 — 판정은 PC. 리뷰 띠는 11-16 v3.1 에서 실제 스토어 값으로 돌아왔다(목값 아님).
   'E-HOME-12': _session((tester, job) async {
     await _summary(tester);
     // 레일은 맨 위 — 목록을 내리면 안 만들어지므로 내리기 전에 읽는다.
