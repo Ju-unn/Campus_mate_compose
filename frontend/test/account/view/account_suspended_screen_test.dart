@@ -5,6 +5,7 @@ import 'package:campus_mate/account/view/withdraw_sheets.dart';
 import 'package:campus_mate/common/support_email.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/confirm_popup.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -68,12 +69,17 @@ void main() {
     expect(tester.getSize(find.byType(Image)), const Size(120, 120));
   });
 
-  testWidgets('"로그아웃"을 누르면 signOutProvider 를 한 번 부른다', (tester) async {
+  // 다른 로그아웃 자리와 같이 확인 팝업을 한 번 거친다(대장 전달 2026-11-16).
+  testWidgets('"로그아웃"을 누르면 확인 팝업으로 묻고, 확인하면 signOutProvider 를 한 번 부른다', (tester) async {
     await pump(tester);
 
     await tester.tap(find.text('로그아웃'));
-    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(find.text('로그아웃할까요?'), findsOneWidget);
+    expect(signOutCalls, 0);
 
+    await tester.tap(find.descendant(of: find.byKey(confirmPopupCardKey), matching: find.text('로그아웃')));
+    await tester.pumpAndSettle();
     expect(signOutCalls, 1);
   });
 

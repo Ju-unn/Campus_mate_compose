@@ -70,7 +70,7 @@ Future<void> reportThenLeave(BuildContext context, WidgetRef ref, ReportTarget t
   final messenger = ScaffoldMessenger.of(context);
   final conversations = ref.read(conversationsViewModelProvider.notifier);
   final l10n = context.l10n;
-  final result = await showReportSheet(context, target);
+  final result = await showReportSheet(context, target, blocksTarget: true);
   if (result == null || !context.mounted) {
     return;
   }

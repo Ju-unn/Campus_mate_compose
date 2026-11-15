@@ -4,6 +4,7 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/confirm_popup.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -374,11 +375,46 @@ void main() {
       expect(me.calls, 2);
     });
 
+    // 대장 전달 2026-11-16: 닉네임을 실제로 바꿀 때만 공용 확인 팝업(일반)으로 한 번 묻는다 — 바꾸면 30일 동안 못 바꾼다.
+    testWidgets('닉네임을 바꿔 저장하면 먼저 "닉네임을 바꿀까요?" 팝업으로 묻는다 · 취소하면 보내지 않는다', (tester) async {
+      await pump(tester);
+      await typeNickname(tester, '호랑이');
+
+      await tapSave(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(confirmPopupCardKey), findsOneWidget);
+      expect(find.text('닉네임을 바꿀까요?'), findsOneWidget);
+      expect(find.text('바꾸면 30일 동안 다시 바꿀 수 없어요.'), findsOneWidget);
+      final confirm = find.descendant(of: find.byKey(confirmPopupCardKey), matching: find.widgetWithText(AppButton, '바꾸기'));
+      expect(tester.widget<AppButton>(confirm).variant, AppButtonVariant.primary);
+
+      await tester.tap(find.descendant(of: find.byKey(confirmPopupCardKey), matching: find.text('취소')));
+      await tester.pumpAndSettle();
+      expect(me.updates, isEmpty);
+      expect(find.byType(BasicInfoEditScreen), findsOneWidget);
+    });
+
+    testWidgets('키만 고치면 닉네임 팝업 없이 바로 저장한다', (tester) async {
+      await pump(tester);
+      await tester.enterText(_heightField, '180');
+      await tester.pump();
+
+      await tapSave(tester);
+      await tester.pump();
+
+      expect(find.byKey(confirmPopupCardKey), findsNothing);
+      await tester.pumpAndSettle();
+      expect(me.updates.single.containsKey('nickname'), isFalse);
+    });
+
     testWidgets('닉네임을 고쳐 저장하면 {"nickname"} 뿐', (tester) async {
       await pump(tester);
       await typeNickname(tester, '호랑이');
 
       await tapSave(tester);
+      await tester.pumpAndSettle();
+      await tester.tap(find.descendant(of: find.byKey(confirmPopupCardKey), matching: find.text('바꾸기')));
       await tester.pumpAndSettle();
 
       expect(nicknames.checkedNicknames, ['호랑이']);
@@ -482,6 +518,8 @@ void main() {
         me.updateResult = FailureResult(ServerRejectedFailure(message));
 
         await tapSave(tester);
+        await tester.pumpAndSettle();
+        await tester.tap(find.descendant(of: find.byKey(confirmPopupCardKey), matching: find.text('바꾸기')));
         await tester.pumpAndSettle();
 
         expectErrorHelper(tester, message, under: _nicknameField, above: find.text(_heightLabel));

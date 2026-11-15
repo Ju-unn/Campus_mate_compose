@@ -10,6 +10,7 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/safety/model/repository/safety_repository_provider.dart';
@@ -87,6 +88,14 @@ void main() {
   }
 
   group('⋯ 신고하기', () {
+    // 차단까지 되는 신고(프로필 · 메시지, 결정 4)만 시트에 그 사실을 알린다(대장 전달 2026-11-16, safety_actions.dart blocksTarget).
+    testWidgets('프로필 신고(⋯ 메뉴) 시트에는 "신고하면 … 차단" 안내가 보인다', (tester) async {
+      await pump(tester);
+
+      await openMenu(tester, '신고하기');
+      expect(find.descendant(of: find.byType(ReportSheet), matching: find.text('신고하면 이 사용자는 차단되어 서로에게 보이지 않아요.')), findsOneWidget);
+    });
+
     testWidgets('신고하면 대화 목록으로 가고 완료 토스트가 뜬다', (tester) async {
       await pump(tester);
       final fetchesBefore = chat.conversationsFetchCount;
@@ -219,6 +228,35 @@ void main() {
       expect(tester.getSize(ink), const Size(200, 52));
       final material = find.ancestor(of: ink, matching: find.byType(Material)).first;
       expect(tester.getSize(material), const Size(200, 52));
+    });
+
+    // 사용자 2026-11-16 「팝업은 scale in ease out을 줘서 살짝 커지면서 나오게」 — 말풍선 메뉴도 팝업이다.
+    testWidgets('팝업은 말풍선 쪽 위 왼쪽 모서리에서 0.96 → 1 로 커지며 나타나고, 다시 그린 말풍선은 움직이지 않는다', (tester) async {
+      await pump(tester);
+      final row = tester.getRect(find.widgetWithText(MessageBubble, '안녕하세요'));
+
+      await tester.longPress(find.text('안녕하세요'));
+      await tester.pump(); // 첫 장면(t = 0)
+      final start = tester.getRect(find.byType(BubbleReportMenu));
+      final copy = find.widgetWithText(MessageBubble, '안녕하세요').last;
+      expect(tester.getRect(copy), row);
+
+      await tester.pump(AppMotion.appear);
+      final rest = tester.getRect(find.byType(BubbleReportMenu));
+      expect(start.topLeft, rest.topLeft);
+      expect(start.width / rest.width, closeTo(AppMotion.popupScaleFrom, 1e-6));
+      expect(tester.getRect(copy), row);
+    });
+
+    // 메시지 신고도 차단까지 된다(결정 4) — 시트에 안내가 보인다(대장 전달 2026-11-16).
+    testWidgets('메시지 신고(말풍선) 시트에는 "신고하면 … 차단" 안내가 보인다', (tester) async {
+      await pump(tester);
+      await tester.longPress(find.text('안녕하세요'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('이 메시지 신고'));
+      await tester.pumpAndSettle();
+      expect(find.descendant(of: find.byType(ReportSheet), matching: find.text('신고하면 이 사용자는 차단되어 서로에게 보이지 않아요.')), findsOneWidget);
     });
 
     testWidgets('팝업 행은 그 메시지를 신고 대상으로 시트를 연다', (tester) async {
