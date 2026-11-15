@@ -52,12 +52,14 @@ const _thumb = '\u{1F44D}';
 
 // 설정 → 18a — frontend/lib/matching/view/settings_screen.dart:69 · billing/task/view/heart_task_row.dart · heart_task_submit_screen.dart
 const _heartTasksRow = '무료로 하트 모으기'; // settings_screen.dart:69
-const _everytime = '에브리타임 홍보'; // heart_task_row.dart:88
-const _kakao = '단톡방 공유'; // :89
+// 인증샷을 내는 항목은 단톡방뿐이다(에브리타임 홍보는 2026-11-15 #746 에서 뺐다). 단톡방은 한 달 3회 · 검수 중에도 이어 낸다.
+const _kakao = '단톡방 공유'; // heart_task_row.dart _title
 const _vote = '커뮤니티 투표'; // :90
 const _join = '참여'; // :101
 const _reviewing = '검수 중'; // :108
 const _done = '완료'; // :114
+const _verify = '인증하기'; // 승인 1건 · 한도 남음
+const _kakaoFull = '25 · 월 3회 · 이번 달 한도 도달'; // billingTaskRewardMonthlyLimitReached — 한도 3건을 다 쓰면 줄이 이 글이 된다
 const _again = '다시 제출'; // :118 — 반려 줄 끝(빨강)
 const _submit = '제출하기'; // heart_task_submit_screen.dart:131
 const _resubmit = '다시 제출하기'; // :131 — 반려 뒤 18b-2
@@ -354,7 +356,8 @@ Future<void> _rowShows(WidgetTester tester, String title, String state) =>
 
 /// 18a 의 [title] 줄 → 18b(반려 뒤면 18b-2).
 Future<void> _toSubmit(WidgetTester tester, String title) async {
-  await tap(tester, _row(title));
+  // 줄 가운데가 아니라 제목 글자를 누른다 — 검수 대기 블록이 붙으면 줄 묶음의 가운데가 블록 위에 떨어져 눌러도 안 넘어간다.
+  await tap(tester, find.descendant(of: _row(title), matching: find.text(title)));
   await pumpUntil(tester, find.byType(HeartTaskSubmitScreen), timeout: const Duration(seconds: 10));
   await wait(tester, const Duration(milliseconds: 500)); // 넘김 애니메이션이 끝나게
 }
@@ -404,11 +407,11 @@ void _pendingTexts() {
 
 /// 반려 줄이 빨간 "다시 제출" 이고, 누르면 18b-2 에 사유 글과 "다시 제출하기" 가 있다.
 Future<void> _openRejected(WidgetTester tester, String reason) async {
-  final again = _inRow(_everytime, _again);
+  final again = _inRow(_kakao, _again);
   await pumpUntil(tester, again, timeout: const Duration(seconds: 15));
   must(_count(again) == 1, '"$_again" ${_count(again)}개(기대 1)');
   must(tester.widget<Text>(again).style?.color == AppColors.error, '"$_again" 이 빨간 글이 아님');
-  await _toSubmit(tester, _everytime);
+  await _toSubmit(tester, _kakao);
   final label = '$_rejectLead${_rejectLabels[reason]}';
   must(_count(find.text(label)) == 1, '18b-2 에 "$label" ${_count(find.text(label))}개(기대 1)');
   must(_count(button(_resubmit)) == 1, '18b-2 에 "$_resubmit" 버튼 ${_count(button(_resubmit))}개(기대 1)');
@@ -417,32 +420,33 @@ Future<void> _openRejected(WidgetTester tester, String reason) async {
 final Map<String, Area1Case> _heartCases = {
   'E-HEART-04': _session((tester, job) async {
     await _openHeartTasks(tester);
-    await _toSubmit(tester, _everytime);
+    await _toSubmit(tester, _kakao);
     await _sendProof(tester, _submit);
     _pendingTexts();
     return null;
   }),
-  // 제출 → 18c → 뒤로 → 18a 에브리타임 줄이 "검수중" → 눌러도 18a 에 그대로(18b · 18c 로 안 감).
+  // PC 가 검수 중 2건을 넣어 두었다 — 3번째를 내면 18c → 뒤로 → 18a 단톡방 줄이 "한도 도달" → 눌러도 18a 에 그대로(18b · 18c 로 안 감).
   'E-HEART-05': _session((tester, job) async {
     await _openHeartTasks(tester);
-    await _toSubmit(tester, _everytime);
+    await _toSubmit(tester, _kakao);
     await _sendProof(tester, _submit);
     await _back(tester, find.text(_pendingTitle));
-    await _rowShows(tester, _everytime, _reviewing);
-    await tap(tester, _row(_everytime));
+    await _rowShows(tester, _kakao, _kakaoFull);
+    await tap(tester, find.descendant(of: _row(_kakao), matching: find.text(_kakao)));
     await wait(tester, const Duration(seconds: 1));
-    must(_count(find.byType(HeartTasksScreen)) == 1, '"$_reviewing" 줄을 눌렀더니 18a 를 떠남');
-    must(_count(find.text(_submitTitle)) == 0 && _count(find.text(_pendingTitle)) == 0, '"$_reviewing" 줄을 눌렀더니 18b · 18c 가 열림');
+    must(_count(find.byType(HeartTasksScreen)) == 1, '"$_kakaoFull" 줄을 눌렀더니 18a 를 떠남');
+    must(_count(find.text(_submitTitle)) == 0 && _count(find.text(_pendingTitle)) == 0, '"$_kakaoFull" 줄을 눌렀더니 18b · 18c 가 열림');
     return null;
   }),
-  // PC 가 미리 제출해 둔 줄 — 18a 에서 "검수중" 을 본 뒤 멈춰 PC 가 승인하고, 18a 를 다시 열면 "완료"(검수중은 사라짐).
+  // PC 가 미리 제출해 둔 줄 — 18a 에서 "검수중"(대기 블록)을 본 뒤 멈춰 PC 가 승인하고, 18a 를 다시 열면 한도가 남아 "인증하기"(검수중은 사라짐).
   'E-HEART-09': _session((tester, job) async {
     await _openHeartTasks(tester);
-    await _rowShows(tester, _everytime, _reviewing);
+    await _rowShows(tester, _kakao, _reviewing);
     await step('approved');
     await _reopenHeartTasks(tester);
-    await _rowShows(tester, _everytime, _done);
-    must(_count(_inRow(_everytime, _reviewing)) == 0, '"$_done" 인데 "$_reviewing" 도 보임');
+    await _rowShows(tester, _kakao, _verify);
+    must(_count(_inRow(_kakao, _reviewing)) == 0, '"$_verify" 인데 "$_reviewing" 도 보임');
+    must(_count(_inRow(_kakao, _done)) == 0, '승인 1건(한도 3)인데 "$_done" 이 보임');
     return null;
   }),
   // PC 가 반려해 둔 줄 — 빨간 "다시 제출" → 18b-2 사유 글.
@@ -457,15 +461,15 @@ final Map<String, Area1Case> _heartCases = {
     await _openRejected(tester, job['reason'] as String);
     return null;
   }),
-  // 반려 뒤 같은 달 — 18b-2 에서 "다시 제출하기" 가 되어 18c, 18a 에브리타임 줄이 "검수중"(빨간 "다시 제출" 은 사라짐). 새 행은 PC.
+  // 반려 뒤 같은 달 — 18b-2 에서 "다시 제출하기" 가 되어 18c, 18a 단톡방 줄에 "검수중"(대기 블록, 빨간 "다시 제출" 은 사라짐). 새 행은 PC.
   'E-HEART-14': _session((tester, job) async {
     await _openHeartTasks(tester);
     await _openRejected(tester, job['reason'] as String);
     await _sendProof(tester, _resubmit);
     _pendingTexts();
     await _back(tester, find.text(_pendingTitle));
-    await _rowShows(tester, _everytime, _reviewing);
-    must(_count(_inRow(_everytime, _again)) == 0, '"$_reviewing" 인데 "$_again" 도 보임');
+    await _rowShows(tester, _kakao, _reviewing);
+    must(_count(_inRow(_kakao, _again)) == 0, '"$_reviewing" 인데 "$_again" 도 보임');
     return null;
   }),
   // PC 가 단톡방 승인 3건을 넣어 두었다 — 단톡방 줄 "완료". 4번째 429 · 원장 +25 × 3 은 PC.

@@ -65,10 +65,10 @@ const _notificationDefaults = {
 // 옛 heart_task_actions.dart heartRewardNotice(18a · 하트 스토어 공용)는 10-16 사용자 지시로 지웠다.
 /// 지운 내부용 보상 기준 글(사용자 10-16 "eAKKO 이거지워 우리만 아는거야") — 18a 에 보이면 fail.
 const _removedRewardNotice = '초기 보상 기준';
-const _taskOrder = 'everytime_post,kakao_share,poll_vote'; // 서버 TASK_ORDER(heart_tasks/router.py:23)
+// 에브리타임 홍보 줄은 2026-11-15 앱 · 서버에서 뺐다(#746).
+const _taskOrder = 'kakao_share,poll_vote'; // 서버 TASK_ORDER(heart_tasks/router.py)
 // 줄마다 보여야 할 글(heart_task_row.dart _title :87-91 · _rewardText :94-96 · "하루 1번" :165 · 버튼 :101).
 const _taskRows = [
-  ['에브리타임 홍보', '40 · 월 1회', '인증하기'],
   ['단톡방 공유', '25 · 월 3회', '인증하기'],
   ['커뮤니티 투표', '하루 1번', '5 · 주 최대 15', '참여'],
 ];
@@ -76,10 +76,10 @@ const _taskRows = [
 // 18b — frontend/lib/billing/task/view/heart_task_submit_screen.dart
 const _submitTitle = '인증샷 제출'; // :103
 const _submitGuide = '스크린샷을 첨부하면 확인 후 하트를 드려요'; // :19
-// _criteria :24-29 — 항목마다 한 줄. 에브리타임 줄에 옛 날짜 안내("날짜가 보이게 찍어 주세요")가 합쳐졌다(10-12).
-const _everytimeCriteria = '앱 이름(CampusMate)이 들어간 홍보 글을 올리고, 올린 날짜가 보이게 찍어 주세요';
+// _criteria — 인증샷을 내는 항목은 단톡방뿐이다(2026-11-15). 그 아래 양식 글자 버튼(pen gQyew · cQYIh).
 const _kakaoCriteria = '3명 이상이 있는 단톡방에 공유한 글과 단톡방 인원 수가 보이게 찍어 주세요';
 const _submit = '제출하기'; // :131
+const _formLink = '단톡방 공유 양식 보기 →'; // billingTaskSubmitFormLink
 
 /// 앞 가설의 세션을 지우고([fresh] 가 false 면 그대로 둔다) 일감의 토큰으로 로그인한 뒤 [body] 를 돈다(area1.dart 와 같은 모양).
 Area1Case _session(Area1Case body) => (tester, job) async {
@@ -352,19 +352,20 @@ final Map<String, Area1Case> area2Cases = {
     }
     return null;
   }),
+  // 단톡방 18b — 안내 · 기준 · "단톡방 공유 양식 보기 →"(2026-11-15 에브리타임 양식 버튼 자리), 사진 전에는 제출이 꺼져 있다.
   'E-HEART-02': _session((tester, job) async {
     await _openSubmit(tester, _taskRows[0][0]);
     must(_count(find.text(_submitGuide)) == 1, '안내 "$_submitGuide" ${_count(find.text(_submitGuide))}개');
-    must(_count(find.text(_everytimeCriteria)) == 1, '"$_everytimeCriteria" ${_count(find.text(_everytimeCriteria))}개');
-    must(_count(find.text(_kakaoCriteria)) == 0, '에브리타임 18b 에 단톡방 기준 "$_kakaoCriteria" 가 보임');
+    must(_count(find.text(_kakaoCriteria)) == 1, '"$_kakaoCriteria" ${_count(find.text(_kakaoCriteria))}개');
+    must(_count(find.text(_formLink)) == 1, '양식 버튼 "$_formLink" ${_count(find.text(_formLink))}개(기대 1)');
     must(!enabled(tester, _submit), '사진 전인데 "$_submit" 이 켜짐');
     return null;
   }),
+  // 단톡방 18b 에 에브리타임 글자(옛 기준 문장 · 옛 양식 버튼)가 남아 있지 않다.
   'E-HEART-03': _session((tester, job) async {
-    await _openSubmit(tester, _taskRows[1][0]);
+    await _openSubmit(tester, _taskRows[0][0]);
     must(_count(find.text(_submitGuide)) == 1, '안내 "$_submitGuide" ${_count(find.text(_submitGuide))}개');
-    // 날짜 안내는 에브리타임 기준 문장에만 있다 — 단톡방 기준 문장에는 "날짜" 가 없다.
-    must(_count(find.text(_everytimeCriteria)) == 0, '단톡방 18b 에 날짜 안내 "$_everytimeCriteria" 가 보임');
+    must(_count(find.textContaining('에브리타임')) == 0, '단톡방 18b 에 "에브리타임" 글자가 보임');
     must(_count(find.text(_kakaoCriteria)) == 1, '"$_kakaoCriteria" ${_count(find.text(_kakaoCriteria))}개');
     return null;
   }),
