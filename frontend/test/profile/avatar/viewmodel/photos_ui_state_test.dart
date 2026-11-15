@@ -23,12 +23,19 @@ void main() {
 
       expect((photo.file, photo.id, photo.isAvatarSource), (file, null, true));
     });
+
+    test('원본 표시를 바꿔도 04-2 에서 잰 얼굴 크기가 따라간다', () {
+      final photo = SelectedPhoto(file, faceWidthRatio: 0.1).copyWith(isAvatarSource: true);
+
+      expect(photo.faceWidthRatio, 0.1);
+    });
   });
 
   group('이미 올려 둔 사진', () {
     const photo = SelectedPhoto.saved(id: 'p-a', url: 'https://img.test/a.png', isAvatarSource: true);
 
     test('끌기 열쇠는 행 id, 그림은 서명 주소에서 읽는다, 파일은 없다', () {
+      expect(photo.faceWidthRatio, isNull, reason: '파일이 없어 잴 수 없다 — 크기 모름은 통과');
       expect(photo.key, 'p-a');
       expect(photo.image, const NetworkImage('https://img.test/a.png'));
       expect(photo.file, isNull);
