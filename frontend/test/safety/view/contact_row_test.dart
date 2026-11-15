@@ -45,6 +45,7 @@ void main() {
     expect((off.decoration! as BoxDecoration).border, Border.all(color: AppColors.outline, width: 1.5));
 
     await pump(tester, ContactRow(name: '김지은', number: '010-****-2841', selected: true, onTap: () {}));
+    await tester.pumpAndSettle(); // 켜짐 움직임(easeInOut)이 끝난 뒤 잰다
     final on = find.ancestor(of: find.byIcon(AppIcons.check), matching: box(AppColors.primary));
     expect(tester.getSize(on), const Size(24, 24));
     expect(tester.getSize(find.byIcon(AppIcons.check)), const Size(16, 16));
