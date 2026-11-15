@@ -126,6 +126,51 @@ void main() {
     });
   });
 
+  // 유료 카드 열기 확인 팝업의 "{cost} 쓰고 열기" 앞 하트 글리프 22(기존 CTA 모양 유지, 대장 전달 2026-11-16).
+  group('AppButton 앞 그림(leading)', () {
+    testWidgets('leading 을 주면 라벨 왼쪽 8 에 그대로 붙고, 둘이 가운데에 모인다', (tester) async {
+      const glyph = SizedBox(key: ValueKey('glyph'), width: 22, height: 22);
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(body: AppButton(label: '50 쓰고 열기', onPressed: () {}, leading: glyph)),
+        ),
+      );
+
+      final glyphRect = tester.getRect(find.byKey(const ValueKey('glyph')));
+      final label = tester.getRect(find.text('50 쓰고 열기'));
+      expect(glyphRect.size, const Size(22, 22));
+      expect(label.left - glyphRect.right, 8);
+      final button = tester.getRect(find.byType(AppButton));
+      expect((glyphRect.left - button.left) - (button.right - label.right), closeTo(0, 0.01));
+    });
+  });
+
+  // 확인 팝업의 "취소" · 신뢰 시트 "조금 더 대화해 볼게요"(대장 전달 pen 값표 2026-11-16): surface-strong 채움 · ink 글자 · 52 · 모서리 14 · 16/700.
+  group('AppButton tonal', () {
+    testWidgets('채움 surface-strong · 글자 ink · 눌려도 자기 채움 · 꺼짐은 다른 채움 버튼과 같다', (tester) async {
+      final style = await styleOf(tester, AppButton(label: '취소', onPressed: () {}, variant: AppButtonVariant.tonal));
+
+      expect(style.backgroundColor?.resolve({}), AppColors.surfaceStrong);
+      expect(style.foregroundColor?.resolve({}), AppColors.ink);
+      expect(style.backgroundColor?.resolve({WidgetState.pressed}), AppColors.surfaceStrong);
+      expect(style.backgroundColor?.resolve({WidgetState.disabled}), AppColors.primaryDisabled);
+    });
+
+    testWidgets('크기 52 · 모서리 14 · 라벨 16/700 은 primary 와 같다', (tester) async {
+      final style = await styleOf(tester, AppButton(label: '취소', onPressed: () {}, variant: AppButtonVariant.tonal));
+
+      expect(tester.getSize(find.byType(AppButton)).height, 52);
+      expect(
+        style.shape?.resolve({}),
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      );
+      final text = tester.widget<Text>(find.text('취소'));
+      expect((text.style?.fontSize, text.style?.fontWeight), (16, FontWeight.w700));
+    });
+  });
+
   group('AppButton 색 (DESIGN.md §8.3)', () {
     testWidgets('primary 의 평상시 채움·텍스트색', (tester) async {
       final style = await styleOf(
@@ -147,6 +192,24 @@ void main() {
         style.backgroundColor?.resolve({WidgetState.pressed}),
         AppColors.primaryPressed,
       );
+    });
+
+    // 검토 지적(2026-11-16): 눌림이 surface-soft 로 바뀌면 빨강 · 흰 글자 버튼이 누르는 동안 흰 바탕에 흰 글자가 된다.
+    testWidgets('danger-strong 은 눌려도 error 채움 그대로라 흰 글자가 보인다', (tester) async {
+      final style = await styleOf(
+        tester,
+        AppButton(label: '나가기', onPressed: () {}, variant: AppButtonVariant.dangerStrong),
+      );
+
+      expect(style.backgroundColor?.resolve({WidgetState.pressed}), AppColors.error);
+      expect(style.foregroundColor?.resolve({WidgetState.pressed}), AppColors.onPrimary);
+    });
+
+    testWidgets('secondary · neutral · danger 의 눌림 색은 그대로 surface-soft 다', (tester) async {
+      for (final variant in [AppButtonVariant.secondary, AppButtonVariant.neutral, AppButtonVariant.danger]) {
+        final style = await styleOf(tester, AppButton(label: '버튼', onPressed: () {}, variant: variant));
+        expect(style.backgroundColor?.resolve({WidgetState.pressed}), AppColors.surfaceSoft, reason: variant.name);
+      }
     });
 
     testWidgets('secondary 는 primary-disabled 채움 + ink 텍스트다', (tester) async {

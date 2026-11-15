@@ -7,7 +7,9 @@ import 'package:flutter/material.dart';
 /// DESIGN.md §8.3 버튼 종류. 화면은 [variant] 와 [onPressed](null = 비활성)만
 /// 고르고, 색·라운드·라벨 크기는 여기서만 정한다.
 /// [neutral] 은 탈퇴 시트의 회색 "영구 삭제"(pen `l44zcf` · `l1XDPi` · `FbrhB`) — #F2F2F2 · 글자 #222222 18/700 · 모서리 8.
-enum AppButtonVariant { primary, secondary, text, danger, dangerStrong, neutral }
+/// [tonal] 은 확인 팝업의 "취소" · 신뢰 확인 시트 "조금 더 대화해 볼게요"(대장 전달 pen 값표 2026-11-16) — surface-strong 채움 ·
+/// ink 글자 · 크기 · 모서리 · 라벨은 primary 와 같다(52 · 14 · 16/700).
+enum AppButtonVariant { primary, secondary, text, danger, dangerStrong, neutral, tonal }
 
 class AppButton extends StatelessWidget {
   const AppButton({
@@ -17,6 +19,7 @@ class AppButton extends StatelessWidget {
     this.height,
     this.isLoading = false,
     this.trailingIcon,
+    this.leading,
     this.isInline = false,
     super.key,
   });
@@ -35,6 +38,9 @@ class AppButton extends StatelessWidget {
 
   /// 라벨 오른쪽 20×20 아이콘(간격 8). 결제 카드 안내 시트의 "알겠어요 →"(pen `yqPNS`)가 쓴다. 비워 두면 글자만이다.
   final IconData? trailingIcon;
+
+  /// 라벨 왼쪽 그림(간격 8). 유료 카드 열기 확인의 하트 글리프 22(`PaidCardHeart`)가 쓴다. 비워 두면 글자만이다.
+  final Widget? leading;
 
   /// 줄 안 버튼(04-1 휴대폰 인증 "인증번호 받기" · "확인", pen `HE8FZ` 폭 fit · 안쪽 [0,16]): 폭을 라벨에 맞춘다.
   /// [isLoading] 이면 글자를 지우지 않고 꺼진 회색(#E5E5E5) 위에 20 스피너를 라벨 왼쪽(간격 8)에 두고 라벨을 disabled 색으로 남긴다
@@ -65,12 +71,17 @@ class AppButton extends StatelessWidget {
   Widget _content() {
     final text = Text(label, style: _isTextVariant ? _textLabel : (_isNeutral ? _neutralLabel : AppTypography.button));
     final icon = trailingIcon;
-    if (icon == null) {
+    final leading = this.leading;
+    if (icon == null && leading == null) {
       return text;
     }
     return Row(
       mainAxisSize: MainAxisSize.min,
-      children: [Flexible(child: text), const SizedBox(width: AppSpacing.xs), Icon(icon, size: 20)],
+      children: [
+        if (leading != null) ...[leading, const SizedBox(width: AppSpacing.xs)],
+        Flexible(child: text),
+        if (icon != null) ...[const SizedBox(width: AppSpacing.xs), Icon(icon, size: 20)],
+      ],
     );
   }
 
@@ -124,9 +135,13 @@ class AppButton extends StatelessWidget {
         return _isTextVariant ? Colors.transparent : AppColors.primaryDisabled;
       }
       if (states.contains(WidgetState.pressed)) {
-        return variant == AppButtonVariant.primary
-            ? AppColors.primaryPressed
-            : AppColors.surfaceSoft;
+        return switch (variant) {
+          AppButtonVariant.primary => AppColors.primaryPressed,
+          // 빨강 · 흰 글자(확인 팝업 위험)와 회색 취소는 눌려도 자기 채움 — surface-soft 면 흰 글자가 사라진다(검토 2026-11-16).
+          // pen 에 눌림 색이 없어 따로 만들지 않는다.
+          AppButtonVariant.dangerStrong || AppButtonVariant.tonal => _idleBackground(),
+          _ => AppColors.surfaceSoft,
+        };
       }
       return _idleBackground();
     });
@@ -140,6 +155,7 @@ class AppButton extends StatelessWidget {
       AppButtonVariant.danger => AppColors.primaryDisabled,
       AppButtonVariant.dangerStrong => AppColors.error,
       AppButtonVariant.neutral => AppColors.surfaceStrong,
+      AppButtonVariant.tonal => AppColors.surfaceStrong,
     };
   }
 
@@ -160,6 +176,7 @@ class AppButton extends StatelessWidget {
       AppButtonVariant.danger => AppColors.error,
       AppButtonVariant.dangerStrong => AppColors.onPrimary,
       AppButtonVariant.neutral => AppColors.ink,
+      AppButtonVariant.tonal => AppColors.ink,
     };
   }
 }
