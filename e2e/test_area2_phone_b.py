@@ -34,7 +34,8 @@ SEOUL = area1.SEOUL
 class World(Fake):
     """표 저장소 + 투표 · 하트 제출 · 온보딩 서버. 규칙은 가설이 기대하는 서버(시나리오)대로 흉내 낸다."""
 
-    LIMIT = {'everytime_post': 1, 'kakao_share': 3}
+    # 새 제출은 단톡방만 받는다(에브리타임 홍보는 2026-11-15 #746 에서 뺐다 — 422). 옛 에브리타임 줄은 보상 값만 남긴다.
+    LIMIT = {'kakao_share': 3}
     REWARD = {'everytime_post': 40, 'kakao_share': 25}
     STEP_COLUMNS = {'interests': ('interest_tags', 'tags'), 'my-traits': ('my_traits', 'tags'),
                     'ideal-traits': ('ideal_traits', 'tags'), 'ideal-note': ('ideal_note', 'note'), 'bio': ('bio', 'bio')}
@@ -139,10 +140,13 @@ class World(Fake):
     # 하트 ------------------------------------------------------------------------------------
     def submit(self, sent):
         who, task = self.caller(sent), sent['path'].split('/')[2]
+        if task not in self.LIMIT:
+            return Reply(422, {'detail': '입력한 값을 다시 확인해 주세요'})
         mine = [r for r in self.rows('heart_task_submissions') if r['profile_id'] == who and r['task'] == task]
-        if any(r['status'] == 'submitted' for r in mine):
-            return Reply(409, {'detail': '이미 확인 중이에요, 결과를 기다려 주세요'})
+        # 서버(heart_tasks/router.py)와 같다 — 한도 안이면 검수 중이어도 이어 내고, 한도에 찼으면 검수 중이 있을 때 409 · 없을 때 429.
         if len([r for r in mine if r['status'] in ('submitted', 'approved')]) >= self.LIMIT[task]:
+            if any(r['status'] == 'submitted' for r in mine):
+                return Reply(409, {'detail': '이미 확인 중이에요, 결과를 기다려 주세요'})
             return Reply(429, {'detail': MONTHLY_LIMIT})
         self.add_submission(who, task)
         return Reply(201, {'task': {'task': task}})
@@ -227,9 +231,9 @@ EFFECTS = {
     'E-POLL-14': lambda w, job: w.add_poll('id-1', job['tenth']),
     'E-POLL-15': lambda w, job: w.add_poll('id-1', job['question']),
     'E-POLL-31': lambda w, job: w.add_poll('id-1', job['base'] + THUMB),
-    'E-HEART-04': lambda w, job: w.add_submission('id-1', 'everytime_post'),
-    'E-HEART-05': lambda w, job: w.add_submission('id-1', 'everytime_post'),
-    'E-HEART-14': lambda w, job: w.add_submission('id-1', 'everytime_post'),
+    'E-HEART-04': lambda w, job: w.add_submission('id-1', 'kakao_share'),
+    'E-HEART-05': lambda w, job: w.add_submission('id-1', 'kakao_share'),
+    'E-HEART-14': lambda w, job: w.add_submission('id-1', 'kakao_share'),
 }
 
 
@@ -559,19 +563,19 @@ class SubmitFlowTest(PhoneBase):
     def rows(self):
         return self.world.rows('heart_task_submissions')
 
-    def test_heart_04_one_submitted_row_40_hearts_and_a_proof_file_at_the_documented_path(self):
+    def test_heart_04_one_submitted_kakao_row_25_hearts_and_a_proof_file_at_the_documented_path(self):
         self.assertEqual(self.attempt('E-HEART-04')[0], 'pass')
-        self.assertEqual([(r['status'], r['task'], r['reward_hearts']) for r in self.rows()], [('submitted', 'everytime_post', 40)])
+        self.assertEqual([(r['status'], r['task'], r['reward_hearts']) for r in self.rows()], [('submitted', 'kakao_share', 25)])
         self.assertEqual(self.world.files, [f"id-1/{self.rows()[0]['id']}-1.jpg"])
 
     def test_heart_04_wrong_row_or_missing_file_fails(self):
         for label, effect in (
-            ('두 행', lambda w, job: [w.add_submission('id-1', 'everytime_post') for _ in range(2)]),
-            ('단톡방', lambda w, job: w.add_submission('id-1', 'kakao_share')),
-            ('이미 승인', lambda w, job: w.add_submission('id-1', 'everytime_post', 'approved')),
+            ('두 행', lambda w, job: [w.add_submission('id-1', 'kakao_share') for _ in range(2)]),
+            ('에브리타임', lambda w, job: w.add_submission('id-1', 'everytime_post')),
+            ('이미 승인', lambda w, job: w.add_submission('id-1', 'kakao_share', 'approved')),
             ('행 없음', lambda w, job: None),
-            ('파일 없음', lambda w, job: (w.add_submission('id-1', 'everytime_post'), w.files.clear())),
-            ('경로 다름', lambda w, job: w.add_submission('id-1', 'everytime_post').update(storage_paths=['id-1/x.png'])),
+            ('파일 없음', lambda w, job: (w.add_submission('id-1', 'kakao_share'), w.files.clear())),
+            ('경로 다름', lambda w, job: w.add_submission('id-1', 'kakao_share').update(storage_paths=['id-1/x.png'])),
         ):
             with self.subTest(label):
                 self.setUp()
@@ -579,17 +583,19 @@ class SubmitFlowTest(PhoneBase):
                 self.assertEqual(result, 'fail')
                 self.assertTrue(note)
 
-    def test_heart_05_after_going_back_the_row_is_still_one_submitted_row(self):
-        self.assertEqual(self.attempt('E-HEART-05')[0], 'pass')
+    def test_heart_05_two_reviewing_prepared_then_the_app_fills_the_limit_with_a_third(self):
+        app = self.app('E-HEART-05')
+        self.assertEqual(self.attempt('E-HEART-05', app)[0], 'pass')
+        self.assertEqual([r['status'] for r in self.rows()], ['submitted'] * 3)
         self.setUp()
-        result, note = self.attempt('E-HEART-05', App(self.world, lambda w, job: w.add_submission('id-1', 'everytime_post', 'approved')))
+        result, note = self.attempt('E-HEART-05', App(self.world, lambda w, job: w.add_submission('id-1', 'kakao_share', 'approved')))
         self.assertEqual(result, 'fail')
 
-    def test_heart_09_approval_happens_while_the_app_is_stopped_and_gives_40_once(self):
+    def test_heart_09_approval_happens_while_the_app_is_stopped_and_gives_25_once(self):
         app = self.app('E-HEART-09')
         self.assertEqual(self.attempt('E-HEART-09', app)[0], 'pass')
         ledger = self.world.rows('heart_transactions')
-        self.assertEqual([(r['amount'], r['reason'], r['ref_id']) for r in ledger], [(40, 'free_task', self.rows()[0]['id'])])
+        self.assertEqual([(r['amount'], r['reason'], r['ref_id']) for r in ledger], [(25, 'free_task', self.rows()[0]['id'])])
         self.assertEqual(self.rows()[0]['status'], 'approved')
         self.assertEqual(app.jobs[0]['token_hash'], 'h')
 
@@ -619,7 +625,7 @@ class SubmitFlowTest(PhoneBase):
 
     def test_heart_09_ledger_with_two_rows_or_a_wrong_balance_fails(self):
         def twice(world, job):
-            world.rows('heart_transactions').append({'profile_id': 'id-1', 'amount': 40, 'reason': 'free_task', 'ref_id': 'zzz'})
+            world.rows('heart_transactions').append({'profile_id': 'id-1', 'amount': 25, 'reason': 'free_task', 'ref_id': 'zzz'})
         result, note = self.attempt('E-HEART-09', App(self.world, twice))
         self.assertEqual(result, 'fail')
         self.assertIn('원장', note)
@@ -672,7 +678,7 @@ class SubmitFlowTest(PhoneBase):
     def test_heart_14_no_new_row_or_a_second_rejected_one_fails(self):
         self.assertEqual(self.attempt('E-HEART-14', App(self.world))[0], 'fail')
         self.setUp()
-        self.assertEqual(self.attempt('E-HEART-14', App(self.world, lambda w, job: w.add_submission('id-1', 'everytime_post', 'rejected')))[0], 'fail')
+        self.assertEqual(self.attempt('E-HEART-14', App(self.world, lambda w, job: w.add_submission('id-1', 'kakao_share', 'rejected')))[0], 'fail')
 
     def test_heart_16_three_approved_this_month_pay_25_each_and_the_fourth_is_429(self):
         self.assertEqual(self.attempt('E-HEART-16')[0], 'pass')
