@@ -140,16 +140,11 @@ class _PhotosScreenState extends ConsumerState<PhotosScreen> {
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
-              if (_toast != null) ...[
-                Center(
-                  child: AppToast(
-                    leading: Icon(_toastIcon, size: 16, color: AppColors.onInk),
-                    label: _toast!,
-                  ),
-                ),
-                // 버튼과 간격 12(pen 실측).
-                const SizedBox(height: AppSpacing.sm),
-              ],
+              // 버튼과 간격 12(pen 실측).
+              ToastPresence(
+                gapBelow: AppSpacing.sm,
+                child: _toast == null ? null : AppToast(leading: Icon(_toastIcon, size: 16, color: AppColors.onInk), label: _toast!),
+              ),
               AppButton(
                 label: context.l10n.commonNext,
                 // 살펴보는 중에 넘어가면 늦게 끝난 검사가 04-3 이 올리는 목록에 끼거나,

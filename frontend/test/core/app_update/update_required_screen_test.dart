@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/consent/model/repository/open_url.dart';
 import 'package:campus_mate/core/app_update/update_required_screen.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -168,6 +169,7 @@ void main() {
       expect(find.text(_failMessage), findsOneWidget);
       expect(find.byType(AppToast), findsOneWidget);
       await tester.pump(const Duration(seconds: 3));
+      await tester.pump(AppMotion.disappear + const Duration(milliseconds: 1)); // 흐려지며 사라지는 시간(사용자 2026-11-16)
       expect(find.byType(AppToast), findsNothing);
     });
 

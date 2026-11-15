@@ -98,15 +98,12 @@ class _ConsentScreenState extends ConsumerState<ConsentScreen> {
                   child: _Body(state: state, isRenewal: isRenewal, viewModel: viewModel, onView: _view),
                 ),
               ),
-              if (notice != null) ...[
-                Center(
-                  child: AppToast(
-                    leading: const Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk),
-                    label: notice,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-              ],
+              ToastPresence(
+                gapBelow: AppSpacing.sm,
+                child: notice == null
+                    ? null
+                    : AppToast(leading: const Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk), label: notice),
+              ),
               // pen `v4oOf` padding [0,16,16,16] · 간격 4.
               Padding(
                 padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),

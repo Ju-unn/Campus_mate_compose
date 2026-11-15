@@ -15,6 +15,7 @@ import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/friend_review/model/repository/friend_review_repository_provider.dart';
 import 'package:campus_mate/friend_review/view/my_friend_reviews_section.dart';
@@ -648,6 +649,7 @@ void main() {
       expect(tester.widget<Material>(_pill).color, AppColors.canvas);
 
       await tester.pump(MeToastHost.duration);
+      await tester.pump(AppMotion.disappear + const Duration(milliseconds: 1)); // 흐려지며 사라지는 시간(사용자 2026-11-16)
       expect(find.text(_failedMessage), findsNothing);
     });
 
@@ -684,6 +686,7 @@ void main() {
       expect(find.text(_failedMessage), findsNothing);
       expect(tester.widget<ProfileHero>(find.byType(ProfileHero)).onRegenerate, isNotNull);
       await tester.pump(MeToastHost.duration);
+      await tester.pump(AppMotion.disappear + const Duration(milliseconds: 1)); // 흐려지며 사라지는 시간(사용자 2026-11-16)
       expect(_toast, findsNothing);
     });
 

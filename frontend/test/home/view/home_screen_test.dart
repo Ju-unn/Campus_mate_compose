@@ -84,6 +84,9 @@ MyProfile _me(String university) => MyProfile(
   bio: '',
 );
 
+/// hero 의 AnimatedSwitcher — 화면 아래 토스트 자리(`ToastPresence`, 2026-11-16)도 AnimatedSwitcher 라 본문 쪽 첫 번째를 고른다.
+final _heroSwitcher = find.byType(AnimatedSwitcher).first;
+
 void main() {
   const summary = HomeSummary(
     deliveredCards: 1234567,
@@ -189,14 +192,14 @@ void main() {
 
   /// hero 안의 스켈레톤 막대(pen `TmUDw` Skeleton · Block, #EBEBEB).
   Finder skeletonBars() => find.descendant(
-        of: find.byType(AnimatedSwitcher),
+        of: _heroSwitcher,
         matching: find.byWidgetPredicate(
           (w) => w is DecoratedBox && w.decoration is BoxDecoration && (w.decoration as BoxDecoration).color == const Color(0xFFEBEBEB),
         ),
       );
 
   /// 지금 hero 틀(문구가 없는 불러오는 중에도 찾는다) — AnimatedSwitcher 아래 첫 Container.
-  Finder heroFrame() => find.descendant(of: find.byType(AnimatedSwitcher), matching: find.byType(Container)).first;
+  Finder heroFrame() => find.descendant(of: _heroSwitcher, matching: find.byType(Container)).first;
 
   group('hero-today 불러오는 중(pen `VdvmY` 09b 메인 · 불러오는 중, hero `jHiXf`)', () {
     /// 오늘 카드를 읽는 동안 멈춰 둔 저장소. `holdToday!.complete()` 로 그때의 `today` 를 돌려주며 끝낸다.
@@ -402,7 +405,7 @@ void main() {
     testWidgets('상태가 바뀌면 AnimatedSwitcher 가 standard(220ms) 로 바꾼다', (tester) async {
       await pump(tester, today: const Success(TodayCards(cards: [])), settle: false);
 
-      final switcher = tester.widget<AnimatedSwitcher>(find.byType(AnimatedSwitcher));
+      final switcher = tester.widget<AnimatedSwitcher>(_heroSwitcher);
       expect((switcher.duration, switcher.switchInCurve), (AppMotion.standard, AppMotion.standardCurve));
       // 처음 읽는 동안의 스켈레톤이 확인 완료로 바뀌는 중이다 — 둘이 겹쳐 있다가 220ms 뒤 하나만 남는다.
       // 도착 문구는 한 번도 보이지 않는다(읽는 동안 "도착했어요" 가 떴다가 바뀌던 버그).
@@ -433,7 +436,7 @@ void main() {
       addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
       await pump(tester, today: const Success(TodayCards(cards: [])), settle: false);
 
-      expect(tester.widget<AnimatedSwitcher>(find.byType(AnimatedSwitcher)).duration, Duration.zero);
+      expect(tester.widget<AnimatedSwitcher>(_heroSwitcher).duration, Duration.zero);
     });
 
     for (final width in [320.0, 360.0, 430.0]) {
@@ -1199,7 +1202,7 @@ void main() {
 
       await pump(tester, result: Success(data), today: today);
       if (scale == 1.0) {
-        expect(tester.getSize(find.byType(AnimatedSwitcher)).height, 160);
+        expect(tester.getSize(_heroSwitcher).height, 160);
       }
       await tester.scrollUntilVisible(find.text('프로필 완성도 40%'), 200, scrollable: _mainList);
 

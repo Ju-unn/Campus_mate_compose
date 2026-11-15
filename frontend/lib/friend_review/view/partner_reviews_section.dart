@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/widgets/alert_sheet.dart';
+import 'package:campus_mate/common/widgets/app_bottom_sheet.dart';
 import 'package:campus_mate/common/widgets/sheet_handle.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -146,12 +147,10 @@ class _SectionHeader extends StatelessWidget {
 
 /// 14d 리뷰 전체 시트를 띄운다. 섹션과 같은 목록 상태를 읽어 다시 부르지 않는다.
 Future<void> _showSheet(BuildContext context, PartnerReviewsSheet sheet) {
-  return showModalBottomSheet<void>(
+  // pen 은 시트만 그렸다(딤 없음) — 다른 시트와 같은 모달 딤 토큰(공용 시트)을 쓴다.
+  return showAppBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    // pen 은 시트만 그렸다(딤 없음) — 다른 시트와 같은 모달 딤 토큰을 쓴다.
-    barrierColor: AppColors.scrim,
     builder: (_) => sheet,
   );
 }

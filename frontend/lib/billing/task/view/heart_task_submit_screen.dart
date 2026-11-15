@@ -171,16 +171,13 @@ class _HeartTaskSubmitScreenState extends ConsumerState<HeartTaskSubmitScreen> {
               child: MutedTextButton(label: l10n.billingTaskSubmitFormLink, onPressed: _openForm),
             ),
             const SizedBox(height: AppSpacing.md),
-            if (toast != null) ...[
-              Center(
-                child: AppToast(
-                  leading: const Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk),
-                  label: toast,
-                ),
-              ),
-              // 버튼과 간격 12(04-2 pen 실측).
-              const SizedBox(height: AppSpacing.sm),
-            ],
+            // 버튼과 간격 12(04-2 pen 실측).
+            ToastPresence(
+              gapBelow: AppSpacing.sm,
+              child: toast == null
+                  ? null
+                  : AppToast(leading: const Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk), label: toast),
+            ),
             AppButton(
               label: reason == null ? l10n.billingTaskSubmit : l10n.billingTaskSubmitResubmit,
               onPressed: state.canSubmit ? () => unawaited(viewModel.submit(widget.kind)) : null,

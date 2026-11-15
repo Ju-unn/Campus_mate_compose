@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/widgets/app_snack_bar.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -194,8 +195,7 @@ class _KakaoRow extends StatelessWidget {
               onPressed: () async {
                 await Clipboard.setData(ClipboardData(text: id));
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context)
-                      .showSnackBar(SnackBar(content: Text(context.l10n.chatRevealCopied)));
+                  showAppSnackBar(ScaffoldMessenger.of(context), SnackBar(content: Text(context.l10n.chatRevealCopied)));
                 }
               },
             ),

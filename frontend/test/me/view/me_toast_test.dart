@@ -46,7 +46,7 @@ void main() {
     expect((icon.icon, icon.size, icon.color), (AppIcons.clock3, 16, AppColors.onInk));
   });
 
-  testWidgets('띄우면 [MeToastHost.duration](2초) 동안 화면 아래 12 · 가로 가운데에 보이고 사라진다', (tester) async {
+  testWidgets('띄우면 [MeToastHost.duration](2초) 동안 화면 아래 12 · 가로 가운데에 보이고, 흐려지며 사라진다', (tester) async {
     await pump(tester);
     expect(find.byType(AppToast), findsNothing);
 
@@ -55,34 +55,39 @@ void main() {
 
     final toast = find.byType(AppToast);
     expect(toast, findsOneWidget);
-    await tester.pump(AppMotion.press); // 올라오는 움직임(아래 D4)이 끝난 자리
     expect(tester.getBottomLeft(toast).dy, 640 - 12);
     expect(tester.getCenter(toast).dx, 180);
-    await tester.pump(MeToastHost.duration - AppMotion.press - const Duration(milliseconds: 1));
+    await tester.pump(MeToastHost.duration - const Duration(milliseconds: 1));
     expect(toast, findsOneWidget);
-    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump(const Duration(milliseconds: 1)); // 2초 — 흐려지기 시작
+    await tester.pump(AppMotion.disappear + const Duration(milliseconds: 1));
     expect(toast, findsNothing);
   });
 
-  group('나타나는 움직임(D4 — 대화 탭 토스트처럼 투명 + 아래에서 올라온다)', () {
+  group('나타나고 사라지는 움직임 — 제자리 fade(사용자 2026-11-16 「토스트는 제자리에서 fade로 나타났다 사라지게」)', () {
     Finder toast() => find.byType(AppToast);
-    double opacity(WidgetTester tester) =>
-        tester.widget<Opacity>(find.ancestor(of: toast(), matching: find.byType(Opacity)).first).opacity;
+    double opacity(WidgetTester tester) {
+      var value = 1.0;
+      for (final fade in tester.widgetList<FadeTransition>(find.ancestor(of: toast(), matching: find.byType(FadeTransition)))) {
+        value *= fade.opacity.value;
+      }
+      return value;
+    }
 
-    testWidgets('투명 · 아래 8 에서 press(120ms) 동안 제자리로 온다', (tester) async {
+    testWidgets('투명에서 appear(220ms) 동안 제자리에서 나타난다(올라오지 않는다)', (tester) async {
       await pump(tester);
       await tester.tap(find.text('곧'));
       await tester.pump();
 
-      expect(tester.getBottomLeft(toast()).dy, 640 - 12 + 8);
+      expect(tester.getBottomLeft(toast()).dy, 640 - 12);
       expect(opacity(tester), 0);
 
-      await tester.pump(AppMotion.press);
+      await tester.pump(AppMotion.appear);
       expect(tester.getBottomLeft(toast()).dy, 640 - 12);
       expect(opacity(tester), 1);
     });
 
-    testWidgets('떠 있는 안내가 다른 안내로 바뀔 때는 다시 올라오지 않는다(제자리에서 글만 바뀐다)', (tester) async {
+    testWidgets('떠 있는 안내가 다른 안내로 바뀔 때는 다시 나타나지 않는다(제자리에서 글만 바뀐다)', (tester) async {
       await pump(tester);
       await tester.tap(find.text('곧'));
       await tester.pump(); // 첫 안내를 그려 올라오기 시작
@@ -95,7 +100,7 @@ void main() {
       expect(opacity(tester), 1);
     });
 
-    testWidgets('기기 "동작 줄이기" 면 처음부터 제자리 · 다 보인다', (tester) async {
+    testWidgets('기기 "동작 줄이기" 면 처음부터 다 보인다', (tester) async {
       tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
       addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
       await pump(tester);
@@ -122,6 +127,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1500));
     expect(find.text('다른 안내'), findsOneWidget);
     await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(AppMotion.disappear + const Duration(milliseconds: 1)); // 흐려지며 사라지는 시간
     expect(find.text('다른 안내'), findsNothing);
   });
 

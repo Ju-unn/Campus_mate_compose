@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/widgets/app_snack_bar.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/photo_slider.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
@@ -169,7 +170,7 @@ class KakaoIdCard extends StatelessWidget {
               onPressed: () async {
                 await Clipboard.setData(ClipboardData(text: id));
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.safetyRevealedKakaoCopied)));
+                  showAppSnackBar(ScaffoldMessenger.of(context), SnackBar(content: Text(context.l10n.safetyRevealedKakaoCopied)));
                 }
               },
             ),

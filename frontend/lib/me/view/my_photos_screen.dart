@@ -131,11 +131,7 @@ class _Footer extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (toast != null) ...[
-            // 나타날 때 나 탭 · 홈 토스트와 같이 올라온다(D4).
-            Center(child: toastEntrance(toast)),
-            const SizedBox(height: AppSpacing.sm),
-          ],
+          ToastPresence(gapBelow: AppSpacing.sm, child: toast),
           if (error != null) ...[
             Text(context.errorText(error), style: AppTypography.caption.copyWith(color: AppColors.error)),
             const SizedBox(height: AppSpacing.xs),

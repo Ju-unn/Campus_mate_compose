@@ -1,5 +1,6 @@
 import 'package:campus_mate/chat/view/chat_input_bar.dart';
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/widgets/app_bottom_sheet.dart';
 import 'package:campus_mate/common/widgets/sheet_handle.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
@@ -44,14 +45,12 @@ Future<bool?> showFriendCodeReviewComposeSheet(BuildContext context, FriendCodeM
     _showSheet(context, FriendReviewComposeSheet.byCode(friend: friend));
 
 Future<bool?> _showSheet(BuildContext context, FriendReviewComposeSheet sheet) {
-  return showModalBottomSheet<bool>(
+  // pen nIrPW 판 채움 #00000080 = 모달 딤 토큰(공용 시트 딤과 같다).
+  return showAppBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     // 화면이 664 보다 낮으면 손잡이가 상태 표시줄 밑으로 들어간다(검토 사소 1).
     useSafeArea: true,
-    backgroundColor: Colors.transparent,
-    // pen nIrPW 판 채움 #00000080 = 모달 딤 토큰.
-    barrierColor: AppColors.scrim,
     builder: (_) => sheet,
   );
 }
@@ -71,6 +70,7 @@ class FriendReviewComposePage extends Page<bool> {
       useSafeArea: true,
       backgroundColor: Colors.transparent,
       modalBarrierColor: AppColors.scrim,
+      sheetAnimationStyle: appSheetAnimationStyle(context),
       builder: (_) => FriendReviewComposeSheet(revieweeId: revieweeId),
     );
   }

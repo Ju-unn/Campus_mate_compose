@@ -101,13 +101,15 @@ class _InviteFriendsSheetState extends ConsumerState<InviteFriendsSheet> {
       mainAxisSize: MainAxisSize.min,
       children: [
         // 토스트는 시트 윗변 16 위, 가로 가운데(pen `CuNVR` absolute y 353 = 시트 409 − 16 − 40).
-        if (toast != null) ...[
-          AppToast(
-            label: toast.label,
-            leading: toast.icon == null ? null : Icon(toast.icon, size: 16, color: AppColors.onInk),
-          ),
-          const SizedBox(height: AppSpacing.md),
-        ],
+        ToastPresence(
+          gapBelow: AppSpacing.md,
+          child: toast == null
+              ? null
+              : AppToast(
+                  label: toast.label,
+                  leading: toast.icon == null ? null : Icon(toast.icon, size: 16, color: AppColors.onInk),
+                ),
+        ),
         Flexible(
           child: AlertSheet(
             children: [

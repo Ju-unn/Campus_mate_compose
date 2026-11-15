@@ -8,6 +8,7 @@ import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/chat/viewmodel/user_channel.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
+import 'package:campus_mate/common/widgets/app_snack_bar.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/empty_notice.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
@@ -169,9 +170,9 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
 /// 10b 신청 직후 토스트(pen `Q1322I`, Toast `I8UOWm`). 하단 내비 위 16 · 가로 가운데 — 15d 투표 토스트와 같은 자리다.
 /// 기다리는 보낸 신청 줄을 누를 때도 같은 자리 · 같은 모양으로 띄운다([icon] 만 다르다).
 void _showSentToast(ScaffoldMessengerState messenger, String label, {IconData icon = AppIcons.check}) {
-  messenger
-    ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(
+  showToastSnackBar(
+    messenger..hideCurrentSnackBar(),
+    SnackBar(
       behavior: SnackBarBehavior.floating,
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -186,7 +187,8 @@ void _showSentToast(ScaffoldMessengerState messenger, String label, {IconData ic
           label: label,
         ),
       ),
-    ));
+    ),
+  );
 }
 
 /// pen `ULllO` 섹션 사이 간격 — 받은 신청 끝 → 보낸 신청 헤더, 보낸 신청 끝 → 대화 중 헤더. 간격 토큰(16 · 24) 사이 값이다.

@@ -83,16 +83,16 @@ class AvatarSourceScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
-              if (state.isSubmitting) ...[
-                Center(
-                  child: AppToast(
-                    leading: const CircularProgressIndicator(strokeWidth: 2, color: AppColors.onInk),
-                    // pen `04-3` 과 글자까지 같아야 한다 — 왜 아직 그림이 없는지 알려 주는 유일한 안내다.
-                    label: context.l10n.profileAvatarSourceSubmittingToast,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-              ],
+              ToastPresence(
+                gapBelow: AppSpacing.sm,
+                child: !state.isSubmitting
+                    ? null
+                    : AppToast(
+                        leading: const CircularProgressIndicator(strokeWidth: 2, color: AppColors.onInk),
+                        // pen `04-3` 과 글자까지 같아야 한다 — 왜 아직 그림이 없는지 알려 주는 유일한 안내다.
+                        label: context.l10n.profileAvatarSourceSubmittingToast,
+                      ),
+              ),
               AppButton(
                 label: context.l10n.profileAvatarSourceSubmit,
                 onPressed: state.canSubmit ? viewModel.submit : null,

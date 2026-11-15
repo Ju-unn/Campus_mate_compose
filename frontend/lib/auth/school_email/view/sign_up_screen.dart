@@ -121,15 +121,16 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       Text(context.errorText(state.error!), style: AppTypography.caption.copyWith(color: AppColors.error)),
                     ],
                     const Spacer(),
-                    if (notice != null) ...[
-                      Center(
-                        child: AppToast(
-                          leading: const Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk),
-                          label: notice.message ?? context.errorText(notice.failure!),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm), // CTA 바로 위 12(pen KJnpw)
-                    ],
+                    // CTA 바로 위 12(pen KJnpw)
+                    ToastPresence(
+                      gapBelow: AppSpacing.sm,
+                      child: notice == null
+                          ? null
+                          : AppToast(
+                              leading: const Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk),
+                              label: notice.message ?? context.errorText(notice.failure!),
+                            ),
+                    ),
                     // 동의는 로그인 뒤 02-c 에서 항목별로 받는다 — 여기 있던 묵시 동의 줄은 지웠다(사용자 결정 2026-09-29).
                     AppButton(label: context.l10n.authSignUpSubmit, onPressed: state.canSubmit ? viewModel.submit : null),
                     const SizedBox(height: AppSpacing.xxs), // 02-c 와 같은 간격

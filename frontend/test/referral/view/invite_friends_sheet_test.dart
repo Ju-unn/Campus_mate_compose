@@ -8,6 +8,7 @@ import 'package:campus_mate/common/widgets/sheet_handle.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/referral/model/repository/invite_share.dart';
@@ -92,6 +93,7 @@ void main() {
     expect(copied, ['K7QMX2']);
     expect(find.text('코드를 복사했어요'), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
+    await tester.pump(AppMotion.disappear + const Duration(milliseconds: 1)); // 흐려지며 사라지는 시간(사용자 2026-11-16)
     expect(find.text('코드를 복사했어요'), findsNothing);
   });
 

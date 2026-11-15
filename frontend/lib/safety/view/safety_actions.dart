@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/widgets/app_snack_bar.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
@@ -39,7 +40,8 @@ ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showSafetyToast(
 }) {
   final raised = bottomInset > 0;
   final side = raised ? (MediaQuery.sizeOf(messenger.context).width - 288) / 2 : 0.0;
-  return messenger.showSnackBar(
+  return showToastSnackBar(
+    messenger,
     SnackBar(
       content: _toast(icon, message, shrinkToText),
       // pen 토스트 폭 288(전시판 320 안 fill). 글자 칸 232 에서 두 줄로 내려간다. 글자에 맞추는 변형은 폭을 정하지 않고 가운데 정렬한다.

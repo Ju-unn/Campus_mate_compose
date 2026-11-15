@@ -13,7 +13,6 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/home/model/data/cohort_wait.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
-import 'package:campus_mate/me/view/me_toast.dart';
 import 'package:campus_mate/referral/model/repository/invite_share.dart';
 import 'package:campus_mate/referral/model/repository/referral_repository_provider.dart';
 import 'package:flutter/material.dart';
@@ -167,18 +166,15 @@ class _CohortWaitViewState extends ConsumerState<CohortWaitView> {
                 const Spacer(),
                 const SizedBox(height: 20),
                 // 토스트 자리는 pen 에 없어 photos_screen 과 같이 버튼 위 가운데, 간격 12 로 둔다.
-                if (_toast != null) ...[
-                  // 나타날 때 나 탭 · 홈 토스트와 같이 올라온다(D4).
-                  Center(
-                    child: toastEntrance(
-                      AppToast(
-                        leading: const Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk),
-                        label: _toast!,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                ],
+                ToastPresence(
+                  gapBelow: AppSpacing.sm,
+                  child: _toast == null
+                      ? null
+                      : AppToast(
+                          leading: const Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk),
+                          label: _toast!,
+                        ),
+                ),
                 _InviteButton(onPressed: _invite),
               ],
             ),
