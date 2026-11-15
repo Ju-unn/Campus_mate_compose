@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -8,15 +9,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// pen 홈 v3 초안 `kkKiZ`(11-12) — HomeTileGrid `C3J23d` 에서 숫자 3칸 줄 `X5WJO` · 곧 열려요 `gzY4Z` 를 빼고
-/// 이벤트 칸을 에브리타임으로 바꾼 2칸 한 줄. 링크 칸 마스터 `F4rC8g`. 홈 본문 폭 328 안에 둔다.
+/// pen 홈 시안 A `TdmIQ`(2026-11-16 사용자 「A로 하고」) — 링크 칸 2칸 한 줄: 인스타그램 | 문의하기(에브리타임 칸을 바꿨다,
+/// 사용자 「메인에 "인스타그램" , "문의하기" , "에브리타임" -> 삭제」). 링크 칸 마스터 `F4rC8g`. 홈 본문 폭 328 안에 둔다.
 void main() {
   late int instagramTaps;
-  late int everytimeTaps;
+  late int inquiryTaps;
 
   setUp(() {
     instagramTaps = 0;
-    everytimeTaps = 0;
+    inquiryTaps = 0;
   });
 
   Future<void> pump(WidgetTester tester, {double textScale = 1}) async {
@@ -32,7 +33,7 @@ void main() {
           child: Scaffold(
             body: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
-              child: HomeGrid(onInstagram: () => instagramTaps++, onEverytime: () => everytimeTaps++),
+              child: HomeGrid(onInstagram: () => instagramTaps++, onInquiry: () => inquiryTaps++),
             ),
           ),
         ),
@@ -40,7 +41,7 @@ void main() {
     );
   }
 
-  const labels = ['인스타그램', '에브리타임'];
+  const labels = ['인스타그램', '문의하기'];
   Finder tileOf(String label) => find.ancestor(of: find.text(label), matching: find.byType(Material)).first;
   Finder plateIn(Finder tile) => find.descendant(of: tile, matching: find.byType(IconPlate));
 
@@ -49,18 +50,18 @@ void main() {
 
     expect(tester.getSize(find.byType(HomeGrid)), const Size(328, 80));
     final instagram = tester.getRect(tileOf('인스타그램'));
-    final everytime = tester.getRect(tileOf('에브리타임'));
+    final inquiry = tester.getRect(tileOf('문의하기'));
     expect(instagram.topLeft, tester.getTopLeft(find.byType(HomeGrid)));
     expect(instagram.size, const Size(160, 80));
-    expect(everytime.size, const Size(160, 80));
-    expect(everytime.left - instagram.right, 8);
-    expect(everytime.right, 16 + 328);
+    expect(inquiry.size, const Size(160, 80));
+    expect(inquiry.left - instagram.right, 8);
+    expect(inquiry.right, 16 + 328);
   });
 
-  testWidgets('숫자 3칸 · 이벤트 · 곧 열려요 칸은 없다', (tester) async {
+  testWidgets('숫자 3칸 · 이벤트 · 곧 열려요 · 에브리타임 칸은 없다', (tester) async {
     await pump(tester);
 
-    for (final gone in ['전달된 카드', '가입 수', '시작된 대화', '이벤트', '곧 열려요']) {
+    for (final gone in ['전달된 카드', '가입 수', '시작된 대화', '이벤트', '곧 열려요', '에브리타임']) {
       expect(find.text(gone), findsNothing, reason: gone);
     }
     expect(find.byIcon(AppIcons.hourglass), findsNothing);
@@ -102,19 +103,25 @@ void main() {
     }
   });
 
-  testWidgets('링크 칸 속 — 로고 28 이 그림 원 40 가운데 → 6 → 라벨 12/600 ink lh1.4, 세로 가운데', (tester) async {
+  testWidgets('인스타그램 칸 로고 · 문의하기 칸 3D help(pen `Rb8A3`) — 둘 다 28 로 그림 원 40 가운데', (tester) async {
     await pump(tester);
 
-    for (final (label, asset) in [
-      ('인스타그램', 'assets/images/brand-instagram-v1.webp'),
-      ('에브리타임', 'assets/images/brand-everytime-v1.webp'),
-    ]) {
+    final logo = find.descendant(of: tileOf('인스타그램'), matching: find.byType(Image)).first;
+    expect((tester.widget<Image>(logo).image as AssetImage).assetName, 'assets/images/brand-instagram-v1.webp');
+    expect(tester.widget<Image>(logo).fit, BoxFit.contain);
+    final help = find.descendant(of: tileOf('문의하기'), matching: find.byType(Icon3d));
+    expect(tester.widget<Icon3d>(help).icon, AppIcon3d.help);
+    for (final (label, art) in [('인스타그램', logo), ('문의하기', help)]) {
+      expect(tester.getSize(art), const Size(28, 28), reason: label);
+      expect(tester.getCenter(art), tester.getCenter(plateIn(tileOf(label))), reason: label);
+    }
+  });
+
+  testWidgets('링크 칸 속 — 그림 원 40 → 6 → 라벨 12/600 ink lh1.4, 세로 가운데', (tester) async {
+    await pump(tester);
+
+    for (final label in labels) {
       final tile = tileOf(label);
-      final logo = find.descendant(of: tile, matching: find.byType(Image));
-      expect((tester.widget<Image>(logo).image as AssetImage).assetName, asset, reason: label);
-      expect(tester.widget<Image>(logo).fit, BoxFit.contain, reason: label);
-      expect(tester.getSize(logo), const Size(28, 28), reason: label);
-      expect(tester.getCenter(logo), tester.getCenter(plateIn(tile)), reason: label);
 
       final plate = tester.getRect(plateIn(tile));
       final text = tester.getRect(find.text(label));
@@ -129,10 +136,10 @@ void main() {
     }
   });
 
-  testWidgets('링크 칸 오른쪽 위 화살표 칩 — 20 원 primaryWash · 위 6 오른쪽 6 · 안에 arrow-up-right 12 primaryText', (tester) async {
+  testWidgets('인스타그램 칸 오른쪽 위 화살표 칩 — 20 원 primaryWash · 위 6 오른쪽 6 · 안에 arrow-up-right 12 primaryText', (tester) async {
     await pump(tester);
 
-    for (final label in labels) {
+    for (final label in ['인스타그램']) {
       final tile = tileOf(label);
       final arrow = find.descendant(of: tile, matching: find.byIcon(AppIcons.arrowUpRight));
       expect((tester.widget<Icon>(arrow).size, tester.widget<Icon>(arrow).color), (12.0, AppColors.primaryText), reason: label);
@@ -146,14 +153,21 @@ void main() {
     }
   });
 
+  testWidgets('문의하기 칸은 앱 안 화면으로 가니 "밖으로" 화살표 칩이 없다', (tester) async {
+    await pump(tester);
+
+    expect(find.descendant(of: tileOf('문의하기'), matching: find.byIcon(AppIcons.arrowUpRight)), findsNothing);
+    expect(find.byIcon(AppIcons.arrowUpRight), findsOneWidget);
+  });
+
   testWidgets('두 칸은 칸 전체(모서리 끝까지)가 눌리고 각자 부른다', (tester) async {
     await pump(tester);
 
     await tester.tapAt(tester.getBottomRight(tileOf('인스타그램')) - const Offset(6, 6));
-    await tester.tapAt(tester.getTopLeft(tileOf('에브리타임')) + const Offset(6, 6));
+    await tester.tapAt(tester.getTopLeft(tileOf('문의하기')) + const Offset(6, 6));
     await tester.pump();
 
-    expect((instagramTaps, everytimeTaps), (1, 1));
+    expect((instagramTaps, inquiryTaps), (1, 1));
   });
 
   testWidgets('눌림 잉크는 칸 자기 Material 에 그린다(COMMON 4-2) · 누름 칸 160×80', (tester) async {
@@ -167,11 +181,11 @@ void main() {
     }
   });
 
-  testWidgets('낭독기 — 두 칸 모두 버튼, "CampusMate 인스타그램 열기" · "에브리타임 열기"', (tester) async {
+  testWidgets('낭독기 — 두 칸 모두 버튼, "CampusMate 인스타그램 열기" · "문의하기"', (tester) async {
     final handle = tester.ensureSemantics();
     await pump(tester);
 
-    for (final (label, spoken) in [('인스타그램', 'CampusMate 인스타그램 열기'), ('에브리타임', '에브리타임 열기')]) {
+    for (final (label, spoken) in [('인스타그램', 'CampusMate 인스타그램 열기'), ('문의하기', '문의하기')]) {
       final data = tester.getSemantics(find.text(label)).getSemanticsData();
       expect(data.label, spoken, reason: label);
       expect(data.flagsCollection.isButton, isTrue, reason: label);

@@ -6,9 +6,11 @@ import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/entrance.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/pressable.dart';
 import 'package:campus_mate/consent/model/repository/open_url.dart';
 import 'package:campus_mate/core/analytics/analytics_values.dart';
+import 'package:campus_mate/core/app_update/update_requirement_provider.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
@@ -21,8 +23,8 @@ import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/home/model/data/home_people.dart';
 import 'package:campus_mate/home/model/data/home_summary.dart';
-import 'package:campus_mate/home/model/data/everytime_link.dart';
 import 'package:campus_mate/home/model/data/instagram_link.dart';
+import 'package:campus_mate/home/model/data/profile_completion_item.dart';
 import 'package:campus_mate/home/view/auto_marquee.dart';
 import 'package:campus_mate/home/view/cohort_wait_view.dart';
 import 'package:campus_mate/home/view/home_banner_carousel.dart';
@@ -30,6 +32,7 @@ import 'package:campus_mate/home/view/home_grid.dart';
 import 'package:campus_mate/home/view/mosaic_rail.dart';
 import 'package:campus_mate/home/view/notify_icon_button.dart';
 import 'package:campus_mate/home/view/tag.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/home/viewmodel/hero_today.dart';
 import 'package:campus_mate/home/viewmodel/home_people_provider.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
@@ -45,8 +48,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// 09b 메인(pen `bpA8x` → `M5hpo7` 10-15 → 홈 v3 `kkKiZ` 11-12). hero-today → 24 → mosaic-rail → 24 → 배너 슬라이드(있을 때만) → 24 →
-/// 링크 칸(인스타그램 · 에브리타임) → 24 → campus-strip → 24 → 완성도 카드. 요약을 못 받으면(조회 중·실패) hero-today 만 남긴다 — 카드로 가는 길은 요약과 상관없다.
+/// 리뷰 띠(pen `L7wKi`) — 시험이 크기 · 자리를 재는 표식.
+const Key homeReviewStripKey = ValueKey('home-review-strip');
+
+/// 프로필 완성도 카드(칩 판) · 그 게이지 — 시험이 크기 · 자리를 재는 표식.
+const Key homeProfileNudgeKey = ValueKey('home-profile-nudge');
+const Key homeProfileGaugeKey = ValueKey('home-profile-gauge');
+
+/// 09b 메인(pen `bpA8x` → `M5hpo7` 10-15 → 홈 v3 `kkKiZ` 11-12 → 시안 A `TdmIQ` 11-16). hero-today → 24 → mosaic-rail → 24 →
+/// 배너 슬라이드(있을 때만) → 24 → 링크 칸(인스타그램 · 문의하기) → 24 → 리뷰 띠(스토어가 있는 기기만) → 24 → campus-strip → 24 →
+/// 완성도 카드(칩 판). 요약을 못 받으면(조회 중·실패) hero-today 만 남긴다 — 카드로 가는 길은 요약과 상관없다.
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -118,7 +129,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
     if (mounted) ref.invalidate(homeSummaryProvider);
   }
 
-  /// 기기 앱 · 브라우저로 연다(링크 칸 인스타그램 · 에브리타임). 열지 못하면 조용히 끝내지 않고 실패 안내를 띄운다.
+  /// 기기 앱 · 브라우저로 연다(링크 칸 인스타그램 · 리뷰 띠 스토어). 열지 못하면 조용히 끝내지 않고 실패 안내를 띄운다.
   Future<void> _openExternal(Uri uri) async {
     if (_opening) return; // 여는 호출이 끝나기 전에 다시 눌러도 두 번 열지 않는다
     _opening = true;
@@ -221,8 +232,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
     );
   }
 
-  /// 요약 블록(레일 · 배너 슬라이드 · 링크 칸 · 참여 대학 · 완성도 카드, 홈 v3 11-12). 블록 사이는 모두 24. 숨는 블록(배너 0장,
-  /// 완성도 100)은 위 여백째 빠진다. 숫자 3칸 · 리뷰 띠는 사용자 결정(11-12)으로 뺐다 — 서버 칸은 옛 앱이 읽어 그대로 있다.
+  /// 요약 블록(레일 · 배너 슬라이드 · 링크 칸 · 리뷰 띠 · 참여 대학 · 완성도 카드, 시안 A 11-16). 블록 사이는 모두 24. 숨는 블록(배너 0장,
+  /// 스토어 없는 기기의 리뷰 띠, 완성도 100)은 위 여백째 빠진다. 숫자 3칸은 사용자 결정(11-12)으로 뺐다 — 서버 칸은 옛 앱이 읽어 그대로 있다.
   /// [animate] 면 블록마다 투명 · 아래 8 에서 40ms 간격으로 올라온다(DESIGN §7 standard, 처음 받을 때만).
   List<Widget> _summarySections(
     HomeSummary summary, {
@@ -230,6 +241,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
     required bool animate,
     required String? mySchool,
   }) {
+    // 리뷰 띠가 여는 기기 스토어 상세(강제 업데이트 안내와 같은 주소). 스토어가 없는 웹 · 데스크톱은 null — 띠를 그리지 않는다.
+    final storeUrl = ref.watch(storeListingProvider).url();
     final blocks = <Widget>[
       Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -242,16 +255,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
       // 사용자 결정(11-12): 사람 줄 아래 · 링크 칸 위. 0장이면 앞 여백째 빠진다.
       if (summary.banners.isNotEmpty) HomeBannerCarousel(banners: summary.banners),
       // 이벤트 칸이 빠져 9b-1 이벤트 화면(`/events`)으로 가는 길은 없다 — 화면 · 경로는 그대로 둔다(사용자 결정 11-12 「두기」).
+      // 문의하기 칸은 에브리타임 칸 자리다(사용자 「메인에 … "에브리타임" -> 삭제」 · 시안 「A로 하고」 11-16) — 앱 안 문의 화면.
       HomeGrid(
         onInstagram: () => _openExternal(instagramLink),
-        onEverytime: () => _openExternal(everytimeLink),
+        onInquiry: () => unawaited(context.push(AppRoutes.inquiry)),
       ),
+      // 사용자 「링크 있으니깐 리뷰 살리기 가능하지 않나?」(11-15) — 평가 0명이어도 숨기지 않는다. 숫자는 서버 값 그대로, 보상은 없다.
+      if (storeUrl != null)
+        _ReviewStrip(
+          rating: summary.reviewRating,
+          count: summary.reviewCount,
+          onReview: () => _openExternal(Uri.parse(storeUrl)),
+        ),
       _CampusStrip(campuses: summary.campuses, mySchool: mySchool),
       // 다 채웠으면 권할 것이 없어 카드를 숨긴다(사용자 결정 2026-09-26). 10-15 에 잠깐 뺐다가 사용자 요청으로 되살렸다(pen `xEpOD`).
       if (summary.profileCompletionPercent < 100)
         TourTarget(
           id: TourTargetId.homeProfileNudge,
-          child: _ProfileNudge(percent: summary.profileCompletionPercent, onTap: _editProfile),
+          child: _ProfileNudge(
+            percent: summary.profileCompletionPercent,
+            missing: summary.profileCompletionMissing,
+            onTap: _editProfile,
+          ),
         ),
     ];
     return [
@@ -542,78 +567,211 @@ class _RailHeader extends StatelessWidget {
   }
 }
 
+/// review-strip(pen 마스터 `L7wKi`, 시안 A `TdmIQ` — 링크 칸 아래). 높이 64 · `reviewStripSurface` · 모서리 14 · 좌우 14.
+/// 평가가 있으면 별점 18/700(pen `O2fN3`, subtitle) + 3D 별 15 다섯 + "(N명 평가)" 12/500 muted(평가 수를 모르면 — 안드로이드 — 이 글자만 뺀다),
+/// 없으면(0명 · 못 읽음) 그 자리에 "CampusMate 가 마음에 드셨나요?"
+/// 14/600 ink 한 줄(pen `QCtib`). 오른쪽 "리뷰 남기기" 16/700 primaryText(누름 높이 48)는 기기 스토어 상세를 연다.
+class _ReviewStrip extends StatelessWidget {
+  const _ReviewStrip({required this.rating, required this.count, required this.onReview});
+
+  final double rating;
+
+  /// null = 스토어가 평가 수를 주지 않는다(안드로이드 플레이 보고서) — 별점만 보인다.
+  final int? count;
+  final VoidCallback onReview;
+
+  @override
+  Widget build(BuildContext context) {
+    final rated = rating > 0 && count != 0;
+    return Container(
+      key: homeReviewStripKey,
+      height: 64,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: AppColors.reviewStripSurface,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // 글자가 커지면 왼쪽을 줄인다 — 버튼 글자는 그대로 둔다.
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: rated ? _rating(context) : _prompt(context),
+            ),
+          ),
+          // 누름 칸은 pen 버튼 칸(높이 48) 그대로다. 평가 0명이면 글 211 + 버튼 77 이 328 에 들어가게 가로 여백이 없다(pen `QCtib`).
+          Pressable(
+            onTap: onReview,
+            child: SizedBox(
+              height: 48,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: rated ? AppSpacing.md : 0),
+                child: Center(
+                  child: Text(context.l10n.homeReviewButton, style: AppTypography.button.copyWith(color: AppColors.primaryText)),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _rating(BuildContext context) => Row(
+        children: [
+          Text(
+            rating.toStringAsFixed(1),
+            style: AppTypography.subtitle.copyWith(fontWeight: FontWeight.w700, color: AppColors.ink),
+          ),
+          const SizedBox(width: 6),
+          for (var i = 0; i < 5; i++) ...[
+            if (i > 0) const SizedBox(width: 1),
+            const Icon3d(AppIcon3d.star, size: 15),
+          ],
+          if (count case final known?) ...[
+            const SizedBox(width: 6),
+            Text(
+              context.l10n.homeReviewCount(count: known),
+              style: AppTypography.caption.copyWith(fontWeight: FontWeight.w500, color: AppColors.muted),
+            ),
+          ],
+        ],
+      );
+
+  Widget _prompt(BuildContext context) => Text(
+        context.l10n.homeReviewPrompt,
+        maxLines: 1,
+        style: AppTypography.labelSmall.copyWith(height: 1.4, color: AppColors.ink),
+      );
+}
+
 /// 프로필 완성도 카드(pen `usk5M` → `xEpOD` / `e26o6` Profile Completion Banner 10-15 — 328×92 · primary-wash · 모서리 24 · 오른쪽 chevron,
 /// 마스코트 없음). 카드 전체가 누름 칸이고 프로필 편집 허브(15-5)로 간다. main 80e7b8b0 의 구현을 그대로 되살렸다.
 class _ProfileNudge extends StatelessWidget {
-  const _ProfileNudge({required this.percent, required this.onTap});
+  const _ProfileNudge({required this.percent, required this.missing, required this.onTap});
 
   final int percent;
+
+  /// 안 채운 항목(서버 순서). 비면(옛 서버 · 다 채움) 칩 줄과 그 위 간격을 그리지 않는다.
+  final List<ProfileCompletionItem> missing;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    // pen 글자 상자 높이 19(`tV9Oa` · `KjqWO`)·16(`a8UzQ`) — lineHeight 속성 없음, 렌더 결과. 토큰은 21.7·16.8 이라 맞춘다.
-    final lineStyle =
-        AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w700, height: 19 / 14, color: AppColors.ink);
-    // pen 높이 92 는 최소 높이다 — 글자를 키우면 늘어난다(DESIGN §11.2).
-    return Pressable(
+    final l10n = context.l10n;
+    final title = l10n.homeProfileNudgeCompletion(percent: percent);
+    final chips = [for (final item in missing) _chipText(l10n, item)];
+    // 화면 읽기는 카드 하나로 읽는다 — 칩은 따로 눌리지 않는 표시라 따로 읽지 않는다.
+    final spoken = chips.isEmpty ? title : l10n.homeProfileNudgeMissingSemantics(percent: percent, items: chips.join(', '));
+    // 높이는 내용이 정한다(칩 한 줄 94 · 두 줄 128) — 글자를 키우면 늘어난다(DESIGN §11.2).
+    return Semantics(
+      container: true,
+      button: true,
+      label: spoken,
       onTap: onTap,
-      child: Container(
-          constraints: const BoxConstraints(minHeight: 92),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: AppSpacing.xxs),
+      excludeSemantics: true,
+      child: Pressable(
+        onTap: onTap,
+        child: Container(
+          key: homeProfileNudgeKey,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: AppSpacing.sm),
           decoration: BoxDecoration(
             color: AppColors.primaryWash,
             borderRadius: BorderRadius.circular(AppRadius.lg),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 문구는 사용자 결정 2026-09-26 — pen `tV9Oa` · `KjqWO`.
-                    Text(context.l10n.homeProfileNudgeLine1, style: lineStyle),
-                    const SizedBox(height: 5),
-                    Text(context.l10n.homeProfileNudgeLine2, style: lineStyle),
-                    const SizedBox(height: 5),
-                    Container(
-                      width: 150,
-                      height: 6,
-                      alignment: Alignment.centerLeft,
-                      decoration: BoxDecoration(
-                        color: AppColors.canvas,
-                        borderRadius: BorderRadius.circular(AppRadius.pill),
-                        boxShadow: AppElevation.trait,
-                      ),
-                      // 테두리는 채움 위에 그린다 — decoration 테두리는 Container 가 안쪽 여백으로 더해 채움이 4 로 준다.
-                      foregroundDecoration: BoxDecoration(
-                        border: Border.all(color: AppColors.profileNudgeTrackEdge),
-                        borderRadius: BorderRadius.circular(AppRadius.pill),
-                      ),
-                      child: FractionallySizedBox(
-                        widthFactor: percent.clamp(0, 100) / 100,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: AppColors.primary,
-                            borderRadius: BorderRadius.circular(AppRadius.pill),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    // pen `a8UzQ` 12(2026-10-14, 종전 11) · 렌더 16.
-                    Text(
-                      context.l10n.homeProfileNudgeCompletion(percent: percent),
-                      style: AppTypography.caption.copyWith(height: 16 / 12, color: AppColors.muted),
-                    ),
-                  ],
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(title, style: AppTypography.labelSmall.copyWith(fontWeight: FontWeight.w700, color: AppColors.ink)),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  const Icon(AppIcons.chevronRight, size: 20, color: AppColors.primaryText),
+                ],
               ),
-              const SizedBox(width: AppSpacing.sm),
-              const Icon(AppIcons.chevronRight, size: 20, color: AppColors.primaryText),
+              const SizedBox(height: AppSpacing.xs),
+              _Gauge(percent: percent),
+              if (chips.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [for (final text in chips) _NudgeChip(text: text)],
+                ),
+              ],
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  /// 칩 글자(사용자 「칩은 "사진 더 채우기"」 11-16).
+  static String _chipText(AppLocalizations l10n, ProfileCompletionItem item) => switch (item) {
+        ProfileCompletionItem.photos => l10n.homeProfileNudgePhotos,
+        ProfileCompletionItem.mbti => l10n.homeProfileNudgeMbti,
+        ProfileCompletionItem.preferredHeight => l10n.homeProfileNudgePreferredHeight,
+        ProfileCompletionItem.interestTags => l10n.homeProfileNudgeInterestTags,
+      };
+}
+
+/// 완성도 게이지 — 높이 6 · 카드 안쪽 폭 전체. 색 · 모서리 · 테두리는 종전 게이지 그대로.
+class _Gauge extends StatelessWidget {
+  const _Gauge({required this.percent});
+
+  final int percent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: homeProfileGaugeKey,
+      height: 6,
+      alignment: Alignment.centerLeft,
+      decoration: BoxDecoration(
+        color: AppColors.canvas,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        boxShadow: AppElevation.trait,
+      ),
+      // 테두리는 채움 위에 그린다 — decoration 테두리는 Container 가 안쪽 여백으로 더해 채움이 4 로 준다.
+      foregroundDecoration: BoxDecoration(
+        border: Border.all(color: AppColors.profileNudgeTrackEdge, width: 0.5), // pen `Iy7RO`
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+      child: FractionallySizedBox(
+        widthFactor: percent.clamp(0, 100) / 100,
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.primary,
+            borderRadius: BorderRadius.circular(AppRadius.pill),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 안 채운 항목 칩 — 높이 28 · 알약 · 좌우 10 · 흰 바탕 · 12/400 primaryText(pen `mV0TB`). 누르지 않는 표시(카드 전체가 누름 칸).
+class _NudgeChip extends StatelessWidget {
+  const _NudgeChip({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 28),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(color: AppColors.canvas, borderRadius: BorderRadius.circular(AppRadius.pill)),
+      // 글자 크기만큼만 차지하고(Wrap 안에서 줄 폭으로 늘지 않게) 높이 28 안 세로 가운데 — 글자를 키우면 칩이 늘어난다.
+      child: Align(
+        widthFactor: 1,
+        heightFactor: 1,
+        child: Text(text, style: AppTypography.caption.copyWith(color: AppColors.primaryText)),
       ),
     );
   }

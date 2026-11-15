@@ -11,12 +11,16 @@ import 'package:campus_mate/common/widgets/entrance.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/pressable.dart';
 import 'package:campus_mate/consent/model/repository/open_url.dart';
+import 'package:campus_mate/core/app_update/store_listing.dart';
+import 'package:campus_mate/core/app_update/update_requirement_provider.dart';
+import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/home/model/data/cohort_wait.dart';
 import 'package:campus_mate/home/model/data/home_people.dart';
 import 'package:campus_mate/home/model/repository/home_repository_provider.dart';
 import 'package:campus_mate/home/model/data/home_summary.dart';
+import 'package:campus_mate/home/model/data/profile_completion_item.dart';
 import 'package:campus_mate/home/view/auto_marquee.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/home/view/cohort_wait_view.dart';
@@ -98,6 +102,7 @@ void main() {
     int? percent,
     double? rating,
     int? reviews,
+    List<ProfileCompletionItem> missing = const [],
   }) => HomeSummary(
     deliveredCards: delivered ?? summary.deliveredCards,
     signups: signups ?? summary.signups,
@@ -106,6 +111,7 @@ void main() {
     reviewCount: reviews ?? summary.reviewCount,
     campuses: summary.campuses,
     profileCompletionPercent: percent ?? summary.profileCompletionPercent,
+    profileCompletionMissing: missing,
   );
 
   /// 서버가 배너 두 장을 준 홈(홈 v3 `kkKiZ` — 사람 줄 아래 · 링크 칸 위).
@@ -446,15 +452,98 @@ void main() {
     }
   });
 
-  testWidgets('숫자 3칸 · 리뷰 띠는 홈에서 빠졌다 — 요약에 값이 있어도 그리지 않는다(사용자 결정 11-12)', (tester) async {
+  testWidgets('숫자 3칸은 홈에서 빠졌다 — 요약에 값이 있어도 그리지 않는다(사용자 결정 11-12)', (tester) async {
     penFrame(tester);
     await pump(tester);
     await tester.drag(_mainList, const Offset(0, -400));
     await tester.pump(const Duration(seconds: 1));
 
-    for (final gone in ['1,234,567', '862', '391', '전달된 카드', '가입 수', '시작된 대화', '4.6', '(57명 평가)', '리뷰 남기기']) {
+    for (final gone in ['1,234,567', '862', '391', '전달된 카드', '가입 수', '시작된 대화']) {
       expect(find.text(gone), findsNothing, reason: gone);
     }
+  });
+
+  // 리뷰 띠 되살리기(2026-11-15 사용자 「링크 있으니깐 리뷰 살리기 가능하지 않나?」, pen 시안 A `TdmIQ` · 마스터 `L7wKi`):
+  // 링크 칸 아래 24 · 참여 대학 위 24.
+  group('리뷰 띠(pen `L7wKi`)', () {
+    Finder strip() => find.byKey(homeReviewStripKey);
+
+    testWidgets('평가가 있으면 별점 · 별 다섯 · "(N명 평가)" · "리뷰 남기기", 328×64 · #FFF8EC · 모서리 14, 링크 칸 → 24 → 띠 → 24 → 참여 대학', (tester) async {
+      penFrame(tester);
+      await pump(tester);
+      await tester.ensureVisible(find.text('참여 중인 대학'));
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(find.text('4.6'), findsOneWidget);
+      expect(find.text('(57명 평가)'), findsOneWidget);
+      expect(find.text('리뷰 남기기'), findsOneWidget);
+      expect(find.text('CampusMate 가 마음에 드셨나요?'), findsNothing);
+      final rect = tester.getRect(strip());
+      expect(rect.size, const Size(328, 64));
+      final box = tester.widget<Container>(strip()).decoration! as BoxDecoration;
+      expect((box.color, box.borderRadius), (AppColors.reviewStripSurface, BorderRadius.circular(14)));
+      expect(rect.top - tester.getRect(find.byType(HomeGrid)).bottom, 24);
+      expect(tester.getRect(find.text('참여 중인 대학')).top - rect.bottom, 24);
+      final button = tester.widget<Text>(find.text('리뷰 남기기')).style!;
+      expect((button.fontSize, button.fontWeight, button.color), (16, FontWeight.w700, AppColors.primaryText));
+      expect(tester.getSize(find.ancestor(of: find.text('리뷰 남기기'), matching: find.byType(Pressable))).height, 48);
+    });
+
+    testWidgets('평가 0명 — 띠를 숨기지 않고 "CampusMate 가 마음에 드셨나요?"(14/600 ink) + "리뷰 남기기", 별점 · 평가 수는 없다', (tester) async {
+      penFrame(tester);
+      await pump(tester, result: Success(summaryWith(rating: 0, reviews: 0)));
+      await tester.ensureVisible(strip());
+      await tester.pump(const Duration(seconds: 1));
+
+      final prompt = find.text('CampusMate 가 마음에 드셨나요?');
+      expect(prompt, findsOneWidget);
+      final style = tester.widget<Text>(prompt).style!;
+      expect((style.fontSize, style.fontWeight, style.color), (14, FontWeight.w600, AppColors.ink));
+      expect(tester.widget<Text>(prompt).maxLines, 1);
+      expect(find.text('리뷰 남기기'), findsOneWidget);
+      expect(find.text('0.0'), findsNothing);
+      expect(find.textContaining('명 평가'), findsNothing);
+      expect(tester.getSize(strip()), const Size(328, 64));
+      // pen `QCtib`: 이 상태의 버튼은 가로 안쪽 여백이 없다 — 버튼 칸 폭 = 글자 폭.
+      final button = find.ancestor(of: find.text('리뷰 남기기'), matching: find.byType(Pressable));
+      expect(tester.getSize(button).width, tester.getSize(find.text('리뷰 남기기')).width);
+      expect(tester.takeException(), isNull);
+    });
+
+    // 안드로이드: 플레이 별점 보고서에는 평가 수가 없다(서버 count null) — 별점만 보이고 "(N명 평가)" 는 숨긴다.
+    testWidgets('평가 수를 모르면(null) 별점 · 별만 보이고 "(N명 평가)" 는 없다', (tester) async {
+      penFrame(tester);
+      await pump(
+        tester,
+        result: const Success(HomeSummary(
+          deliveredCards: 0,
+          signups: 0,
+          conversationsStarted: 0,
+          reviewRating: 4.5,
+          reviewCount: null,
+          campuses: ['가람대'],
+          profileCompletionPercent: 40,
+        )),
+      );
+      await tester.ensureVisible(strip());
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(find.text('4.5'), findsOneWidget);
+      expect(find.textContaining('명 평가'), findsNothing);
+      expect(find.text('CampusMate 가 마음에 드셨나요?'), findsNothing);
+      expect(find.text('리뷰 남기기'), findsOneWidget);
+    });
+
+    testWidgets('스토어 주소가 없는 플랫폼(웹 · 데스크톱)이면 띠를 그리지 않는다 — 링크 칸 아래 24 에 참여 대학', (tester) async {
+      penFrame(tester);
+      await pump(tester, overrides: [storeListingProvider.overrideWithValue(const StoreListing(null))]);
+      await tester.ensureVisible(find.text('참여 중인 대학'));
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(strip(), findsNothing);
+      expect(find.text('리뷰 남기기'), findsNothing);
+      expect(tester.getRect(find.text('참여 중인 대학')).top - tester.getRect(find.byType(HomeGrid)).bottom, 24);
+    });
   });
 
   testWidgets('버튼 글자 — 히어로 `YiLtq` 18/700', (tester) async {
@@ -891,50 +980,132 @@ void main() {
   });
 
   // 완성도 카드는 10-15 에 잠깐 뺐다가 사용자 요청으로 되살렸다(pen `xEpOD` / `e26o6` Profile Completion Banner) — 참여 대학 아래.
-  testWidgets('프로필 완성도 카드는 저장소의 퍼센트를 보여준다', (tester) async {
-    await pump(tester);
-    await tester.scrollUntilVisible(find.text('프로필 완성도 40%'), 200, scrollable: _mainList);
+  // 완성도 카드 칩 판(2026-11-15 사용자 「~더 채우기 칩 모양으로 간략하게」 · 「칩은 "사진 더 채우기"」, pen 시안 A `TdmIQ`).
+  group('프로필 완성도 카드(칩 판)', () {
+    const all = ProfileCompletionItem.values;
+    const chipTexts = ['사진 더 채우기', 'MBTI 채우기', '선호 키 채우기', '관심 태그 채우기'];
+    Finder card() => find.byKey(homeProfileNudgeKey);
 
-    expect(find.text('프로필 완성도 40%'), findsOneWidget);
-    // 문구는 사용자 결정 2026-09-26(pen `tV9Oa` · `KjqWO`).
-    expect(find.text('프로필을 조금 더 채우면'), findsOneWidget);
-    expect(find.text('나를 더 잘 보여 줄 수 있어요'), findsOneWidget);
-  });
-
-  testWidgets('완성도 카드 `usk5M` — 마스코트 없음, 글자 상자 x14 · y8.5 · 32.5 · 67.5, 높이 19 · 19 · 16(% 12 #6A6A6A, 렌더 결과), 카드 92', (tester) async {
-    // 세로 좌표만 본다. 테스트 글꼴은 둘째 줄이 넓어 pen 폭(360)에서 접힌다 — 접히지 않게 화면만 넓힌다.
-    tester.view.physicalSize = const Size(420, 884);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await pump(tester);
-
-    final card = find.ancestor(of: find.text('프로필을 조금 더 채우면'), matching: find.byType(Container)).last;
-    expect(find.descendant(of: card, matching: find.byType(Image)), findsNothing);
-    final origin = tester.getTopLeft(card);
-    for (final (text, y, height) in [
-      ('프로필을 조금 더 채우면', 8.5, 19.0),
-      ('나를 더 잘 보여 줄 수 있어요', 32.5, 19.0),
-      ('프로필 완성도 40%', 67.5, 16.0),
-    ]) {
-      expect(tester.getTopLeft(find.text(text)).dy - origin.dy, y, reason: text);
-      expect(tester.getTopLeft(find.text(text)).dx - origin.dx, 14, reason: text);
-      expect(tester.getSize(find.text(text)).height, height, reason: text);
+    Future<void> pumpNudge(WidgetTester tester, List<ProfileCompletionItem> missing) async {
+      penFrame(tester);
+      await pump(tester, result: Success(summaryWith(missing: missing)));
+      await tester.ensureVisible(card());
+      await tester.pump(const Duration(seconds: 1));
     }
-    expect(tester.getSize(card).height, 92);
-    final percent = tester.widget<Text>(find.text('프로필 완성도 40%')).style!;
-    expect((percent.fontSize, percent.color), (12, const Color(0xFF6A6A6A)));
-  });
 
-  testWidgets('완성도 카드 `xEpOD` — 참여 대학 칩 아래 24 · 328×92 · primary-wash · 모서리 24 · 오른쪽 chevron', (tester) async {
-    penFrame(tester);
-    await pump(tester);
+    testWidgets('"프로필 완성도 N%" 14/700 ink + chevron 20 · 게이지 6(안쪽 폭 전체) · 안 채운 항목 칩, 종전 두 줄 문구는 없다', (tester) async {
+      await pumpNudge(tester, all);
 
-    final card = find.ancestor(of: find.text('프로필을 조금 더 채우면'), matching: find.byType(Container)).last;
-    final box = tester.widget<Container>(card).decoration! as BoxDecoration;
-    expect((box.color, box.borderRadius), (const Color(0xFFFFF0F2), BorderRadius.circular(24)));
-    expect(tester.getSize(card), const Size(328, 92));
-    expect(tester.getTopLeft(card).dy - tester.getBottomLeft(find.byType(Tag).last).dy, 24);
-    expect(find.descendant(of: card, matching: find.byIcon(AppIcons.chevronRight)), findsOneWidget);
+      final title = tester.widget<Text>(find.text('프로필 완성도 40%')).style!;
+      expect((title.fontSize, title.fontWeight, title.color), (14, FontWeight.w700, AppColors.ink));
+      final chevron = tester.widget<Icon>(find.descendant(of: card(), matching: find.byIcon(AppIcons.chevronRight)));
+      expect((chevron.size, chevron.color), (20.0, AppColors.primaryText));
+      for (final text in chipTexts) {
+        expect(find.descendant(of: card(), matching: find.text(text)), findsOneWidget, reason: text);
+      }
+      expect(find.text('프로필을 조금 더 채우면'), findsNothing);
+      expect(find.text('나를 더 잘 보여 줄 수 있어요'), findsNothing);
+      final gauge = tester.getRect(find.byKey(homeProfileGaugeKey));
+      final rect = tester.getRect(card());
+      expect((gauge.height, gauge.width), (6.0, 328 - 14 * 2));
+      expect((gauge.left - rect.left, rect.right - gauge.right), (14, 14));
+    });
+
+    testWidgets('카드 — primary-wash · 모서리 24 · 안쪽 위 12 · 줄 사이 8, 참여 대학 칩 아래 24', (tester) async {
+      await pumpNudge(tester, all);
+
+      final box = tester.widget<Container>(card()).decoration! as BoxDecoration;
+      expect((box.color, box.borderRadius), (AppColors.primaryWash, BorderRadius.circular(24)));
+      final rect = tester.getRect(card());
+      final chevron = tester.getRect(find.descendant(of: card(), matching: find.byIcon(AppIcons.chevronRight)));
+      final gauge = tester.getRect(find.byKey(homeProfileGaugeKey));
+      final firstChip = tester.getRect(find.ancestor(of: find.text(chipTexts.first), matching: find.byType(Container)).first);
+      expect(chevron.top - rect.top, 12);
+      expect(gauge.top - chevron.bottom, 8);
+      expect(firstChip.top - gauge.bottom, 8);
+      expect(rect.left, 16);
+      expect(rect.top - tester.getBottomLeft(find.byType(Tag).last).dy, 24);
+    });
+
+    testWidgets('칩 — 높이 28 · 알약 · 좌우 10 · 흰 바탕 · 12/400 primaryText, 가로 · 줄 사이 6', (tester) async {
+      await pumpNudge(tester, all);
+
+      final chips = [
+        for (final text in chipTexts) find.ancestor(of: find.text(text), matching: find.byType(Container)).first,
+      ];
+      for (final (i, chip) in chips.indexed) {
+        final box = tester.widget<Container>(chip).decoration! as BoxDecoration;
+        expect((box.color, box.borderRadius), (AppColors.canvas, BorderRadius.circular(9999)), reason: chipTexts[i]);
+        expect(tester.getSize(chip).height, 28, reason: chipTexts[i]);
+        final text = tester.getRect(find.text(chipTexts[i]));
+        expect(text.left - tester.getRect(chip).left, 10, reason: chipTexts[i]);
+        final style = tester.widget<Text>(find.text(chipTexts[i])).style!;
+        expect((style.fontSize, style.fontWeight, style.color), (12, FontWeight.w400, AppColors.primaryText));
+      }
+      final first = tester.getRect(chips[0]);
+      final second = tester.getRect(chips[1]);
+      expect(second.left - first.right, 6);
+      final wrap = tester.widget<Wrap>(find.descendant(of: card(), matching: find.byType(Wrap)));
+      expect((wrap.spacing, wrap.runSpacing), (6, 6));
+    });
+
+    testWidgets('칩 2개는 한 줄 — 카드 94(12 + 20 + 8 + 6 + 8 + 28 + 12)', (tester) async {
+      await pumpNudge(tester, const [ProfileCompletionItem.mbti, ProfileCompletionItem.interestTags]);
+
+      expect(find.text('MBTI 채우기'), findsOneWidget);
+      expect(find.text('관심 태그 채우기'), findsOneWidget);
+      expect(find.text('사진 더 채우기'), findsNothing);
+      expect(tester.getSize(card()), const Size(328, 94));
+    });
+
+    testWidgets('칩 4개는 360 폭에서 두 줄 — 카드 128(94 + 6 + 28)', (tester) async {
+      await pumpNudge(tester, all);
+
+      expect(tester.getSize(card()).height, 128);
+    });
+
+    testWidgets('목록이 비면(옛 서버 · 다 채움) 칩 줄과 그 위 간격이 없다 — 카드 58(12 + 20 + 8 + 6 + 12)', (tester) async {
+      await pumpNudge(tester, const []);
+
+      expect(find.descendant(of: card(), matching: find.byType(Wrap)), findsNothing);
+      expect(tester.getSize(card()).height, 58);
+    });
+
+    testWidgets('화면 읽기는 카드 하나로 "프로필 완성도 N%, 더 채울 수 있는 것: …" 을 읽고 칩을 따로 읽지 않는다', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpNudge(tester, const [ProfileCompletionItem.photos, ProfileCompletionItem.mbti]);
+
+      final data = tester.getSemantics(card()).getSemanticsData();
+      expect(data.label, '프로필 완성도 40%, 더 채울 수 있는 것: 사진 더 채우기, MBTI 채우기');
+      expect(data.flagsCollection.isButton, isTrue);
+      expect(data.hasAction(SemanticsAction.tap), isTrue);
+      expect(find.bySemanticsLabel('사진 더 채우기'), findsNothing);
+      handle.dispose();
+    });
+
+    testWidgets('목록이 비면 화면 읽기는 "프로필 완성도 N%" 만 읽는다', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpNudge(tester, const []);
+
+      expect(tester.getSemantics(card()).getSemanticsData().label, '프로필 완성도 40%');
+      handle.dispose();
+    });
+
+    for (final scale in [1.3, 2.0]) {
+      testWidgets('글자 배율 $scale — 칩 · 카드가 늘어나고 넘치거나 잘리지 않는다', (tester) async {
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await pumpNudge(tester, all);
+
+        expect(tester.takeException(), isNull);
+        for (final text in chipTexts) {
+          final chip = find.ancestor(of: find.text(text), matching: find.byType(Container)).first;
+          expect(tester.getRect(chip).contains(tester.getCenter(find.text(text))), isTrue, reason: text);
+          expect(tester.getSize(find.text(text)).height, lessThanOrEqualTo(tester.getSize(chip).height), reason: text);
+        }
+        expect(tester.getSize(card()).height, greaterThan(128));
+      });
+    }
   });
 
   testWidgets('완성도가 100 이면 완성도 카드를 숨긴다', (tester) async {
@@ -944,15 +1115,19 @@ void main() {
     await tester.pump();
 
     expect(find.textContaining('프로필 완성도'), findsNothing);
+    expect(find.byKey(homeProfileNudgeKey), findsNothing);
   });
 
   group('카드형 누름 반응(DESIGN §7 press)', () {
-    testWidgets('완성도 카드는 Pressable 이다 — 누르는 동안 투명도만 내려간다', (tester) async {
+    testWidgets('완성도 카드 · "리뷰 남기기" 는 Pressable 이다 — 누르는 동안 투명도만 내려간다', (tester) async {
       penFrame(tester);
       await pump(tester);
-      // 숫자 칸 · 리뷰 띠가 빠져(홈 v3) 완성도 카드가 유리 내비 위에 있다 — 내리지 않는다.
+      // 리뷰 띠가 돌아와 완성도 카드가 유리 내비 아래에 있다 — 끝까지 바로 옮겨 알약 위로 꺼낸다(끌면 당김 늘어남이 치수를 바꾼다).
+      final position = tester.state<ScrollableState>(_mainList).position;
+      position.jumpTo(position.maxScrollExtent);
+      await tester.pump(const Duration(seconds: 1));
 
-      for (final text in ['프로필을 조금 더 채우면']) {
+      for (final text in ['리뷰 남기기', '프로필 완성도 40%']) {
         final pressable = find.ancestor(of: find.text(text), matching: find.byType(Pressable));
         expect(pressable, findsOneWidget, reason: text);
         final rect = tester.getRect(find.text(text));
@@ -973,11 +1148,11 @@ void main() {
       await pump(tester, settle: false);
 
       final entrances = tester.widgetList<Entrance>(find.byType(Entrance)).toList();
-      // 레일 · 링크 칸 · 참여 대학 · 완성도 카드 네 블록(홈 v3 — 배너 없는 요약, 숫자 칸 · 리뷰 띠는 빠졌다).
+      // 레일 · 링크 칸 · 리뷰 띠 · 참여 대학 · 완성도 카드 다섯 블록(시안 A `TdmIQ` — 배너 없는 요약, 숫자 칸은 빠졌다).
       expect(
         entrances.map((e) => (e.rise, e.delay, e.duration, e.curve, e.enabled)),
         [
-          for (var i = 0; i < 4; i++)
+          for (var i = 0; i < 5; i++)
             (8.0, Duration(milliseconds: 40 * i), AppMotion.standard, AppMotion.standardCurve, true),
         ],
       );
@@ -1061,8 +1236,8 @@ void main() {
   });
   }
 
-  // 홈 v3 `kkKiZ`(11-12): hero → 24 → 레일 제목(25) → 10 → 레일 → 24 → [배너] → 24 → 링크 칸(328×80) → 24 →
-  // 참여 대학 제목(25) → 8 → 칩 → 24 → 완성도 카드. 숫자 3칸 · 리뷰 띠는 사용자 결정(11-12)으로 뺐다.
+  // 시안 A `TdmIQ`(11-16): hero → 24 → 레일 제목(25) → 10 → 레일 → 24 → [배너] → 24 → 링크 칸(328×80) → 24 → 리뷰 띠(64) → 24 →
+  // 참여 대학 제목(25) → 8 → 칩 → 24 → 완성도 카드. 숫자 3칸은 사용자 결정(11-12)으로 뺐다.
   testWidgets('블록 사이 — hero 아래 24 에 레일 제목 · 블록마다 24 · 대학 제목 아래 8 에 칩 · 칩 아래 24 에 완성도 카드', (tester) async {
     penFrame(tester);
     await pump(tester);
@@ -1073,18 +1248,21 @@ void main() {
     final grid = tester.getRect(find.byType(HomeGrid));
     final campusTitle = tester.getRect(find.text('참여 중인 대학'));
     final tag = tester.getRect(find.byType(Tag).first);
-    final card = tester.getRect(find.ancestor(of: find.text('프로필을 조금 더 채우면'), matching: find.byType(Container)).last);
+    final card = tester.getRect(find.byKey(homeProfileNudgeKey));
+    final review = tester.getRect(find.byKey(homeReviewStripKey));
     expect(railTitle.top - hero.bottom, 24);
     expect(rail.top - railTitle.bottom, 10);
     expect(grid.top - rail.bottom, 24);
     expect(grid.size, const Size(328, 80));
-    expect(campusTitle.top - grid.bottom, 24);
+    expect(review.top - grid.bottom, 24);
+    expect(campusTitle.top - review.bottom, 24);
     expect(tag.top - campusTitle.bottom, 8);
     expect(card.top - tester.getRect(find.byType(Tag).last).bottom, 24);
   });
 
   // 위 간격으로 셈한 좌표(앱바 56 포함). 배너 없음: hero 64~224 · 레일 제목 248(25) · 레일 283~423 · 링크 칸 447~527 ·
-  // 대학 551(25) · 칩 584 · 완성도 636~728. 배너 있음: 배너 447~647(그림 184 + 10 + 점 6) · 링크 칸 671~751 · 대학 775.
+  // 리뷰 띠 551~615 · 대학 639(25) · 칩 672 · 완성도 724(칩 없는 카드 58). 배너 있음: 배너 447~647(그림 184 + 10 + 점 6) ·
+  // 링크 칸 671~751 · 리뷰 띠 775 · 대학 863.
   testWidgets('좌표 — 배너 없음 · 있음', (tester) async {
     penFrame(tester);
     await pump(tester);
@@ -1095,15 +1273,16 @@ void main() {
     expect(tester.getRect(find.byType(MosaicRail)).top, 283);
     expect(tester.getRect(find.byType(MosaicRail)).bottom, 423);
     expect(tester.getRect(find.byType(HomeGrid)), const Rect.fromLTWH(16, 447, 328, 80));
-    expect(tester.getRect(find.text('참여 중인 대학')).top, 551);
-    expect(tester.getRect(find.byType(Tag).first).top, 584);
-    final card = find.ancestor(of: find.text('프로필을 조금 더 채우면'), matching: find.byType(Container)).last;
-    expect(tester.getRect(card), const Rect.fromLTWH(16, 636, 328, 92));
+    expect(tester.getRect(find.byKey(homeReviewStripKey)), const Rect.fromLTWH(16, 551, 328, 64));
+    expect(tester.getRect(find.text('참여 중인 대학')).top, 639);
+    expect(tester.getRect(find.byType(Tag).first).top, 672);
+    expect(tester.getRect(find.byKey(homeProfileNudgeKey)), const Rect.fromLTWH(16, 724, 328, 58));
 
     await pump(tester, result: const Success(withBanners));
     expect(tester.getRect(find.byType(HomeBannerCarousel)), const Rect.fromLTWH(16, 447, 328, 200));
     expect(tester.getRect(find.byType(HomeGrid)), const Rect.fromLTWH(16, 671, 328, 80));
-    expect(tester.getRect(find.text('참여 중인 대학')).top, 775);
+    expect(tester.getRect(find.byKey(homeReviewStripKey)).top, 775);
+    expect(tester.getRect(find.text('참여 중인 대학')).top, 863);
   });
 
   testWidgets('바로가기 줄은 없다 — hero 다음이 바로 레일이다(사용자 결정 10-15)', (tester) async {
@@ -1126,7 +1305,7 @@ void main() {
     }
   });
 
-  testWidgets('인스타그램 배너는 없다 — 인스타는 링크 칸(인스타그램 · 에브리타임) 안에 있다', (tester) async {
+  testWidgets('인스타그램 배너는 없다 — 인스타는 링크 칸(인스타그램 · 문의하기) 안에 있다', (tester) async {
     penFrame(tester);
     await pump(tester);
     await tester.scrollUntilVisible(find.text('프로필 완성도 40%'), 200, scrollable: _mainList);
@@ -1158,11 +1337,12 @@ void main() {
     await pump(tester);
     await tester.scrollUntilVisible(find.text('프로필 완성도 40%'), 200, scrollable: _mainList);
 
-    final bar = find.byWidgetPredicate((w) => w is Container && w.constraints?.maxWidth == 150 && w.constraints?.maxHeight == 6);
+    // 칩 판(11-16)에서 게이지는 폭 150 고정이 아니라 카드 안쪽 폭 전체다 — 색 · 테두리 · 그림자는 그대로.
+    final bar = find.byKey(homeProfileGaugeKey);
     final box = tester.widget<Container>(bar).decoration! as BoxDecoration;
     expect(box.color, const Color(0xFFFFFFFF));
     // 테두리는 위에 그린다 — decoration 테두리는 Container 가 안쪽 여백으로 더해 채움 막대가 4 로 준다.
-    expect((tester.widget<Container>(bar).foregroundDecoration! as BoxDecoration).border, Border.all(color: const Color(0x40D8C8D9)));
+    expect((tester.widget<Container>(bar).foregroundDecoration! as BoxDecoration).border, Border.all(color: const Color(0x40D8C8D9), width: 0.5));
     expect(box.boxShadow, const [BoxShadow(color: Color(0x1C745C78), offset: Offset(0, 1), blurRadius: 4)]);
   });
 
@@ -1185,7 +1365,7 @@ void main() {
       }
     } while (position.pixels < position.maxScrollExtent);
 
-    final nudge = find.ancestor(of: find.text('프로필을 조금 더 채우면'), matching: find.byType(Container)).last;
+    final nudge = find.byKey(homeProfileNudgeKey);
     expect(tester.getRect(find.byType(GlassBottomNav)).top - tester.getBottomLeft(nudge).dy, 20);
   });
 
