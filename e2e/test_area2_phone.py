@@ -265,7 +265,7 @@ class CompletionTest(PhoneBase):
 class HomeMockValuesTest(PhoneBase):
     def test_home_12_rail_from_server_bytes_is_pass_without_a_note(self):
         # 레일 사람 칸은 서버가 흐려 준 바이트(memory) — 실제 가입자 아바타(서버 `/home/people`, 10-15).
-        # 리뷰 띠(목값)는 홈 v3(11-12)에서 빠져 "목값" 메모가 붙지 않는다.
+        # 리뷰 띠는 11-16 v3.1 에서 실제 스토어 값으로 돌아와 "목값" 메모가 붙지 않는다.
         said = {'result': 'pass', 'rail': ['memory']}
         self.assertEqual(self.attempt('E-HOME-12', FakePhone(said)), ('pass', ''))
 
