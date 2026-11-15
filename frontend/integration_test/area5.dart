@@ -11,6 +11,7 @@ import 'package:campus_mate/chat/view/trust_reveal_bubble.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/confirm_popup.dart';
 import 'package:campus_mate/common/widgets/photo_slider.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/common/widgets/select_chip.dart';
@@ -87,7 +88,7 @@ const _editLink = '수정 ›'; // profile_manage_screen.dart 기본 정보 "수
 const _withdraw = '탈퇴하기'; // settings_screen.dart AppButton · account_suspended_screen.dart 글자 버튼
 const _firstTitle = '정말 떠나시나요?'; // withdraw_sheets.dart 1차 시트
 const _deleteLead = '탈퇴하면 아래 내용이 삭제돼요';
-const _deleteWarning = '삭제한 내용은 되돌릴 수 없고, 재가입은 2개월 뒤에 가능해요.';
+const _deleteWarning = '삭제한 내용은 되돌릴 수 없고\n재가입은 2개월 뒤에 가능해요.'; // 사용자 2026-11-16 줄바꿈
 const _deleteForever = '영구 삭제'; // 1차 시트 버튼 — 누르면 최종 시트가 뜬다(탈퇴는 아니다)
 const _finalTitle = '정말 삭제할까요?'; // 최종 시트
 const _deletedItems = ['프로필과 인증 정보', '신청·매칭 기록', '모든 대화 내용', '남은 하트도 사라져요'];
@@ -188,4 +189,5 @@ List<String> _buttonLabels(WidgetTester tester, Finder within) =>
     [for (final b in tester.widgetList<AppButton>(find.descendant(of: within, matching: find.byType(AppButton)))) b.label];
 
 /// 열려 있는 묻는 창(대화상자 · 바텀시트) — 시스템 뒤로 뒤에 0 이어야 한다.
-bool _asking() => _has(find.byType(Dialog)) || _has(find.byType(BottomSheet));
+bool _asking() =>
+    _has(find.byType(Dialog)) || _has(find.byType(BottomSheet)) || _has(find.byKey(confirmPopupCardKey)); // 공용 확인 팝업(2026-11-16)

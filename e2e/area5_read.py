@@ -454,8 +454,9 @@ def p_wd_03(run, phone):
     blocks = _signup_blocks(run)
     said = _app(check, phone(token_hash=token))
     check.that(said.get('final_seen') is True, f"최종 시트 {said.get('final_seen', MISSING)}(기대 보임)")
-    check.that(said.get('final_buttons', MISSING) == ['정말 영구 삭제'],
-               f"최종 시트의 버튼 {said.get('final_buttons', MISSING)}(기대 [정말 영구 삭제] — 이 버튼은 안 누른다)")
+    # 최종 확인은 공용 확인 팝업(2026-11-16) — 왼쪽 취소(회색) · 오른쪽 정말 영구 삭제(빨강), 둘 다 AppButton.
+    check.that(said.get('final_buttons', MISSING) == ['취소', '정말 영구 삭제'],
+               f"최종 팝업의 버튼 {said.get('final_buttons', MISSING)}(기대 [취소, 정말 영구 삭제] — 탈퇴 버튼은 안 누른다)")
     check.that(said.get('closed') is True, f"취소 뒤 시트 닫힘 {said.get('closed', MISSING)}(기대 True)")
     check.that(said.get('title') == TITLES['16'], f"취소 뒤 화면 {said.get('title', MISSING)!r}(기대 {TITLES['16']!r})")
     _unchanged(run, account, check, blocks, '취소')

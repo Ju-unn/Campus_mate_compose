@@ -289,7 +289,7 @@ def p_wd_20(run, phone):
         said = _app(check, phone(midway=lambda said: _emu(phone.serial, 'network', 'delay', str(WD_DELAY_MS)), token_hash=token))
     finally:
         _net_normal(phone.serial)
-    check.that(said.get('second_blocked') is True, f"0.2초 뒤 두 번째 누름 때 버튼 꺼짐 {said.get('second_blocked', MISSING)}(기대 True — isSubmitting)")
+    check.that(said.get('second_blocked') is True, f"0.2초 뒤 두 번째 누름 때 버튼이 처리 중(빨강 그대로 도는 표시) {said.get('second_blocked', MISSING)}(기대 True — isLoading, 확인 팝업 2026-11-16)")
     _notice(check, said, WITHDRAWN)
     _reached_login(check, said)
     _withdrawn(check, run, account, before, _tapped(check, said))

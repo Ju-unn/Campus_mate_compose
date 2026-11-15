@@ -92,7 +92,7 @@ final Map<String, Area1Case> _safeContactsCases = {
     await step('blocked');
     await tap(tester, find.descendant(of: find.byType(ContactRow), matching: find.byType(IconButton)).first);
     await pumpUntil(tester, find.text('차단을 해제할까요?'));
-    await tap(tester, _sheetButton('해제'));
+    await tap(tester, popupButton('해제')); // 해제 확인은 공용 확인 팝업(2026-11-16)
     await _waitBlockRows(tester, 0);
     await pumpUntil(tester, find.text(_noBlocksTitle));
     return null;

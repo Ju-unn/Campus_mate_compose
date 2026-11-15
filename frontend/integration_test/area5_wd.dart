@@ -27,11 +27,21 @@ Future<void> _wdOpenFinal(WidgetTester tester) async {
   await _openFinalSheet(tester);
 }
 
-/// 최종 시트의 "정말 영구 삭제" 글자를 누르고 누른 시각(UTC)을 돌려준다 — 이 파일에서 탈퇴 버튼을 누르는 곳은 여기 하나다.
-/// 시트가 이미 닫혔으면(앱이 정지 · 로그아웃을 먼저 알아챔) PC 가 만든 경합이 깨진 것이라 blocked.
+/// 최종 확인 팝업(2026-11-16) 안에서 처리 중(빨강 그대로 도는 표시 — 다시 눌리지 않는다)인 버튼. "정말 영구 삭제" 만 처리 중이 된다.
+Finder get _wdBusyButton => find.descendant(
+      of: find.byType(WithdrawFinalPopup),
+      matching: find.byWidgetPredicate((widget) => widget is AppButton && widget.isLoading),
+    );
+
+/// 최종 확인 팝업의 "정말 영구 삭제" 를 누르고 누른 시각(UTC)을 돌려준다 — 이 파일에서 탈퇴 버튼을 누르는 곳은 여기 하나다.
+/// 팝업이 이미 닫혔으면(앱이 정지 · 로그아웃을 먼저 알아챔) PC 가 만든 경합이 깨진 것이라 blocked.
+/// 버튼은 라벨 값으로 찾는다 — 처리 중에는 글자 자리에 도는 표시가 들어간다.
 Future<String> _wdWithdraw(WidgetTester tester) async {
-  final label = find.descendant(of: find.byType(WithdrawFinalSheet), matching: find.text(_wdForever));
-  if (!_has(label)) throw E2eBlocked('누르기 전에 최종 시트가 닫힘 — 지금 화면 ${_title(tester)}');
+  final label = find.descendant(
+    of: find.byType(WithdrawFinalPopup),
+    matching: find.byWidgetPredicate((widget) => widget is AppButton && widget.label == _wdForever),
+  );
+  if (!_has(label)) throw E2eBlocked('누르기 전에 최종 팝업이 닫힘 — 지금 화면 ${_title(tester)}');
   await tester.ensureVisible(label);
   await tester.pump();
   final at = DateTime.now().toUtc().toIso8601String();

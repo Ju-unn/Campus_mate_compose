@@ -31,6 +31,7 @@ Future<void> _edTapSave(WidgetTester tester) async {
   await tester.ensureVisible(label.last);
   await tester.pump();
   await tester.tap(label.last);
+  await _actConfirmNicknameIfAsked(tester); // 15-6 에서 닉네임을 바꿨으면 확인 팝업을 지난다(2026-11-16)
 }
 
 /// 15-5 에서 [screen] 을 연다.

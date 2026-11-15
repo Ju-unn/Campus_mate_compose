@@ -10,7 +10,6 @@ const _copied = '코드를 복사했어요';
 // 검색 결과 없음 화면의 링크 글자(11-10 사용자 결정: 메일 주소 대신 "문의하기") — 누르면 문의하기 화면이 열린다.
 const _faqInquiryLink = '문의하기';
 // 소셜 로그인 뒤 로그아웃 시트 문구(core/auth/confirm_sign_out.dart, 2026-10-13 공급자 나열을 뺌).
-const _logoutDescription = '다시 로그인하려면 처음 화면에서 쓰던 소셜 계정으로 로그인해 주세요.';
 const _withdrawnToast = '탈퇴한 계정이에요';
 
 List<String> _strings(Object? value) => (value as List).cast<String>();
@@ -111,7 +110,7 @@ Future<void> _confirmLogout(WidgetTester tester) async {
   await _reveal(tester, find.text('로그아웃'));
   await tap(tester, find.text('로그아웃'));
   await pumpUntil(tester, find.text('로그아웃할까요?'), timeout: const Duration(seconds: 5));
-  await tap(tester, find.widgetWithText(SafetySheetButton, '로그아웃'));
+  await tap(tester, popupButton('로그아웃'));
 }
 
 /// 망이 끊긴 사이 아바타 · 카드 사진을 늦게 받으려다 난 SocketException 은 화면에 안 보이는 로그다(폰 첫 실행 10-04, SET-02).
@@ -325,8 +324,8 @@ final Map<String, Area1Case> _set2Cases = {
     await _reveal(tester, find.text('로그아웃'));
     await tap(tester, find.text('로그아웃'));
     await pumpUntil(tester, find.text('로그아웃할까요?'), timeout: const Duration(seconds: 5));
-    must(find.text(_logoutDescription).evaluate().isNotEmpty, '시트 설명이 다름');
-    await tap(tester, find.widgetWithText(SafetySheetButton, '취소'));
+    must(find.textContaining('다시 로그인하려면').evaluate().isEmpty, '팝업에 옛 설명이 남아 있음'); // 설명 없음 변형(2026-11-16)
+    await tap(tester, popupButton('취소'));
     await wait(tester, const Duration(seconds: 1));
     must(find.text('로그아웃할까요?').evaluate().isEmpty, '취소했는데 시트가 남음');
     must(screen('settings').evaluate().isNotEmpty, '설정 화면이 아님');

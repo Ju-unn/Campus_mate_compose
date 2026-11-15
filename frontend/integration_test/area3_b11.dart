@@ -92,7 +92,7 @@ Future<Map<String, Object?>> _trCardFacts(WidgetTester tester) async {
 Future<Finder> _trOpenConfirm(WidgetTester tester) async {
   await pumpUntil(tester, button(_acceptBanner));
   await tap(tester, button(_acceptBanner));
-  final confirm = find.widgetWithText(TextButton, _acceptConfirm);
+  final confirm = popupButton(_acceptConfirm);
   await pumpUntil(tester, confirm);
   await tester.pump(const Duration(milliseconds: 800)); // 창이 올라오는 동안은 버튼이 제자리가 아니다
   await tester.pump(const Duration(milliseconds: 800));

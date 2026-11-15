@@ -369,7 +369,7 @@ Future<Map<String, Object?>?> _rtLeaveRoom(WidgetTester tester, Map<String, dyna
   await pumpUntil(tester, find.text(_leaveChat));
   await tap(tester, find.text(_leaveChat));
   await pumpUntil(tester, find.text(_gateLeaveTitle));
-  await tap(tester, find.widgetWithText(TextButton, _gateLeaveConfirm));
+  await tap(tester, popupButton(_gateLeaveConfirm));
   final roomGone = await _rtUntil(tester, () => !_has(find.byType(ChatRoomScreen)), const Duration(seconds: 15));
   final onList = await _rtUntil(tester, () => _has(find.byType(ConversationsScreen)), const Duration(seconds: 15));
   final rowGone = await _rtUntil(tester, () => !_has(_row(nickname)), const Duration(seconds: 10));

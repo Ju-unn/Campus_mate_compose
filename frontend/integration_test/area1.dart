@@ -5,6 +5,7 @@ import 'package:campus_mate/auth/social/view/start_view.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/app_checkbox.dart';
+import 'package:campus_mate/common/widgets/confirm_popup.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/common/widgets/select_chip.dart';
 import 'package:campus_mate/consent/view/consent_row.dart';
@@ -24,7 +25,6 @@ import 'package:campus_mate/profile/avatar/viewmodel/avatar_generation_view_mode
 import 'package:campus_mate/profile/ideal/viewmodel/ideal_conditions_view_model.dart';
 import 'package:campus_mate/profile/avatar/viewmodel/photos_ui_state.dart';
 import 'package:campus_mate/profile/avatar/viewmodel/photos_view_model.dart';
-import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -126,6 +126,10 @@ Finder labeled(String label) => find.descendant(
     );
 
 Finder button(String label) => find.widgetWithText(AppButton, label);
+
+/// 공용 확인 팝업(2026-11-16 — 로그아웃 · 차단 · 해제 · 나가기 · 수락 · 삭제 · 탈퇴 최종) 안의 버튼 글자.
+/// 같은 글자의 줄 · 메뉴(설정 "로그아웃" 줄 등)와 겹치지 않게 팝업 카드 안으로 좁혀 찾는다.
+Finder popupButton(String label) => find.descendant(of: find.byKey(confirmPopupCardKey), matching: find.text(label));
 
 bool enabled(WidgetTester tester, String label) {
   final widget = tester.widget<AppButton>(button(label).last);
@@ -334,7 +338,7 @@ final Map<String, Area1Case> area1Cases = {
     await arrive(tester, 'consent');
     await tap(tester, find.text('로그아웃'));
     await pumpUntil(tester, find.text('로그아웃할까요?'), timeout: const Duration(seconds: 5));
-    await tap(tester, find.widgetWithText(SafetySheetButton, '로그아웃'));
+    await tap(tester, popupButton('로그아웃'));
     await arrive(tester, 'start', timeout: const Duration(seconds: 10));
     must(Supabase.instance.client.auth.currentSession == null, '세션이 남아 있음');
     final area = find.byKey(StartView.loginAreaKey);
@@ -440,9 +444,9 @@ final Map<String, Area1Case> area1Cases = {
     await arrive(tester, 'consent');
     await tap(tester, find.text('로그아웃'));
     await pumpUntil(tester, find.text('로그아웃할까요?'), timeout: const Duration(seconds: 5));
-    // 시트의 확인 버튼은 AppButton 이 아니라 SafetySheetButton 이다(confirm_sign_out → showSafetyConfirmSheet).
-    // 02-c 아래의 로그아웃은 글자 버튼이라 이 찾기에 안 걸린다 — 10-04 실폰 GATE-14 "No element" 원인.
-    await tap(tester, find.widgetWithText(SafetySheetButton, '로그아웃'));
+    // 확인 버튼은 공용 확인 팝업 안의 "로그아웃"이다(confirm_sign_out → showConfirmPopup, 2026-11-16).
+    // 02-c 아래의 로그아웃은 글자 버튼이라 팝업 안으로 좁히면 안 걸린다 — 10-04 실폰 GATE-14 "No element" 원인.
+    await tap(tester, popupButton('로그아웃'));
     await arrive(tester, 'start', timeout: const Duration(seconds: 10));
     must(Supabase.instance.client.auth.currentSession == null, '세션이 남아 있음');
     return null;

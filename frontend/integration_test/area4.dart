@@ -403,7 +403,7 @@ final Map<String, Area1Case> area4Cases = {
     await tap(tester, find.widgetWithText(TextButton, '해제').first);
     await pumpUntil(tester, find.text('차단을 해제할까요?'));
     await _seeAll(tester, [_unblockDescription]);
-    await tap(tester, find.widgetWithText(SafetySheetButton, '취소'));
+    await tap(tester, popupButton('취소'));
     await wait(tester, const Duration(seconds: 1));
     must(find.text('차단을 해제할까요?').evaluate().isEmpty, '취소했는데 시트가 남음');
     must(_blockedRows() == rows, '줄 ${_blockedRows()}개(기대 $rows)');
@@ -414,7 +414,7 @@ final Map<String, Area1Case> area4Cases = {
     await pumpUntil(tester, find.byKey(blockedRowKey));
     await tap(tester, find.widgetWithText(TextButton, '해제').first);
     await pumpUntil(tester, find.text('차단을 해제할까요?'));
-    await tap(tester, find.widgetWithText(SafetySheetButton, '해제'));
+    await tap(tester, popupButton('해제'));
     await pumpUntil(tester, find.text('아직 차단한 상대가 없어요'), timeout: const Duration(seconds: 15));
     return null;
   }),
