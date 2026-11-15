@@ -18,12 +18,11 @@ PHOTO_CHECKS = SlidingWindow(PHOTO_CHECK_DAILY_LIMIT, timedelta(hours=24), error
 # Vision Likelihood enum: UNKNOWN=0 VERY_UNLIKELY=1 UNLIKELY=2 POSSIBLE=3 LIKELY=4 VERY_LIKELY=5
 _REJECT_THRESHOLD = 4  # LIKELY 이상이면 거부(사전 결정, project_slice2_decisions_2026-09-19)
 
-# 문서형 사진(학생증 · 신분증 · 글자 캡처) 거르기 — 사용자 결정 2026-10-16 "B(안내 + 서버 검사)". 아바타 원본으로 쓰면 그림이 이상하다.
-# 글자 수는 인식된 전체 글자에서 공백 · 줄바꿈을 뺀 수다. 서버 배포만으로 고칠 수 있게 이 세 값만 바꾼다.
-# 24 는 시작값(10-16)이다 — 학생증 · 신분증은 학교 · 이름 · 학번 · 날짜만으로 대개 30자를 넘고, 티셔츠 로고 · 간판 한두 줄은
-# 대개 20자 안쪽이라는 추정(실측 아님). 잘못 막힌 신고가 오면 올리고, 새는 문서가 보이면 내린다.
-DOCUMENT_TEXT_MIN_CHARS = 24
-# 아래 낱말이 있으면 글자가 이만큼만 돼도 문서로 본다(낱말만 찍힌 로고 · 굿즈는 통과).
+# 문서형 사진(학생증 · 신분증) 거르기 — 사용자 결정 2026-10-16 "B(안내 + 서버 검사)". 아바타 원본으로 쓰면 그림이 이상하다.
+# 글자 수는 인식된 전체 글자에서 공백 · 줄바꿈을 뺀 수다. 서버 배포만으로 고칠 수 있게 아래 값만 바꾼다.
+# 글자 수만으로 막는 규칙(24자 이상)은 뺐다(사용자 결정 2026-11-15) — 간판 · 포스터 · 현수막이 배경인 평범한 사진이
+# 64~130자로 잡혀 가입이 막혔다. 글자만 있는 캡처는 앱의 얼굴 검사가 먼저 거른다.
+# 아래 낱말이 있고 글자가 이만큼 되면 문서로 본다(낱말만 찍힌 로고 · 굿즈는 통과).
 DOCUMENT_KEYWORD_MIN_CHARS = 8
 # 공백 없이 대문자로 적는다 — 인식 글자도 공백을 빼고 대문자로 바꿔 견준다("ID\ncard" 도 IDCARD 로 잡힌다).
 # UNIVERSITY · 대학교는 넣지 않는다 — 학교 이름이 박힌 과잠 · 후드 사진이 흔하다.
@@ -84,7 +83,7 @@ async def check_photo(
     annotation = result.safe_search_annotation
     if annotation.adult >= _REJECT_THRESHOLD or annotation.violence >= _REJECT_THRESHOLD:
         verdict = PhotoVerdict.NOT_SAFE
-    elif len(compact) >= DOCUMENT_TEXT_MIN_CHARS or keyword_rule or label_rule:
+    elif keyword_rule or label_rule:
         verdict = PhotoVerdict.DOCUMENT
     else:
         return PhotoVerdict.SAFE
