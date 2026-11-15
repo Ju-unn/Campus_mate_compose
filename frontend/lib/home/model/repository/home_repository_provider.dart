@@ -1,9 +1,11 @@
 import 'package:campus_mate/core/http/api_client_provider.dart';
 import 'package:campus_mate/home/model/repository/home_repository.dart';
 import 'package:campus_mate/home/model/repository/http_home_repository.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 09b 메인이 쓰는 저장소. 테스트는 이 provider 를 가짜로 덮어쓴다.
+/// 리뷰 띠 별점은 이 기기 스토어 값만 읽는다 — 웹은 브라우저 기기를 따라가지 않게 null(스토어 없음, `storeListingProvider` 와 같다).
 final homeRepositoryProvider = Provider<HomeRepository>((ref) {
-  return HttpHomeRepository(ref.read(apiClientProvider));
+  return HttpHomeRepository(ref.read(apiClientProvider), platform: kIsWeb ? null : defaultTargetPlatform);
 });

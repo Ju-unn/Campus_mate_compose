@@ -1,4 +1,5 @@
 import 'package:campus_mate/home/model/data/cohort_wait.dart';
+import 'package:campus_mate/home/model/data/profile_completion_item.dart';
 
 /// 09b 메인(pen `k13Z5C`)이 그리는 값 한 벌. hero-today 문구는 고정이라 여기에 없다. 레일 사람 칸은 따로 받는다(`HomePeople`).
 class HomeSummary {
@@ -10,6 +11,7 @@ class HomeSummary {
     required this.reviewCount,
     required this.campuses,
     required this.profileCompletionPercent,
+    this.profileCompletionMissing = const [],
     this.cohort,
     this.banners = const [],
   });
@@ -19,15 +21,19 @@ class HomeSummary {
   final int signups;
   final int conversationsStarted;
 
-  /// review-strip
+  /// review-strip — 내 기기 스토어의 실제 별점 · 평가 수. 평가 수 null 은 그 스토어가 수를 주지 않는다는 뜻(안드로이드),
+  /// 0 이면 평가가 없거나 못 읽었다(띠는 "CampusMate 가 마음에 드셨나요?" 상태).
   final double reviewRating;
-  final int reviewCount;
+  final int? reviewCount;
 
   /// campus-strip
   final List<String> campuses;
 
   /// 사진 더 올리기 카드의 완성도(0~100)
   final int profileCompletionPercent;
+
+  /// 완성도 카드 칩 — 아직 안 채운 항목(서버 순서). 옛 서버 · 다 채움이면 빈 목록이고 칩 줄을 그리지 않는다.
+  final List<ProfileCompletionItem> profileCompletionMissing;
 
   /// 우리 학교가 아직 안 열렸으면 19 대기 화면 값, 열렸으면 null
   final CohortWait? cohort;
