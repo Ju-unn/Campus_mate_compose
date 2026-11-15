@@ -4,7 +4,9 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/core/http/api_client.dart';
 import 'package:campus_mate/home/model/data/home_people.dart';
 import 'package:campus_mate/home/model/data/home_summary.dart';
+import 'package:campus_mate/home/model/data/profile_completion_item.dart';
 import 'package:campus_mate/home/model/repository/http_home_repository.dart';
+import 'package:flutter/foundation.dart' show TargetPlatform;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -55,56 +57,66 @@ void main() {
     expect(summary.profileCompletionPercent, 70);
   });
 
-  test('리뷰 띠 값은 서버의 실제 스토어 평점 · 평가 수(store_rating · store_rating_count)를 그대로 읽는다', () async {
-    final client = MockClient((_) async => jsonResponse({
+  // 리뷰 띠 별점(2026-11-16 사용자 결정 「실제 스토어 값만」): 서버 store_ratings 의 내 플랫폼 값만 읽는다.
+  group('스토어 별점(store_ratings)', () {
+    Map<String, Object?> summaryJson(Map<String, Object?> extra) => {
           'delivered_cards': 0,
           'signups': 0,
           'conversations_started': 0,
           'campuses': <String>[],
-          'profile_completion_percent': 0,
-          'store_rating': 4.3,
-          'store_rating_count': 27,
-        }));
+          'profile_completion_percent': 60,
+          ...extra,
+        };
+    const ratings = {
+      'store_ratings': {
+        'ios': {'rating': 5, 'count': 1},
+        'android': {'rating': 4.5, 'count': null},
+      },
+    };
 
-    final result = await buildRepository(client).fetchSummary();
+    Future<HomeSummary> read(Map<String, Object?> json, TargetPlatform? platform) async {
+      final repository = HttpHomeRepository(
+        ApiClient('https://api.test', MockClient((_) async => jsonResponse(json)), auth),
+        platform: platform,
+      );
+      final result = await repository.fetchSummary();
+      return result.when<HomeSummary?>(onSuccess: (s) => s, onFailure: (_) => null)!;
+    }
 
-    final summary = result.when<HomeSummary?>(onSuccess: (s) => s, onFailure: (_) => null)!;
-    expect(summary.reviewRating, 4.3);
-    expect(summary.reviewCount, 27);
-  });
+    test('아이폰은 ios 값을 읽는다 — 정수 JSON(5)도 소수로', () async {
+      final summary = await read(summaryJson(ratings), TargetPlatform.iOS);
+      expect((summary.reviewRating, summary.reviewCount), (5.0, 1));
+    });
 
-  test('평점이 정수 JSON(5)이어도 소수로 읽는다', () async {
-    final client = MockClient((_) async => jsonResponse({
-          'delivered_cards': 0,
-          'signups': 0,
-          'conversations_started': 0,
-          'campuses': <String>[],
-          'profile_completion_percent': 0,
-          'store_rating': 5,
-          'store_rating_count': 1,
-        }));
+    test('안드로이드는 android 값을 읽는다 — 평가 수가 없으면(null) null 그대로', () async {
+      final summary = await read(summaryJson(ratings), TargetPlatform.android);
+      expect((summary.reviewRating, summary.reviewCount), (4.5, null));
+    });
 
-    final result = await buildRepository(client).fetchSummary();
+    test('스토어가 없는 플랫폼(웹 · 데스크톱)은 0명 상태', () async {
+      for (final platform in [null, TargetPlatform.windows]) {
+        final summary = await read(summaryJson(ratings), platform);
+        expect((summary.reviewRating, summary.reviewCount), (0.0, 0), reason: '$platform');
+      }
+    });
 
-    final summary = result.when<HomeSummary?>(onSuccess: (s) => s, onFailure: (_) => null)!;
-    expect(summary.reviewRating, 5.0);
-    expect(summary.reviewCount, 1);
-  });
+    test('옛 서버(store_ratings 없음)면 0명 상태 — 사람이 넣던 옛 칸(store_rating · store_rating_count)은 읽지 않는다', () async {
+      final summary = await read(summaryJson({'store_rating': 4.3, 'store_rating_count': 27}), TargetPlatform.iOS);
+      expect((summary.reviewRating, summary.reviewCount), (0.0, 0));
+    });
 
-  test('옛 서버(리뷰 칸 없음)면 0 · 0 이다 — 지어낸 값을 채우지 않고, 화면은 띠를 숨긴다', () async {
-    final client = MockClient((_) async => jsonResponse({
-          'delivered_cards': 0,
-          'signups': 0,
-          'conversations_started': 0,
-          'campuses': <String>[],
-          'profile_completion_percent': 0,
-        }));
-
-    final result = await buildRepository(client).fetchSummary();
-
-    final summary = result.when<HomeSummary?>(onSuccess: (s) => s, onFailure: (_) => null)!;
-    expect(summary.reviewRating, 0);
-    expect(summary.reviewCount, 0);
+    test('내 플랫폼 칸이 없거나 모양이 다르면 0명 상태', () async {
+      for (final storeRatings in <Object?>[
+        null,
+        <String, Object?>{},
+        {'ios': null},
+        {'ios': 'five'},
+        {'ios': {'rating': 'five', 'count': 1}},
+      ]) {
+        final summary = await read(summaryJson({'store_ratings': storeRatings}), TargetPlatform.iOS);
+        expect((summary.reviewRating, summary.reviewCount), (0.0, 0), reason: '$storeRatings');
+      }
+    });
   });
 
   test('cohort 가 null 이면 대기 없음이다(이미 열린 학교)', () async {
@@ -181,6 +193,40 @@ void main() {
         HomeBanner(imageUrl: 'https://cdn.test/a.webp', altText: '크리스마스에 어디 가세요?'),
         HomeBanner(imageUrl: 'https://cdn.test/b.webp', altText: '곧 1월 1일이에요'),
       ]);
+    });
+  });
+
+  // 완성도 카드 칩(2026-11-15 사용자 「~더 채우기 칩 모양으로」): 안 채운 항목 목록.
+  group('안 채운 항목(profile_completion_missing)', () {
+    Future<List<ProfileCompletionItem>> missingOf(Object? missing, {bool omit = false}) async {
+      final json = <String, Object?>{
+        'delivered_cards': 0,
+        'signups': 0,
+        'conversations_started': 0,
+        'campuses': <String>[],
+        'profile_completion_percent': 60,
+        if (!omit) 'profile_completion_missing': missing,
+      };
+      final result = await buildRepository(MockClient((_) async => jsonResponse(json))).fetchSummary();
+      return result.when<HomeSummary?>(onSuccess: (s) => s, onFailure: (_) => null)!.profileCompletionMissing;
+    }
+
+    test('서버가 준 순서 그대로 읽는다', () async {
+      expect(await missingOf(['photos', 'mbti', 'preferred_height', 'interest_tags']), [
+        ProfileCompletionItem.photos,
+        ProfileCompletionItem.mbti,
+        ProfileCompletionItem.preferredHeight,
+        ProfileCompletionItem.interestTags,
+      ]);
+    });
+
+    test('옛 서버(칸 없음) · null 이면 빈 목록이다 — 칩 줄을 그리지 않는다', () async {
+      expect(await missingOf(null, omit: true), isEmpty);
+      expect(await missingOf(null), isEmpty);
+    });
+
+    test('모르는 값은 건너뛴다 — 한 값 때문에 홈이 실패하지 않는다', () async {
+      expect(await missingOf(['bio', 'mbti', 7]), [ProfileCompletionItem.mbti]);
     });
   });
 
