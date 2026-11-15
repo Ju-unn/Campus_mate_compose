@@ -112,11 +112,14 @@ class PaidCardLocked extends StatelessWidget {
 
 /// 주색 버튼 안 하트(26×26). 확인 시트의 "N 쓰고 열기" 버튼도 같은 그림을 쓴다.
 class PaidCardHeart extends StatelessWidget {
-  const PaidCardHeart({super.key});
+  /// [size] 는 기본 26(카드 자리). 열기 확인 팝업 버튼만 pen 값표대로 22 를 준다(2026-11-16).
+  const PaidCardHeart({this.size = 26, super.key});
+
+  final double size;
 
   @override
   Widget build(BuildContext context) {
-    return Image.asset(paidCardHeartAsset, width: 26, height: 26, excludeFromSemantics: true);
+    return Image.asset(paidCardHeartAsset, width: size, height: size, excludeFromSemantics: true);
   }
 }
 

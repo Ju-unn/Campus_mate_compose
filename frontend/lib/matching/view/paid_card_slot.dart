@@ -16,7 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 /// 오늘 탭의 결제 카드 자리(pen `b2jvOY` · 0명 `IJGRA`). 무엇을 그릴지는 [paidCard] 가 정하고,
-/// 눌렀을 때의 흐름(확인 시트 → 열기)은 여기서 묶는다. 화면 파일이 커지지 않게 따로 뒀다.
+/// 눌렀을 때의 흐름(확인 팝업 → 열기)은 여기서 묶는다. 화면 파일이 커지지 않게 따로 뒀다.
 class PaidCardSlot extends ConsumerStatefulWidget {
   const PaidCardSlot({required this.paidCard, super.key});
 
@@ -27,7 +27,7 @@ class PaidCardSlot extends ConsumerStatefulWidget {
 }
 
 class _PaidCardSlotState extends ConsumerState<PaidCardSlot> {
-  /// 잔액을 읽고 확인 시트를 띄우는 동안 true — 그 사이 다시 눌러도 시트가 겹쳐 뜨지 않게 버튼을 잠근다.
+  /// 잔액을 읽고 확인 팝업을 띄우는 동안 true — 그 사이 다시 눌러도 팝업이 겹쳐 뜨지 않게 버튼을 잠근다.
   bool _opening = false;
 
   @override
@@ -65,9 +65,9 @@ class _PaidCardSlotState extends ConsumerState<PaidCardSlot> {
     };
   }
 
-  /// "N으로 열기" → (잔액을 서버에서 새로 읽음) → 확인 시트 → 열기. 취소하면 아무 일도 없다.
-  /// 새로 읽은 잔액이 모자라면 확인 시트를 건너뛰고 바로 "하트가 모자라요" 시트다(눌러 봐야 서버 402 일 일이라).
-  /// 잔액을 못 읽으면(null) 부족 판정은 서버 402 에 맡기고 잔액 문장 없이 확인 시트를 띄운다.
+  /// "N으로 열기" → (잔액을 서버에서 새로 읽음) → 확인 팝업 → 열기. 취소하면 아무 일도 없다.
+  /// 새로 읽은 잔액이 모자라면 확인 팝업을 건너뛰고 바로 "하트가 모자라요" 시트다(눌러 봐야 서버 402 일 일이라).
+  /// 잔액을 못 읽으면(null) 부족 판정은 서버 402 에 맡기고 확인 팝업을 띄운다(팝업 설명에는 잔액 문장이 없다 — 사용자 2026-11-16).
   Future<void> _open(PaidCardOffered offered) async {
     if (_opening) {
       return;
@@ -82,9 +82,9 @@ class _PaidCardSlotState extends ConsumerState<PaidCardSlot> {
         await _offerHeartStore(context, ref, cost: offered.cost, balance: balance);
         return;
       }
-      // 사용 통계 paid_card_sheet_open — 열기 확인 시트가 뜨는 때. 하트가 모자라 부족 시트로 가는 길(위)은 세지 않는다.
+      // 사용 통계 paid_card_sheet_open — 열기 확인 팝업이 뜨는 때(이벤트 이름은 그대로). 하트가 모자라 부족 시트로 가는 길(위)은 세지 않는다.
       ref.read(analyticsServiceProvider).logPaidCardSheetOpen();
-      final confirmed = await showPaidCardConfirmSheet(context, cost: offered.cost, heartBalance: balance);
+      final confirmed = await showPaidCardConfirmPopup(context, cost: offered.cost);
       if (!confirmed || !mounted) {
         return;
       }
@@ -136,7 +136,7 @@ Future<void> _offerHeartStore(BuildContext context, WidgetRef ref, {required int
 
 /// 내 하트 잔액을 **서버에서 새로** 읽는다. 내 정보 provider 는 한 번 읽으면 캐시되어 서버가 하트를 지급한 뒤에도
 /// 옛 값을 보여 줬다 — 무효로 만든 뒤 다시 읽는다(새 API 없이 기존 provider 의 무효화 관례를 따른다).
-/// 읽기 실패이면 null — 시트가 잔액 문장을 뺀다.
+/// 읽기 실패이면 null — 부족 시트가 잔액 문장을 뺀다.
 Future<int?> _heartBalance(WidgetRef ref) async {
   ref.invalidate(myProfileProvider);
   final result = await ref.read(myProfileProvider.future);
