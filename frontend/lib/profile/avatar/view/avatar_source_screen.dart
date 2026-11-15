@@ -27,6 +27,9 @@ class AvatarSourceScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(photosViewModelProvider);
     final viewModel = ref.read(photosViewModelProvider.notifier);
+    // 고른 원본의 얼굴이 작다는 문구(사용자 결정 2026-11-15)가 먼저다 — 지금 "다음" 이 꺼진 이유라서. error 에는 04-2 에서 남은
+    // 오류(얼굴 없음 등)가 남아 있을 수 있어 그것이 이유를 가리면 안 된다. 둘 다 같은 오류 자리다.
+    final failure = state.avatarSourceFailure ?? state.error;
     // 글자 많은 사진 거절이면 그 사진은 빠졌다 — 다른 사진을 넣을 수 있는 04-2 로 돌아가 칸 아래 문구를 보인다.
     ref.listen(photosViewModelProvider.select((s) => s.documentRejected), (previous, rejected) {
       if (rejected && previous != true) unawaited(Navigator.of(context).maybePop());
@@ -66,9 +69,9 @@ class AvatarSourceScreen extends ConsumerWidget {
                         title: context.l10n.profileAvatarSourceNoticeTitle,
                         body: context.l10n.profileAvatarSourceNoticeBody,
                       ),
-                      if (state.error != null) ...[
+                      if (failure != null) ...[
                         const SizedBox(height: AppSpacing.xs),
-                        Text(context.errorText(state.error!),
+                        Text(context.errorText(failure),
                             style: AppTypography.caption.copyWith(color: AppColors.error)),
                       ],
                       // 아바타 변환 예시 2장(pen `q7Rp0G`, 사용자 결정 10-14) — 안내 아래 24. 오류 문구는 안내 바로 아래에 두고

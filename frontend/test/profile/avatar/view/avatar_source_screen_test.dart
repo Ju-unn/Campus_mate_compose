@@ -8,6 +8,7 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/notice_card.dart';
+import 'package:campus_mate/profile/avatar/view/avatar_source_tile.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
@@ -46,12 +47,16 @@ void main() {
     required int photoCount,
     double textScale = 1.0,
     FakePhotosRepository? photos,
+    List<double?> faceRatios = const [],
+    // 04-3 을 한 번 연 뒤 04-2 로 돌아가 한 일. 끝나면 다시 "다음" 으로 04-3 에 온다.
+    Future<void> Function(PhotosViewModel viewModel, FakeFaceDetector faces)? backTo04_2,
   }) async {
+    final faces = FakeFaceDetector()..queuedWidthRatios.addAll(faceRatios);
     final container = ProviderContainer(
       overrides: [
         photosRepositoryProvider.overrideWithValue(photos ?? FakePhotosRepository()),
         imageCompressorProvider.overrideWithValue(FakeImageCompressor()),
-        faceDetectorProvider.overrideWithValue(FakeFaceDetector()),
+        faceDetectorProvider.overrideWithValue(faces),
         // 올리기가 막히면 가입 막힘을 사용 통계로 알리려고 온보딩 단계 캐시를 읽는다 — 진짜 저장소를 만들지 않게 가짜를 둔다.
         onboardingRepositoryProvider.overrideWithValue(FakeOnboardingRepository()),
       ],
@@ -67,6 +72,10 @@ void main() {
       await viewModel.addPhoto();
     }
     viewModel.prepareAvatarSource();
+    if (backTo04_2 != null) {
+      await backTo04_2(viewModel, faces);
+      viewModel.prepareAvatarSource();
+    }
 
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -135,6 +144,56 @@ void main() {
     expect(error, findsOneWidget);
     expect(tester.getTopLeft(error).dy - tester.getRect(find.byType(NoticeCard)).bottom, 8);
     expect(tester.getRect(find.byType(PhotoExample)).top - tester.getBottomLeft(error).dy, 24);
+  });
+
+  // 사용자 결정 2026-11-15 — 새 부품 없이 올리기 오류와 같은 자리(안내 카드 아래 8)에 보인다.
+  testWidgets('얼굴이 작은 사진만 있으면 오류 자리에 "얼굴이 크게 나온 사진을 골라 주세요" 가 나오고 버튼이 꺼진다', (tester) async {
+    await pump(tester, photoCount: 2, faceRatios: [0.1, 0.05]);
+
+    final message = find.text('얼굴이 크게 나온 사진을 골라 주세요');
+    expect(message, findsOneWidget);
+    expect(tester.getTopLeft(message).dy - tester.getRect(find.byType(NoticeCard)).bottom, 8);
+    expect(tester.widget<AppButton>(find.byType(AppButton)).onPressed, isNull);
+  });
+
+  testWidgets('04-2 에 남은 얼굴 없음 오류가 04-3 의 작은 얼굴 문구를 가리지 않는다', (tester) async {
+    // 전부 작음 → 04-3 → 뒤로 → 04-2 에서 얼굴 없는 사진을 더하려다 실패(error = 얼굴 없음) → 다음 → 04-3.
+    await pump(
+      tester,
+      photoCount: 2,
+      faceRatios: [0.1, 0.05],
+      backTo04_2: (viewModel, faces) async {
+        faces.nextResult = false;
+        viewModel.pickFromGallery = (limit) async => [photoFile('no-face.png')];
+        await viewModel.addPhoto();
+      },
+    );
+
+    expect(find.text('얼굴이 크게 나온 사진을 골라 주세요'), findsOneWidget);
+    expect(find.text('얼굴이 보이는 사진을 골라 주세요'), findsNothing);
+  });
+
+  testWidgets('얼굴이 작은 사진을 누르면 문구가 나오고 버튼이 꺼지며, 큰 사진으로 돌아가면 사라진다', (tester) async {
+    await pump(tester, photoCount: 2, faceRatios: [0.3, 0.1]);
+    final message = find.text('얼굴이 크게 나온 사진을 골라 주세요');
+
+    await tester.tap(find.byType(AvatarSourceTile).last);
+    await tester.pump();
+    expect(message, findsOneWidget);
+    expect(tester.widget<AppButton>(find.byType(AppButton)).onPressed, isNull);
+
+    await tester.tap(find.byType(AvatarSourceTile).first);
+    await tester.pump();
+    expect(message, findsNothing);
+    expect(tester.widget<AppButton>(find.byType(AppButton)).onPressed, isNotNull);
+  });
+
+  testWidgets('기준을 넘는 사진이 있으면 그 사진이 골라져 문구 없이 버튼이 켜진다', (tester) async {
+    await pump(tester, photoCount: 2, faceRatios: [0.1, 0.3]);
+
+    expect(find.text('얼굴이 크게 나온 사진을 골라 주세요'), findsNothing);
+    expect(tester.widget<AvatarSourceTile>(find.byType(AvatarSourceTile).last).isSelected, isTrue);
+    expect(tester.widget<AppButton>(find.byType(AppButton)).onPressed, isNotNull);
   });
 
   testWidgets('고른 한 장에만 "아바타로 선택" 배지가 붙는다', (tester) async {
