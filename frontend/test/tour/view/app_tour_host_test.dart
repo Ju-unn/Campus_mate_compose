@@ -106,7 +106,9 @@ class _Pages {
         GoRoute(
           path: AppRoutes.today,
           builder: (context, state) => Scaffold(
+            // 진짜 오늘 탭처럼 제목이 x20 에서 시작한다(today_cards_screen.dart titleSpacing 20).
             appBar: AppBar(
+              titleSpacing: 20,
               title: const TourTarget(id: TourTargetId.todayHeader, child: Text('오늘의 카드', key: _header)),
             ),
             body: Center(
@@ -425,7 +427,30 @@ void main() {
     }
 
     expect(inBubble('4 / 6'), findsOneWidget);
-    expect(overlay(tester).hole, _textHole(rectOf(tester, _header)));
+    // 앱바 제목은 x20 이라 가로 띄움 38 이면 화면 왼쪽 밖(−18)으로 나간다 — 화면 끝 8 안으로 좌우를 같은 양(26)만큼 줄여
+    // 왼쪽 8 · 오른쪽 제목 + 12 가 된다(2026-11-15 사용자 「이번 빌드에 같이 고쳐야지」). 위아래 띄움 7 은 그대로.
+    final header = rectOf(tester, _header);
+    expect(header.left, 20);
+    final hole = overlay(tester).hole!;
+    expect((hole.left, hole.right), (8.0, header.right + 12));
+    expect((hole.top, hole.bottom), (header.top - 7, header.bottom + 7));
+  });
+
+  testWidgets('화면 안에 다 들어오는 구멍은 가로 띄움 그대로다 — 4단계 도착 안내(38) · 3단계 탭 줄(왼쪽이 정확히 화면 끝 8)', (tester) async {
+    await pump(tester);
+    await start(tester);
+    await next(tester);
+    await next(tester);
+
+    expect(inBubble('3 / 6'), findsOneWidget);
+    final tabs = overlay(tester).hole!;
+    expect(tabs, _tabsHole(rectOf(tester, _tabs)));
+    expect((tabs.left, tabs.right), (8.0, 352.0));
+
+    await next(tester);
+    expect(inBubble('4 / 6'), findsOneWidget);
+    expect(overlay(tester).hole, _textHole(rectOf(tester, _arrival)));
+    expect(overlay(tester).hole!.left, rectOf(tester, _arrival).left - 38);
   });
 
   testWidgets('다른 화면(설정)에서 다시 보기를 부르면 홈으로 옮긴 뒤 1단계를 보인다', (tester) async {

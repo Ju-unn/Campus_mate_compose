@@ -41,6 +41,9 @@ const double _minLine = AppSpacing.lg;
 /// [TourStep.alignTop] 단계에서 구멍 아래를 잘라도 남기는 높이. pen 에 없는 값 — 작은 화면 · 큰 글자에서만 닿는다.
 const double _minHole = AppSpacing.xxl;
 
+/// 구멍이 화면 좌우 끝에서 떨어지는 최소 거리 — pen 3단계 탭 줄 구멍의 화면 여백(8)과 같다(2026-11-15 4단계 앱바 제목 잘림).
+const double _holeEdgeInset = AppSpacing.xs;
+
 /// 앱 투어 호스트. 앱 맨 위(`MaterialApp.builder`, 라우터 바깥)에 한 번 놓여 화면이 바뀌어도 덮개가 남는다.
 /// 단계([appTourSteps])마다 그 화면으로 옮기고, [TourTarget] 으로 등록된 요소의 그려진 자리를 재서 구멍을 뚫는다.
 /// 자리는 매 프레임 끝에 다시 재 회전 · 키보드 · 늦게 그려짐에도 따라간다(프레임을 새로 부르지는 않는다).
@@ -254,12 +257,13 @@ class _AppTourHostState extends ConsumerState<AppTourHost>
   }
 
   /// 구멍 — 대상 상자를 [TourStep.holePadding] 만큼 띄우고 위아래를 보이는 영역([_visibleArea]) 안으로 줄인다(모든 단계가 같다).
+  /// 가로는 [_horizontalWithin] 이 화면 끝 [_holeEdgeInset] 안으로 넣는다.
   /// [TourStep.alignTop] 단계는 아래 말풍선 · 선이 보이는 영역 안에 다 들어오게 구멍 아래쪽을 더 자른다(최소 [_minHole]).
   Rect? _rectOf(BuildContext target, TourStep step) {
     final box = _boxRect(target);
     if (box == null) return null;
-    final raw = step.holePadding.inflateRect(box);
     final area = _visibleArea(target);
+    final raw = _horizontalWithin(step.holePadding.inflateRect(box), step.holePadding, area);
     final top = _within(raw.top, area.top, area.bottom);
     var bottom = _within(raw.bottom, area.top, area.bottom);
     final bubble = _bubbleHeight;
@@ -270,8 +274,24 @@ class _AppTourHostState extends ConsumerState<AppTourHost>
     return Rect.fromLTRB(raw.left, top, raw.right, bottom);
   }
 
+  /// 띄운 구멍이 화면 좌우 끝에서 [_holeEdgeInset] 안에 들어오게 한다. 넘치면 좌우를 같은 양만큼 줄여 대상이 구멍 가운데에
+  /// 남게 한다(한쪽만 자르면 대상이 한쪽으로 쏠려 보인다). 줄이는 양은 가로 띄움을 넘지 않는다 — 구멍이 대상보다 좁아지지 않게.
+  /// 대상 자체가 화면 끝 여백을 넘을 때만 그쪽을 여백에 맞춰 자른다. 화면 안에 들어오는 구멍은 pen 가로 띄움 그대로다.
+  Rect _horizontalWithin(Rect raw, EdgeInsets padding, Rect area) {
+    final left = area.left + _holeEdgeInset;
+    final right = area.right - _holeEdgeInset;
+    final overflow = math.max(0.0, math.max(left - raw.left, raw.right - right));
+    final shrink = math.min(overflow, math.min(padding.left, padding.right));
+    return Rect.fromLTRB(
+      math.max(raw.left + shrink, left),
+      raw.top,
+      math.min(raw.right - shrink, right),
+      raw.bottom,
+    );
+  }
+
   /// 대상이 보일 수 있는 위아래 범위(호스트 좌표): 안전 영역 안이고, 대상을 품은 세로 목록마다 그 목록 칸 안 —
-  /// 앱바 · 배너 · 하단 고정 바(하트 구매 바)는 목록 칸 밖이라 빠진다. 가로는 줄이지 않는다(pen 가로 띄움 그대로).
+  /// 앱바 · 배너 · 하단 고정 바(하트 구매 바)는 목록 칸 밖이라 빠진다. 가로는 안전 영역만 뺀다 — 구멍의 가로 맞춤은 [_horizontalWithin].
   Rect _visibleArea(BuildContext target) {
     var area = MediaQuery.paddingOf(context).deflateRect(Offset.zero & (context.size ?? Size.zero));
     for (var list = Scrollable.maybeOf(target, axis: Axis.vertical);
