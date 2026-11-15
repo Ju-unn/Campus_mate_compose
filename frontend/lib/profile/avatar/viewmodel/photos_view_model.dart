@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:isolate';
 
+import 'package:campus_mate/auth/media/model/data/face_scan.dart';
 import 'package:campus_mate/auth/media/model/repository/face_detector_provider.dart';
 import 'package:campus_mate/auth/media/model/repository/image_compressor_provider.dart';
 import 'package:campus_mate/common/failure.dart';
@@ -155,7 +156,9 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
   Future<SelectedPhoto?> _checkedPhoto(File file, String? sourceHash) async {
     try {
       final compressed = await ref.read(imageCompressorProvider).compressToJpeg(file);
-      return await _hasFace(compressed) ? SelectedPhoto(compressed, sourceHash: sourceHash) : null;
+      final scan = await _scan(compressed);
+      // 얼굴 크기는 여기서 한 번 잰 값을 사진에 담아 04-3 이 다시 검출하지 않는다.
+      return scan.hasFace ? SelectedPhoto(compressed, sourceHash: sourceHash, faceWidthRatio: scan.widthRatio) : null;
     } on Exception {
       return null;
     }
@@ -168,12 +171,12 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
 
   /// 얼굴을 못 찾은 것과 **검사 자체가 실패한 것**은 다르다 — ML Kit 이 예외를 던지면 통과시킨다.
   /// 기기 안 검사는 1차 필터일 뿐이고 올릴 때 서버 SafeSearch 가 다시 본다(설계 §7.3).
-  /// 검출기가 고장 났다고 사진을 한 장도 못 고르게 막는 쪽이 더 나쁘다.
-  Future<bool> _hasFace(File photo) async {
+  /// 검출기가 고장 났다고 사진을 한 장도 못 고르게 막는 쪽이 더 나쁘다. 이때 얼굴 크기도 모르는 것(통과)으로 둔다.
+  Future<FaceScan> _scan(File photo) async {
     try {
-      return await ref.read(faceDetectorProvider).hasFace(photo);
+      return await ref.read(faceDetectorProvider).scan(photo);
     } on Exception {
-      return true;
+      return const FaceScan.found();
     }
   }
 
@@ -212,11 +215,14 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
     state = state.copyWith(photos: photos, error: null);
   }
 
-  /// 04-2 → 04-3 으로 넘어갈 때 부른다. 아직 원본이 없으면(처음이거나 원본 사진을 뺐으면) 첫 장을 골라 둔다.
+  /// 04-2 → 04-3 으로 넘어갈 때 부른다. 얼굴 크기 기준(0.15)을 넘는 원본이 이미 있으면 그대로 둔다. 아니면 기준을 넘는 첫 사진을
+  /// 골라 두고(사용자 결정 2026-11-15), 그런 사진이 없으면 종전처럼 원본이 없을 때만 첫 장을 고른다 — 04-3 이 작은 얼굴 문구를 보인다.
   void prepareAvatarSource() {
-    if (state.photos.isEmpty || state.photos.any((p) => p.isAvatarSource)) {
-      return;
-    }
+    final photos = state.photos;
+    if (photos.any((p) => p.isAvatarSource && !p.faceTooSmallForAvatar)) return;
+    final bigEnough = photos.indexWhere((p) => !p.faceTooSmallForAvatar);
+    if (bigEnough >= 0) return setAvatarSource(bigEnough);
+    if (photos.isEmpty || photos.any((p) => p.isAvatarSource)) return;
     setAvatarSource(0);
   }
 

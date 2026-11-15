@@ -63,6 +63,7 @@ String appErrorKindText(AppLocalizations l10n, AppError error) => switch (error)
       AppError.phoneCodeLocked => l10n.errorPhoneCodeLocked,
       AppError.saveFailed => l10n.errorSaveFailed,
       AppError.noFace => l10n.errorNoFace,
+      AppError.faceTooSmall => l10n.errorFaceTooSmall,
       AppError.meLoad => l10n.errorMeLoad,
       AppError.heartTaskMonthlyLimit => l10n.errorHeartTaskMonthlyLimit,
       AppError.cardsLoad => l10n.errorCardsLoad,

@@ -203,6 +203,9 @@ enum AppError {
   saveFailed,
   noFace,
 
+  /// 아바타 원본 사진의 얼굴이 너무 작다(04-3 · 15b, 사용자 결정 2026-11-15) — 전신 · 먼 사진은 아바타 얼굴도 작게 나온다.
+  faceTooSmall,
+
   /// 나 탭 화면(15 · 15-4 · 15-5)의 읽기 실패. 글자가 같은 [ServerUnavailableFailure] 와 뜻(502·503)이 달라 따로 둔다(사용자 결정 2026-09-27).
   meLoad,
 

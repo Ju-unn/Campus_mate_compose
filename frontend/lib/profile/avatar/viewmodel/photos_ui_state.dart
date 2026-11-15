@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:campus_mate/auth/media/model/data/face_scan.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:flutter/painting.dart';
 
@@ -9,10 +10,20 @@ const Object _keep = Object();
 /// 칸의 사진 한 장 + 아바타 원본 여부. 온보딩(04-2 · 04-3)은 늘 이번에 고른 사진이고, 15-7 사진 수정은 이미 올려 둔
 /// 사진([SelectedPhoto.saved])과 섞인다(계획서 2026-09-27-me-edit.md A6).
 class SelectedPhoto {
-  const SelectedPhoto(File this.file, {this.isAvatarSource = false, this.sourceHash}) : id = null, url = null;
+  const SelectedPhoto(File this.file, {this.isAvatarSource = false, this.sourceHash, this.faceWidthRatio})
+      : id = null,
+        url = null;
   const SelectedPhoto.saved({required String this.id, required String this.url, this.isAvatarSource = false})
       : file = null,
-        sourceHash = null;
+        sourceHash = null,
+        faceWidthRatio = null;
+
+  /// 04-2 에서 잰 가장 큰 얼굴 폭 ÷ 사진 폭 — 04-3 이 다시 검출하지 않고 아바타 원본 기준(0.15)에 견준다.
+  /// 잴 수 없었으면(검사 예외 · 올려 둔 사진 · 옛 임시 저장) null 이고, null 은 통과다.
+  final double? faceWidthRatio;
+
+  /// 아바타 원본으로 쓰기엔 얼굴이 작은가 — 프로필 사진(04-2 · 15-7)으로는 그대로 쓸 수 있다.
+  bool get faceTooSmallForAvatar => isFaceTooSmallForAvatar(faceWidthRatio);
 
   /// 고른 원본 사진 바이트의 sha256 — 같은 사진을 두 번 넣지 않으려고 견준다. 원본을 못 읽었거나 올려 둔 사진이면 null.
   final String? sourceHash;
@@ -31,7 +42,8 @@ class SelectedPhoto {
   ImageProvider get image => file != null ? FileImage(file!) : NetworkImage(url!);
 
   SelectedPhoto copyWith({bool? isAvatarSource}) => file != null
-      ? SelectedPhoto(file!, isAvatarSource: isAvatarSource ?? this.isAvatarSource, sourceHash: sourceHash)
+      ? SelectedPhoto(file!,
+          isAvatarSource: isAvatarSource ?? this.isAvatarSource, sourceHash: sourceHash, faceWidthRatio: faceWidthRatio)
       : SelectedPhoto.saved(id: id!, url: url!, isAvatarSource: isAvatarSource ?? this.isAvatarSource);
 }
 
@@ -86,8 +98,14 @@ class PhotosUiState {
   /// 04-2 "다음"으로 04-3 에 갈 수 있는지.
   bool get canProceed => photos.length >= 2 && photos.length <= 4;
 
-  /// 04-3 에서 올릴 수 있는지.
-  bool get canSubmit => !isSubmitting && canProceed && photos.where((p) => p.isAvatarSource).length == 1;
+  /// 04-3 에서 올릴 수 있는지. 아바타 원본의 얼굴이 작으면 못 올린다(사용자 결정 2026-11-15).
+  bool get canSubmit =>
+      !isSubmitting && canProceed && photos.where((p) => p.isAvatarSource).length == 1 && avatarSourceFailure == null;
+
+  /// 고른 아바타 원본의 얼굴이 작을 때 04-3 오류 자리에 보일 실패. [error] 에 넣지 않고 원본 선택에서 바로 나온다 —
+  /// 04-2 가 [error] 를 토스트로 띄우므로, 넣으면 04-3 으로 넘어갈 때 04-2 에도 토스트가 뜬다. 다른 사진을 고르면 저절로 사라진다.
+  Failure? get avatarSourceFailure =>
+      photos.any((p) => p.isAvatarSource && p.faceTooSmallForAvatar) ? const AppErrorFailure(AppError.faceTooSmall) : null;
 
   /// 이번에 고른 사진(파일이 있는 칸)만 — 이미 올려 둔 사진은 15-7 편집에만 있고 임시 저장 대상이 아니다.
   Iterable<SelectedPhoto> get _pickedPhotos => photos.where((photo) => photo.file != null);
@@ -97,7 +115,12 @@ class PhotosUiState {
   Map<String, Object?> toDraft() => {
         'photos': [
           for (final photo in _pickedPhotos)
-            {'path': photo.file!.path, 'isAvatarSource': photo.isAvatarSource, 'sourceHash': photo.sourceHash},
+            {
+              'path': photo.file!.path,
+              'isAvatarSource': photo.isAvatarSource,
+              'sourceHash': photo.sourceHash,
+              'faceWidthRatio': photo.faceWidthRatio,
+            },
         ],
       };
 
@@ -115,6 +138,8 @@ class PhotosUiState {
           File(item['path'] as String),
           isAvatarSource: item['isAvatarSource'] as bool,
           sourceHash: item['sourceHash'] as String?,
+          // 얼굴 크기가 없는 옛 임시 저장은 크기 모름(통과)이다. JSON 이 1.0 을 정수로 돌려줄 수 있어 num 으로 읽는다.
+          faceWidthRatio: (item['faceWidthRatio'] as num?)?.toDouble(),
         ),
     ];
     final kept = saved.where((photo) => photo.file!.existsSync()).take(maxPhotos).toList();
