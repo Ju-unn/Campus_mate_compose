@@ -8,6 +8,7 @@ import 'package:campus_mate/common/widgets/entrance.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/pressable.dart';
+import 'package:campus_mate/common/widgets/retry_notice.dart';
 import 'package:campus_mate/consent/model/repository/open_url.dart';
 import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/app_update/update_requirement_provider.dart';
@@ -57,7 +58,8 @@ const Key homeProfileGaugeKey = ValueKey('home-profile-gauge');
 
 /// 09b 메인(pen `bpA8x` → `M5hpo7` 10-15 → 홈 v3 `kkKiZ` 11-12 → 시안 A `TdmIQ` 11-16). hero-today → 24 → mosaic-rail → 24 →
 /// 배너 슬라이드(있을 때만) → 24 → 링크 칸(인스타그램 · 문의하기) → 24 → 리뷰 띠(스토어가 있는 기기만) → 24 → campus-strip → 24 →
-/// 완성도 카드(칩 판). 요약을 못 받으면(조회 중·실패) hero-today 만 남긴다 — 카드로 가는 길은 요약과 상관없다.
+/// 완성도 카드(칩 판). 요약을 받는 중이면 hero-today 만, 못 받으면 그 아래 공용 실패 안내(다시 시도 · 앱 복귀 때 다시 읽기)만 남긴다 —
+/// 카드로 가는 길은 요약과 상관없다.
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -88,12 +90,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
     });
   }
 
+  /// 요약을 못 받은 채 앱이 다시 앞으로 오면 다시 읽는다(사용자 결정 2026-11-16 「다시 시도 + 자동」).
+  /// 홈 화면이 살아 있는 동안(위에 알림함 · 상점 등을 띄운 때 포함) 이 화면이 맡는다 — 실패일 때만 읽어 해가 없다.
+  late final AppLifecycleListener _lifecycle;
+
   @override
   void initState() {
     super.initState();
     // 종 배지의 안 읽은 수 — 홈에 들어올 때 읽는다(앱이 돌아올 때는 resume_refresh, 알림함에서 돌아올 때는 아래 [_openNotifications]).
     unawaited(ref.read(unreadCountProvider.notifier).refresh());
+    _lifecycle = AppLifecycleListener(onResume: _rereadIfMissing);
+    // 못 받은 채 다른 탭에 갔다 돌아오면 옛 실패 안내가 남지 않게 한 번 다시 읽는다. 처음 받는 중이면 그대로 기다린다.
+    // 그리는 도중에 provider 를 바꾸지 않게 다음 차례로 미룬다.
+    Future.microtask(() {
+      if (mounted) _rereadIfMissing();
+    });
   }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
+
+  /// 요약이 비어 있을 때(못 받음)만 다시 읽는다 — 받아 둔 요약은 그대로 두어 돈 드는 호출을 늘리지 않는다. 읽는 중이면 겹쳐 부르지 않는다.
+  void _rereadIfMissing() {
+    final state = ref.read(homeSummaryProvider);
+    if (_summaryFailed(state) && !state.isLoading) ref.invalidate(homeSummaryProvider);
+  }
+
+  /// 요약을 한 번 읽어 봤는데 없다(저장소가 실패를 null 로 준다) — 처음 받는 중과 가른다. 다시 읽는 동안에도 앞 결과(null)를 들고 있어 그대로 true 다.
+  static bool _summaryFailed(AsyncValue<HomeSummary?> state) =>
+      state.value == null && (state.hasValue || state.hasError);
 
   /// 종 → 알림함(09c). 돌아오면 안 읽은 수를 다시 읽는다 — 알림함에서 읽은 것이 배지에 맞게 줄어 있어야 한다.
   Future<void> _openNotifications() async {
@@ -153,7 +181,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
 
   @override
   Widget build(BuildContext context) {
-    final summary = ref.watch(homeSummaryProvider).value;
+    final summaryState = ref.watch(homeSummaryProvider);
+    final summary = summaryState.value;
     final cohort = summary?.cohort;
     if (summary != null && cohort == null) _askTourOnce();
     final animateSummary = _summaryArriving;
@@ -224,7 +253,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
                   children: [
                     const TourTarget(id: TourTargetId.homeHero, child: _HeroToday()),
                     if (summary != null)
-                      ..._summarySections(summary, people: people, animate: animateSummary, mySchool: mySchool),
+                      ..._summarySections(summary, people: people, animate: animateSummary, mySchool: mySchool)
+                    else if (_summaryFailed(summaryState)) ...[
+                      // 요약 자리 — 블록 사이와 같은 24 아래에 앱 공용 작은 실패 안내(pen 에 홈 실패 상태가 없다).
+                      // 저장소가 실패 종류를 null 로 삼켜 나 탭 · 계정 불러오기 실패와 같은 일반 안내다. 다시 읽는 동안에도 자리를 지키고 버튼만 돈다(깜빡임 없음).
+                      const SizedBox(height: AppSpacing.lg),
+                      RetryNotice.inline(
+                        message: context.appErrorText(AppError.tryLater),
+                        busy: summaryState.isLoading,
+                        onRetry: () => ref.invalidate(homeSummaryProvider),
+                      ),
+                    ],
                   ],
                 ),
               ),
