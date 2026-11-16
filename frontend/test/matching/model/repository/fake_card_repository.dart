@@ -144,12 +144,24 @@ class FakeCardRepository implements CardRepository {
     return writeResult;
   }
 
+  /// 채워 두면 알림 설정 조회가 이것이 끝날 때까지 멈춘다 — 읽는 도중에 provider 가 버려지는 상황용.
+  Completer<void>? holdPreferences;
+
+  /// 채워 두면 알림 스위치 · 일시중지 저장이 이것이 끝날 때까지 멈춘다 — 저장 도중에 provider 가 버려지는 상황용.
+  Completer<void>? holdNotificationWrite;
+
   @override
-  Future<Result<NotificationPreferences>> fetchNotificationPreferences() async => preferences;
+  Future<Result<NotificationPreferences>> fetchNotificationPreferences() async {
+    final hold = holdPreferences;
+    if (hold != null) await hold.future;
+    return preferences;
+  }
 
   @override
   Future<Result<void>> updateNotificationPreference(String key, bool value) async {
     preferenceUpdates.add((key: key, value: value));
+    final hold = holdNotificationWrite;
+    if (hold != null) await hold.future;
     return writeResult;
   }
 
@@ -159,6 +171,8 @@ class FakeCardRepository implements CardRepository {
   @override
   Future<Result<void>> setMatchingPaused(bool paused) async {
     pausedValue = paused;
+    final hold = holdNotificationWrite;
+    if (hold != null) await hold.future;
     return writeResult;
   }
 }

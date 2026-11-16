@@ -25,6 +25,7 @@ class NotificationSettingsViewModel extends Notifier<NotificationSettingsUiState
     // 일시중지도 서버 값으로 그린다 — 안 읽으면 꺼 둔 사람도 다시 열 때 "켜짐"으로 보인다(A14).
     final (result, paused) =
         await (repository.fetchNotificationPreferences(), repository.fetchMatchingPaused()).wait;
+    if (!ref.mounted) return;
     state = result.when(
       onSuccess: (preferences) => state.copyWith(isLoading: false, preferences: preferences),
       onFailure: (failure) =>
@@ -40,6 +41,7 @@ class NotificationSettingsViewModel extends Notifier<NotificationSettingsUiState
     final previous = state.preferences;
     state = state.copyWith(preferences: previous.withValue(key, value), error: null);
     final result = await ref.read(cardRepositoryProvider).updateNotificationPreference(key, value);
+    if (!ref.mounted) return;
     result.when(
       onSuccess: (_) {},
       onFailure: (failure) => state = state.copyWith(
@@ -53,6 +55,7 @@ class NotificationSettingsViewModel extends Notifier<NotificationSettingsUiState
     final previous = state.matchingPaused;
     state = state.copyWith(matchingPaused: paused, error: null);
     final result = await ref.read(cardRepositoryProvider).setMatchingPaused(paused);
+    if (!ref.mounted) return;
     result.when(
       onSuccess: (_) {},
       onFailure: (failure) => state = state.copyWith(

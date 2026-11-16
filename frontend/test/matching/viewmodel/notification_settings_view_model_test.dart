@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/matching/model/data/notification_preferences.dart';
@@ -85,5 +87,43 @@ void main() {
     final state = container.read(notificationSettingsViewModelProvider);
     expect(state.matchingPaused, isTrue);
     expect(state.error, isA<NetworkFailure>());
+  });
+
+  // 로그아웃 · 세션 만료는 ProviderScope 를 새로 만들어 이 provider 를 버린다(session_scope.dart).
+  // 그 뒤에 늦게 온 응답으로 상태를 쓰면 "Ref ... after it has been disposed" 로 앱이 죽었다(Crashlytics 1.0.4).
+  group('응답을 기다리는 도중 provider 가 버려지면 늦은 응답은 버린다', () {
+    test('불러오는 도중', () async {
+      final hold = repository.holdPreferences = Completer<void>();
+      final loading = container.read(notificationSettingsViewModelProvider.notifier).refresh();
+
+      container.dispose();
+      hold.complete();
+
+      await expectLater(loading, completes);
+    });
+
+    test('스위치 저장이 실패해 되돌리는 도중', () async {
+      await container.read(notificationSettingsViewModelProvider.notifier).refresh();
+      repository.writeResult = const FailureResult(NetworkFailure());
+      final hold = repository.holdNotificationWrite = Completer<void>();
+      final saving = container.read(notificationSettingsViewModelProvider.notifier).toggle('match_made', false);
+
+      container.dispose();
+      hold.complete();
+
+      await expectLater(saving, completes);
+    });
+
+    test('일시중지 저장이 실패해 되돌리는 도중', () async {
+      await container.read(notificationSettingsViewModelProvider.notifier).refresh();
+      repository.writeResult = const FailureResult(NetworkFailure());
+      final hold = repository.holdNotificationWrite = Completer<void>();
+      final saving = container.read(notificationSettingsViewModelProvider.notifier).setPaused(true);
+
+      container.dispose();
+      hold.complete();
+
+      await expectLater(saving, completes);
+    });
   });
 }
