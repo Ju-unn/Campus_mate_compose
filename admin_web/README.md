@@ -36,7 +36,7 @@ GitHub 저장소 변수 `ADMIN_SUPABASE_URL` · `ADMIN_API_BASE_URL`, 비밀값 
 | `lib/screens/` · `lib/shell/` | 관문 화면들 · 메뉴 틀(메뉴 9개 모두 실제 화면에 연결 — `lib/shell/admin_section.dart`) |
 | `lib/heart_tasks/` | A3 인증샷 검수(`/heart-tasks`, 디스코드 링크 `/heart-tasks/{id}`) — 모델 · 컨트롤러 · 화면 · 사진 보기 |
 | `lib/home/` · `lib/matching/` · `lib/unknown_domains/` · `lib/actions/` | A2 홈(통계 카드 · 그래프 셋 · 학교별 표 · 운영 상태판) · A9 매칭 현황 · A6 미등록 학교 메일 · A7 작업 기록 — 모두 읽기 전용(서버 D4 · D3). **A9 는 맨 아래에 "누가 누구에게 대화를 신청했나" 목록이 더해졌다**(2026-10-27, `MatchRequest` 모델 · `matchingRequestsProvider` · 서버 `GET /admin/matching/requests`, 상태 칩 5개) |
-| `lib/reports/` · `lib/users/` · `lib/billing/` · `lib/graduate/` | A4 신고 · A5 사용자 · A8 결제 · A10 졸업생 검수 — 읽기와 함께 조치(승인 · 반려 · 정지 · 하트 조정 등)가 있고, 조치는 서버가 작업 기록(`admin_actions`)에 한 줄을 남긴다 |
+| `lib/reports/` · `lib/users/` · `lib/billing/` · `lib/graduate/` | A4 신고 · A5 사용자 · A8 결제 · A10 졸업생 검수 — 읽기와 함께 조치(승인 · 반려 · 정지 · 하트 조정 등)가 있고, 조치는 서버가 작업 기록(`admin_actions`)에 한 줄을 남긴다. **A5 에는 pen 에 없는 성별 · 들어온 경로가 더해졌다**(찾기 표 끝 두 칸 · 상세 메타 줄 끝, 칩 줄 오른쪽 합계 한 줄 — `UserTotals` · `userTotalsProvider` · 서버 `GET /admin/users/totals`, 관리자 제외 · 모든 상태 기준, `backend/DEPLOY.md` §4-32) |
 | `lib/charts/` · `lib/state/` | 직접 그린 그래프(선 · 묶음 막대 · 가로 막대 — 새 부품 없이 CustomPaint, 결제 그래프와 같은 눈금 계산) · 커서 쪽 나누기 목록 틀 |
 
 첫 운영 배포: 2026-10-18(서버 DB 마이그레이션 11개 · 서버 `00086` 적용 뒤, GitHub 자동 배포가 Vercel 프로젝트 `campusmate-admin` 과 주소 `admin.campus-mates.com` 을 만든다).

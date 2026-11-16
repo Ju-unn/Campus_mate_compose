@@ -39,15 +39,57 @@ void main() {
       expect(all.single.university, '서울대학교');
       expect(all.single.status, 'active');
       expect(all.single.reportCount, 0);
+      expect((all.single.gender, all.single.acquisitionChannel), ('male', null));
     });
 
-    test('가입 중인 사람은 닉네임 · 학교가 null 이어도 읽는다', () async {
-      final api = apiWith((_) => json(200, {'items': [userRow('u1', nickname: null, university: null, status: 'pending')]}));
+    test('가입 중인 사람은 닉네임 · 학교 · 성별이 null 이어도 읽는다', () async {
+      final api = apiWith(
+        (_) => json(200, {
+          'items': [userRow('u1', nickname: null, university: null, status: 'pending', gender: null, channel: 'friend')],
+        }),
+      );
 
       final users = await api.listUsers();
 
       expect(users.single.nickname, isNull);
       expect(users.single.university, isNull);
+      expect((users.single.gender, users.single.acquisitionChannel), (null, 'friend'));
+    });
+
+    test('성별 · 들어온 경로 칸이 없는 옛 서버 응답도 읽는다(관리자 웹이 서버보다 먼저 나갈 때)', () async {
+      final api = apiWith(
+        (_) => json(200, {
+          'items': [
+            {'id': 'u1', 'nickname': '닉네임A', 'university': null, 'status': 'active', 'created_at': '2026-09-30T03:00:00+00:00', 'report_count': 0},
+          ],
+        }),
+      );
+
+      final users = await api.listUsers();
+
+      expect((users.single.gender, users.single.acquisitionChannel), (null, null));
+    });
+
+    test('userTotals: GET /admin/users/totals → 성별 · 들어온 경로 인원(쿼리 없음)', () async {
+      final api = apiWith((_) => json(200, userTotalsJson()));
+
+      final totals = await api.userTotals();
+
+      expect(requests.single.method, 'GET');
+      expect(requests.single.url.path, '/admin/users/totals');
+      expect(requests.single.url.query, isEmpty);
+      expect(totals.gender, {'male': 12, 'female': 9, 'none': 3});
+      expect(totals.channels, {'everytime': 5, 'instagram': 4, 'friend': 3, 'community': 1, 'other': 2, 'none': 9});
+    });
+
+    test('userTotals: 모양이 틀리면(개수가 정수가 아님 · 칸 없음) 실패로 다룬다', () async {
+      for (final body in [
+        {'gender': {'male': '12'}, 'acquisition_channel': <String, Object?>{}},
+        {'gender': <String, Object?>{}},
+      ]) {
+        final api = apiWith((_) => json(200, body));
+        await expectLater(api.userTotals(), throwsA(isA<AdminApiFailure>()), reason: '$body');
+      }
     });
 
     test('학교 메일 찾기는 POST 본문으로만 — 주소 · 쿼리에 메일이 없다', () async {
@@ -68,12 +110,13 @@ void main() {
 
   group('사용자 상세', () {
     test('getUser: 필드 이름 그대로 읽는다(UserDetail)', () async {
-      final api = apiWith((_) => json(200, userDetailJson('u1')));
+      final api = apiWith((_) => json(200, userDetailJson('u1', channel: 'other', note: '학교 게시판')));
 
       final detail = await api.getUser('u1');
 
       expect(requests.single.url.path, '/admin/users/u1');
       expect(detail.summary.nickname, '닉네임A');
+      expect((detail.summary.gender, detail.summary.acquisitionChannel, detail.acquisitionNote), ('male', 'other', '학교 게시판'));
       expect(detail.lastActiveAt, DateTime.utc(2026, 10, 18, 5, 20));
       expect(detail.avatarUrl, isNull);
       expect(detail.loginProviders, ['kakao']);

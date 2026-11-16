@@ -82,11 +82,20 @@ void main() {
       expect((styleOf(tester, note).fontSize, styleOf(tester, note).color), (12, AdminColors.muted));
     });
 
-    testWidgets('표 y264: 폭 가득 1136 · 머리 44 + 줄 52, 칸 x 288 · 468 · 688 · 868 · 988 · 1138(안쪽 16)', (tester) async {
+    testWidgets('표 y264: 폭 가득 1136 · 머리 44 + 줄 52, 칸 x 288 · 468 · 688 · 868 · 988 · 1138(안쪽 16) + 더한 칸 성별 1248 · 들어온 경로 1312', (tester) async {
       await openList(tester);
 
       expect(tester.getRect(find.byKey(const ValueKey('user-table'))), const Rect.fromLTWH(272, 264, 1136, 44 + 52));
-      for (final (text, x) in [('닉네임', 288.0), ('프로필 id', 468.0), ('학교', 688.0), ('상태', 868.0), ('가입일', 988.0), ('받은 신고', 1138.0)]) {
+      for (final (text, x) in [
+        ('닉네임', 288.0),
+        ('프로필 id', 468.0),
+        ('학교', 688.0),
+        ('상태', 868.0),
+        ('가입일', 988.0),
+        ('받은 신고', 1138.0),
+        ('성별', 1248.0),
+        ('들어온 경로', 1312.0),
+      ]) {
         expect(tester.getRect(find.text(text).first).left, x, reason: text);
       }
       final head = find.text('프로필 id');
@@ -122,6 +131,82 @@ void main() {
       expect(find.text('찾은 사용자가 없어요'), findsOneWidget);
       expect(find.text('입력한 닉네임 · id 를 다시 확인해 보세요'), findsOneWidget);
       expect(tester.getRect(find.byType(AdminTableEmpty)), const Rect.fromLTWH(272, 264, 1136, 240));
+    });
+  });
+
+  group('성별 · 들어온 경로', () {
+    const totalsLine = '남 12명 · 여 9명 (성별 미입력 3명) / 들어온 경로: 에브리타임 5명 · 인스타그램 4명 · 친구 소개 3명 · 커뮤니티 1명 · 기타 2명 · 미응답 9명';
+    Finder totals() => find.byKey(const ValueKey('user-totals'));
+
+    Color? spanColor(WidgetTester tester, String text) {
+      Color? found;
+      tester.widget<Text>(totals()).textSpan!.visitChildren((span) {
+        if (span is TextSpan && span.text == text) found = span.style?.color;
+        return found == null;
+      });
+      return found;
+    }
+
+    testWidgets('줄마다 성별(남 chart-male · 여 chart-female · 미입력 "—") · 들어온 경로(앱 20d 칩 글자, 안 고르면 "미응답")', (tester) async {
+      final server = FakeUserServer(
+        users: [
+          userRow('a1', channel: 'everytime'),
+          userRow('a2', gender: 'female', channel: 'instagram'),
+          userRow('a3', nickname: '닉네임C', gender: null, channel: 'friend'),
+          userRow('a4', channel: 'community'),
+          userRow('a5', gender: 'female', channel: 'other'),
+          userRow('a6'),
+        ],
+      );
+      await openList(tester, server: server);
+
+      Text cell(String id, int column) {
+        final row = find.byKey(ValueKey('user-row-$id'));
+        return tester.widgetList<Text>(find.descendant(of: row, matching: find.byType(Text))).elementAt(column);
+      }
+
+      final expected = [('a1', '남', '에브리타임'), ('a2', '여', '인스타그램'), ('a3', '—', '친구 소개'), ('a4', '남', '커뮤니티'), ('a5', '여', '기타'), ('a6', '남', '미응답')];
+      for (final (id, gender, channel) in expected) {
+        // 줄의 글자 차례: 닉네임 · 프로필 id · 학교 · 상태 배지 · 가입일 · 받은 신고 · 성별 · 들어온 경로
+        expect((cell(id, 6).data, cell(id, 7).data), (gender, channel), reason: id);
+      }
+      expect(cell('a1', 6).style!.color, AdminColors.chartMale);
+      expect(cell('a2', 6).style!.color, AdminColors.chartFemale);
+      expect(cell('a3', 6).style!.color, AdminColors.ink);
+    });
+
+    testWidgets('화면 위 칩 줄 오른쪽에 합계 한 줄(12 web-muted, 남 · 여 숫자만 색) — 칩 · 검색 줄 자리는 그대로', (tester) async {
+      final server = await openList(tester);
+
+      expect(find.text(totalsLine), findsOneWidget);
+      final rect = tester.getRect(totals());
+      expect(rect.right, 1408); // 내용 오른쪽 끝(272 + 1136)
+      expect(rect.top >= 96 && rect.bottom <= 132, isTrue, reason: '$rect'); // 칩 줄(y96 · 높이 36) 안
+      expect(tester.getRect(find.widgetWithText(AdminChip, '닉네임 · id')).topLeft, const Offset(272, 96));
+      expect(tester.getRect(find.byKey(const ValueKey('user-search-box'))).top, 156);
+      expect((styleOf(tester, totals()).fontSize, styleOf(tester, totals()).color), (12, AdminColors.muted));
+      expect(spanColor(tester, '남 12명'), AdminColors.chartMale);
+      expect(spanColor(tester, '여 9명'), AdminColors.chartFemale);
+      expect(server.requests.where((r) => r.url.path == '/admin/users/totals').single.url.query, isEmpty);
+    });
+
+    testWidgets('찾기를 해도 합계는 다시 세지 않는다(찾기와 상관없이 전체 기준)', (tester) async {
+      final server = await openList(tester);
+
+      await tester.enterText(field(), '닉네임A');
+      await tester.tap(button('검색'));
+      await tester.pumpAndSettle();
+
+      expect(server.requests.where((r) => r.url.path == '/admin/users/totals'), hasLength(1));
+      expect(find.text(totalsLine), findsOneWidget);
+    });
+
+    testWidgets('합계를 못 받으면(옛 서버 422 · 오류) 그 자리에만 "합계를 불러오지 못했어요" — 목록은 그대로', (tester) async {
+      final server = FakeUserServer(users: [userRow('8f3a1b2c-0000-4000-8000-000000000c21')])..totalsFailure = 422;
+      await openList(tester, server: server);
+
+      expect(tester.widget<Text>(totals()).data, '합계를 불러오지 못했어요');
+      expect(find.text('닉네임A'), findsOneWidget);
     });
   });
 

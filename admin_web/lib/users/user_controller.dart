@@ -77,6 +77,10 @@ class UserSearchController extends Notifier<UserSearchState> {
   bool _isLatest(int request) => ref.mounted && request == _request;
 }
 
+/// 찾기 화면 위 합계(성별 · 들어온 경로). 화면에 들어올 때 한 번 센다 — 찾기 · 칩과 상관없는 전체 기준이라 찾을 때마다 다시 세지 않는다.
+/// 실패는 그 줄에만 보이고 다시 보내지 않는다(retry 끔 — 옛 서버의 422(`/totals` 를 사용자 id 로 읽는다)에 요청을 거듭 보내지 않게).
+final userTotalsProvider = FutureProvider.autoDispose<UserTotals>((ref) => ref.watch(adminApiProvider).userTotals(), retry: (_, _) => null);
+
 /// A5 상세 한 명(주소 `/users/{id}` 마다 하나). 조치는 여기서 보내고 성공 · 409 뒤 상세를 새로 받는다.
 /// 열람 결과(전화 · 카톡)는 **여기 두지 않는다** — [viewPrivate] 가 돌려주기만 하고 대화상자가 들고 있다가 닫으면 버린다.
 final userDetailProvider = NotifierProvider.autoDispose.family<UserDetailController, AsyncValue<UserDetail>, String>(

@@ -46,6 +46,16 @@ void main() {
   TextStyle styleOf(WidgetTester tester, Finder text) => tester.widget<Text>(text).style!;
   Finder dialogBox(String name) => key(name);
 
+  /// 메타 줄(Text.rich)에서 [text] 조각의 글자색
+  Color? spanColor(WidgetTester tester, String text) {
+    Color? found;
+    tester.widget<Text>(find.textContaining('들어온 경로')).textSpan!.visitChildren((span) {
+      if (span is TextSpan && span.text == text) found = span.style?.color;
+      return found == null;
+    });
+    return found;
+  }
+
   Future<void> letToastGo(WidgetTester tester) async {
     await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();
@@ -67,9 +77,28 @@ void main() {
       final badges = tester.widgetList<StatusBadge>(find.descendant(of: key('user-head'), matching: find.byType(StatusBadge))).toList();
       expect([for (final b in badges) (b.label, b.tone)], [('승인', StatusTone.success), ('카카오 로그인', StatusTone.plain)]);
       expect(tester.getSize(find.byWidget(badges.last)).height, 26);
-      final meta = find.text('서울대학교 · 가입 2026-09-30 · 마지막 활동 2026-10-18');
+      final meta = find.text('서울대학교 · 가입 2026-09-30 · 마지막 활동 2026-10-18 · 남 · 들어온 경로 미응답');
       expect(tester.getRect(meta).left, 368);
       expect((styleOf(tester, meta).fontSize, styleOf(tester, meta).color), (14, AdminColors.muted));
+    });
+
+    testWidgets('메타 줄 끝에 성별(홈과 같은 남 chart-male · 여 chart-female) · 들어온 경로(앱 20d 칩 글자) · 기타 메모 — 머리 카드 높이는 그대로 104', (tester) async {
+      await openDetail(tester, detail: userDetailJson('u1', channel: 'other', note: '학교 게시판'));
+      expect(find.text('서울대학교 · 가입 2026-09-30 · 마지막 활동 2026-10-18 · 남 · 들어온 경로 기타 (학교 게시판)'), findsOneWidget);
+      expect(spanColor(tester, '남'), AdminColors.chartMale);
+      expect(tester.getRect(key('user-head')).height, 104);
+    });
+
+    testWidgets('여 · 인스타그램은 여 chart-female', (tester) async {
+      await openDetail(tester, detail: userDetailJson('u1', gender: 'female', channel: 'instagram'));
+      expect(find.text('서울대학교 · 가입 2026-09-30 · 마지막 활동 2026-10-18 · 여 · 들어온 경로 인스타그램'), findsOneWidget);
+      expect(spanColor(tester, '여'), AdminColors.chartFemale);
+    });
+
+    testWidgets('성별을 아직 안 고른 사람은 "성별 미입력"(메타 색 그대로) · 경로를 안 고르면 "미응답"', (tester) async {
+      await openDetail(tester, detail: userDetailJson('u1', gender: null));
+      expect(find.text('서울대학교 · 가입 2026-09-30 · 마지막 활동 2026-10-18 · 성별 미입력 · 들어온 경로 미응답'), findsOneWidget);
+      expect(spanColor(tester, '성별 미입력'), isNull);
     });
 
     testWidgets('통계 줄 y216: 280×146 카드 셋, 사이 24 — 라벨 14/600 web-muted · 값 32/700', (tester) async {
