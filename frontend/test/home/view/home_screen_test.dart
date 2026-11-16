@@ -6,10 +6,12 @@ import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart'
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
+import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/entrance.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/pressable.dart';
+import 'package:campus_mate/common/widgets/retry_notice.dart';
 import 'package:campus_mate/consent/model/repository/open_url.dart';
 import 'package:campus_mate/core/app_update/store_listing.dart';
 import 'package:campus_mate/core/app_update/update_requirement_provider.dart';
@@ -34,6 +36,7 @@ import 'package:campus_mate/home/view/tag.dart';
 import 'package:campus_mate/home/viewmodel/home_people_provider.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/matching/model/data/card_profile.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/matching/model/data/daily_card.dart';
@@ -1389,6 +1392,168 @@ void main() {
     expect(tester.getRect(find.byType(GlassBottomNav)).top - tester.getBottomLeft(toast).dy, 12);
   });
 
+  // 사용자 결정(2026-11-16, 「다시 시도 + 자동」): 요약을 못 받으면 hero 아래 요약 자리에 앱 공용 작은 불러오기 실패 안내를 둔다.
+  // "다시 시도" 는 다시 읽고, 앱이 다시 앞으로 오면 요약이 비어 있을 때만 다시 읽는다.
+  group('요약 못 받음 — 다시 시도(RetryNotice.inline) · 앱 복귀 때 다시 읽기', () {
+    final retry = find.byType(RetryNotice);
+    final retryButton = find.descendant(of: retry, matching: find.byType(AppButton));
+
+    /// AppLifecycleListener 는 한 칸씩 넘어가는 순서만 받는다 — 기기와 같은 순서로 보낸다(cohort_wait_view_test 와 같다).
+    Future<void> backgroundAndResume(WidgetTester tester) async {
+      for (final state in [
+        AppLifecycleState.inactive,
+        AppLifecycleState.hidden,
+        AppLifecycleState.paused,
+        AppLifecycleState.hidden,
+        AppLifecycleState.inactive,
+        AppLifecycleState.resumed,
+      ]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+      }
+      await tester.pump();
+    }
+
+    testWidgets('못 받으면 hero 아래 24 에 공용 실패 안내("잠시 후 다시 시도해 주세요" + 다시 시도)가 뜬다', (tester) async {
+      await pump(tester, result: const FailureResult(NetworkFailure()));
+
+      expect(retry, findsOneWidget);
+      // 나 탭 · 계정 불러오기 실패와 같은 문구(검토 권고 2026-11-16) — 저장소가 실패 종류를 삼켜 일반 안내다.
+      expect(find.descendant(of: retry, matching: find.text(AppLocalizationsKo().errorTryLater)), findsOneWidget);
+      expect(find.descendant(of: retry, matching: find.text(AppLocalizationsKo().commonRetry)), findsOneWidget);
+      expect(tester.getTopLeft(retry).dy - tester.getBottomLeft(heroFrame()).dy, 24);
+      expect(find.byType(MosaicRail), findsNothing);
+    });
+
+    testWidgets('받는 중(처음)에는 안내가 없다 — 실패와 받는 중을 가른다', (tester) async {
+      final home = HoldingHomeRepository(const Success(summary));
+      await pump(tester, home: home, settle: false);
+
+      expect(retry, findsNothing);
+      home.release();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+    });
+
+    testWidgets('"다시 시도" 는 요약을 다시 읽고, 받으면 안내가 빠지고 요약 섹션이 처음 받을 때처럼 올라온다', (tester) async {
+      final home = FakeHomeRepository(const FailureResult(NetworkFailure()));
+      await pump(tester, home: home);
+      expect(home.calls, 1);
+
+      home.summary = const Success(summary);
+      await tester.tap(find.text(AppLocalizationsKo().commonRetry));
+      await tester.pump();
+      expect(home.calls, 2);
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(retry, findsNothing);
+      expect(find.byType(MosaicRail), findsOneWidget);
+      expect(find.byType(HomeGrid), findsOneWidget);
+      // 처음 받는 요약이라 블록 등장 효과가 걸린다(이미 받아 둔 요약을 다시 읽을 때와 다르다).
+      expect(find.ancestor(of: find.byType(HomeGrid), matching: find.byType(Entrance)), findsOneWidget);
+    });
+
+    testWidgets('다시 읽는 동안에는 안내 자리가 그대로이고 "다시 시도" 가 도는 표시로 바뀐다(안내 ↔ 빈 화면 깜빡임 없음)', (tester) async {
+      final home = HoldingHomeRepository(const FailureResult(NetworkFailure()));
+      home.release();
+      await pump(tester, home: home);
+      expect(retry, findsOneWidget);
+      final place = tester.getRect(retry);
+
+      home.hold();
+      await tester.tap(find.text(AppLocalizationsKo().commonRetry));
+      await tester.pump();
+
+      expect(retry, findsOneWidget);
+      expect(tester.getRect(retry).top, place.top);
+      expect(tester.widget<AppButton>(retryButton).isLoading, isTrue);
+      expect(find.byType(MosaicRail), findsNothing);
+
+      home.release();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(retry, findsOneWidget);
+      expect(tester.widget<AppButton>(retryButton).isLoading, isFalse);
+    });
+
+    testWidgets('못 받은 채 앱이 다시 앞으로 오면 요약을 다시 읽어 그린다', (tester) async {
+      final home = FakeHomeRepository(const FailureResult(NetworkFailure()));
+      await pump(tester, home: home);
+      expect(home.calls, 1);
+
+      home.summary = const Success(summary);
+      await backgroundAndResume(tester);
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(home.calls, 2);
+      expect(retry, findsNothing);
+      expect(find.byType(MosaicRail), findsOneWidget);
+    });
+
+    testWidgets('"다시 시도" 로 읽는 중에 앱이 다시 앞으로 와도 겹쳐 읽지 않는다', (tester) async {
+      final home = HoldingHomeRepository(const FailureResult(NetworkFailure()));
+      home.release();
+      await pump(tester, home: home);
+      expect(home.calls, 1);
+
+      home.hold();
+      await tester.tap(find.text(AppLocalizationsKo().commonRetry));
+      await tester.pump();
+      expect(home.calls, 2);
+
+      await backgroundAndResume(tester);
+      expect(home.calls, 2);
+
+      home.release();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+    });
+
+    testWidgets('못 받은 채 다른 탭에 갔다 홈으로 돌아오면 한 번 다시 읽어 그린다', (tester) async {
+      final home = FakeHomeRepository(const FailureResult(NetworkFailure()));
+      await pump(tester, home: home);
+      expect(home.calls, 1);
+
+      router.go(AppRoutes.today);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byType(HomeScreen), findsNothing);
+
+      home.summary = const Success(summary);
+      router.go(AppRoutes.home);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(home.calls, 2);
+      expect(retry, findsNothing);
+      expect(find.byType(MosaicRail), findsOneWidget);
+    });
+
+    testWidgets('요약을 받아 둔 채 다른 탭에 갔다 홈으로 돌아오면 다시 읽지 않는다', (tester) async {
+      final home = FakeHomeRepository(const Success(summary));
+      await pump(tester, home: home);
+
+      router.go(AppRoutes.today);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      router.go(AppRoutes.home);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(home.calls, 1);
+    });
+
+    testWidgets('요약을 받아 둔 채 앱이 다시 앞으로 오면 다시 읽지 않는다(돈 드는 호출 없음)', (tester) async {
+      final home = FakeHomeRepository(const Success(summary));
+      await pump(tester, home: home);
+      expect(home.calls, 1);
+
+      await backgroundAndResume(tester);
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(home.calls, 1);
+    });
+  });
+
   testWidgets('요약을 못 받아도 hero-today 는 남고 배너 · 링크 칸 · 완성도 카드는 통째로 숨는다(요약 없이 지어내지 않는다)', (tester) async {
     await pump(tester, result: const FailureResult(NetworkFailure()));
 
@@ -1524,3 +1689,25 @@ void main() {
     });
   });
 }
+
+/// 요약 응답을 붙잡아 둘 수 있는 가짜 저장소 — [hold] 하면 [release] 할 때까지 답하지 않는다(처음엔 붙잡힌 채 시작).
+class HoldingHomeRepository extends FakeHomeRepository {
+  HoldingHomeRepository(super.summary);
+
+  Completer<void>? _gate = Completer<void>();
+
+  void hold() => _gate = Completer<void>();
+
+  void release() {
+    _gate?.complete();
+    _gate = null;
+  }
+
+  @override
+  Future<Result<HomeSummary>> fetchSummary() async {
+    calls++;
+    await _gate?.future;
+    return summary;
+  }
+}
+

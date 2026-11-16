@@ -11,15 +11,18 @@ import 'package:flutter/material.dart';
 ///
 /// 기본은 화면용(가운데, 글자를 키워 넘치면 스크롤, 사방 24). 구역 · 시트 안에 끼워 넣을 때는 [RetryNotice.inline].
 class RetryNotice extends StatelessWidget {
-  const RetryNotice({required this.message, required this.onRetry, super.key}) : _inline = false;
+  const RetryNotice({required this.message, required this.onRetry, super.key}) : _inline = false, busy = false;
 
   /// 감싸기(가운데 · 스크롤 · 여백) 없이 문구 + 버튼 조각만 — 하트 스토어 구역 · 친구 초대 시트 안.
-  const RetryNotice.inline({required this.message, required this.onRetry, super.key}) : _inline = true;
+  const RetryNotice.inline({required this.message, required this.onRetry, this.busy = false, super.key}) : _inline = true;
 
   final String message;
 
   /// "다시 시도" 를 눌렀을 때. `Future` 를 돌려주는 함수도 그대로 넘길 수 있다.
   final VoidCallback onRetry;
+
+  /// 다시 읽는 중 — 문구 · 자리는 그대로 두고 "다시 시도" 만 같은 크기의 도는 표시로 바꿔 다시 눌리지 않게 한다(홈 요약, 2026-11-16).
+  final bool busy;
   final bool _inline;
 
   @override
@@ -29,7 +32,7 @@ class RetryNotice extends StatelessWidget {
       children: [
         Text(message, textAlign: TextAlign.center, style: AppTypography.body.copyWith(color: AppColors.muted)),
         const SizedBox(height: AppSpacing.sm),
-        AppButton(label: context.l10n.commonRetry, variant: AppButtonVariant.text, onPressed: onRetry),
+        AppButton(label: context.l10n.commonRetry, variant: AppButtonVariant.text, onPressed: onRetry, isLoading: busy),
       ],
     );
     if (_inline) return piece;
