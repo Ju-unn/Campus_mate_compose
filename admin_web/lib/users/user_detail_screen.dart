@@ -289,6 +289,8 @@ class _HeadCard extends StatelessWidget {
     final user = detail.summary;
     final (statusLabel, statusTone) = userStatusBadge(user.status);
     final active = detail.lastActiveAt;
+    final gender = genderMark(user.gender);
+    final note = detail.acquisitionNote;
     final avatar = detail.avatarUrl;
     const placeholder = Center(child: Icon(LucideIcons.user, size: 24, color: AdminColors.disabled));
     return _card(
@@ -323,8 +325,18 @@ class _HeadCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: AdminSpacing.xxs),
-                Text(
-                  '${user.university ?? missingValue} · 가입 ${formatKstDate(user.createdAt)} · 마지막 활동 ${active == null ? missingValue : formatKstDate(active)}',
+                // pen 메타 줄 끝에 성별(남 · 여만 홈 그래프 색) · 들어온 경로(기타면 메모) — 새 줄을 두면 카드 높이 104 가 바뀐다
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: '${user.university ?? missingValue} · 가입 ${formatKstDate(user.createdAt)} · '
+                            '마지막 활동 ${active == null ? missingValue : formatKstDate(active)} · ',
+                      ),
+                      TextSpan(text: gender?.$1 ?? '성별 미입력', style: TextStyle(color: gender?.$2)),
+                      TextSpan(text: ' · 들어온 경로 ${acquisitionChannelLabel(user.acquisitionChannel)}${note == null ? '' : ' ($note)'}'),
+                    ],
+                  ),
                   style: AdminTypography.sm.copyWith(height: AdminTypography.smBox, color: AdminColors.muted),
                 ),
               ],
