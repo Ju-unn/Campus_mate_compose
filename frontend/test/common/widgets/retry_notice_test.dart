@@ -74,5 +74,21 @@ void main() {
       expect(buttonRect.width, 360);
       expect(tester.widget<Text>(find.text(message)).style!.color, AppColors.muted);
     });
+
+    // 홈 요약 다시 읽기(2026-11-16) — 다시 읽는 동안 안내 자리를 그대로 두고 버튼만 도는 표시로 바꾼다(깜빡임 없이).
+    testWidgets('busy 면 문구는 그대로, "다시 시도" 는 같은 크기의 도는 표시로 바뀌고 눌리지 않는다', (tester) async {
+      var retried = 0;
+      await pump(tester, Column(children: [RetryNotice.inline(message: message, onRetry: () => retried++)]));
+      final before = tester.getRect(find.byType(AppButton));
+
+      await pump(tester, Column(children: [RetryNotice.inline(message: message, onRetry: () => retried++, busy: true)]));
+
+      expect(find.text(message), findsOneWidget);
+      final button = tester.widget<AppButton>(find.byType(AppButton));
+      expect(button.isLoading, isTrue);
+      expect(tester.getRect(find.byType(AppButton)), before);
+      await tester.tap(find.byType(AppButton), warnIfMissed: false);
+      expect(retried, 0);
+    });
   });
 }
