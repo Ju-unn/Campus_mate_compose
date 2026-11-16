@@ -283,7 +283,7 @@ if (status == statusPending) { ... }   // 대기 상태일 때만 처리
 
 - **아이콘은 Lucide (`lucide_icons_flutter`)** 로 통일한다. 위젯에서 `LucideIcons.*` 를 직접 부르지 않고 `AppIcons` 상수를 거친다 (DESIGN.md §5.3)
   - **예외: 하트 재화 글리프.** 잔액·번들·리워드·CTA·아바타 코스트·설정 보유하트 등 "재화" 의미의 하트는 Lucide 가 아니라 이미지 자산 `assets/images/heart-flat-vector-v3.webp` 를 쓴다 (DESIGN.md §5.4·§8.10). 바텀 내비 오늘 탭·호감 하트·매칭 기록 등 비(非)재화 하트는 계속 Lucide `heart`. 재화 글리프는 다크 배경에서도 읽히는 렌더 + `@2x`/`@3x` 자산 + `Semantics(label: '하트')` 를 갖춘다
-- **버튼은 공용 `AppButton`(`common/widgets/app_button.dart`, pen Button `HE8FZ`)을 그대로 쓰고 라벨 크기를 화면에서 바꾸지 않는다.** 라벨은 16/700(`AppTypography.button`) — 채움 버튼은 높이 52 · 모서리 14, text 변형은 높이 48 · 16/600, 탈퇴 시트 `neutral` 만 18/700 이다(DESIGN.md §8.3). 10b · 받은 신청 프로필 보기의 아이콘 결정 버튼은 `AppTypography.label` 18/700 이다. `{colors.primary}` (#FF385C) 위 흰 글씨는 대비 3.52:1 이라 큰 글씨 예외(18.66px 이상 굵은 글씨)에 의존해야 하는데 16/700 은 그 예외에 들지 않는다 — 미결이다(DESIGN.md §2.1 · §8.3 · §13-151)
+- **버튼은 공용 `AppButton`(`common/widgets/app_button.dart`, pen Button `HE8FZ`)을 그대로 쓰고 라벨 크기를 화면에서 바꾸지 않는다.** 라벨은 16/700(`AppTypography.button`) — 채움 버튼은 높이 52 · 모서리 14, text 변형은 높이 48 · 16/600, 탈퇴 시트 `neutral` 만 18/700 이다(DESIGN.md §8.3). 변형은 일곱 가지이고 `tonal`(회색 채움 · ink 글자 — 확인 팝업 "취소" · 14f "조금 더 대화해 볼게요", 2026-11-16)과 라벨 왼쪽 그림 `leading` 이 새로 생겼다. 흰 글자 채움(`dangerStrong`)과 `tonal` 은 눌려도 자기 채움 그대로다 10b · 받은 신청 프로필 보기의 아이콘 결정 버튼은 `AppTypography.label` 18/700 이다. `{colors.primary}` (#FF385C) 위 흰 글씨는 대비 3.52:1 이라 큰 글씨 예외(18.66px 이상 굵은 글씨)에 의존해야 하는데 16/700 은 그 예외에 들지 않는다 — 미결이다(DESIGN.md §2.1 · §8.3 · §13-151)
 - **`{colors.primary}` 는 채움 전용.** 흰 배경 위 텍스트에는 `{colors.primary-text}` (#C4224B) 를 쓴다
 - **사용자는 전 화면에서 닉네임으로만 표시한다. 실명(`real_name`)은 서버 응답에 담지 않는다** (DESIGN.md §8.7 · 설계 문서 §7.3, ERD.md §11-2). 실명은 받지도 보이지도 않는다 — 학생증 인증 제거(2026-10-17) 뒤 서버 `GET /account` 도 싣지 않고 앱도 읽지 않는다(옛 계정의 암호문이 `profile_private.real_name_enc` 에 남아 있어도 읽지 않는다). `김○○` 같은 마스킹 표시는 쓰지 않는다
 - **`MediaQuery.disableAnimations` 를 존중한다.** 켜져 있으면 모든 모션 시간을 0으로 만들고 최종 상태를 즉시 그린다
@@ -343,6 +343,7 @@ if (status == statusPending) { ... }   // 대기 상태일 때만 처리
 | `test/core/theme/color_tokens_test.dart` | `lib/core/theme/` 밖에 색 리터럴(`Color(0x…)` · `Colors.<이름>.withValues` 등) 금지 — 예외 목록은 비어 있다 |
 | `test/core/theme/app_lottie_test.dart` | Lottie 장면 표 · 에셋 · pubspec 그림 폴더 · 크기 예산 |
 | `test/common/widgets/app_lottie_view_test.dart` | `package:lottie` 는 `AppLottieView` 한 곳에서만 |
+| `test/common/widgets/motion_entry_points_test.dart` | `showDialog` 류 · `showModalBottomSheet` · `ScaffoldMessenger.showSnackBar` 는 공용 진입점 파일(`app_dialog_route.dart` · `app_bottom_sheet.dart` · `app_snack_bar.dart`)에서만 부른다(예외: 사진 확대 보기 `photo_zoom_viewer.dart`), 주소로 여는 20b 시트는 `appSheetAnimationStyle` 을 쓴다 |
 | `test/auth/social/view/start_view_test.dart` | 심사원 로그인 입구와 소셜 버튼이 겹치지 않음 |
 | `test/assets/asset_images_test.dart` | lib 이 부르는 `assets/images/…` 그림(동물상은 열거 값마다 펼쳐서)이 실제 파일이다, `assets/images` 그림은 한 장 300KB 이하 |
 
