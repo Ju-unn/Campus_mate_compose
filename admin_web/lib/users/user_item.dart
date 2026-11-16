@@ -3,7 +3,9 @@
 library;
 
 import 'package:campus_mate_admin/billing/billing_item.dart' show productDisplayName;
+import 'package:campus_mate_admin/theme/admin_colors.dart';
 import 'package:campus_mate_admin/widgets/status_badge.dart';
+import 'package:flutter/painting.dart' show Color;
 
 /// 프로필 상태 → 배지(pen: 승인 success · 정지 danger · 탈퇴 neutral). 가입 중은 pen 에 없어 warning.
 (String, StatusTone) userStatusBadge(String status) {
@@ -23,6 +25,29 @@ String loginProviderName(String provider) {
     'google' => '구글',
     'apple' => '애플',
     _ => provider,
+  };
+}
+
+/// 성별(gender enum) → 홈 가입 추이와 같은 글자 · 색(남 chart-male · 여 chart-female). 고르기 전(null)은 null, 모르는 값은 그대로(색 없음).
+(String, Color?)? genderMark(String? gender) {
+  return switch (gender) {
+    null => null,
+    'male' => ('남', AdminColors.chartMale),
+    'female' => ('여', AdminColors.chartFemale),
+    _ => (gender, null),
+  };
+}
+
+/// 들어온 경로(acquisition_channel enum) → 앱 가입 20d 칩 글자(frontend app_ko.arb profileAcquisitionChannel*). 고르기 전(null)은 "미응답".
+String acquisitionChannelLabel(String? channel) {
+  return switch (channel) {
+    null => '미응답',
+    'everytime' => '에브리타임',
+    'instagram' => '인스타그램',
+    'friend' => '친구 소개',
+    'community' => '커뮤니티',
+    'other' => '기타',
+    _ => channel,
   };
 }
 
@@ -79,6 +104,8 @@ class UserSummary {
     required this.status,
     required this.createdAt,
     required this.reportCount,
+    this.gender,
+    this.acquisitionChannel,
   });
 
   final String id;
@@ -89,6 +116,12 @@ class UserSummary {
 
   /// 그 사람이 받은 신고 수
   final int reportCount;
+
+  /// male · female, 고르기 전이면 null. 옛 서버(칸 없음)도 null.
+  final String? gender;
+
+  /// everytime · instagram · friend · community · other, 고르기 전이면 null
+  final String? acquisitionChannel;
 
   bool get isSuspended => status == 'suspended';
   bool get isWithdrawn => status == 'withdrawn';
@@ -104,7 +137,9 @@ class UserSummary {
     }) {
       final nickname = json['nickname'];
       final university = json['university'];
-      if (nickname is String? && university is String?) {
+      final gender = json['gender'];
+      final channel = json['acquisition_channel'];
+      if (nickname is String? && university is String? && gender is String? && channel is String?) {
         return UserSummary(
           id: id,
           nickname: nickname,
@@ -112,11 +147,40 @@ class UserSummary {
           status: status,
           createdAt: _time(json['created_at'], '가입'),
           reportCount: reports,
+          gender: gender,
+          acquisitionChannel: channel,
         );
       }
     }
     throw const FormatException('사용자 한 줄의 모양이 아니에요');
   }
+}
+
+/// 사용자 화면 위 합계(서버 `/admin/users/totals`) — 개수만. 키는 DB enum 값이고 고르기 전(null)은 "none".
+class UserTotals {
+  const UserTotals({required this.gender, required this.channels});
+
+  /// male · female · none
+  final Map<String, int> gender;
+
+  /// everytime · instagram · friend · community · other · none(서버가 보낸 차례 그대로)
+  final Map<String, int> channels;
+
+  /// "에브리타임 5명 · … · 미응답 9명"
+  String get channelLine => [
+    for (final MapEntry(:key, :value) in channels.entries) '${acquisitionChannelLabel(key == 'none' ? null : key)} $value명',
+  ].join(' · ');
+
+  static UserTotals fromJson(Object? json) {
+    if (json case {'gender': final Map<String, Object?> gender, 'acquisition_channel': final Map<String, Object?> channels}) {
+      return UserTotals(gender: _counts(gender), channels: _counts(channels));
+    }
+    throw const FormatException('사용자 합계의 모양이 아니에요');
+  }
+
+  static Map<String, int> _counts(Map<String, Object?> json) => {
+    for (final MapEntry(:key, :value) in json.entries) key: value is int ? value : throw const FormatException('사용자 합계의 개수가 아니에요'),
+  };
 }
 
 /// 하트 원장 한 줄 — [balanceAfter] 는 그 줄 직후 잔액(서버가 거슬러 계산)
@@ -216,6 +280,7 @@ class UserDetail {
   const UserDetail({
     required this.summary,
     required this.lastActiveAt,
+    this.acquisitionNote,
     required this.avatarUrl,
     required this.loginProviders,
     required this.heartBalance,
@@ -227,6 +292,9 @@ class UserDetail {
 
   final UserSummary summary;
   final DateTime? lastActiveAt;
+
+  /// 들어온 경로가 기타일 때 사용자가 쓴 메모(30자, 그 밖은 null)
+  final String? acquisitionNote;
 
   /// 공개 아바타 주소(없으면 사람 모양 아이콘 자리)
   final String? avatarUrl;
@@ -249,10 +317,12 @@ class UserDetail {
     }) {
       final providers = json['login_providers'];
       final avatar = json['avatar_url'];
-      if (providers is List<Object?>? && avatar is String?) {
+      final note = json['acquisition_note'];
+      if (providers is List<Object?>? && avatar is String? && note is String?) {
         return UserDetail(
           summary: UserSummary.fromJson(json),
           lastActiveAt: _timeOrNull(json['last_active_at']),
+          acquisitionNote: note,
           avatarUrl: avatar,
           loginProviders: providers == null ? null : [for (final p in providers) if (p is String) p],
           heartBalance: balance,
