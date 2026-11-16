@@ -114,7 +114,7 @@ async def _wire_signed_in(
 
 
 def _avatar_path(profile: dict) -> str | None:
-    """가장 최근에 다 만든 아바타의 저장소 경로(`{profile_id}/…png`)."""
+    """가장 최근에 다 만든 아바타의 저장소 경로(`{profile_id}/…jpg`, 2026-11-16 전에 만든 것과 기본 아바타는 `…png`)."""
     avatars = [a for a in profile.get("profile_avatars") or [] if a["status"] == "ready"]
     latest = max(avatars, key=lambda a: a["created_at"], default=None)
     return latest["storage_path"] if latest else None

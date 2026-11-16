@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import io
 from unittest.mock import AsyncMock
@@ -154,6 +155,38 @@ async def test_generate_returns_ready_on_first_success():
 
     assert result.status == "ready"
     assert result.storage_path == "profile-id/uuid.png"
+
+
+def _generated_png_b64() -> str:
+    buffer = io.BytesIO()
+    Image.new("RGB", (64, 96), "white").save(buffer, "PNG")
+    return base64.b64encode(buffer.getvalue()).decode()
+
+
+async def test_generate_stores_the_avatar_as_jpeg():
+    """PNG(평균 1.2MB) 대신 JPEG(약 1/7)로 저장한다 — 사용자 결정 2026-11-16."""
+    openai_client = AsyncMock()
+    openai_client.images.edit.return_value.data = [AsyncMock(b64_json=_generated_png_b64())]
+    storage = AsyncMock()
+
+    await AvatarGenerator(openai_client, storage, failure_counts={}).generate("profile-id", _JPEG_BYTES)
+
+    path, data, content_type = storage.upload.call_args.args
+    assert path.startswith("profile-id/") and path.endswith(".jpg")
+    assert content_type == "image/jpeg"
+    assert Image.open(io.BytesIO(data)).format == "JPEG"
+
+
+async def test_generate_keeps_the_png_when_it_cannot_be_converted():
+    openai_client = AsyncMock()
+    openai_client.images.edit.return_value.data = [AsyncMock(b64_json="ZmFrZQ==")]
+    storage = AsyncMock()
+
+    result = await AvatarGenerator(openai_client, storage, failure_counts={}).generate("profile-id", _JPEG_BYTES)
+
+    path, data, content_type = storage.upload.call_args.args
+    assert result.status == "ready"
+    assert path.endswith(".png") and content_type == "image/png" and data == b"fake"
 
 
 async def test_generate_fails_without_calling_openai_when_format_is_unknown():
