@@ -188,6 +188,9 @@ class AdminApi {
     throw const FormatException('사용자 목록의 모양이 아니에요');
   }
 
+  /// 성별 · 들어온 경로 인원 — 목록(q 없음)과 같은 기준(관리자 제외, 모든 상태). 개수만 온다.
+  Future<UserTotals> userTotals() => _read(send('GET', '/admin/users/totals'), UserTotals.fromJson);
+
   Future<UserDetail> getUser(String id) async {
     return _read(send('GET', _idPath('/admin/users', id)), UserDetail.fromJson);
   }

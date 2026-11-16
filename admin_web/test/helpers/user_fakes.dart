@@ -13,8 +13,27 @@ Map<String, Object?> userRow(
   String status = 'active',
   String createdAt = '2026-09-30T03:00:00+00:00',
   int reports = 0,
+  String? gender = 'male',
+  String? channel,
 }) {
-  return {'id': id, 'nickname': nickname, 'university': university, 'status': status, 'created_at': createdAt, 'report_count': reports};
+  return {
+    'id': id,
+    'nickname': nickname,
+    'university': university,
+    'status': status,
+    'created_at': createdAt,
+    'report_count': reports,
+    'gender': gender,
+    'acquisition_channel': channel,
+  };
+}
+
+/// 사용자 합계(서버 `/admin/users/totals` 모양) — 개수만
+Map<String, Object?> userTotalsJson({int male = 12, int female = 9, int noGender = 3}) {
+  return {
+    'gender': {'male': male, 'female': female, 'none': noGender},
+    'acquisition_channel': {'everytime': 5, 'instagram': 4, 'friend': 3, 'community': 1, 'other': 2, 'none': 9},
+  };
 }
 
 /// 상세(UserDetail) — pen A5_사용자_상세 예시와 같은 값
@@ -29,9 +48,13 @@ Map<String, Object?> userDetailJson(
   List<Map<String, Object?>>? hearts,
   List<Map<String, Object?>>? purchases,
   List<Map<String, Object?>>? notes,
+  String? gender = 'male',
+  String? channel,
+  String? note,
 }) {
   return {
-    ...userRow(id, nickname: nickname, status: status, reports: reports),
+    ...userRow(id, nickname: nickname, status: status, reports: reports, gender: gender, channel: channel),
+    'acquisition_note': note,
     'last_active_at': '2026-10-18T05:20:00+00:00',
     'auto_hidden_at': null,
     'avatar_url': null,
@@ -200,8 +223,10 @@ class FakeUserServer {
     returnedRow(id: 'u7', nickname: null, count: 1, krw: 3000, granted: 50, clawed: 0, lastAt: '2026-10-04T00:12:00+00:00'),
   ];
   List<Map<String, Object?>> orders = [orderRow()];
+  Map<String, Object?> totals = userTotalsJson();
 
   int? listFailure;
+  int? totalsFailure;
   int? detailFailure;
   int? billingFailure;
   int? returnedFailure;
@@ -243,6 +268,7 @@ class FakeUserServer {
       final owner = mailOwners[mail];
       return _json(200, {'items': [for (final u in users) if (u['id'] == owner) u]});
     }
+    if (request.method == 'GET' && path == '/admin/users/totals') return _fail(totalsFailure) ?? _json(200, totals);
     final segments = request.url.pathSegments;
     if (request.method == 'GET' && segments.length == 3 && segments[1] == 'users') {
       final failure = _fail(detailFailure);
