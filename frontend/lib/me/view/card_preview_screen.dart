@@ -1,4 +1,5 @@
 import 'package:campus_mate/account/viewmodel/account_info_provider.dart';
+import 'package:campus_mate/common/widgets/app_tab_bar.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -10,7 +11,6 @@ import 'package:campus_mate/matching/view/card_detail_screen.dart';
 import 'package:campus_mate/matching/view/profile_avatar_header.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/view/me_load_error.dart';
-import 'package:campus_mate/me/view/me_tab_bar.dart';
 import 'package:campus_mate/me/viewmodel/card_preview_provider.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/safety/view/revealed_profile_parts.dart';
@@ -60,7 +60,7 @@ class _CardPreviewScreenState extends ConsumerState<CardPreviewScreen> {
         top: false,
         child: Column(
           children: [
-            MeTabBar(labels: [context.l10n.meCardPreviewTabBefore, context.l10n.meCardPreviewTabAfter], selected: _selected, onSelected: (index) => setState(() => _selected = index)),
+            AppTabBar(labels: [context.l10n.meCardPreviewTabBefore, context.l10n.meCardPreviewTabAfter], selected: _selected, onSelected: (index) => setState(() => _selected = index)),
             Expanded(child: _body(hasReviews: hasReviews)),
           ],
         ),
@@ -90,10 +90,10 @@ class _CardPreviewScreenState extends ConsumerState<CardPreviewScreen> {
 const double _bodyBottom = 40;
 
 /// 본문 `iFAyO` — 위 24 · 좌우 16 · 아래 40, 안내 ↔ 카드 32. 카드 높이는 내용 맞춤(N17).
-/// 위 24 는 탭 바의 누르는 칸이 보이는 줄 아래로 더한 만큼([MeTabBar.extraHitHeight])을 뺀 값이다 — 안내의 보이는 자리는 pen 그대로(탭 바 아래 24).
+/// 위 24 는 탭 바의 누르는 칸이 보이는 줄 아래로 더한 만큼([AppTabBar.extraHitHeight])을 뺀 값이다 — 안내의 보이는 자리는 pen 그대로(탭 바 아래 24).
 const EdgeInsets _bodyPadding = EdgeInsets.fromLTRB(
   AppSpacing.md,
-  AppSpacing.lg - MeTabBar.extraHitHeight,
+  AppSpacing.lg - AppTabBar.extraHitHeight,
   AppSpacing.md,
   _bodyBottom,
 );

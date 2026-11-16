@@ -2,11 +2,12 @@ import 'dart:async';
 import 'dart:ui' show Tristate;
 import 'dart:typed_data';
 
-import 'package:campus_mate/common/failure.dart';
-import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/account/model/data/account_info.dart';
 import 'package:campus_mate/account/model/repository/account_repository.dart';
+import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
+import 'package:campus_mate/common/widgets/app_tab_bar.dart';
 import 'package:campus_mate/common/widgets/photo_slider.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -21,14 +22,13 @@ import 'package:campus_mate/matching/model/data/card_detail.dart';
 import 'package:campus_mate/matching/model/data/card_profile.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
 import 'package:campus_mate/matching/view/profile_avatar_header.dart';
+import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/view/card_preview_screen.dart';
-import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/view/me_load_error.dart';
-import 'package:campus_mate/me/view/me_tab_bar.dart';
-import 'package:campus_mate/safety/view/revealed_profile_parts.dart';
 import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
+import 'package:campus_mate/safety/view/revealed_profile_parts.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -355,7 +355,7 @@ void main() {
       usePenFrame(tester);
       await pump(tester);
 
-      final bar = find.byType(MeTabBar);
+      final bar = find.byType(AppTabBar);
       expect(tester.getTopLeft(bar), const Offset(0, 56));
       // 보이는 줄은 44(아래 선 1px 은 그 안에 든다)이고, 누르는 칸만 48 이다 — 모자란 4 는 아래 선 밑으로 투명하게 늘렸다.
       expect(tester.getSize(bar), const Size(360, 48));
@@ -726,7 +726,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(MeLoadError), findsOneWidget);
-      expect(find.byType(MeTabBar), findsOneWidget);
+      expect(find.byType(AppTabBar), findsOneWidget);
     });
   });
 
