@@ -37,7 +37,7 @@
 
 | 항목 | 결정 |
 | --- | --- |
-| 앱 이름 | CampusMate |
+| 앱 이름 | CampusMate (앱 안 글자 로고 · 홈 제목). **폰 아이콘 밑 이름은 "캠퍼스메이트"** — `android/app/src/main/AndroidManifest.xml` 의 `android:label` 과 `ios/Runner/Info.plist` 의 `CFBundleDisplayName` 두 곳을 같이 둔다. 스토어 이름(App Store Connect · 플레이 콘솔)은 이것과 따로 정한다 |
 | 패키지명 | `io.github.juunn.campusmate` |
 | 플랫폼 | Android + iOS (웹 버전은 계획 단계 — 아래 "웹 버전") |
 | 프레임워크 | Flutter (Dart) |
