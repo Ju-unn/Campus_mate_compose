@@ -17,7 +17,7 @@ from app.admin.caller import AdminCaller, get_admin_caller
 from app.admin.reason import Reason
 from app.admin.repository import NOT_FOUND
 from app.admin.request_ip import request_ip
-from app.admin.user_repository import NOTE_ACTION, AdminUserRepository
+from app.admin.user_repository import CHANNELS, GENDERS, NOTE_ACTION, AdminUserRepository
 from app.chat.router import avatar_url
 from app.core import errors
 from app.signup_policy import bytea_literal, hash_email
@@ -48,10 +48,11 @@ def _repo(caller: AdminCaller) -> AdminUserRepository:
 
 
 def _summary(row: dict, report_count: int) -> dict:
-    """목록 한 줄(pen A5 찾기 표: 닉네임 · 프로필 id · 학교 · 상태 · 가입일 · 받은 신고)."""
+    """목록 한 줄(pen A5 찾기 표: 닉네임 · 프로필 id · 학교 · 상태 · 가입일 · 받은 신고 + 성별 · 들어온 경로, null = 입력 전)."""
     return {
         "id": row["id"], "nickname": row["nickname"], "university": (row["universities"] or {}).get("name"),
         "status": row["status"], "created_at": row["created_at"], "report_count": report_count,
+        "gender": row["gender"], "acquisition_channel": row["acquisition_channel"],
     }
 
 
@@ -109,6 +110,17 @@ async def list_users(
     return {"items": await _summaries(repo, rows)}
 
 
+@router.get("/totals")
+async def user_totals(caller: AdminCaller = Depends(get_admin_caller)) -> dict:
+    """사용자 화면 위 합계 — 목록(q 없음)과 같은 기준(관리자 제외, 가입 중 · 정지 · 탈퇴 포함)의 성별 · 들어온 경로 인원.
+    개수만 싣는다. `/{user_id}` 보다 먼저 선언해야 "totals" 가 사용자 번호로 읽히지 않는다."""
+    repo = _repo(caller)
+    admins = await repo.admin_ids()
+    gender, channel = await asyncio.gather(repo.count_profiles_by("gender", GENDERS, admins),
+                                           repo.count_profiles_by("acquisition_channel", CHANNELS, admins))
+    return {"gender": gender, "acquisition_channel": channel}
+
+
 @router.post("/search")
 async def search_by_school_email(body: SearchBody, caller: AdminCaller = Depends(get_admin_caller)) -> dict:
     """학교 메일로 찾기(탈퇴 대행 10일 기한 · 정지 문의에 필요). 원문이 아니라 해시로 정확히 일치하는 계정만 — 기록하지 않는다."""
@@ -137,6 +149,7 @@ async def get_user(user_id: UUID, caller: AdminCaller = Depends(get_admin_caller
     )
     return {
         **_summary(row, reports),
+        "acquisition_note": row["acquisition_note"],  # 들어온 경로가 기타일 때 쓴 30자 메모(그 밖은 null)
         "last_active_at": row["last_active_at"], "auto_hidden_at": row["auto_hidden_at"],
         "avatar_url": avatar_url(row, caller.settings.supabase_url),
         "school_email_verified": row["school_email_verified_at"] is not None,

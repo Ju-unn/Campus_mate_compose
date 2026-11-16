@@ -1621,6 +1621,22 @@ INFO 를 켠 로거는 핸들러를 직접 달아서 같은 로거의 WARNING �
 - **롤백**: §2 (다) — 전환 전 100% 였던 리비전(`00123-zuw`)으로 트래픽을 되돌린다. 이 묶음은 DB 스키마를 바꾸지 않아 되돌림이 코드만의 일이다. `00123-zuw` 는 #754 보다 앞이라 되돌리면 끊긴 GET 이 다시 500 으로 보인다. **개정 3: 전환을 마쳐 이제 되돌림 대상이 실제로 `00123-zuw`(태그 `p1115`)다.**
 - **알려진 한계**: 안드로이드는 평가 수가 없고 전체 평균이다 · 아이폰은 한 국가(kr)만 본다 · 애플 조회가 2초 안에 안 오면 그 스토어는 10분 동안 0명 상태가 된다 · 보고서 열 이름이 구글 쪽에서 바뀌면 안드로이드가 조용히 0명 상태로 돌아간다(경고 로그만 남는다).
 
+## 4-32. 관리자 웹 "사용자" — 성별 · 들어온 경로 칸과 합계 (브랜치 `feat/admin-users-gender-channel`, 아직 merge 전)
+
+새 env · 시크릿 · DB 마이그레이션 · job 은 없다(이미 있는 `profiles.gender` · `acquisition_channel` · `acquisition_note` 를 읽기만 한다).
+
+| 항목 | 값 |
+| --- | --- |
+| 바뀐 응답 | `GET /admin/users` · `POST /admin/users/search` 의 줄마다 `gender`(`male` · `female` · null) · `acquisition_channel`(`everytime` · `instagram` · `friend` · `community` · `other` · null)이 더해졌다. `GET /admin/users/{id}` 는 거기에 `acquisition_note`(기타일 때 30자 메모, 그 밖은 null)도. 옛 칸은 그대로다 |
+| 새 경로 | `GET /admin/users/totals` → `{"gender": {"male", "female", "none"}, "acquisition_channel": {"everytime", "instagram", "friend", "community", "other", "none"}}` 개수만(null = `none`). 다른 관리자 경로와 같은 관문(`get_admin_caller` — 로그인 → 2단계 aal2 → 명단) 아래이고, 읽기라 작업 기록에 남기지 않는다 |
+| 합계 기준 | 사용자 목록(q 없음)과 같다 — **관리자 계정만 빼고**(`id=not.in.(관리자)`), 상태(가입 중 · 승인 · 정지 · **탈퇴**)는 가리지 않는다. 탈퇴(`withdraw_account`)는 성별 · 경로 칸을 지우지 않아 탈퇴자도 원래 값으로 세진다 |
+| 세는 방법 | 칸 값마다 PostgREST `count=exact` 한 번씩(성별 3 + 경로 6 = 9번, 동시에). 줄을 내려받아 세지 않는다(1000줄 상한에 잘린다) |
+| 화면 | 관리자 웹 A5 찾기: 칩 줄 오른쪽에 합계 한 줄, 표 끝에 "성별" · "들어온 경로" 두 칸. 상세: 머리 카드 메타 줄 끝에 성별 · 들어온 경로(기타면 메모). 경로 글자는 앱 20d 칩(`app_ko.arb`)과 같다(`friend` = "친구 소개") |
+| 시험 | pytest `backend/tests/admin/test_admin_users.py`(합계 · 목록 · 상세 칸), admin_web `test/users/` · `test/api/admin_api_users_billing_test.dart` |
+
+- **배포 순서**: 머지하면 관리자 웹은 Vercel 로 바로 나가고 서버는 §2 고정 3단계(사용자 승인)다. 관리자 웹이 먼저 나가도 깨지지 않는다 — 옛 서버에서는 합계 자리에 "합계를 불러오지 못했어요"(옛 서버는 `/totals` 를 `/{user_id}` 로 읽어 422), 성별 칸은 "—", 경로 칸은 "미응답" 으로 보인다(옛 서버가 칸을 보내지 않아서라 실제 미응답이 아니다). 서버를 올린 뒤 바르게 보인다.
+- **롤백**: 서버를 앞 리비전으로 되돌리면 위 "관리자 웹이 먼저" 상태로 돌아간다. 사용자 앱 · DB 에는 영향이 없다.
+
 ## 5. 현재 배포 상태 (아래 표는 2026-11-14 새벽 기준 — 2026-11-16 개정은 첫 네 문단(종전 서술: "첫 세 문단"), 지금 운영은 개정 4)
 
 **2026-11-16 개정 4(저녁, 대장 확인 값 — 이 문서 담당은 클라우드를 조회하지 않았다): 운영 트래픽 100% 를 `campus-mate-backend-00126-noy`(태그 `h1116`, main `10f6d0d5` 기준 — #746 · #748 · #754 서버 변경 포함)로 옮겼다(약 19:52 KST). 바로 앞 운영은 `campus-mate-backend-00123-zuw`(태그 `p1115`)이고 이것이 되돌림 대상이다(§2 (다)). 전환 뒤 `/health` 200, 새 리비전 요청 50건 모두 200, ERROR 로그 0건. 사용자 원문 승인: 「aab testflight 서버 배포 하고 테스트할거 목록 알려줘」. 앱 1.0.4 빌드(안드로이드 vc28 · iOS TestFlight 37, 둘 다 main `2d5c26e8`)도 같은 날 나왔다. 전환 뒤 대장이 `00126-noy` 의 env 를 다시 조회했다 — 33개(시크릿 참조 15), `PLAY_REPORTS_BUCKET` 있음, `STORE_RATING` · `STORE_RATING_COUNT` 없음. 되돌림 대상 `00123-zuw` 는 34개(개정 2). 아래 문단과 표의 "0%" · "전환 대기" · "전환하면" 은 전환 전 서술이라 지우지 않는다(종전 서술).**

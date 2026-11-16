@@ -1,6 +1,7 @@
 """관리자 사용자 화면(설계 10-18 §8-3)의 DB 호출. 읽기는 PostgREST, 바꾸는 일은 DB 함수 하나(한 트랜잭션, 마이그레이션 20261018120000).
 
 학교 메일은 원문을 받지 않는다 — 부르는 쪽이 해시(`\\x…` 리터럴)만 넘긴다."""
+import asyncio
 import re
 from uuid import UUID
 
@@ -8,9 +9,12 @@ from app.admin.repository import ACCOUNT_WITHDRAWN, INSUFFICIENT_HEARTS, AdminRe
 from app.core.http import raise_for_status
 
 # 목록 한 줄과 상세가 같이 쓰는 칸. 학교는 학교 메일 인증 전이면 null 이다(universities 임베드가 null).
-_SUMMARY_SELECT = "id,nickname,status,created_at,universities(name)"
-_DETAIL_SELECT = ("id,nickname,status,created_at,last_active_at,auto_hidden_at,school_email_verified_at,"
-                  "universities(name),profile_avatars(storage_path,status,created_at)")
+_SUMMARY_SELECT = "id,nickname,status,created_at,gender,acquisition_channel,universities(name)"
+_DETAIL_SELECT = ("id,nickname,status,created_at,gender,acquisition_channel,acquisition_note,last_active_at,auto_hidden_at,"
+                  "school_email_verified_at,universities(name),profile_avatars(storage_path,status,created_at)")
+# 합계에서 세는 값(DB enum gender · acquisition_channel). 고르기 전(null)은 "none" 으로 따로 센다.
+GENDERS = ("male", "female")
+CHANNELS = ("everytime", "instagram", "friend", "community", "other")
 # 주문 번호 · 토큰 해시는 일부러 고르지 않는다(사용자 상세에는 싣지 않는다 — 결제 조회에서 번호로 찾는다).
 _PURCHASE_SELECT = "id,store,product_id,status,is_test,heart_amount,bonus_hearts,clawed_back_hearts,purchased_at"
 NOTE_ACTION = "profile_note"
@@ -37,6 +41,17 @@ class AdminUserRepository(AdminRepository):
             params["nickname"] = f"ilike.*{escaped}*"
         rows = await self._rows("profiles", params)
         return [row for row in rows if row["id"] not in exclude_ids]
+
+    async def count_profiles_by(self, column: str, values: tuple[str, ...], exclude_ids: list[str]) -> dict[str, int]:
+        """값마다 인원 + null 인원("none"). 목록(list_users)과 같은 기준 — 관리자만 빼고 상태는 가리지 않는다.
+        값마다 count=exact 한 번(묶어 세는 집계는 PostgREST 기본 설정에서 꺼져 있고, 줄을 받아 세면 1000줄 상한에 잘린다)."""
+        base = {"select": "id"}
+        if exclude_ids:
+            base["id"] = f"not.in.({','.join(exclude_ids)})"
+        keys = (*values, "none")
+        counts = await asyncio.gather(*(
+            self._count("profiles", {**base, column: "is.null" if key == "none" else f"eq.{key}"}) for key in keys))
+        return dict(zip(keys, counts))
 
     async def count_reports_by_target(self, profile_ids: list[str]) -> dict[str, int]:
         """목록 줄마다 받은 신고 수 — 한 번에 묶어 센다.
