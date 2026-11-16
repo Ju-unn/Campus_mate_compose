@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from starlette.requests import Request
 
 from app.core.deps import get_client, get_settings
+from app.core.read_retry import ReadRetryTransport
 from app.main import app
 
 
@@ -27,6 +28,12 @@ def test_one_client_is_shared_and_closed_on_shutdown():
 
     # 프로세스가 내려가면 커넥션도 같이 닫힌다.
     assert shared.is_closed
+
+
+def test_the_shared_client_is_the_read_retry_client():
+    """공용 클라이언트가 끊긴 GET 을 한 번 다시 보내는 판인지(core/read_retry.py, 2026-11-16 홈 요약 500). 동작은 test_core_read_retry 가 본다."""
+    with TestClient(app):
+        assert isinstance(app.state.http_client._transport, ReadRetryTransport)
 
 
 @pytest.fixture

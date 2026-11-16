@@ -23,6 +23,7 @@ from app.community.router import router as community_router
 from app.consents.router import router as consents_router
 from app.core.deps import get_settings
 from app.core.logs import show_info
+from app.core.read_retry import make_http_client
 from app.friend_reviews.router import router as friend_reviews_router
 from app.heart_tasks.router import router as heart_tasks_router
 from app.home.router import router as home_router
@@ -60,7 +61,8 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     # 애플 서명(아이폰 하트 구매 JWS · 탈퇴 때 애플 철회)이 쓰는 부품이 운영 이미지에 들었는지 배포 뒤 이 한 줄로 본다.
     _logger.info("cryptography=%s", cryptography.__version__)
-    async with httpx.AsyncClient() as client:
+    # 읽는 도중 끊긴 GET 은 한 번 다시 보낸다(core/read_retry.py, 2026-11-16 홈 요약 500).
+    async with make_http_client() as client:
         app.state.http_client = client
         # 기본 아바타 원본 확인(결함 D-02) — 알리기만 하고 부팅을 막지 않는다(예외도 삼킨다).
         await warn_if_fallback_avatar_missing(settings, client)
