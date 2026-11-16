@@ -70,6 +70,8 @@ void main() {
     expect(AppColors.lockOverlay, const Color(0x40000000));
     expect(AppColors.photoRemoveBadge, Colors.black.withValues(alpha: 0.6));
     expect(AppColors.coachDim, const Color(0xB3000000));
+    // 11-17 실사진 전체 보기 — 흐린 뒷 사진 위 흰 15%(pen `TjGzA` fill #FFFFFF26).
+    expect(AppColors.photoBlurVeil, const Color(0x26FFFFFF));
     expect(AppColors.kakaoPanel, const Color(0xFF0A0A0A));
     expect(AppColors.kakaoCheckMark, const Color(0xFF2B2200));
   });

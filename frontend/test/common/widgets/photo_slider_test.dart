@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:campus_mate/common/widgets/photo_slider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -18,7 +19,29 @@ const _png = <int>[
 
 List<ImageProvider> _photos(int count) => [for (var i = 0; i < count; i++) MemoryImage(Uint8List.fromList(_png))];
 
-/// 그림 [image] 를 깐 사진 칸.
+/// 그림을 몇 번 읽었는지 센다 — 같은 그림을 두 층에 깔아도 한 번만 내려받는지 본다.
+class _CountingImage extends MemoryImage {
+  _CountingImage(super.bytes);
+
+  /// 읽은 키. ImageProvider 는 @immutable 이라 숫자 칸 대신 목록에 쌓는다.
+  final loads = <MemoryImage>[];
+
+  @override
+  ImageStreamCompleter loadImage(MemoryImage key, ImageDecoderCallback decode) {
+    loads.add(key);
+    return super.loadImage(key, decode);
+  }
+}
+
+/// 처음 화면 뒤로 새 화면(확대 보기 · 팝업 · 시트)이 열렸는지 센다.
+class _PushCounter extends NavigatorObserver {
+  var pushes = 0;
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) => pushes++;
+}
+
+/// 그림 [image] 를 깐 사진 칸(앞 사진 층 — 칸과 크기가 같다).
 Finder _photo(ImageProvider image) => find.byWidgetPredicate(
   (w) => w is DecoratedBox && w.decoration is BoxDecoration && (w.decoration as BoxDecoration).image?.image == image,
 );
@@ -190,6 +213,90 @@ void main() {
       expect(first.size, const Size(252, 184));
       expect(badge.top, first.top + 12);
       expect(badge.right, first.right - 13);
+    });
+  });
+
+  // pen `oE1rh` PhotoSlide · Real (수정표시 11-17 "실사진 전체 보기" — 14c · 15-4b · 15-5 모두): 칸 크기는 그대로,
+  // 사진은 칸 안에 전체(contain), 남는 칸은 같은 사진을 흐리게 깐다. 확대 · 크게 보기는 없다(사용자 11-16 결정).
+  group('실제 사진은 칸 안에 전체 + 남는 칸은 같은 사진을 흐리게(pen `oE1rh`)', () {
+    Finder slide(ImageProvider image) => find.ancestor(of: _photo(image), matching: find.byType(Container)).first;
+    Finder back(ImageProvider image) => find.byWidgetPredicate((w) => w is Image && identical(w.image, image));
+
+    testWidgets('앞 사진은 칸 안에 전체가 보이게(contain) 가운데 놓이고 칸 크기는 그대로다 — pen `YwiTw`', (tester) async {
+      final photos = _photos(2);
+      await pump(tester, photos: photos);
+
+      final front = (tester.widget<DecoratedBox>(_photo(photos[0])).decoration as BoxDecoration).image!;
+      expect((front.fit, front.alignment), (BoxFit.contain, Alignment.center));
+      expect(tester.getRect(_photo(photos[0])), tester.getRect(slide(photos[0])));
+      expect(tester.getSize(_photo(photos[0])), const Size(252, 184));
+      // 칸 바탕 흰색(pen `oE1rh` fill #FFFFFF) — 사진이 오기 전에도 칸이 보인다.
+      expect((tester.widget<Container>(slide(photos[0])).decoration! as BoxDecoration).color, AppColors.canvas);
+    });
+
+    testWidgets('뒤에 같은 사진을 흐리게 깐다 — pen `TjGzA` 420×420 (-70,-70) · cover · blur 20(σ10) · 흰 15%', (tester) async {
+      final photos = _photos(2);
+      await pump(tester, photos: photos);
+
+      final layer = back(photos[0]);
+      expect(layer, findsOneWidget);
+      final image = tester.widget<Image>(layer);
+      expect((image.fit, image.color, image.colorBlendMode), (BoxFit.cover, AppColors.photoBlurVeil, BlendMode.srcATop));
+      expect(image.excludeFromSemantics, isTrue, reason: '뒷층은 장식 — 화면 읽기는 칸 라벨 하나만 읽는다');
+      expect(image.errorBuilder, isNotNull, reason: '못 받으면 뒷층을 비운다');
+      // pen 내보내기 CSS 가 blur 20 을 `filter: blur(10px)`(표준 편차 10)로 쓴다.
+      final blur = tester.widget<ImageFiltered>(find.ancestor(of: layer, matching: find.byType(ImageFiltered)));
+      expect(blur.imageFilter, ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10));
+      final box = tester.getRect(slide(photos[0]));
+      expect(tester.getRect(layer), Rect.fromLTWH(box.left - 70, box.top - 70, 420, 420));
+
+      // 흐린 층이 먼저(밑), 앞 사진이 나중(위)에 그려진다 — 같은 칸 안에서 트리 순서 = 그리는 순서.
+      final layers = find.descendant(
+        of: slide(photos[0]),
+        matching: find.byWidgetPredicate(
+          (w) =>
+              (w is Image && identical(w.image, photos[0])) ||
+              (w is DecoratedBox && (w.decoration as BoxDecoration).image?.image == photos[0]),
+        ),
+      );
+      expect(tester.widgetList(layers).map((w) => w.runtimeType), [Image, DecoratedBox]);
+    });
+
+    testWidgets('앞뒤 두 층이 같은 그림 하나를 쓴다 — 한 번만 읽는다(캐시 키 같음)', (tester) async {
+      final photo = _CountingImage(Uint8List.fromList(_png));
+      await pump(tester, photos: [photo]);
+
+      expect(back(photo), findsOneWidget);
+      expect(_photo(photo), findsOneWidget);
+      expect(photo.loads, hasLength(1));
+    });
+
+    testWidgets('사진을 눌러도 · 길게 눌러도 아무 화면도 열리지 않는다 — 확대 · 크게 보기 없음', (tester) async {
+      final photos = _photos(2);
+      final observer = _PushCounter();
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          navigatorObservers: [observer],
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(width: 328, child: PhotoSlider(photos: photos, photoSize: const Size(252, 184))),
+            ),
+          ),
+        ),
+      );
+      expect(observer.pushes, 1); // 첫 화면
+
+      await tester.tap(_photo(photos[0]));
+      await tester.pumpAndSettle();
+      await tester.longPress(_photo(photos[0]));
+      await tester.pumpAndSettle();
+
+      expect(observer.pushes, 1);
+      expect(find.byType(InteractiveViewer), findsNothing);
+      expect(tester.getSize(_photo(photos[0])), const Size(252, 184)); // 칸도 커지지 않는다
     });
   });
 

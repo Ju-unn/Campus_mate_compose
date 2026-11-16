@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -86,28 +87,10 @@ class _PhotoSliderState extends State<PhotoSlider> {
                     container: true,
                     image: true,
                     label: context.l10n.commonPhotoSliderLabel(number: index + 1, total: photos.length),
-                    // 그림을 decoration 으로 깐다 — Image 위젯은 그림 비율로 제 높이를 주장한다.
-                    child: Container(
-                      clipBehavior: Clip.antiAlias,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(AppRadius.md),
-                        image: DecorationImage(image: photos[index], fit: BoxFit.cover),
-                      ),
-                      // 사진 위(배지 아래가 아니라 위)에 안쪽으로 그린다 — BoxDecoration 의 테두리는 칸 안에 그려져 크기가 안 변한다.
-                      foregroundDecoration: widget.bordered
-                          ? BoxDecoration(
-                              borderRadius: BorderRadius.circular(AppRadius.md),
-                              border: Border.all(color: AppColors.hairline),
-                            )
-                          : null,
-                      child: index == 0 && widget.firstPhotoBadge != null
-                          ? Stack(
-                              children: [
-                                // pen `E2kWIB` 첫 장 안 x150 y12 → 위 12, 오른쪽 13(토큰 밖 리터럴).
-                                Positioned(top: AppSpacing.sm, right: 13, child: widget.firstPhotoBadge!),
-                              ],
-                            )
-                          : null,
+                    child: _PhotoSlide(
+                      image: photos[index],
+                      bordered: widget.bordered,
+                      badge: index == 0 ? widget.firstPhotoBadge : null,
                     ),
                   ),
                 ),
@@ -136,6 +119,70 @@ class _PhotoSliderState extends State<PhotoSlider> {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// 사진 한 칸(pen `oE1rh` PhotoSlide · Real, 11-17 "실사진 전체 보기"): 흰 바탕 위에 같은 사진을 흐리게 깔고,
+/// 그 위에 사진 전체를 칸 안에(contain) 놓는다. 칸 크기는 그대로다. 누르는 동작은 없다 — 확대 · 크게 보기는
+/// 일부러 뺐다(사용자 11-16 "누가 악의적으로 확대해서 볼까봐").
+class _PhotoSlide extends StatelessWidget {
+  const _PhotoSlide({required this.image, required this.bordered, required this.badge});
+
+  final ImageProvider image;
+  final bool bordered;
+  final Widget? badge;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      // 칸 바탕 흰색(pen `oE1rh` fill #FFFFFF) — 사진이 오기 전에도 칸 모양이 보인다.
+      decoration: BoxDecoration(color: AppColors.canvas, borderRadius: BorderRadius.circular(AppRadius.md)),
+      // 사진 위(배지 아래가 아니라 위)에 안쪽으로 그린다 — BoxDecoration 의 테두리는 칸 안에 그려져 크기가 안 변한다.
+      foregroundDecoration: bordered
+          ? BoxDecoration(borderRadius: BorderRadius.circular(AppRadius.md), border: Border.all(color: AppColors.hairline))
+          : null,
+      child: Stack(
+        children: [
+          // pen `TjGzA` Photo Back · Blur — 420×420 을 (-70,-70) 에 둬 흐림이 옅어지는 가장자리가 칸 밖에 남는다.
+          // shortcut: pen 고정값 420 은 흐림 가장자리(약 3σ)를 빼면 칸 약 320×320 까지만 깨끗이 덮는다, 더 큰 칸이 생기면 칸 크기 + 140 으로 바꾼다.
+          Positioned(
+            left: -70,
+            top: -70,
+            width: 420,
+            height: 420,
+            child: ImageFiltered(
+              // pen blur 20 = 내보낸 CSS `blur(10px)` = 표준 편차 10.
+              imageFilter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              // 앞 사진과 같은 ImageProvider — 캐시 키가 같아 한 번만 내려받는다. 흰 15% 는 사진 위에만 얹는다.
+              child: Image(
+                image: image,
+                fit: BoxFit.cover,
+                color: AppColors.photoBlurVeil,
+                colorBlendMode: BlendMode.srcATop,
+                excludeFromSemantics: true,
+                // 못 받으면 뒷층은 비운다 — 디버그의 빨간 오류 칸이 흐리게 비치지 않게.
+                errorBuilder: (_, _, _) => const SizedBox.shrink(),
+              ),
+            ),
+          ),
+          // pen `YwiTw` Photo Front · Contain. 그림을 decoration 으로 깐다 — Image 위젯은 그림 비율로 제 높이를 주장한다.
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(image: DecorationImage(image: image, fit: BoxFit.contain)),
+              child: badge == null
+                  ? null
+                  : Stack(
+                      children: [
+                        // pen `E2kWIB` 첫 장 안 x150 y12 → 위 12, 오른쪽 13(토큰 밖 리터럴).
+                        Positioned(top: AppSpacing.sm, right: 13, child: badge!),
+                      ],
+                    ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
