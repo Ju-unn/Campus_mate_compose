@@ -73,6 +73,25 @@ void main() {
 
       expect(scan.hasFace, isTrue);
       expect(scan.widthRatio, closeTo(0.30, 1e-9));
+      expect(scan.hasCompanion, isFalse, reason: '다른 얼굴(10 · 12)이 가장 큰 얼굴(30)의 절반보다 작다');
+    });
+
+    test('가장 큰 얼굴 폭의 절반 이상인 얼굴이 또 있으면 같이 나온 사람이 있다', () async {
+      faces = [_face(0, 30), _face(50, 15)];
+
+      final scan = await MlKitFaceDetector().scan(jpeg());
+
+      expect(scan.hasCompanion, isTrue);
+      expect(scan.widthRatio, closeTo(0.30, 1e-9));
+    });
+
+    test('사진 폭을 읽지 못해도 같이 나온 사람은 가린다(얼굴 상자끼리 견준다)', () async {
+      faces = [_face(0, 30), _face(50, 20)];
+      final broken = File('${dir.path}/broken.jpg')..writeAsStringSync('not an image');
+
+      final scan = await MlKitFaceDetector().scan(broken);
+
+      expect((scan.widthRatio, scan.hasCompanion), (null, true));
     });
 
     test('얼굴 폭이 정확히 기준(사진 폭의 15%)이면 아바타 원본으로 통과한다', () async {
