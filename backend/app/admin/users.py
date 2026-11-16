@@ -17,7 +17,7 @@ from app.admin.caller import AdminCaller, get_admin_caller
 from app.admin.reason import Reason
 from app.admin.repository import NOT_FOUND
 from app.admin.request_ip import request_ip
-from app.admin.user_repository import NOTE_ACTION, AdminUserRepository
+from app.admin.user_repository import CHANNELS, GENDERS, NOTE_ACTION, AdminUserRepository
 from app.chat.router import avatar_url
 from app.core import errors
 from app.signup_policy import bytea_literal, hash_email
@@ -108,6 +108,17 @@ async def list_users(
     rows = await repo.list_users(nickname=None if profile_id else text or None, profile_id=profile_id,
                                  limit=limit, exclude_ids=admins)
     return {"items": await _summaries(repo, rows)}
+
+
+@router.get("/totals")
+async def user_totals(caller: AdminCaller = Depends(get_admin_caller)) -> dict:
+    """사용자 화면 위 합계 — 목록(q 없음)과 같은 기준(관리자 제외, 가입 중 · 정지 · 탈퇴 포함)의 성별 · 들어온 경로 인원.
+    개수만 싣는다. `/{user_id}` 보다 먼저 선언해야 "totals" 가 사용자 번호로 읽히지 않는다."""
+    repo = _repo(caller)
+    admins = await repo.admin_ids()
+    gender, channel = await asyncio.gather(repo.count_profiles_by("gender", GENDERS, admins),
+                                           repo.count_profiles_by("acquisition_channel", CHANNELS, admins))
+    return {"gender": gender, "acquisition_channel": channel}
 
 
 @router.post("/search")

@@ -14,6 +14,7 @@ EMAIL = "alice.test@campus.ac.kr"
 HMAC_LITERAL = bytea_literal(hash_email("identity-key-test", EMAIL))
 ROUTES = [
     ("get", "/admin/users", None),
+    ("get", "/admin/users/totals", None),
     ("post", "/admin/users/search", {"school_email": EMAIL}),
     ("get", f"/admin/users/{U1}", None),
     ("post", f"/admin/users/{U1}/notes", {"text": "메모"}),
@@ -119,6 +120,34 @@ def test_search_by_profile_id_and_admins_never_appear(client, world):
     assert ADMIN not in [u["id"] for u in everyone]
     # 관리자 제외는 PostgREST 필터로 한다 — 쪽 나누기와 limit 이 관리자 때문에 어긋나지 않게.
     assert world.calls("GET", "/rest/v1/profiles")[-1].url.params["id"] == f"not.in.({ADMIN})"
+
+
+# 합계(성별 · 들어온 경로) ------------------------------------------------------------
+
+def test_totals_count_gender_and_channel_on_the_same_basis_as_the_list(client, world):
+    # 목록과 같은 기준: 관리자만 빼고 상태(가입 중 · 정지 · 탈퇴)는 가리지 않는다. 고르기 전(null)은 none.
+    world.user_profiles[U1] = user_profile(U1, "닉네임A", acquisition_channel="everytime")
+    world.user_profiles[U2] = user_profile(U2, "닉네임B", status="suspended", gender="female")
+    world.user_profiles["u3"] = user_profile("u3", None, status="pending", gender=None, acquisition_channel="other",
+                                             acquisition_note="메모")
+    world.user_profiles["u4"] = user_profile("u4", "탈퇴자", status="withdrawn", gender="female", acquisition_channel="friend")
+    world.user_profiles[ADMIN] = user_profile(ADMIN, "관리자", acquisition_channel="instagram")
+
+    response = client.get("/admin/users/totals", headers=ADMIN_HEADERS)
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "gender": {"male": 1, "female": 2, "none": 1},
+        "acquisition_channel": {"everytime": 1, "instagram": 0, "friend": 1, "community": 0, "other": 1, "none": 1},
+    }
+    counts = world.calls("GET", "/rest/v1/profiles")
+    assert len(counts) == 9  # 칸 값마다 한 번(null 포함) — 줄을 내려받아 세지 않는다(PostgREST 1000줄 상한)
+    for request in counts:
+        assert request.headers["prefer"] == "count=exact" and request.url.params["limit"] == "1"
+        assert request.url.params["id"] == f"not.in.({ADMIN})"
+    # 개수만 — 닉네임 · 프로필 id · 메모는 싣지 않는다
+    for secret in ("닉네임A", "탈퇴자", "메모", U1, "u3"):
+        assert secret not in response.text
 
 
 # 학교 메일 찾기 ------------------------------------------------------------------

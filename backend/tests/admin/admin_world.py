@@ -278,8 +278,12 @@ class AdminWorld:
         row.update(status=body["p_status"], reject_reason=body["p_reject_reason"], reviewed_at="2026-10-18T02:00:00+00:00")
         return httpx.Response(200, json={key: row[key] for key in ("id", "status", "reject_reason", "reward_hearts", "reviewed_at")})
 
-    def _profiles(self, params) -> httpx.Response:
+    def _profiles(self, params, counting: bool = False) -> httpx.Response:
         rows = list(self.user_profiles.values())
+        for column in ("gender", "acquisition_channel"):  # eq.<값> 또는 is.null
+            if column in params:
+                wanted = None if params[column] == "is.null" else params[column].removeprefix("eq.")
+                rows = [r for r in rows if r[column] == wanted]
         if params.get("id", "").startswith("eq."):
             rows = [r for r in rows if r["id"] == params["id"].removeprefix("eq.")]
         if params.get("id", "").startswith("in."):
@@ -291,13 +295,14 @@ class AdminWorld:
         if "nickname" in params:  # ilike.*패턴* — 이스케이프(백슬래시)를 풀어 부분 일치로 본다
             needle = params["nickname"].removeprefix("ilike.*").removesuffix("*").replace("\\", "")
             rows = [r for r in rows if r["nickname"] and needle.lower() in r["nickname"].lower()]
+        if counting:  # Prefer: count=exact — 건수는 Content-Range 의 / 뒤(limit 앞에서 센다)
+            return httpx.Response(200, json=[], headers={"Content-Range": f"*/{len(rows)}"})
         if params.get("order") == "created_at.desc":
             rows.sort(key=lambda r: r["created_at"], reverse=True)
         if "limit" in params:
             rows = rows[:int(params["limit"])]
-        if params.get("select") == "status":
-            rows = [{"status": r["status"]} for r in rows]
-        return httpx.Response(200, json=rows)
+        # PostgREST 처럼 select 에 적은 칸만 — 서버가 고르지 않은 칸(성별 · 들어온 경로 등)을 읽으면 시험이 깨진다.
+        return httpx.Response(200, json=[_project(r, params["select"]) for r in rows])
 
     def _admin_actions_get(self, params) -> httpx.Response:
         rows = list(self.action_rows)
@@ -387,7 +392,7 @@ class AdminWorld:
             submitters = {r["profiles"]["id"] for r in self.submissions.values()}
             if params.get("select") == "status" and asked in submitters and asked not in self.user_profiles:
                 return None
-            return self._profiles(params)
+            return self._profiles(params, counting="count=exact" in request.headers.get("prefer", ""))
         if path == "/rest/v1/school_email_claims" and method == "GET":
             key, value = next((k, v) for k, v in params.items() if k in ("school_email_hmac", "profile_id"))
             rows = [c for c in self.claims if c[key] == value.removeprefix("eq.")]
