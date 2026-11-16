@@ -10,6 +10,7 @@ import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/chat/viewmodel/user_channel.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
+import 'package:campus_mate/matching/viewmodel/sent_requests_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -82,6 +83,8 @@ void main() {
     test('붙으면 연결됨이 되고 대화 · 받은 신청 · 보낸 신청을 한 번 다시 읽는다 — 끊긴 동안 놓친 이벤트 복구', () async {
       final container = containerFor();
       await container.read(conversationsViewModelProvider.notifier).refresh();
+      // 보낸 신청은 그 탭을 연 뒤에만 다시 읽는다(2026-11-16 탭 나누기) — 연 상태를 만든다.
+      await container.read(sentRequestsViewModelProvider.notifier).open();
       final before = (chat.conversationsFetchCount, cards.fetchAcceptancesCount, cards.fetchSentCount);
       channelOf(container).start(myId);
 
@@ -306,6 +309,7 @@ void main() {
 
     test('room_changed 는 대화 · 받은 신청 · 보낸 신청을 다시 읽는다', () async {
       final container = await live();
+      await container.read(sentRequestsViewModelProvider.notifier).open();
       final before = (chat.conversationsFetchCount, cards.fetchAcceptancesCount, cards.fetchSentCount);
 
       events.push(const RoomChangedEvent('m9'));
@@ -316,6 +320,15 @@ void main() {
         (before.$1 + 1, before.$2 + 1, before.$3 + 1),
       );
       expect(liveOf(container), isTrue);
+    });
+
+    test('[보낸 신청] 탭을 연 적이 없으면 room_changed 에도 보낸 신청은 서버로 가지 않는다', () async {
+      await live();
+
+      events.push(const RoomChangedEvent('m9'));
+      await pumpEventQueue();
+
+      expect(cards.fetchSentCount, 0);
     });
 
     group('열린 방', () {

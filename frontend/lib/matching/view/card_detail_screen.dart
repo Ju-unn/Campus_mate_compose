@@ -94,7 +94,7 @@ class CardDetailScreen extends ConsumerWidget {
 }
 
 /// 10b 를 닫고 대화 탭으로 간다 — 탭 전환이라 하단 내비처럼 `go` 다(10b 로 되돌아오지 않는다).
-/// 대화 탭은 보낸 신청을 처음부터 다시 읽고, 토스트를 띄운 뒤 그 섹션으로 내린다(`announceSent`).
+/// 대화 탭은 보낸 신청을 처음부터 다시 읽고(`announceSent`), [보낸 신청] 탭을 열어 토스트를 띄운다.
 /// `go` 는 오늘 탭의 push 를 끝내지 않아 오늘 탭이 결정 뒤에 하던 다시 읽기(`markDecided`)를 여기서 대신한다.
 void _goToSentRequests(WidgetRef ref, GoRouter router) {
   unawaited(ref.read(todayCardsViewModelProvider.notifier).markDecided());

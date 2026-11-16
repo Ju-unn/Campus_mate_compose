@@ -658,6 +658,8 @@
   "matchingConversationsReceivedSection": "받은 신청",
   "matchingConversationsSectionCount": "{count}명",
   "@matchingConversationsSectionCount": {"placeholders": {"count": {"type": "int"}}},
+  "matchingConversationsSentEmptyBody": "카드에서 대화 신청을 보내면 여기에 모여요.",
+  "matchingConversationsSentEmptyTitle": "아직 보낸 신청이 없어요",
   "matchingConversationsSentSection": "보낸 신청",
   "matchingConversationsSentToast": "신청을 보냈어요",
   "matchingConversationsTitle": "대화",

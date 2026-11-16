@@ -75,13 +75,21 @@ void main() {
   });
 
   test('돌아오면 보낸 신청도 다시 읽는다 — 대화 탭을 보고 있으면 매칭된 신청이 "기다리는 중" 으로 남지 않게', () async {
-    await container.read(sentRequestsViewModelProvider.notifier).refresh();
+    // 보낸 신청은 그 탭을 연 뒤에만 다시 읽는다(2026-11-16 탭 나누기).
+    await container.read(sentRequestsViewModelProvider.notifier).open();
     final before = cards.fetchSentCount;
 
     resume();
     await pumpEventQueue();
 
     expect(cards.fetchSentCount, before + 1);
+  });
+
+  test('[보낸 신청] 탭을 연 적이 없으면 돌아와도 보낸 신청은 서버로 가지 않는다', () async {
+    resume();
+    await pumpEventQueue();
+
+    expect(cards.fetchSentCount, 0);
   });
 
   test('로그아웃 상태 · 관문 미완료에서는 보낸 신청을 읽지 않는다', () async {

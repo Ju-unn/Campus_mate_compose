@@ -2,6 +2,7 @@ import 'package:campus_mate/chat/view/chat_list_row.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/chat/view/trust_banner.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
+import 'package:campus_mate/common/widgets/app_tab_bar.dart';
 import 'package:campus_mate/matching/view/acceptance_detail_screen.dart';
 import 'package:campus_mate/matching/view/acceptance_row.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
@@ -23,7 +24,9 @@ import 'support.dart';
 /// 화면 글자는 시나리오가 아니라 지금 화면 코드에서 옮겼다. 알림은 보지 않는다(마지막 묶음).
 /// 이 파일은 `flutter analyze` 만 돌렸고 기기에서는 아직 안 돌려 봤다.
 ///
-/// 목록은 이제 저절로 다시 읽힌다 — 대화 탭에 들어올 때마다 세 목록을 다시 읽고, 떠 있는 동안 대화 목록은 폴링(3초, 사용자 채널이 붙으면 30초) ·
+/// 대화 탭은 [대화](받은 신청 · 대화 중) · [보낸 신청] 두 탭이다(2026-11-16) — 처음엔 [대화] 탭이고, 보낸 신청은 [보낸 신청] 탭을 열어야 보인다
+/// ([_openSentTab]). 신청을 보낸 직후에는 그 탭이 열려 있다([_sentAndShown]).
+/// 목록은 이제 저절로 다시 읽힌다 — 대화 탭에 들어올 때마다 받은 신청 · 대화를 다시 읽고(보낸 신청은 그 탭을 볼 때마다), 떠 있는 동안 대화 목록은 폴링(3초, 사용자 채널이 붙으면 30초) ·
 /// 사용자 채널 이벤트로 바뀐다(matching/view/conversations_screen.dart · chat/viewmodel/user_channel.dart). 그래도 서버 쪽 일이 끝난 뒤의 모습을 보는 기기는
 /// 로그아웃한 채 멈춰 있다가 PC 가 go 에 실어 준 새 토큰으로 로그인한다([_loginAfter]) — 다시 읽힌 때에 기대지 않고 그 순간의 서버 상태를 한 번에 읽는다.
 ///
@@ -34,9 +37,11 @@ const _accept = '대화 신청하기'; // common/widgets/card_action_bar.dart:43
 const _reject = '거절'; // common/widgets/card_action_bar.dart(10b) · matching/view/acceptance_detail_screen.dart matchingAcceptanceDetailReject(프로필 보기 하단 바)
 const _acceptStart = '수락하기'; // matching/view/acceptance_detail_screen.dart matchingAcceptanceDetailAccept(프로필 보기 하단 바)
 const _viewProfile = '프로필 보기'; // matching/view/acceptance_row.dart — 받은 신청 줄의 버튼 하나
-const _waitingHeader = '받은 신청'; // matching/view/acceptance_detail_screen.dart matchingAcceptanceDetailTitle(앱바) · matching/view/conversations_screen.dart:284
-const _chatHeader = '대화 중'; // :118
-const _emptyTitle = '아직 시작된 대화가 없어요'; // :187
+const _waitingHeader = '받은 신청'; // matching/view/acceptance_detail_screen.dart matchingAcceptanceDetailTitle(앱바) · matching/view/conversations_screen.dart matchingConversationsReceivedSection
+const _chatHeader = '대화 중'; // conversations_screen.dart matchingConversationsChatsSection
+const _emptyTitle = '아직 시작된 대화가 없어요'; // conversations_screen.dart [대화] 탭 빈 화면 matchingConversationsEmptyTitle
+const _chatsTab = '대화'; // conversations_screen.dart 탭 줄 첫 칸(matchingConversationsTitle)
+const _sentTab = '보낸 신청'; // conversations_screen.dart 탭 줄 둘째 칸(matchingConversationsSentSection)
 const _rejectedChip = '거절됨'; // matching/view/sent_request_row.dart _StatusChip
 const _matchMade = '매칭됐어요!'; // match_made_screen.dart:30
 const _startChat = '대화 시작하기'; // :39
@@ -103,18 +108,36 @@ Future<void> _expectEmptyChat(WidgetTester tester, String who) async {
   must(_count(find.text(_matchMade)) == 0, '$who 에게 "$_matchMade" 화면이 뜸');
 }
 
-/// 신청이 거절된 보낸 사람의 대화 탭 — 받은 신청 · 대화 중은 없고 보낸 신청에 "거절됨" 한 줄만 있다.
-/// 2026-10-13 사용자 결정 B 로 거절이 보낸 사람에게 보이게 되어(빈 화면이 아니다) E-CARD-49/A 의 기대를 바꿨다.
+/// 대화 화면 탭 줄의 [label] 탭.
+Finder _tabOf(String label) => find.descendant(of: find.byType(AppTabBar), matching: find.text(label));
+
+/// 지금 고른 탭이 [label] 인가.
+bool _tabSelected(WidgetTester tester, String label) {
+  final bar = tester.widget<AppTabBar>(find.byType(AppTabBar));
+  return bar.labels.indexOf(label) == bar.selected;
+}
+
+/// [보낸 신청] 탭을 연다 — 그 탭을 처음 열 때 보낸 신청을 서버에서 읽는다(2026-11-16 탭 나누기).
+Future<void> _openSentTab(WidgetTester tester) async {
+  await tap(tester, _tabOf(_sentTab));
+  must(_tabSelected(tester, _sentTab), '"$_sentTab" 탭을 눌렀는데 그 탭이 안 골라짐');
+}
+
+/// 신청이 거절된 보낸 사람의 대화 탭 — [대화] 탭에는 받은 신청 · 대화 중이 없고(빈 화면), [보낸 신청] 탭에 "거절됨" 한 줄만 있다.
+/// 2026-10-13 사용자 결정 B 로 거절이 보낸 사람에게 보이게 되어 E-CARD-49/A 의 기대를 바꿨다. 2026-11-16 부터 보낸 신청은 [보낸 신청] 탭에 있다.
 Future<void> _expectRejectedSent(WidgetTester tester, String who) async {
   await _openChat(tester);
   await pumpUntil(
     tester,
-    find.byWidgetPredicate(
-        (w) => w is AcceptanceRow || w is ChatListRow || w is SentRequestRow || (w is Text && w.data == _emptyTitle)),
+    find.byWidgetPredicate((w) => w is AcceptanceRow || w is ChatListRow || (w is Text && w.data == _emptyTitle)),
     timeout: const Duration(seconds: 20),
   );
+  must(_tabSelected(tester, _chatsTab), '$who 대화 화면이 "$_chatsTab" 탭으로 열리지 않음');
   must(_count(find.byType(AcceptanceRow)) == 0, '$who 대화 탭에 수락 대기 줄 ${_count(find.byType(AcceptanceRow))}개(기대 0)');
   must(_count(find.byType(ChatListRow)) == 0, '$who 대화 탭에 대화 중 줄 ${_count(find.byType(ChatListRow))}개(기대 0)');
+  must(_count(find.text(_emptyTitle)) == 1, '$who [대화] 탭에 "$_emptyTitle" ${_count(find.text(_emptyTitle))}개(기대 1)');
+  await _openSentTab(tester);
+  await pumpUntil(tester, find.byType(SentRequestRow), timeout: const Duration(seconds: 20));
   must(_count(find.byType(SentRequestRow)) == 1, '$who 보낸 신청 줄 ${_count(find.byType(SentRequestRow))}개(기대 1)');
   final rejected = find.descendant(of: find.byType(SentRequestRow), matching: find.text(_rejectedChip));
   must(_count(rejected) == 1, '$who 보낸 신청 줄에 "$_rejectedChip" ${_count(rejected)}개(기대 1)');
@@ -192,17 +215,18 @@ Future<void> _openCard(WidgetTester tester) async {
 }
 
 /// 거절("넘기기") 뒤: 10b 가 닫히고(대화 신청하기 글이 사라짐) 오늘 탭에 그 카드가 남지 않는다. 10b 가 위에 있는 동안은 아래 목록이 안 잡히므로 닫힌 뒤에 본다.
-/// 수락(대화 신청)은 오늘 탭이 아니라 대화 탭 "보낸 신청" 으로 가므로 [_sentAndShown] 을 쓴다.
+/// 수락(대화 신청)은 오늘 탭이 아니라 대화 화면 [보낸 신청] 탭으로 가므로 [_sentAndShown] 을 쓴다.
 Future<void> _decidedAndGone(WidgetTester tester) async {
   must(await _gone(tester, find.text(_accept), const Duration(seconds: 20)), '결정 뒤에도 10b 가 안 닫힘');
   must(await _gone(tester, find.byType(DailyCardSummary), const Duration(seconds: 15)), '돌아왔는데 오늘 탭에 카드가 남음');
 }
 
-/// 대화 신청을 보낸 뒤(2026-10-13 사용자 결정 B): 10b 가 닫히고 대화 탭이 열려 "보낸 신청" 에 방금 보낸 줄 한 개와
+/// 대화 신청을 보낸 뒤(2026-10-13 사용자 결정 B): 10b 가 닫히고 대화 화면이 [보낸 신청] 탭으로 열려(2026-11-16) 방금 보낸 줄 한 개와
 /// 응답 기한 칩("N일 남음" 또는 "오늘 마감")이 보인다.
 Future<void> _sentAndShown(WidgetTester tester) async {
   must(await _gone(tester, find.text(_accept), const Duration(seconds: 20)), '신청을 보냈는데 10b 가 안 닫힘');
   await pumpUntil(tester, find.byType(ConversationsScreen), timeout: const Duration(seconds: 15));
+  must(_tabSelected(tester, _sentTab), '신청 직후 대화 화면이 "$_sentTab" 탭으로 열리지 않음');
   await pumpUntil(tester, find.byType(SentRequestRow), timeout: const Duration(seconds: 20));
   must(_count(find.byType(SentRequestRow)) == 1, '보낸 신청 줄 ${_count(find.byType(SentRequestRow))}개(기대 1)');
   final deadline = find.descendant(
