@@ -97,6 +97,7 @@ def user_profile(uid: str, nickname: str | None = "하늘", *, status: str = "ac
         "last_active_at": "2026-10-18T00:00:00+00:00", "auto_hidden_at": None, "school_email_verified_at": created_at,
         "universities": None if university is None else {"name": university},
         "profile_avatars": [] if avatar is None else [{"storage_path": avatar, "status": "ready", "created_at": created_at}],
+        "gender": "male", "acquisition_channel": None, "acquisition_note": None,
         **overrides,
     }
 

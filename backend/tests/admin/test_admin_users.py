@@ -22,11 +22,13 @@ ROUTES = [
 
 def _two_users(world) -> None:
     world.user_profiles[U1] = user_profile(U1, "닉네임A", created_at="2026-09-30T00:00:00+00:00")
-    world.user_profiles[U2] = user_profile(U2, "닉네임B", status="suspended", university=None, created_at="2026-10-10T00:00:00+00:00")
+    world.user_profiles[U2] = user_profile(U2, "닉네임B", status="suspended", university=None, created_at="2026-10-10T00:00:00+00:00",
+                                           gender="female", acquisition_channel="instagram")
 
 
 def _detail_world(world) -> None:
-    world.user_profiles[U1] = user_profile(U1, "닉네임A", avatar=f"{U1}/a.png")
+    world.user_profiles[U1] = user_profile(U1, "닉네임A", avatar=f"{U1}/a.png", acquisition_channel="other",
+                                           acquisition_note="학교 게시판")
     world.report_targets += [U1, U1]
     world.contact_blocks[U1] = 14
     world.balances[U1] = 120
@@ -82,9 +84,9 @@ def test_list_is_newest_first_with_report_counts_in_one_query(client, world):
     assert response.status_code == 200
     assert response.json() == {"items": [
         {"id": U2, "nickname": "닉네임B", "university": None, "status": "suspended",
-         "created_at": "2026-10-10T00:00:00+00:00", "report_count": 1},
+         "created_at": "2026-10-10T00:00:00+00:00", "report_count": 1, "gender": "female", "acquisition_channel": "instagram"},
         {"id": U1, "nickname": "닉네임A", "university": "테스트대학교", "status": "active",
-         "created_at": "2026-09-30T00:00:00+00:00", "report_count": 2},
+         "created_at": "2026-09-30T00:00:00+00:00", "report_count": 2, "gender": "male", "acquisition_channel": None},
     ]}
     listing = world.calls("GET", "/rest/v1/profiles")[0].url.params
     assert listing["order"] == "created_at.desc" and listing["limit"] == "50"
@@ -193,6 +195,7 @@ def test_detail_has_everything_the_screen_needs(client, world):
     assert body == {
         "id": U1, "nickname": "닉네임A", "university": "테스트대학교", "status": "active",
         "created_at": "2026-09-30T00:00:00+00:00", "report_count": 2,
+        "gender": "male", "acquisition_channel": "other", "acquisition_note": "학교 게시판",
         "last_active_at": "2026-10-18T00:00:00+00:00", "auto_hidden_at": None,
         "avatar_url": f"https://x.supabase.co/storage/v1/object/public/avatars/{U1}/a.png",
         "school_email_verified": True, "login_providers": ["kakao"], "heart_balance": 120, "contact_block_count": 14,

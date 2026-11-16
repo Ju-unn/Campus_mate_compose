@@ -48,10 +48,11 @@ def _repo(caller: AdminCaller) -> AdminUserRepository:
 
 
 def _summary(row: dict, report_count: int) -> dict:
-    """목록 한 줄(pen A5 찾기 표: 닉네임 · 프로필 id · 학교 · 상태 · 가입일 · 받은 신고)."""
+    """목록 한 줄(pen A5 찾기 표: 닉네임 · 프로필 id · 학교 · 상태 · 가입일 · 받은 신고 + 성별 · 들어온 경로, null = 입력 전)."""
     return {
         "id": row["id"], "nickname": row["nickname"], "university": (row["universities"] or {}).get("name"),
         "status": row["status"], "created_at": row["created_at"], "report_count": report_count,
+        "gender": row["gender"], "acquisition_channel": row["acquisition_channel"],
     }
 
 
@@ -137,6 +138,7 @@ async def get_user(user_id: UUID, caller: AdminCaller = Depends(get_admin_caller
     )
     return {
         **_summary(row, reports),
+        "acquisition_note": row["acquisition_note"],  # 들어온 경로가 기타일 때 쓴 30자 메모(그 밖은 null)
         "last_active_at": row["last_active_at"], "auto_hidden_at": row["auto_hidden_at"],
         "avatar_url": avatar_url(row, caller.settings.supabase_url),
         "school_email_verified": row["school_email_verified_at"] is not None,

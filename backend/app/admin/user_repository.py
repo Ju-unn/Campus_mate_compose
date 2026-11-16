@@ -8,9 +8,9 @@ from app.admin.repository import ACCOUNT_WITHDRAWN, INSUFFICIENT_HEARTS, AdminRe
 from app.core.http import raise_for_status
 
 # 목록 한 줄과 상세가 같이 쓰는 칸. 학교는 학교 메일 인증 전이면 null 이다(universities 임베드가 null).
-_SUMMARY_SELECT = "id,nickname,status,created_at,universities(name)"
-_DETAIL_SELECT = ("id,nickname,status,created_at,last_active_at,auto_hidden_at,school_email_verified_at,"
-                  "universities(name),profile_avatars(storage_path,status,created_at)")
+_SUMMARY_SELECT = "id,nickname,status,created_at,gender,acquisition_channel,universities(name)"
+_DETAIL_SELECT = ("id,nickname,status,created_at,gender,acquisition_channel,acquisition_note,last_active_at,auto_hidden_at,"
+                  "school_email_verified_at,universities(name),profile_avatars(storage_path,status,created_at)")
 # 주문 번호 · 토큰 해시는 일부러 고르지 않는다(사용자 상세에는 싣지 않는다 — 결제 조회에서 번호로 찾는다).
 _PURCHASE_SELECT = "id,store,product_id,status,is_test,heart_amount,bonus_hearts,clawed_back_hearts,purchased_at"
 NOTE_ACTION = "profile_note"
