@@ -36,7 +36,7 @@ void main() {
     repository.sent = const Success([_waiting]);
 
     expect(container.read(sentRequestsViewModelProvider).isLoading, isTrue);
-    await viewModel().refresh();
+    await viewModel().open();
 
     final state = container.read(sentRequestsViewModelProvider);
     expect(state.isLoading, isFalse);
@@ -45,7 +45,7 @@ void main() {
   });
 
   test('보낸 신청이 없으면 빈 목록이다', () async {
-    await viewModel().refresh();
+    await viewModel().open();
 
     final state = container.read(sentRequestsViewModelProvider);
     expect(state.isLoading, isFalse);
@@ -55,7 +55,7 @@ void main() {
   test('처음 읽기가 실패하면 조용히 불렸어도 로딩을 끝내고 오류를 보인다', () async {
     repository.sent = const FailureResult(NetworkFailure());
 
-    await viewModel().refresh(quiet: true);
+    await viewModel().open();
 
     final state = container.read(sentRequestsViewModelProvider);
     expect(state.isLoading, isFalse);
@@ -64,7 +64,7 @@ void main() {
 
   test('조용한 다시 읽기가 실패하면 있던 줄을 두고 오류도 띄우지 않는다', () async {
     repository.sent = const Success([_waiting]);
-    await viewModel().refresh();
+    await viewModel().open();
     repository.sent = const FailureResult(NetworkFailure());
 
     await viewModel().refresh(quiet: true);
@@ -76,7 +76,7 @@ void main() {
 
   test('당겨서 새로고침이 실패하면 줄은 두고 오류를 보인다', () async {
     repository.sent = const Success([_waiting]);
-    await viewModel().refresh();
+    await viewModel().open();
     repository.sent = const FailureResult(NetworkFailure());
 
     await viewModel().refresh();
@@ -88,7 +88,7 @@ void main() {
 
   test('읽는 중에 또 부르면 그 읽기에 합쳐진다', () async {
     repository.holdSent = Completer<void>();
-    final first = viewModel().refresh(quiet: true);
+    final first = viewModel().open();
     final second = viewModel().refresh(quiet: true);
     await pumpEventQueue();
     repository.holdSent!.complete();
@@ -98,7 +98,7 @@ void main() {
   });
 
   test('대화 신청을 보낸 직후에는 처음처럼 다시 읽고, 대화 탭이 그 사실을 한 번만 꺼내 간다', () async {
-    await viewModel().refresh();
+    await viewModel().open();
     repository.sent = const Success([_waiting]);
 
     final reading = viewModel().announceSent();
@@ -116,7 +116,7 @@ void main() {
     repository.holdSent = Completer<void>();
     final states = <SentRequestsUiState>[];
     container.listen(sentRequestsViewModelProvider, (_, next) => states.add(next), fireImmediately: true);
-    final older = viewModel().refresh(quiet: true);
+    final older = viewModel().open();
     await pumpEventQueue();
 
     repository.sent = const Success([_waiting]);
@@ -127,6 +127,40 @@ void main() {
     // 로딩이 끝난 채 빈 목록이 그려진 적이 없어야 한다(옛 읽기가 먼저 그려지면 새 줄이 끼어든다).
     expect(states.any((s) => !s.isLoading && s.requests.isEmpty && s.error == null), isFalse);
     expect(container.read(sentRequestsViewModelProvider).requests.single.cardId, 'card-1');
+  });
+
+  // 대화 탭을 [대화] · [보낸 신청] 으로 나눴다(2026-11-16 사용자 「보낸신청 api로딩해야하고 , 대화도 로딩해야하는데 낭비」) —
+  // 보낸 신청은 그 탭을 처음 열 때(open)만 읽는다. 그 전의 새로고침 경로(앱 복귀 · 푸시 · 사용자 채널)는 서버를 부르지 않는다.
+  group('처음 열 때만 읽는다', () {
+    test('만들어지기만 해서는 읽지 않는다 — 대화 탭에 들어와도 보낸 신청 호출 0번', () async {
+      expect(container.read(sentRequestsViewModelProvider).isLoading, isTrue);
+      await pumpEventQueue();
+
+      expect(repository.fetchSentCount, 0);
+    });
+
+    test('열기 전의 새로고침(조용한 것 · 당겨서 새로고침 모두)은 서버를 부르지 않는다', () async {
+      await viewModel().refresh(quiet: true);
+      await viewModel().refresh();
+
+      expect(repository.fetchSentCount, 0);
+      expect(container.read(sentRequestsViewModelProvider).isLoading, isTrue);
+    });
+
+    test('한 번 연 뒤에는 새로고침 경로가 그대로 다시 읽는다', () async {
+      await viewModel().open();
+      await viewModel().refresh(quiet: true);
+
+      expect(repository.fetchSentCount, 2);
+    });
+
+    test('신청을 보낸 직후(announceSent)는 연 것으로 친다 — 탭을 열기 전이어도 읽는다', () async {
+      await viewModel().announceSent();
+      expect(repository.fetchSentCount, 1);
+
+      await viewModel().refresh(quiet: true);
+      expect(repository.fetchSentCount, 2);
+    });
   });
 
   test('신청을 보내지 않았으면 대화 탭이 꺼내 갈 것이 없다', () {

@@ -1,31 +1,31 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:campus_mate/chat/model/data/message.dart';
 import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/chat/model/repository/http_chat_repository.dart';
-import 'package:campus_mate/chat/model/data/message.dart';
 import 'package:campus_mate/chat/view/chat_list_row.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/chat/viewmodel/user_channel.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
+import 'package:campus_mate/common/widgets/app_tab_bar.dart';
+import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/confirm_popup.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
-import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/http/api_client.dart';
 import 'package:campus_mate/core/http/http_send.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
-import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/matching/model/data/acceptance.dart';
 import 'package:campus_mate/matching/model/data/card_profile.dart';
-import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/matching/model/data/sent_request.dart';
+import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/matching/view/acceptance_row.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/matching/view/sent_request_row.dart';
@@ -112,14 +112,15 @@ void main() {
       expect(tester.getRect(find.byType(GlassBottomNav)).top - tester.getBottomLeft(find.byType(ChatListRow).last).dy, 16);
     });
 
-    testWidgets('빈 상태는 앱바 아래 ~ 알약 위 사이 가운데에 선다', (tester) async {
+    testWidgets('빈 상태는 탭 줄 아래 ~ 알약 위 사이 가운데에 선다', (tester) async {
       penFrame(tester);
       await pump(tester, FakeCardRepository());
       await tester.pumpAndSettle();
 
       final empty = find.ancestor(of: find.text('아직 시작된 대화가 없어요'), matching: find.byType(Center)).first;
       final pillTop = tester.getRect(find.byType(GlassBottomNav)).top;
-      expect(tester.getCenter(empty).dy, closeTo((56 + pillTop) / 2, 0.5));
+      // 앱바 56 아래 탭 줄(누르는 칸 48) 아래 ~ 알약 위 사이 가운데.
+      expect(tester.getCenter(empty).dy, closeTo((56 + 48 + pillTop) / 2, 0.5));
     });
 
     testWidgets('B3: 빈 상태는 공통 Empty 마스터 값 — 마스코트 120×120 → 24 → 제목 18/600 → 8 → 설명', (tester) async {
@@ -171,13 +172,14 @@ void main() {
 
       await pump(tester, repository, chat);
 
-      // 높이 44 고정이면 제목(20 × 1.4 = 28)이 1.75 에서 49 가 되어 넘친다.
+      // 머리 칸은 높이를 박지 않는다 — 제목 글자 칸이 곧 머리 칸이라 글자를 키우면 같이 늘어난다.
       expect(tester.takeException(), isNull);
       for (final title in ['받은 신청', '대화 중']) {
         final p = tester.renderObject<RenderParagraph>(find.text(title));
         expect(p.size.height, greaterThanOrEqualTo(p.getMaxIntrinsicHeight(p.size.width) - 0.5), reason: title);
-        // 배율 1.0 에서는 pen 높이 44 그대로다.
-        if (scale == 1.0) expect(headerHeight(tester, title), 44, reason: title);
+        // pen 머리(`P5A282` · `Yjs6e`)는 제목 글자 칸(25)이 그대로 머리 칸이다 — 위아래 빈칸이 없다.
+        expect(headerHeight(tester, title), tester.getSize(find.text(title)).height, reason: title);
+        if (scale == 1.0) expect(headerHeight(tester, title), 25, reason: title);
       }
     });
   }
@@ -199,13 +201,14 @@ void main() {
     expect(find.text('대화 중').hitTestable(), findsNothing);
   });
 
-  testWidgets('받은 신청이 0건이면 대화 중 헤더만 높이 44 로 맨 위에 온다', (tester) async {
+  testWidgets('받은 신청이 0건이면 대화 중 헤더만 제목 글자 높이(25)로 맨 위에 온다', (tester) async {
     final chat = FakeChatRepository()..conversations = Success([conversationFixture()]);
     await pump(tester, FakeCardRepository(), chat);
 
     expect(find.text('받은 신청'), findsNothing);
     expect(find.text('1명'), findsOneWidget);
-    expect(headerHeight(tester, '대화 중'), 44);
+    expect(headerHeight(tester, '대화 중'), tester.getSize(find.text('대화 중')).height);
+    expect(headerHeight(tester, '대화 중'), 25);
     expect(
       tester.getRect(find.text('대화 중')).top - tester.getTopLeft(find.byType(CustomScrollView)).dy,
       lessThan(44),
@@ -377,129 +380,227 @@ void main() {
     });
   });
 
-  group('보낸 신청(2026-10-13 사용자 결정 B · pen ULllO · wOZst)', () {
-    /// 섹션 헤더 칸의 위끝.
-    double headerTop(WidgetTester tester, String title) =>
-        tester.getTopLeft(find.ancestor(of: find.text(title), matching: find.byType(Container)).first).dy;
+  // 대화 탭 나누기(2026-11-16 사용자 「대화탭에 "보낸신청", "대화" 로 tabbar로 나누는거 어떄?? … 낭비 + 보낸신청 늘어날수록
+  // 대화창 볼려면 스크롤 해야하잖아」, pen 값표 — 나 탭과 같은 AppTabBar). 받은 신청은 [대화] 탭 맨 위, 처음 열리는 탭은 [대화].
+  group('[대화] · [보낸 신청] 탭', () {
+    Finder tab(String label) => find.descendant(of: find.byType(AppTabBar), matching: find.text(label));
+    int selected(WidgetTester tester) => tester.widget<AppTabBar>(find.byType(AppTabBar)).selected;
 
-    double headerBottom(WidgetTester tester, String title) =>
-        tester.getBottomLeft(find.ancestor(of: find.text(title), matching: find.byType(Container)).first).dy;
+    Future<void> openSent(WidgetTester tester) async {
+      await tester.tap(tab('보낸 신청'));
+      await tester.pumpAndSettle();
+    }
 
-    testWidgets('받은 신청 아래 · 대화 중 위에 "보낸 신청 N명" 섹션이 온다', (tester) async {
-      final chat = FakeChatRepository()..conversations = Success([conversationFixture()]);
+    Future<void> openChats(WidgetTester tester) async {
+      await tester.tap(tab('대화'));
+      await tester.pumpAndSettle();
+    }
+
+    // 검토 지적(2026-11-16, 2차): [대화] 탭은 pen 의 **보이는 위치**에 맞춘다 — 머리(`P5A282` · `Yjs6e`)는 제목 글자 칸 25 가 그대로
+    // 머리 칸이라 위아래 빈칸이 없다. 탭 줄 아래 → "받은 신청" 글자 12, 글자 → 첫 줄 10(`AHZ7H`), 줄 사이 10(`uxKGx`),
+    // 받은 신청 끝 → "대화 중" 글자 22(`CeqVY` `Hdpkm` · `RI9pi` `IdrTg`), "대화 중" 글자 → 첫 줄 4(`pWxXI`).
+    testWidgets('[대화] 탭 보이는 위치 — 탭 줄 → 12 → 받은 신청 글자 → 10 → 줄 · 사이 10 · 끝 → 22 → 대화 중 글자 → 4 → 첫 대화 줄', (tester) async {
+      tester.view.physicalSize = const Size(360, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final chat = FakeChatRepository()..conversations = Success([conversationFixture(), conversationFixture(matchId: 'm2', nickname: '토끼')]);
       final repository = FakeCardRepository()
-        ..acceptances = const Success([_acceptance])
-        ..sent = Success([_sent('s1'), _sent('s2', status: SentRequestStatus.rejected)]);
-
+        ..acceptances = const Success([
+          _acceptance,
+          Acceptance(cardId: 'card-2', profile: CardProfile(profileId: 'p2', nickname: '둘째', age: 24)),
+        ]);
       await pump(tester, repository, chat);
+      await tester.pumpAndSettle();
 
-      expect(find.text('보낸 신청'), findsOneWidget);
-      expect(find.byType(SentRequestRow), findsNWidgets(2));
-      final countOfSent =
-          find.descendant(of: find.ancestor(of: find.text('보낸 신청'), matching: find.byType(Row)).first, matching: find.text('2명'));
-      expect(countOfSent, findsOneWidget);
-      expect(headerTop(tester, '받은 신청'), lessThan(headerTop(tester, '보낸 신청')));
-      expect(headerTop(tester, '보낸 신청'), lessThan(headerTop(tester, '대화 중')));
-      // 배율 1.0 에서 헤더는 다른 섹션과 같은 44 다.
-      expect(headerHeight(tester, '보낸 신청'), 44);
+      final received = tester.getRect(find.text('받은 신청'));
+      final chats = tester.getRect(find.text('대화 중'));
+      final acceptances = find.byType(AcceptanceRow);
+      expect((received.height, chats.height), (25.0, 25.0));
+      expect(received.top - (tester.getTopLeft(find.byType(AppTabBar)).dy + AppTabBar.height), 12);
+      expect(tester.getRect(acceptances.at(0)).top - received.bottom, 10);
+      expect(tester.getRect(acceptances.at(1)).top - tester.getRect(acceptances.at(0)).bottom, 10);
+      expect(chats.top - tester.getRect(acceptances.at(1)).bottom, 22);
+      expect(tester.getRect(find.byType(ChatListRow).first).top - chats.bottom, 4);
     });
 
-    testWidgets('간격: 받은 신청 끝 → 보낸 신청 헤더 22, 헤더 → 첫 행 4, 보낸 신청 끝 → 대화 중 헤더 22', (tester) async {
-      final chat = FakeChatRepository()..conversations = Success([conversationFixture()]);
-      final repository = FakeCardRepository()
-        ..acceptances = const Success([_acceptance])
-        ..sent = Success([_sent('s1'), _sent('s2')]);
+    // pen [대화] 탭 대화 줄 사이 선(`PHlzV` · `IAi6M`)은 #EBEBEB — [보낸 신청] 탭과 같은 hairline-soft 1px.
+    testWidgets('대화 줄 사이는 hairline-soft 1px 선이다', (tester) async {
+      final chat = FakeChatRepository()..conversations = Success([conversationFixture(), conversationFixture(matchId: 'm2', nickname: '토끼')]);
+      await pump(tester, FakeCardRepository(), chat);
+      await tester.pumpAndSettle();
 
-      await pump(tester, repository, chat);
-
-      final rows = find.byType(SentRequestRow);
-      expect(headerTop(tester, '보낸 신청') - tester.getBottomLeft(find.byType(AcceptanceRow)).dy, 22);
-      expect(tester.getTopLeft(rows.first).dy - headerBottom(tester, '보낸 신청'), 4);
-      expect(headerTop(tester, '대화 중') - tester.getBottomLeft(rows.last).dy, 22);
+      final rows = find.byType(ChatListRow);
+      final divider = tester.widget<Divider>(find.byType(Divider).first);
+      expect((divider.thickness, divider.height, divider.color), (1.0, 1.0, AppColors.hairlineSoft));
+      expect(tester.getRect(rows.at(1)).top - tester.getRect(rows.at(0)).bottom, 1);
     });
 
-    testWidgets('행은 본문 여백 16 안에 있고 사이에 hairline-soft 1px 선이 있다', (tester) async {
-      final repository = FakeCardRepository()..sent = Success([_sent('s1'), _sent('s2')]);
+    testWidgets('받은 신청이 없으면 "대화 중" 머리 위에 22 를 두지 않는다 — 탭 줄 아래 12 에 바로 머리', (tester) async {
+      final chat = FakeChatRepository()..conversations = Success([conversationFixture()]);
+      await pump(tester, FakeCardRepository(), chat);
+      await tester.pumpAndSettle();
 
+      final chats = tester.getRect(find.text('대화 중'));
+      expect(chats.top - (tester.getTopLeft(find.byType(AppTabBar)).dy + AppTabBar.height), 12);
+      expect(tester.getRect(find.byType(ChatListRow).first).top - chats.bottom, 4);
+    });
+
+    testWidgets('앱바 바로 아래 탭 줄 "대화" · "보낸 신청"(수 없음), 처음엔 [대화] 탭이고 본문은 탭 줄 아래 12', (tester) async {
+      final chat = FakeChatRepository()..conversations = Success([conversationFixture()]);
+      await pump(tester, FakeCardRepository()..acceptances = const Success([_acceptance]), chat);
+
+      final bar = tester.widget<AppTabBar>(find.byType(AppTabBar));
+      expect(bar.labels, ['대화', '보낸 신청']);
+      expect(selected(tester), 0);
+      final barRect = tester.getRect(find.byType(AppTabBar));
+      expect(barRect.top, 56);
+      // 보이는 줄 44 아래 12 에 받은 신청 머리.
+      final header = find.ancestor(of: find.text('받은 신청'), matching: find.byType(Container)).first;
+      expect(tester.getTopLeft(header).dy - (barRect.top + AppTabBar.height), 12);
+      expect(find.byType(AcceptanceRow), findsOneWidget);
+      expect(find.byType(ChatListRow), findsOneWidget);
+      expect(find.byType(SentRequestRow), findsNothing);
+    });
+
+    testWidgets('들어올 때는 보낸 신청을 읽지 않고, 그 탭을 처음 열면 읽는다 — 다시 볼 때마다 조용히 다시 읽는다', (tester) async {
+      final repository = FakeCardRepository()..sent = Success([_sent('s1')]);
       await pump(tester, repository);
+      await tester.pumpAndSettle();
+      expect(repository.fetchSentCount, 0);
+
+      await openSent(tester);
+      expect(repository.fetchSentCount, 1);
+      expect(selected(tester), 1);
+      expect(find.byType(SentRequestRow), findsOneWidget);
+
+      await openChats(tester);
+      expect(repository.fetchSentCount, 1);
+      await openSent(tester);
+      expect(repository.fetchSentCount, 2);
+    });
+
+    testWidgets('[보낸 신청] 탭: 섹션 머리 · 수 없이 줄만, 본문 여백 16 안 · 사이 hairline-soft 1px, 탭 줄 아래 12', (tester) async {
+      await pump(tester, FakeCardRepository()..sent = Success([_sent('s1'), _sent('s2')]));
+      await openSent(tester);
 
       final rows = find.byType(SentRequestRow);
+      expect(rows, findsNWidgets(2));
+      expect(find.text('2명'), findsNothing);
       expect(tester.getTopLeft(rows.first).dx, 16);
       expect(tester.getTopRight(rows.first).dx, 800 - 16);
-      final divider = tester.widget<Divider>(
-          find.descendant(of: find.byType(SliverPadding), matching: find.byType(Divider)).first);
-      expect(divider.thickness, 1);
-      expect(divider.height, 1);
-      expect(divider.color, AppColors.hairlineSoft);
+      expect(tester.getTopLeft(rows.first).dy - (tester.getTopLeft(find.byType(AppTabBar)).dy + AppTabBar.height), 12);
+      final divider = tester.widget<Divider>(find.descendant(of: find.byType(SliverPadding), matching: find.byType(Divider)).first);
+      expect((divider.thickness, divider.height, divider.color), (1.0, 1.0, AppColors.hairlineSoft));
       expect(tester.getTopLeft(rows.last).dy - tester.getBottomLeft(rows.first).dy, 1);
     });
 
-    testWidgets('보낸 신청만 있으면 빈 화면이 아니라 보낸 신청 섹션만 맨 위에 보인다(wOZst)', (tester) async {
-      final repository = FakeCardRepository()..sent = Success([_sent('s1')]);
+    testWidgets('보낸 신청이 없으면 그 탭은 "아직 보낸 신청이 없어요" 빈 화면이다', (tester) async {
+      await pump(tester, FakeCardRepository());
+      await openSent(tester);
 
-      await pump(tester, repository);
-
+      expect(find.text('아직 보낸 신청이 없어요'), findsOneWidget);
+      expect(find.text('카드에서 대화 신청을 보내면 여기에 모여요.'), findsOneWidget);
       expect(find.text('아직 시작된 대화가 없어요'), findsNothing);
-      expect(find.text('받은 신청'), findsNothing);
-      expect(find.text('대화 중'), findsNothing);
-      expect(find.byType(SentRequestRow), findsOneWidget);
-      expect(headerTop(tester, '보낸 신청') - tester.getTopLeft(find.byType(CustomScrollView)).dy, 0);
     });
 
-    testWidgets('셋 다 비었을 때만 빈 화면이다', (tester) async {
-      await pump(tester, FakeCardRepository());
+    testWidgets('보낸 신청만 있으면 [대화] 탭은 대화 빈 화면, [보낸 신청] 탭에 그 줄이 있다', (tester) async {
+      await pump(tester, FakeCardRepository()..sent = Success([_sent('s1')]));
+      await tester.pumpAndSettle();
 
       expect(find.text('아직 시작된 대화가 없어요'), findsOneWidget);
-      expect(find.text('보낸 신청'), findsNothing);
+      await openSent(tester);
+      expect(find.byType(SentRequestRow), findsOneWidget);
+      expect(find.text('아직 시작된 대화가 없어요'), findsNothing);
     });
 
-    testWidgets('보낸 신청을 읽는 중이면 다른 둘이 끝났어도 스켈레톤이다 — 섹션이 뒤늦게 끼어들지 않게', (tester) async {
+    testWidgets('보낸 신청을 읽는 동안은 그 탭만 스켈레톤이고 [대화] 탭은 그대로다', (tester) async {
       final chat = FakeChatRepository()..conversations = Success([conversationFixture()]);
       final repository = FakeCardRepository()
         ..sent = Success([_sent('s1')])
         ..holdSent = Completer<void>();
-
       await pump(tester, repository, chat);
-      expect(find.text('대화 중'), findsNothing);
+      await tester.pumpAndSettle();
+
+      // 스켈레톤 막대(pen `lpsOn` — 수락 대기 2 + 채팅 3, surfaceStrong). 스켈레톤은 ListView 이고 목록은 CustomScrollView 라 그 안만 센다.
+      Finder skeletonBars() => find.descendant(
+            of: find.byType(ListView),
+            matching: find.byWidgetPredicate(
+              (w) => w is Container && w.decoration is BoxDecoration && (w.decoration! as BoxDecoration).color == AppColors.surfaceStrong,
+            ),
+          );
+
+      await tester.tap(tab('보낸 신청'));
+      await tester.pump();
       expect(find.byType(SentRequestRow), findsNothing);
+      expect(skeletonBars(), findsNWidgets(5));
+
+      await tester.tap(tab('대화'));
+      await tester.pump();
+      expect(find.byType(ChatListRow), findsOneWidget);
+      expect(skeletonBars(), findsNothing);
 
       repository.holdSent!.complete();
-      await tester.pump();
-      await tester.pump();
-
+      await openSent(tester);
       expect(find.byType(SentRequestRow), findsOneWidget);
-      expect(find.text('대화 중'), findsOneWidget);
     });
 
-    testWidgets('보낸 신청 읽기가 실패하면 위에 오류 줄이 뜨고 다른 섹션은 그대로 보인다', (tester) async {
+    testWidgets('보낸 신청 읽기가 실패하면 그 탭 빈 화면 아래 오류 줄, [대화] 탭에는 오류가 없다', (tester) async {
       final chat = FakeChatRepository()..conversations = Success([conversationFixture()]);
-      final repository = FakeCardRepository()
-        ..acceptances = const Success([_acceptance])
-        ..sent = const FailureResult(NetworkFailure());
-
+      final repository = FakeCardRepository()..sent = const FailureResult(NetworkFailure());
       await pump(tester, repository, chat);
+      await openSent(tester);
 
-      expect(find.text(failureText(AppLocalizationsKo(), const NetworkFailure())), findsOneWidget);
-      expect(find.text('보낸 신청'), findsNothing);
-      expect(find.byType(AcceptanceRow), findsOneWidget);
+      final error = failureText(AppLocalizationsKo(), const NetworkFailure());
+      expect(find.text(error), findsOneWidget);
+      await openChats(tester);
+      expect(find.text(error), findsNothing);
       expect(find.byType(ChatListRow), findsOneWidget);
     });
 
-    testWidgets('목록을 내리면 받은 신청 헤더만 붙어 있고 보낸 신청 헤더는 같이 올라간다', (tester) async {
+    testWidgets('탭을 오가도 각 탭의 스크롤 자리가 그대로다(처음으로 튀지 않는다)', (tester) async {
       final chat = FakeChatRepository()
-        ..conversations = Success([
-          for (var i = 0; i < 15; i++) conversationFixture(matchId: 'm$i', nickname: '사람$i'),
-        ]);
-      final repository = FakeCardRepository()
-        ..acceptances = const Success([_acceptance])
-        ..sent = Success([_sent('s1')]);
+        ..conversations = Success([for (var i = 0; i < 20; i++) conversationFixture(matchId: 'm$i', nickname: '사람$i')]);
+      final repository = FakeCardRepository()..sent = Success([for (var i = 0; i < 20; i++) _sent('s$i')]);
       await pump(tester, repository, chat);
-
-      await tester.drag(find.byType(CustomScrollView), const Offset(0, -600));
       await tester.pumpAndSettle();
+      ScrollPosition position(int index) => tester
+          .state<ScrollableState>(find.byType(Scrollable, skipOffstage: false).at(index))
+          .position;
 
-      expect(find.text('받은 신청').hitTestable(), findsOneWidget);
-      expect(find.text('보낸 신청').hitTestable(), findsNothing);
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -300));
+      await tester.pumpAndSettle();
+      final chatsOffset = position(0).pixels;
+      expect(chatsOffset, greaterThan(0));
+
+      await openSent(tester);
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -200));
+      await tester.pumpAndSettle();
+      final sentOffset = position(1).pixels;
+      expect(sentOffset, greaterThan(0));
+
+      await openChats(tester);
+      expect(position(0).pixels, chatsOffset);
+      await openSent(tester);
+      expect(position(1).pixels, sentOffset);
+    });
+
+    testWidgets('당겨서 새로고침은 그 탭 것만 다시 읽는다', (tester) async {
+      final chat = FakeChatRepository()..conversations = Success([conversationFixture()]);
+      final repository = FakeCardRepository()..sent = Success([_sent('s1')]);
+      await pump(tester, repository, chat);
+      await openSent(tester);
+      final (sentBefore, chatsBefore) = (repository.fetchSentCount, chat.conversationsFetchCount);
+
+      await tester.fling(find.byType(CustomScrollView), const Offset(0, 300), 1000);
+      await tester.pumpAndSettle();
+      expect((repository.fetchSentCount, chat.conversationsFetchCount), (sentBefore + 1, chatsBefore));
+
+      await openChats(tester);
+      final sentAfter = repository.fetchSentCount;
+      await tester.fling(find.byType(CustomScrollView), const Offset(0, 300), 1000);
+      await tester.pumpAndSettle();
+      expect(repository.fetchSentCount, sentAfter);
+      expect(chat.conversationsFetchCount, greaterThan(chatsBefore));
     });
 
     testWidgets('하단 내비 숫자에 보낸 신청은 들어가지 않는다', (tester) async {
@@ -509,6 +610,7 @@ void main() {
       final chat = FakeChatRepository()..conversations = Success([conversationFixture(unreadCount: 3)]);
 
       await pump(tester, repository, chat);
+      await openSent(tester);
 
       expect(find.text('4'), findsOneWidget);
     });
@@ -537,6 +639,7 @@ void main() {
         child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router),
       ));
       await tester.pumpAndSettle();
+      await openSent(tester);
 
       await tester.tap(find.byType(SentRequestRow));
       await tester.pumpAndSettle();
@@ -547,6 +650,7 @@ void main() {
     // 사용자 「채팅목록 클릭하면 -> 상대방이 수락하면 열립니다 토스트」 · 문구 「"상대가 수락하면 대화가 열려요" (추천)」.
     testWidgets('기다리는 줄을 누르면 "상대가 수락하면 대화가 열려요" 토스트가 신청 토스트와 같은 자리(내비 위 16 · 가운데)에 뜬다', (tester) async {
       await pump(tester, FakeCardRepository()..sent = Success([_sent('s1')]));
+      await openSent(tester);
 
       await tester.tap(find.byType(SentRequestRow));
       await tester.pump();
@@ -556,15 +660,14 @@ void main() {
       expect(toast, findsOneWidget);
       expect(tester.widget<AppToast>(toast).label, '상대가 수락하면 대화가 열려요');
       final icon = tester.widget<Icon>(find.descendant(of: toast, matching: find.byType(Icon)));
-      // 줄의 "N일 남음" 칩과 같은 타이머 — 체크(보냈어요)와 달리 아직 기다리는 중이라는 뜻(pen 값 받기 전 임시).
-      expect(icon.icon, AppIcons.timer);
-      expect(icon.size, 16);
+      expect((icon.icon, icon.size), (AppIcons.timer, 16.0));
       expect(tester.getBottomLeft(toast).dy, tester.getTopLeft(find.byType(GlassBottomNav)).dy - 16);
       expect(tester.getCenter(toast).dx, 400);
     });
 
     testWidgets('기다리는 줄을 여러 번 눌러도 토스트는 하나다', (tester) async {
       await pump(tester, FakeCardRepository()..sent = Success([_sent('s1')]));
+      await openSent(tester);
 
       for (var i = 0; i < 3; i++) {
         await tester.tap(find.byType(SentRequestRow));
@@ -578,6 +681,7 @@ void main() {
     for (final status in [SentRequestStatus.rejected, SentRequestStatus.expired]) {
       testWidgets('${status.name} 줄은 눌러도 토스트가 없다', (tester) async {
         await pump(tester, FakeCardRepository()..sent = Success([_sent('s1', status: status)]));
+        await openSent(tester);
 
         await tester.tap(find.byType(SentRequestRow), warnIfMissed: false);
         await tester.pump();
@@ -587,23 +691,11 @@ void main() {
       });
     }
 
-    testWidgets('화면에 들어올 때 · 당겨서 새로고침할 때 보낸 신청도 다시 읽는다', (tester) async {
-      final chat = FakeChatRepository()..conversations = Success([conversationFixture()]);
-      final repository = FakeCardRepository();
-      await pump(tester, repository, chat);
-      expect(repository.fetchSentCount, 1);
-
-      await tester.fling(find.byType(CustomScrollView), const Offset(0, 300), 1000);
-      await tester.pumpAndSettle();
-
-      expect(repository.fetchSentCount, 2);
-    });
-
     group('10b 에서 대화 신청하고 넘어왔을 때(Q1322I)', () {
-      Future<ProviderContainer> arrive(WidgetTester tester, FakeCardRepository repository, FakeChatRepository chat) async {
+      Future<void> arrive(WidgetTester tester, FakeCardRepository repository) async {
         final container = ProviderContainer(overrides: [
           cardRepositoryProvider.overrideWithValue(repository),
-          chatRepositoryProvider.overrideWithValue(chat),
+          chatRepositoryProvider.overrideWithValue(FakeChatRepository()..conversations = Success([conversationFixture()])),
         ]);
         addTearDown(container.dispose);
         unawaited(container.read(sentRequestsViewModelProvider.notifier).announceSent());
@@ -613,90 +705,36 @@ void main() {
         ));
         await tester.pump();
         await tester.pump();
-        return container;
       }
 
+      testWidgets('[보낸 신청] 탭이 열려 새 줄이 보이고, 보낸 신청은 신청 직후 한 번만 읽는다', (tester) async {
+        final repository = FakeCardRepository()..sent = Success([_sent('s1')]);
+        await arrive(tester, repository);
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(selected(tester), 1);
+        expect(find.byType(SentRequestRow), findsOneWidget);
+        expect(repository.fetchSentCount, 1);
+      });
+
       testWidgets('토스트 "신청을 보냈어요" 가 체크 16 과 함께 하단 내비 위 16 · 가로 가운데에 뜬다', (tester) async {
-        await arrive(tester, FakeCardRepository()..sent = Success([_sent('s1')]), FakeChatRepository());
+        await arrive(tester, FakeCardRepository()..sent = Success([_sent('s1')]));
         await tester.pump(const Duration(milliseconds: 300));
 
         final toast = find.byType(AppToast);
         expect(toast, findsOneWidget);
         expect(tester.widget<AppToast>(toast).label, '신청을 보냈어요');
         final icon = tester.widget<Icon>(find.descendant(of: toast, matching: find.byType(Icon)));
-        expect(icon.icon, AppIcons.check);
-        expect(icon.size, 16);
+        expect((icon.icon, icon.size), (AppIcons.check, 16.0));
         expect(tester.getBottomLeft(toast).dy, tester.getTopLeft(find.byType(GlassBottomNav)).dy - 16);
         expect(tester.getCenter(toast).dx, 400);
       });
 
-      testWidgets('보낸 신청 헤더가 받은 신청 고정 헤더 바로 아래에 오도록 내려 준다', (tester) async {
-        final chat = FakeChatRepository()
-          ..conversations = Success([
-            for (var i = 0; i < 15; i++) conversationFixture(matchId: 'm$i', nickname: '사람$i'),
-          ]);
-        final repository = FakeCardRepository()
-          ..acceptances = Success([
-            for (var i = 0; i < 4; i++)
-              Acceptance(cardId: 'a$i', profile: CardProfile(profileId: 'p$i', nickname: '사람a$i', age: 25)),
-          ])
-          ..sent = Success([_sent('s1')]);
-
-        await arrive(tester, repository, chat);
-        await tester.pump();
-        // standard 동안 미끄러져 내려간다(아래). 움직이는 동안 목록은 줄 누름을 받지 않는다(Flutter 스크롤 공통) —
-        // 끝난(220ms 를 넘긴) 프레임 다음 프레임부터 눌린다.
-        await tester.pump(AppMotion.standard + const Duration(milliseconds: 1));
-        await tester.pump();
-
-        expect(headerTop(tester, '보낸 신청'), headerBottom(tester, '받은 신청'));
-        expect(find.text('보낸 신청').hitTestable(), findsOneWidget);
-      });
-
-      group('내려 주는 움직임(DESIGN §7 standard)', () {
-        Future<void> arriveLong(WidgetTester tester) => arrive(
-              tester,
-              FakeCardRepository()
-                ..acceptances = Success([
-                  for (var i = 0; i < 4; i++)
-                    Acceptance(cardId: 'a$i', profile: CardProfile(profileId: 'p$i', nickname: '사람a$i', age: 25)),
-                ])
-                ..sent = Success([_sent('s1')]),
-              FakeChatRepository()
-                ..conversations = Success([
-                  for (var i = 0; i < 15; i++) conversationFixture(matchId: 'm$i', nickname: '사람$i'),
-                ]),
-            );
-        double scrolled(WidgetTester tester) => tester.state<ScrollableState>(find.byType(Scrollable).first).position.pixels;
-
-        testWidgets('한 번에 건너뛰지 않고 standard(220ms) 동안 내려간다', (tester) async {
-          await arriveLong(tester);
-          await tester.pump(AppMotion.standard ~/ 2);
-          final halfway = scrolled(tester);
-
-          await tester.pump(AppMotion.standard);
-          final end = scrolled(tester);
-          expect(end, greaterThan(0));
-          expect(halfway, inExclusiveRange(0, end));
-          expect(headerTop(tester, '보낸 신청'), headerBottom(tester, '받은 신청'));
-        });
-
-        testWidgets('기기 "동작 줄이기" 면 바로 그 자리다', (tester) async {
-          tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
-          addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
-          await arriveLong(tester);
-          await tester.pump();
-
-          expect(headerTop(tester, '보낸 신청'), headerBottom(tester, '받은 신청'));
-        });
-      });
-
-      testWidgets('그냥 탭으로 들어오면 토스트도 스크롤도 없다', (tester) async {
-        final repository = FakeCardRepository()..sent = Success([_sent('s1')]);
-
-        await pump(tester, repository);
+      testWidgets('그냥 탭으로 들어오면 [대화] 탭이고 토스트가 없다', (tester) async {
+        await pump(tester, FakeCardRepository()..sent = Success([_sent('s1')]));
         await tester.pump(const Duration(milliseconds: 300));
 
+        expect(selected(tester), 0);
         expect(find.byType(AppToast), findsNothing);
       });
     });
@@ -735,11 +773,12 @@ void main() {
       await openScreen(tester);
     }
 
-    testWidgets('화면을 처음 열 때는 두 목록을 한 번씩만 읽는다', (tester) async {
+    testWidgets('화면을 처음 열 때는 두 목록을 한 번씩만 읽고, 보낸 신청은 읽지 않는다(그 탭을 열 때)', (tester) async {
       await openScreen(tester);
 
       expect(chat.conversationsFetchCount, 1);
       expect(cards.fetchAcceptancesCount, 1);
+      expect(cards.fetchSentCount, 0);
     });
 
     testWidgets('다른 탭에 갔다가 이 화면으로 돌아오면 대화 목록을 다시 읽는다', (tester) async {
@@ -763,12 +802,19 @@ void main() {
       expect(find.text('초코라떼, 25'), findsOneWidget);
     });
 
-    testWidgets('다른 탭에 갔다가 이 화면으로 돌아오면 보낸 신청도 다시 읽는다', (tester) async {
+    testWidgets('돌아오면 [대화] 탭이고 보낸 신청은 그 탭을 열 때 다시 읽는다', (tester) async {
       await openScreen(tester);
+      await tester.tap(find.descendant(of: find.byType(AppTabBar), matching: find.text('보낸 신청')));
+      await tester.pumpAndSettle();
+      expect(cards.fetchSentCount, 1);
       cards.sent = Success([_sent('s1', status: SentRequestStatus.matched, matchId: 'm-1')]);
 
       await leaveAndReturn(tester);
+      expect(tester.widget<AppTabBar>(find.byType(AppTabBar)).selected, 0);
+      expect(cards.fetchSentCount, 1);
 
+      await tester.tap(find.descendant(of: find.byType(AppTabBar), matching: find.text('보낸 신청')));
+      await tester.pumpAndSettle();
       expect(cards.fetchSentCount, 2);
       expect(find.text('매칭됨'), findsOneWidget);
     });
