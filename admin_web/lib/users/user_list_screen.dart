@@ -112,6 +112,8 @@ class _UserListScreenState extends ConsumerState<UserListScreen> {
               AdminChip(label: '닉네임 · id', selected: !mail, onTap: () => _setMode(UserSearchMode.nickname)),
               const SizedBox(width: AdminSpacing.xs),
               AdminChip(label: '학교 메일', selected: mail, onTap: () => _setMode(UserSearchMode.schoolMail)),
+              const SizedBox(width: AdminSpacing.md),
+              const Expanded(child: _TotalsLine()),
             ],
           ),
           const SizedBox(height: AdminSpacing.lg),
@@ -152,8 +154,39 @@ class _UserListScreenState extends ConsumerState<UserListScreen> {
   }
 }
 
-/// 표 열(pen VY7a0): 닉네임 180 · 프로필 id 220 · 학교 180 · 상태 120 · 가입일 150 · 받은 신고 110. 남는 폭은 오른쪽이 빈다.
-const List<double> _columns = [180, 220, 180, 120, 150, 110];
+/// 화면 위 합계 한 줄(pen 에 없음 — 칩 줄 오른쪽이라 pen 의 다른 자리는 그대로): 12 web-muted, 남 · 여 숫자만 홈 가입 추이 색.
+/// 찾기와 상관없는 전체 기준(관리자 제외)이고, 못 받으면 이 줄에만 알린다.
+class _TotalsLine extends ConsumerWidget {
+  const _TotalsLine();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    const key = ValueKey('user-totals');
+    final style = AdminTypography.xs.copyWith(height: AdminTypography.xsBox, color: AdminColors.muted);
+    return switch (ref.watch(userTotalsProvider)) {
+      AsyncData(value: final totals) => Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(text: '남 ${totals.gender['male'] ?? 0}명', style: const TextStyle(color: AdminColors.chartMale)),
+            const TextSpan(text: ' · '),
+            TextSpan(text: '여 ${totals.gender['female'] ?? 0}명', style: const TextStyle(color: AdminColors.chartFemale)),
+            TextSpan(text: ' (성별 미입력 ${totals.gender['none'] ?? 0}명) / 들어온 경로: ${totals.channelLine}'),
+          ],
+        ),
+        key: key,
+        textAlign: TextAlign.end,
+        maxLines: 2,
+        style: style,
+      ),
+      AsyncError() => Text('합계를 불러오지 못했어요', key: key, textAlign: TextAlign.end, style: style),
+      _ => Text('합계를 세고 있어요', key: key, textAlign: TextAlign.end, style: style),
+    };
+  }
+}
+
+/// 표 열(pen VY7a0): 닉네임 180 · 프로필 id 220 · 학교 180 · 상태 120 · 가입일 150 · 받은 신고 110 + pen 에 없는 성별 64 · 들어온 경로 112
+/// (1440 에서 표 폭 1136 을 꼭 채운다 — 더 좁은 창에서는 다른 표처럼 오른쪽이 잘린다).
+const List<double> _columns = [180, 220, 180, 120, 150, 110, 64, 112];
 
 class _UserTable extends StatelessWidget {
   const _UserTable({required this.users});
@@ -165,7 +198,7 @@ class _UserTable extends StatelessWidget {
     return AdminTable(
       key: const ValueKey('user-table'),
       columns: _columns,
-      heads: const ['닉네임', '프로필 id', '학교', '상태', '가입일', '받은 신고'],
+      heads: const ['닉네임', '프로필 id', '학교', '상태', '가입일', '받은 신고', '성별', '들어온 경로'],
       rows: [
         for (final user in users)
           AdminTableRow(
@@ -183,6 +216,13 @@ class _UserTable extends StatelessWidget {
               ),
               AdminCellText(formatKstDate(user.createdAt)),
               AdminCellText('${user.reportCount}건'),
+              Builder(
+                builder: (context) {
+                  final mark = genderMark(user.gender);
+                  return Text(mark?.$1 ?? missingValue, maxLines: 1, style: AdminTypography.sm.copyWith(color: mark?.$2 ?? AdminColors.ink));
+                },
+              ),
+              AdminCellText(acquisitionChannelLabel(user.acquisitionChannel)),
             ],
           ),
       ],
