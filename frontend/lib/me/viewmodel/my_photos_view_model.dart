@@ -36,9 +36,9 @@ class MyPhotosViewModel extends PhotosViewModel {
     if (!canSave) {
       return;
     }
-    // shortcut: 원본을 빼서 대표(첫 칸)가 원본이 될 때 얼굴 크기 기준(0.15)은 보지 않는다 — 올려 둔 사진은 파일이 없어 잴 수 없다.
-    // 아바타는 15b 에서 새로 고른 사진(크기 검사를 거친다)으로만 다시 만들어 지금은 영향이 없다. 15-7 원본으로 아바타를 만드는 길이
-    // 생기면 서버가 얼굴 크기를 돌려주게 하고 여기서 막는다.
+    // shortcut: 원본을 빼서 대표(첫 칸)가 원본이 될 때 얼굴 크기 기준(0.15) · 여러 명 검사(11-17)는 보지 않는다 — 올려 둔 사진은
+    // 파일이 없어 잴 수 없다. 아바타는 15b 에서 새로 고른 사진(두 검사를 거친다)으로만 다시 만들어 지금은 영향이 없다. 15-7 원본으로
+    // 아바타를 만드는 길이 생기면 서버가 얼굴 검사 결과를 돌려주게 하고 여기서 막는다.
     final sourceIndex = state.photos.indexWhere((p) => p.isAvatarSource);
     final slots = [for (final p in state.photos) p.id != null ? KeptPhoto(p.id!) : NewPhoto(p.file!)];
     state = state.copyWith(isSubmitting: true, error: null, documentRejected: false);

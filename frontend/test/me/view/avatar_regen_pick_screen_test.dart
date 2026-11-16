@@ -307,6 +307,32 @@ void main() {
       expect(find.text('얼굴이 크게 나온 사진을 골라 주세요'), findsNothing);
     });
 
+    // 사용자 결정 2026-11-17 — 여러 명이 나온 사진은 누가 아바타로 그려질지 모른다.
+    testWidgets('여러 명이 나온 사진은 칸에 넣지 않고 "혼자 나온 사진을 골라 주세요"', (tester) async {
+      await pump(tester);
+      faces
+        ..nextWidthRatio = 0.3
+        ..nextHasCompanion = true;
+
+      await choosePhoto(tester);
+
+      expect(find.text('혼자 나온 사진을 골라 주세요'), findsOneWidget);
+      expect(find.byType(AddPhotoTile), findsOneWidget);
+      expect(tester.widget<AppButton>(cta).onPressed, isNull);
+    });
+
+    testWidgets('얼굴이 작고 여러 명이면 얼굴 크기 문구가 먼저다', (tester) async {
+      await pump(tester);
+      faces
+        ..nextWidthRatio = 0.05
+        ..nextHasCompanion = true;
+
+      await choosePhoto(tester);
+
+      expect(find.text('얼굴이 크게 나온 사진을 골라 주세요'), findsOneWidget);
+      expect(find.text('혼자 나온 사진을 골라 주세요'), findsNothing);
+    });
+
     testWidgets('고른 사진이 있을 때 얼굴이 작은 사진으로 바꾸려 하면 먼저 고른 사진이 그대로 남는다', (tester) async {
       await pump(tester);
       await choosePhoto(tester);

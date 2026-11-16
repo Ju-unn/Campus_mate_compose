@@ -126,7 +126,7 @@ class AvatarRegenPickViewModel extends Notifier<AvatarRegenPickUiState> {
   }
 
   /// 압축한 사진, 또는 칸에 넣지 않는 이유. 얼굴이 없거나 사진을 처리하지 못하면 얼굴 없음, 이 사진이 곧 아바타 원본이라
-  /// 얼굴이 작으면(폭 비율 0.15 미만, 사용자 결정 2026-11-15) 작은 얼굴 문구다. 얼굴 검사가 예외를 던지면 크기도 모르는 채로
+  /// 얼굴이 작으면(폭 비율 0.15 미만, 사용자 결정 2026-11-15) 작은 얼굴 문구, 여러 명이 나왔으면(11-17) 혼자 나온 사진 문구다. 얼굴 검사가 예외를 던지면 크기도 모르는 채로
   /// 통과시킨다(04-2 와 같다 — 기기 안 검사는 1차 필터이고 서버 SafeSearch 가 다시 본다).
   Future<(File?, Failure?)> _checked(File file) async {
     try {
@@ -134,6 +134,8 @@ class AvatarRegenPickViewModel extends Notifier<AvatarRegenPickUiState> {
       final scan = await _scan(compressed);
       if (!scan.hasFace) return (null, const AppErrorFailure(AppError.noFace));
       if (scan.isTooSmallForAvatar) return (null, const AppErrorFailure(AppError.faceTooSmall));
+      // 여러 명이 나온 사진은 누가 아바타로 그려질지 모른다(사용자 결정 2026-11-17).
+      if (scan.hasCompanion) return (null, const AppErrorFailure(AppError.notAlone));
       return (compressed, null);
     } on Exception {
       return (null, const AppErrorFailure(AppError.noFace));

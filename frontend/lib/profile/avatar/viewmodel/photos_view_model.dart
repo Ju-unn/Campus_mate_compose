@@ -158,7 +158,9 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
       final compressed = await ref.read(imageCompressorProvider).compressToJpeg(file);
       final scan = await _scan(compressed);
       // 얼굴 크기는 여기서 한 번 잰 값을 사진에 담아 04-3 이 다시 검출하지 않는다.
-      return scan.hasFace ? SelectedPhoto(compressed, sourceHash: sourceHash, faceWidthRatio: scan.widthRatio) : null;
+      if (!scan.hasFace) return null;
+      return SelectedPhoto(compressed,
+          sourceHash: sourceHash, faceWidthRatio: scan.widthRatio, hasCompanion: scan.hasCompanion);
     } on Exception {
       return null;
     }
@@ -215,13 +217,14 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
     state = state.copyWith(photos: photos, error: null);
   }
 
-  /// 04-2 → 04-3 으로 넘어갈 때 부른다. 얼굴 크기 기준(0.15)을 넘는 원본이 이미 있으면 그대로 둔다. 아니면 기준을 넘는 첫 사진을
-  /// 골라 두고(사용자 결정 2026-11-15), 그런 사진이 없으면 종전처럼 원본이 없을 때만 첫 장을 고른다 — 04-3 이 작은 얼굴 문구를 보인다.
+  /// 04-2 → 04-3 으로 넘어갈 때 부른다. 원본으로 쓸 수 있는 사진(얼굴 크기 0.15 이상 · 혼자 나옴)이 이미 원본이면 그대로 둔다.
+  /// 아니면 쓸 수 있는 첫 사진을 골라 두고(사용자 결정 2026-11-15 · 11-17), 그런 사진이 없으면 종전처럼 원본이 없을 때만 첫 장을
+  /// 고른다 — 04-3 이 그 이유 문구를 보인다.
   void prepareAvatarSource() {
     final photos = state.photos;
-    if (photos.any((p) => p.isAvatarSource && !p.faceTooSmallForAvatar)) return;
-    final bigEnough = photos.indexWhere((p) => !p.faceTooSmallForAvatar);
-    if (bigEnough >= 0) return setAvatarSource(bigEnough);
+    if (photos.any((p) => p.isAvatarSource && p.avatarSourceError == null)) return;
+    final usable = photos.indexWhere((p) => p.avatarSourceError == null);
+    if (usable >= 0) return setAvatarSource(usable);
     if (photos.isEmpty || photos.any((p) => p.isAvatarSource)) return;
     setAvatarSource(0);
   }
