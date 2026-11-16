@@ -4,16 +4,19 @@
 관례다. 인증이 통째로 다르고(로그인 토큰 vs 구글 ID 토큰), 한 파일에 섞으면 의존성을 잘못 붙이기 쉽다.
 """
 import logging
+from collections.abc import Callable
 from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Depends, Header
+from google.cloud import vision
 from openai import AsyncOpenAI
 from pydantic import BaseModel
 
 from app.core.batch_auth import verify_oidc_token
-from app.core.deps import get_client, get_settings
+from app.core.deps import get_client, get_settings, get_vision_client_factory
 from app.profile_onboarding.avatars import AvatarGenerator, apply_fallback_avatar, avatar_regen_cost
+from app.profile_onboarding.face_framing import frame_on_face
 from app.profile_onboarding.hearts import spend_hearts
 from app.profile_onboarding.repository import ProfileOnboardingRepository
 
@@ -38,6 +41,7 @@ async def generate_avatar_task(
     settings: Settings = Depends(get_settings),
     client: httpx.AsyncClient = Depends(get_client),
     openai_client: AsyncOpenAI = Depends(get_openai),
+    make_vision_client: Callable[[], vision.ImageAnnotatorAsyncClient] = Depends(get_vision_client_factory),
 ) -> dict:
     """그림 한 장을 만들어 기록한다. **무슨 일이 있어도 200 이다.**
 
@@ -78,6 +82,8 @@ async def generate_avatar_task(
     source_photo = await ProfilePhotoStorage(
         settings.storage_url, settings.supabase_service_role_key, client
     ).download(source_path)
+    # 얼굴이 아바타 위 가운데에 같은 크기로 오게 원본을 자른다(앱은 어디서나 가운데 자르기). 실패하면 원본 그대로다.
+    source_photo = await frame_on_face(make_vision_client, source_photo)
     storage = AvatarStorage(settings.storage_url, settings.supabase_service_role_key, client)
     # (3) 화풍 지시문과 생성기는 그대로 재사용한다 — 옮기는 것은 부르는 자리뿐이다.
     result = await AvatarGenerator(
