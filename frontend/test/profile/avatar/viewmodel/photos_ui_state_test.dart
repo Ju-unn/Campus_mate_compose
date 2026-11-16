@@ -29,6 +29,12 @@ void main() {
 
       expect(photo.faceWidthRatio, 0.1);
     });
+
+    test('원본 표시를 바꿔도 04-2 에서 본 "같이 나온 사람" 이 따라간다', () {
+      final photo = SelectedPhoto(file, hasCompanion: true).copyWith(isAvatarSource: true);
+
+      expect(photo.hasCompanion, isTrue);
+    });
   });
 
   group('이미 올려 둔 사진', () {
@@ -36,6 +42,7 @@ void main() {
 
     test('끌기 열쇠는 행 id, 그림은 서명 주소에서 읽는다, 파일은 없다', () {
       expect(photo.faceWidthRatio, isNull, reason: '파일이 없어 잴 수 없다 — 크기 모름은 통과');
+      expect(photo.hasCompanion, isFalse, reason: '파일이 없어 볼 수 없다 — 모름은 통과');
       expect(photo.key, 'p-a');
       expect(photo.image, const NetworkImage('https://img.test/a.png'));
       expect(photo.file, isNull);

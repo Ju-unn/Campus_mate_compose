@@ -25,8 +25,11 @@ class MlKitFaceDetector implements FaceDetector {
     if (faces.isEmpty) {
       return const FaceScan.none();
     }
-    final largest = faces.map((face) => face.boundingBox.width).reduce(math.max);
-    return FaceScan.found(widthRatio: await _ratioToImageWidth(largest, image));
+    final widths = [for (final face in faces) face.boundingBox.width];
+    return FaceScan.found(
+      widthRatio: await _ratioToImageWidth(widths.reduce(math.max), image),
+      hasCompanion: hasCompanionFace(widths),
+    );
   }
 
   /// [faceWidth] ÷ 사진 폭. 사진은 머리글만 읽고 전체를 풀지 않는다(`ImageDescriptor`). 못 읽으면 null(크기 모름 → 통과).

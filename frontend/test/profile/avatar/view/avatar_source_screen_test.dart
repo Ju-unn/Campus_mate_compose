@@ -48,10 +48,13 @@ void main() {
     double textScale = 1.0,
     FakePhotosRepository? photos,
     List<double?> faceRatios = const [],
+    List<bool> companions = const [],
     // 04-3 을 한 번 연 뒤 04-2 로 돌아가 한 일. 끝나면 다시 "다음" 으로 04-3 에 온다.
     Future<void> Function(PhotosViewModel viewModel, FakeFaceDetector faces)? backTo04_2,
   }) async {
-    final faces = FakeFaceDetector()..queuedWidthRatios.addAll(faceRatios);
+    final faces = FakeFaceDetector()
+      ..queuedWidthRatios.addAll(faceRatios)
+      ..queuedHasCompanion.addAll(companions);
     final container = ProviderContainer(
       overrides: [
         photosRepositoryProvider.overrideWithValue(photos ?? FakePhotosRepository()),
@@ -151,6 +154,16 @@ void main() {
     await pump(tester, photoCount: 2, faceRatios: [0.1, 0.05]);
 
     final message = find.text('얼굴이 크게 나온 사진을 골라 주세요');
+    expect(message, findsOneWidget);
+    expect(tester.getTopLeft(message).dy - tester.getRect(find.byType(NoticeCard)).bottom, 8);
+    expect(tester.widget<AppButton>(find.byType(AppButton)).onPressed, isNull);
+  });
+
+  // 사용자 결정 2026-11-17 — 여러 명이 나온 사진은 아바타 원본으로 쓰지 않는다. 얼굴 크기 문구와 같은 자리.
+  testWidgets('여러 명이 나온 사진만 있으면 오류 자리에 "혼자 나온 사진을 골라 주세요" 가 나오고 버튼이 꺼진다', (tester) async {
+    await pump(tester, photoCount: 2, faceRatios: [0.3, 0.3], companions: [true, true]);
+
+    final message = find.text('혼자 나온 사진을 골라 주세요');
     expect(message, findsOneWidget);
     expect(tester.getTopLeft(message).dy - tester.getRect(find.byType(NoticeCard)).bottom, 8);
     expect(tester.widget<AppButton>(find.byType(AppButton)).onPressed, isNull);

@@ -27,7 +27,7 @@ class AvatarSourceScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(photosViewModelProvider);
     final viewModel = ref.read(photosViewModelProvider.notifier);
-    // 고른 원본의 얼굴이 작다는 문구(사용자 결정 2026-11-15)가 먼저다 — 지금 "다음" 이 꺼진 이유라서. error 에는 04-2 에서 남은
+    // 고른 원본을 쓸 수 없는 이유(얼굴이 작음 2026-11-15 · 여러 명 2026-11-17)가 먼저다 — 지금 "다음" 이 꺼진 이유라서. error 에는 04-2 에서 남은
     // 오류(얼굴 없음 등)가 남아 있을 수 있어 그것이 이유를 가리면 안 된다. 둘 다 같은 오류 자리다.
     final failure = state.avatarSourceFailure ?? state.error;
     // 글자 많은 사진 거절이면 그 사진은 빠졌다 — 다른 사진을 넣을 수 있는 04-2 로 돌아가 칸 아래 문구를 보인다.

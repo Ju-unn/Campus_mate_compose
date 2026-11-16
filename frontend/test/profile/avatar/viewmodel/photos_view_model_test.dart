@@ -632,6 +632,16 @@ void main() {
       expect(restored.canSubmit, isFalse);
     });
 
+    test('같이 나온 사람도 남겨 되살린 뒤에도 그 원본을 막는다', () async {
+      faceDetector.queuedHasCompanion.addAll([true, false, false]);
+      await pickThree(open(), avatar: 0);
+
+      final restored = open().read(photosViewModelProvider);
+
+      expect([for (final photo in restored.photos) photo.hasCompanion], [true, false, false]);
+      expect(restored.canSubmit, isFalse);
+    });
+
     test('얼굴 크기가 없는 옛 임시 저장은 크기 모름(통과)으로 되살린다', () async {
       drafts.write(DraftScreen.photos, {
         'photos': [
@@ -643,6 +653,7 @@ void main() {
       final restored = open().read(photosViewModelProvider);
 
       expect(restored.photos.first.faceWidthRatio, isNull);
+      expect(restored.photos.first.hasCompanion, isFalse);
       expect(restored.canSubmit, isTrue);
     });
 
@@ -898,9 +909,110 @@ void main() {
       expect(state().completed, isFalse);
     });
   });
+
+  // 사용자 결정 2026-11-17 — 여러 명이 나온 사진은 누가 아바타로 그려질지 모른다. 아바타 원본은 혼자 나온 사진만.
+  group('아바타 원본 혼자 나온 사진', () {
+    /// [companions] 순서대로 같이 나온 사람이 있는 사진을 한 번에 고른다. 얼굴 크기는 모두 기준을 넘는다.
+    Future<PhotosViewModel> pickWithCompanions(List<bool> companions) async {
+      faceDetector
+        ..queuedHasCompanion.addAll(companions)
+        ..nextWidthRatio = 0.3;
+      final viewModel = container.read(photosViewModelProvider.notifier)
+        ..pickFromGallery = (limit) async => [for (var i = 0; i < companions.length; i++) File('p$i.jpg')];
+      await viewModel.addPhoto();
+      return viewModel;
+    }
+
+    PhotosUiState state() => container.read(photosViewModelProvider);
+    List<bool> sources() => [for (final photo in state().photos) photo.isAvatarSource];
+
+    test('여러 명이 나와도 04-2 칸에는 들어간다 — 프로필 사진은 얼굴만 있으면 된다', () async {
+      await pickWithCompanions([true, true]);
+
+      expect(state().photos, hasLength(2));
+      expect(state().error, isNull);
+      expect(state().canProceed, isTrue);
+    });
+
+    test('여러 명이 나온 사진을 원본으로 고르면 다음으로 갈 수 없고 문구가 나온다', () async {
+      final viewModel = await pickWithCompanions([true, false]);
+
+      viewModel.setAvatarSource(0);
+
+      expect(state().canSubmit, isFalse);
+      expect(state().avatarSourceFailure, _hasCompanion);
+    });
+
+    test('혼자 나온 사진을 원본으로 고르면 문구가 사라진다', () async {
+      final viewModel = await pickWithCompanions([true, false]);
+      viewModel.setAvatarSource(0);
+
+      viewModel.setAvatarSource(1);
+
+      expect(state().canSubmit, isTrue);
+      expect(state().avatarSourceFailure, isNull);
+    });
+
+    test('04-3 으로 넘어갈 때 혼자 나온 첫 사진을 원본으로 골라 둔다', () async {
+      final viewModel = await pickWithCompanions([true, true, false]);
+
+      viewModel.prepareAvatarSource();
+
+      expect(sources(), [false, false, true]);
+      expect(state().canSubmit, isTrue);
+    });
+
+    test('얼굴이 크고 혼자 나온 사진을 고른다 — 얼굴이 작은 혼자 사진은 건너뛴다', () async {
+      faceDetector.queuedWidthRatios.addAll([0.3, 0.05, 0.3]);
+      final viewModel = await pickWithCompanions([true, false, false]);
+
+      viewModel.prepareAvatarSource();
+
+      expect(sources(), [false, false, true]);
+    });
+
+    test('여러 명인 원본을 골라 둔 채 돌아왔다 넘어가면 혼자 나온 사진으로 바꿔 둔다', () async {
+      final viewModel = await pickWithCompanions([true, false]);
+      viewModel.setAvatarSource(0);
+
+      viewModel.prepareAvatarSource();
+
+      expect(sources(), [false, true]);
+    });
+
+    test('혼자 나온 사진이 없으면 첫 장을 고르고 문구를 보인다 — 04-2 토스트(error)는 띄우지 않는다', () async {
+      final viewModel = await pickWithCompanions([true, true]);
+
+      viewModel.prepareAvatarSource();
+
+      expect(sources(), [true, false]);
+      expect(state().avatarSourceFailure, _hasCompanion);
+      expect(state().error, isNull);
+    });
+
+    test('얼굴이 작고 여러 명이면 얼굴 크기 문구가 먼저다', () async {
+      faceDetector.queuedWidthRatios.addAll([0.05, 0.3]);
+      final viewModel = await pickWithCompanions([true, false]);
+
+      viewModel.setAvatarSource(0);
+
+      expect(state().avatarSourceFailure, _faceTooSmall);
+    });
+
+    test('여러 명인 원본이면 "다음" 을 눌러도 올리지 않는다', () async {
+      final viewModel = await pickWithCompanions([true, false]);
+      viewModel.setAvatarSource(0);
+
+      await viewModel.submit();
+
+      expect(repository.uploads, isEmpty);
+      expect(state().completed, isFalse);
+    });
+  });
 }
 
 final _faceTooSmall = isA<AppErrorFailure>().having((failure) => failure.error, 'error', AppError.faceTooSmall);
+final _hasCompanion = isA<AppErrorFailure>().having((failure) => failure.error, 'error', AppError.notAlone);
 
 final _noFace = isA<AppErrorFailure>().having((failure) => failure.error, 'error', AppError.noFace);
 

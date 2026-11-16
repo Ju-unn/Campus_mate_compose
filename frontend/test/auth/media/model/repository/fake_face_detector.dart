@@ -22,6 +22,12 @@ class FakeFaceDetector implements FaceDetector {
   /// [queuedResults] 와 같은 방식의 얼굴 크기 줄. 다 쓰면 [nextWidthRatio] 로 돌아간다.
   final List<double?> queuedWidthRatios = [];
 
+  /// 얼굴이 있을 때 같이 나온 사람이 있는지.
+  bool nextHasCompanion = false;
+
+  /// [queuedResults] 와 같은 방식의 같이 나온 사람 줄. 다 쓰면 [nextHasCompanion] 으로 돌아간다.
+  final List<bool> queuedHasCompanion = [];
+
   /// 지정하면 이 [Completer] 가 끝날 때까지 검사가 멈춘다 — 검사 중 화면을 보는 테스트용. 값은 얼굴이 있는지.
   Completer<bool>? gate;
 
@@ -33,7 +39,8 @@ class FakeFaceDetector implements FaceDetector {
     scanCalls.add(image);
     final hasFace = await _hasFace();
     final ratio = queuedWidthRatios.isEmpty ? nextWidthRatio : queuedWidthRatios.removeAt(0);
-    return hasFace ? FaceScan.found(widthRatio: ratio) : const FaceScan.none();
+    final companion = queuedHasCompanion.isEmpty ? nextHasCompanion : queuedHasCompanion.removeAt(0);
+    return hasFace ? FaceScan.found(widthRatio: ratio, hasCompanion: companion) : const FaceScan.none();
   }
 
   Future<bool> _hasFace() async {

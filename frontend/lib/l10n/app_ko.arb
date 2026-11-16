@@ -415,6 +415,7 @@
   "errorNicknameInvalid": "한글 또는 영문 2~5자로 입력해 주세요",
   "errorNicknameTaken": "이미 있는 닉네임이에요",
   "errorNoFace": "얼굴이 보이는 사진을 골라 주세요",
+  "errorNotAlone": "혼자 나온 사진을 골라 주세요",
   "errorNotFound": "요청한 정보를 찾을 수 없습니다",
   "errorNoteTooShort": "{min}자 이상 입력해 주세요",
   "@errorNoteTooShort": {"placeholders": {"min": {"type": "int"}}},
