@@ -10,7 +10,7 @@ _DOWNLOAD_TIMEOUT_SECONDS = 2.0
 
 class AvatarStorage:
     """공개 `avatars` 버킷에 업로드한다(2026-09-20 사용자 결정 — 아바타는 항상 노출되는 그림이라
-    서명 URL이 필요 없다). 경로는 AvatarGenerator 가 `{profile_id}/{uuid4()}.png` 로 미리 짓는다."""
+    서명 URL이 필요 없다). 경로는 AvatarGenerator 가 `{profile_id}/{uuid4()}.jpg` 로 미리 짓는다(JPEG 로 못 바꾸면 `.png`)."""
 
     def __init__(self, storage_url: str, service_role_key: str, client: httpx.AsyncClient):
         self._storage_url = storage_url

@@ -1,4 +1,6 @@
+import asyncio
 import base64
+import io
 import logging
 from dataclasses import dataclass
 from datetime import timedelta
@@ -8,6 +10,7 @@ from uuid import UUID, uuid4
 
 import httpx
 from openai import AsyncOpenAI
+from PIL import Image
 
 from app.profile_onboarding.hearts import grant_hearts
 from app.profile_onboarding.storage import AvatarStorage
@@ -28,6 +31,10 @@ FALLBACK_COMPENSATION_HEARTS = 10
 # 아바타 다시 만들기 값(최초 1회 무료). 2026-10-14 사용자 피드백 6 으로 20하트(종전 spec "아바타 재생성 10하트").
 # 위 5회 실패 보상 하트와는 따로 정한 값이다 — 하나를 바꿔도 다른 쪽은 그대로다.
 AVATAR_REGEN_HEARTS = 20
+
+
+# 저장 JPEG 품질 — 11-16 운영 아바타 1장 실측 PNG 2,293KB → 298KB, 얼굴 2배 확대에서도 차이 없음.
+AVATAR_JPEG_QUALITY = 90
 
 
 def avatar_regen_cost(ready_count: int) -> int:
@@ -190,9 +197,23 @@ class AvatarGenerator:
             return AvatarResult(status="failed", storage_path=None, is_final_failure=is_final)
 
         self._failure_counts[profile_id] = 0
-        path = f"{profile_id}/{uuid4()}.png"
-        storage_path = await self._storage.upload(path, image_bytes, "image/png")
+        data, extension, content_type = await asyncio.to_thread(_compressed, image_bytes)
+        path = f"{profile_id}/{uuid4()}.{extension}"
+        storage_path = await self._storage.upload(path, data, content_type)
         return AvatarResult(status="ready", storage_path=storage_path)
+
+
+def _compressed(png: bytes) -> tuple[bytes, str, str]:
+    """생성된 PNG(약 1~3MB) → JPEG(약 300KB). 사용자 결정 2026-11-16 「이번에 같이 하고」 — 2배 확대에서도 차이가 안 보였다.
+    바꾸지 못하면 PNG 그대로 둔다 — 이미 돈을 낸 그림을 잃지 않는 쪽이 낫다."""
+    try:
+        with Image.open(io.BytesIO(png)) as image:
+            buffer = io.BytesIO()
+            image.convert("RGB").save(buffer, "JPEG", quality=AVATAR_JPEG_QUALITY)
+        return buffer.getvalue(), "jpg", "image/jpeg"
+    except Exception:  # noqa: BLE001 — 어떤 실패든 PNG 로 남긴다(위 설명)
+        _logger.warning("아바타 JPEG 변환 실패 — PNG 로 저장한다")
+        return png, "png", "image/png"
 
 
 async def apply_fallback_avatar(

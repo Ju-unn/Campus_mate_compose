@@ -303,6 +303,15 @@ gcloud scheduler jobs create http campus-mate-chat-gate \
 바로 다음 질문으로 넘어가고, Cloud Tasks 가 워커(`/tasks/avatar-generate`)를 따로 부른다.
 스케줄러가 아니라 **큐**라 무료 한도 3 job 과는 상관이 없다.
 
+**워커는 만들기 전에 원본을 얼굴 기준으로 자른다(2026-11-16, `app/profile_onboarding/face_framing.py`).** Cloud Vision
+`FACE_DETECTION` 으로 가장 큰 얼굴을 찾아 원본을 2:3 머리·어깨 구도(얼굴 높이 25% · 얼굴 가운데 위에서 45%, 머리 위가 모자라면
+위를 최대 30% 빈칸으로 채움)로 잘라 OpenAI 에 보낸다. 앱이 아바타를 어디서나 가운데 자르기로 보여, 전신 사진 아바타는 얼굴이
+잘렸다. 얼굴이 없거나 Vision · 자격증명 · 그림 열기 중 무엇이든 실패하면 **원본 그대로** 만든다(실패 횟수에 넣지 않는다).
+로그 `아바타 구도 맞춤 faces=… face_ratio=… cropped=…`(INFO) · `아바타 구도 맞춤 건너뜀 … error=…`(WARNING). 같은 서비스 ·
+같은 서비스 계정이 사진 검사에 이미 Vision 을 쓰므로 새 권한 · 키가 없다. 생성마다 Vision 1건(월 1,000건 무료 뒤 1,000건당 1.5달러).
+**완성 그림은 JPEG(품질 90)로 저장한다** — PNG 평균 1.2MB 가 약 1/7 로 준다. 바꾸기에 실패하면 PNG 그대로다. 그전 아바타(PNG)는 그대로 둔다.
+설계 · 실험 기록: `docs/superpowers/specs/2026-11-16-avatar-face-framing-design.md`. 개인정보 처리방침 제2조 다·바 · 제6조에 적혀 있다.
+
 **전제: 큐 리전 = Cloud Run 리전(`asia-northeast3`).** 코드가 리전을 모듈 상수로 박고 있어서
 (`app/profile_onboarding/avatar_tasks.py`), 큐를 다른 리전에 만들면 작업 등록이 **조용히 404 로
 실패**한다. 화면에는 "잠시 후 다시 시도해 주세요"만 뜬다.

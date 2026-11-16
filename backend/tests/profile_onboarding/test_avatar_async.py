@@ -4,6 +4,7 @@
 로컬 스택에는 Cloud Tasks 가 없다 — 목으로 본다(우회로를 코드에 만들지 않는다).
 """
 import base64
+import io
 import json
 from collections.abc import Callable
 from datetime import datetime, timedelta
@@ -14,9 +15,11 @@ from uuid import UUID, uuid4
 import httpx
 import pytest
 from fastapi.testclient import TestClient
+from google.cloud import vision
+from PIL import Image
 
 import app.profile_onboarding.router as router_module
-from app.core.deps import get_client, get_now, get_settings
+from app.core.deps import get_client, get_now, get_settings, get_vision_client_factory
 from app.core.time import SEOUL
 from app.main import app
 from app.settings import Settings
@@ -61,8 +64,25 @@ def overrides():
     # 람다로 감싼다 — 함수를 그대로 넘기면 FastAPI 가 **overrides 를 필수 쿼리 인자로 읽는다.
     app.dependency_overrides[get_settings] = lambda: _settings()
     app.dependency_overrides[get_now] = lambda: NOW
+    # 워커의 얼굴 찾기 — 기본은 "얼굴 없음"(원본 그대로). 진짜 구글 자격증명을 부르지 않는다.
+    app.dependency_overrides[get_vision_client_factory] = lambda: lambda: _vision_with_faces()
     yield
     app.dependency_overrides.clear()
+
+
+def _vision_with_faces(*boxes: tuple[int, int, int, int]) -> AsyncMock:
+    client = AsyncMock(spec=vision.ImageAnnotatorAsyncClient)
+    faces = [
+        SimpleNamespace(
+            detection_confidence=0.9,
+            bounding_poly=SimpleNamespace(vertices=[SimpleNamespace(x=x, y=y) for x, y in ((l, t), (r, t), (r, b), (l, b))]),
+        )
+        for l, t, r, b in boxes
+    ]
+    client.batch_annotate_images.return_value = SimpleNamespace(
+        responses=[SimpleNamespace(error=SimpleNamespace(message=""), face_annotations=faces)]
+    )
+    return client
 
 
 class _Fake:
@@ -81,7 +101,9 @@ class _Fake:
         latest_attempt: dict | None = None,
         enqueue_status: int = 200,
         stale_rows: list | None = None,
+        source_bytes: bytes = _PNG_BYTES,
     ):
+        self.source_bytes = source_bytes
         self.ready_rows = ready_rows or []
         self.attempt_rows = attempt_rows or []
         self.source_path = source_path
@@ -108,7 +130,7 @@ class _Fake:
                 200, json=[{"storage_path": self.source_path}] if self.source_path else []
             )
         if "/storage/v1/object/profile-photos/" in url and request.method == "GET":
-            return httpx.Response(200, content=_PNG_BYTES)
+            return httpx.Response(200, content=self.source_bytes)
         if "/storage/v1/object/copy" in url:
             return httpx.Response(200, json={"Key": "avatars/aa/fallback.png"})
         if "/storage/v1/object/avatars/" in url:
@@ -544,6 +566,47 @@ def test_worker_writes_the_result_into_the_pending_row(monkeypatch):
     body = json.loads(patched[0].content)
     assert body["status"] == "ready"
     assert body["storage_path"].startswith(f"{PROFILE_ID}/")
+
+
+def _photo_jpeg(size: tuple[int, int]) -> bytes:
+    buffer = io.BytesIO()
+    Image.new("RGB", size, "gray").save(buffer, "JPEG")
+    return buffer.getvalue()
+
+
+def _sent_source_size(openai: AsyncMock) -> tuple[int, int]:
+    # image=[(이름, 바이트, 타입), 화풍 참고] — 첫 장이 원본이다(avatars.py).
+    _, data, _ = openai.images.edit.call_args.kwargs["image"][0]
+    return Image.open(io.BytesIO(data)).size
+
+
+def test_worker_sends_the_photo_framed_on_the_face(monkeypatch):
+    """전신 사진의 작은 얼굴을 머리·어깨 2:3 로 잘라 보낸다(설계 2026-11-16-avatar-face-framing-design.md)."""
+    _verifies(monkeypatch, {"email": SERVICE_ACCOUNT, "email_verified": True})
+    app.dependency_overrides[get_vision_client_factory] = lambda: lambda: _vision_with_faces((490, 200, 590, 320))
+    openai = _openai(True)
+
+    response = _worker(_Fake(latest_attempt=_pending_attempt(), source_bytes=_photo_jpeg((1080, 1440))), openai)
+
+    assert response.json() == {"status": "ready"}
+    width, height = _sent_source_size(openai)
+    assert (width, height) != (1080, 1440)
+    assert abs(width / height - 2 / 3) < 0.01
+
+
+def test_worker_still_makes_the_avatar_from_the_original_when_face_finding_fails(monkeypatch):
+    _verifies(monkeypatch, {"email": SERVICE_ACCOUNT, "email_verified": True})
+
+    def broken():
+        raise RuntimeError("no credentials")
+
+    app.dependency_overrides[get_vision_client_factory] = lambda: broken
+    openai = _openai(True)
+
+    response = _worker(_Fake(latest_attempt=_pending_attempt(), source_bytes=_photo_jpeg((1080, 1440))), openai)
+
+    assert response.json() == {"status": "ready"}
+    assert _sent_source_size(openai) == (1080, 1440)
 
 
 def test_worker_marks_a_failure_without_paying_the_compensation_yet(monkeypatch):
