@@ -1552,7 +1552,7 @@ INFO 를 켠 로거는 핸들러를 직접 달아서 같은 로거의 WARNING �
 - `read_all_pages` 에 "키가 앞으로 나가지 않으면 예외" 방어 줄, 다른 1,000줄 상한 목록(`fetch_owners_issued_since` 등), 관리자 웹이 대행 탈퇴의 새 정리 두 칸 실패를 화면에 안 보여 주는 것(#732 본문).
 - `/matching/candidates` 삭제는 E2E 하네스가 써서 따로 한다(#732 본문).
 
-## 4-31. 2026-11-16 서버 묶음 — 무료 하트에서 에브리타임 빼기 · 홈 v3.1 실제 스토어 별점 · 완성도 칩 (서버 PR #746 · #748, DB `20261115130000`, 관리자 웹 PR #747) — main `7fbfd7ba`, 최신 리비전 `00125-hub` 는 **트래픽 0%**(전환 대기, §5)
+## 4-31. 2026-11-16 서버 묶음 — 무료 하트에서 에브리타임 빼기 · 홈 v3.1 실제 스토어 별점 · 완성도 칩 · 끊긴 GET 한 번 다시 보내기 (서버 PR #746 · #748 · #754, DB `20261115130000`, 관리자 웹 PR #747) — **2026-11-16 개정: main `10f6d0d5`(#754 까지), 최신 리비전 `00126-noy` 는 트래픽 0%**(전환 대기, §5) (종전 서술: "main `7fbfd7ba`, 최신 리비전 `00125-hub` 는 트래픽 0%" — `00125-hub` 는 `00126-noy` 로 대체됐다)
 
 사용자 결정(원문은 마이그레이션 머리 · 코드 주석 · 대장 전달): 11-15 「무료로 모으기 "에브리타임 홍보" 지우자 -> 에타 올리면 서비스 홍보물 정지 대상」 · 「서버 · DB 도 같이」, 11-16 「실제 스토어 값만」, 안드로이드 별점은 플레이 보고서의 전체 평균(사용자 ① 결정). 화면 규칙은 `frontend/docs/DESIGN.md` §8.9 "홈 v3.1" · §8.10, 응답 계약은 설계 문서 §4.11-1. **배포 · 전환은 사용자가 정한다.**
 
@@ -1561,6 +1561,7 @@ INFO 를 켠 로거는 핸들러를 직접 달아서 같은 로거의 WARNING �
 | #746 | 무료 하트에서 에브리타임 홍보 빼기(목록 · 제출 · 검수 대기 목록) + FAQ 두 답에서 에브리타임 구절 빼기(데이터만) | `app/heart_tasks/router.py` · `supabase/migrations/20261115130000_faq_remove_everytime.sql` · `supabase/tests/faq_test.sql` |
 | #747 | 관리자 웹 인증샷 검수 걸러 보기 칩에서 에브리타임 빼기(서버 변경 없음) | `admin_web/lib/heart_tasks/` |
 | #748 | 홈 요약에 실제 스토어 별점 · 안 채운 프로필 항목을 싣는다. 손으로 넣던 env 두 개를 지운다 | `app/home/store_ratings.py`(새 파일) · `app/home/router.py` · `app/home/completion.py` · `app/settings.py` |
+| #754 | 연결이 끊긴 GET 한 번 다시 보내기 — 서버가 함께 쓰는 HTTP 클라이언트를 바꾼다(env · DB 변경 없음) | `app/core/read_retry.py`(새 파일) · `app/main.py` · `tests/test_core_read_retry.py` · `tests/test_http_client_lifespan.py` |
 
 ### 무료 하트 — 에브리타임 항목 빼기 (#746)
 
@@ -1586,11 +1587,26 @@ INFO 를 켠 로거는 핸들러를 직접 달아서 같은 로거의 WARNING �
 - **현재 안드로이드는 보고서 파일이 아직 없어 0명 상태다**(대장 전달 11-16 — 구글이 파일을 쌓으면 값이 나온다). 안드로이드 값은 출시 이후 **전체** 평균이라 최근 평가를 따로 보여 주지 않는다(사용자 ① 결정).
 - **호환**: 새 서버 + 옛 앱 — 옛 칸이 그대로(0 · 0)라 띠가 숨은 채다. 옛 서버 + 새 앱 — `store_ratings` 가 없으면 0명 상태("마음에 드셨나요?"), `profile_completion_missing` 이 없으면 칩 줄 없이 종전 카드다(앱 코드 `http_home_repository.dart`).
 
+### 끊긴 GET 한 번 다시 보내기 (#754)
+
+- **계기**(대장 전달): 2026-11-16 시험 서버에서 앱을 켜는 순간 요청 넷(`/home/summary` · `/me/profile` · `/cards/today` · 알림 수)이 같은 순간 `httpx.ReadError` 로 500 이 됐다. 운영에도 11-08 · 11-11 · 11-14 에 같은 500 이 있었다. 끊긴 까닭은 DB 쪽 네트워크라 우리 로그로는 안 보이고, 바로 다시 보내면 된다(코드 docstring).
+- **무엇**: 새 파일 `app/core/read_retry.py`(`ReadRetryTransport` · `make_http_client`). `app/main.py` lifespan 이 한 번 만드는 공용 `httpx.AsyncClient`(`app.state.http_client`)를 이 클라이언트로 바꿨다. 이 클라이언트 하나를 PostgREST 뿐 아니라 Storage · 인증(GoTrue) · 애플 · 플레이 · GCS · 아이튠즈 조회도 같이 쓰므로 그 GET 들도 같은 규칙을 받는다(그 GET 들도 모두 읽기라 다시 보내도 된다 — 코드 docstring).
+
+| 항목 | 규칙 |
+| --- | --- |
+| 다시 보내는 것 | **GET · HEAD 만**, `httpx.ReadError` · `WriteError` · `RemoteProtocolError` 일 때 **한 번만**. 두 번째도 끊기면 그대로 오류가 된다(시험 `test_a_get_dropped_twice_still_fails`) |
+| 다시 보내지 않는 것 | **쓰기**(POST · PATCH · PUT · DELETE, rpc 포함) — 끊긴 것이 보내기 전인지 뒤인지 몰라, 다시 보내면 하트 차감 · 카드 지급이 두 번 될 수 있다. **시간 초과**도 — 이미 오래 기다린 요청이다. 그 밖의 오류도(시험 `test_other_errors_are_not_retried`) |
+| 로그 | 경고 한 줄에 **메서드와 오류 이름만** 남긴다(`연결이 끊겨 GET 를 한 번 다시 보낸다 error=ReadError`). **주소는 남기지 않는다** — 길에 결제 토큰 · 애플 거래 번호 · 사진 경로 · 사람 id 가 들어간다(시험 `test_the_retry_log_never_carries_the_address`) |
+| 한계 | 응답 **본문을 읽다가** 끊긴 것은 transport 밖이라 잡지 못한다(이번 사고는 응답 머리 단계였다). transport 를 직접 주므로 httpx 가 `HTTP(S)_PROXY` 환경변수를 읽지 않는다 — 지금은 프록시가 없고, 필요해지면 안쪽 `AsyncHTTPTransport` 에 `proxy=` 를 준다(코드 `shortcut` 주석) |
+| 시험 | `tests/test_core_read_retry.py`(대장 전달: 12개) · `tests/test_http_client_lifespan.py` 의 `test_the_shared_client_is_the_read_retry_client` |
+
+- 앱의 짝: 홈 요약을 못 받았을 때의 안내와 다시 읽기는 앱 PR #756(`frontend/docs/DESIGN.md` §8.9 "홈 v3.1" 마지막 줄) — 서버 재시도가 못 막은 실패를 앱이 한 번 더 받는다.
+
 ### 배포 순서 · 점검 · 롤백
 
-- **순서**: 서버는 §2 "현행 배포 방식"의 고정 3단계(0% 로 올려 점검 → 전환)다. 새 env 는 `--update-env-vars PLAY_REPORTS_BUCKET=<버킷 이름>` 로 **더한다**(`--set-*` 금지). 마이그레이션(FAQ 데이터)은 서버 · 앱과 순서가 무관하다. 전환은 사용자 승인 뒤에만 한다.
-- **0% 태그 주소 점검**(보호 계정): `GET /home/summary` 응답에 `store_ratings.ios`(앱스토어에 평가가 있으면 실제 값) · `store_ratings.android`(보고서가 있으면 값, 없으면 0 · 0) · `profile_completion_missing` · 옛 칸 0 · 0 이 오는지 / `GET /heart-tasks` 에 `everytime_post` 줄이 없는지 / 새 리비전 ERROR 로그 0, 그리고 `스토어 별점 읽기 실패` 경고(있으면 버킷 권한 · 보고서 이름을 본다).
-- **롤백**: §2 (다) — 전환 전 100% 였던 리비전(`00123-zuw`)으로 트래픽을 되돌린다. 이 묶음은 DB 스키마를 바꾸지 않아 되돌림이 코드만의 일이다.
+- **순서**: 서버는 §2 "현행 배포 방식"의 고정 3단계(0% 로 올려 점검 → 전환)다. 새 env 는 `--update-env-vars PLAY_REPORTS_BUCKET=<버킷 이름>` 로 **더한다**(`--set-*` 금지). 마이그레이션(FAQ 데이터)은 서버 · 앱과 순서가 무관하다. #754 는 env · DB · 의존성 파일을 바꾸지 않는다(PR 파일 목록 기준). 전환은 사용자 승인 뒤에만 한다.
+- **0% 태그 주소 점검**(보호 계정): `GET /home/summary` 응답에 `store_ratings.ios`(앱스토어에 평가가 있으면 실제 값) · `store_ratings.android`(보고서가 있으면 값, 없으면 0 · 0) · `profile_completion_missing` · 옛 칸 0 · 0 이 오는지 / `GET /heart-tasks` 에 `everytime_post` 줄이 없는지 / 새 리비전 ERROR 로그 0, 그리고 `스토어 별점 읽기 실패` 경고(있으면 버킷 권한 · 보고서 이름을 본다). `연결이 끊겨 GET 를 한 번 다시 보낸다` 경고는 끊김이 실제로 있었고 한 번 다시 보내 넘겼다는 뜻이라 오류가 아니다(주소 · 사람 id 가 없는지도 본다).
+- **롤백**: §2 (다) — 전환 전 100% 였던 리비전(`00123-zuw`)으로 트래픽을 되돌린다. 이 묶음은 DB 스키마를 바꾸지 않아 되돌림이 코드만의 일이다. `00123-zuw` 는 #754 보다 앞이라 되돌리면 끊긴 GET 이 다시 500 으로 보인다.
 - **알려진 한계**: 안드로이드는 평가 수가 없고 전체 평균이다 · 아이폰은 한 국가(kr)만 본다 · 애플 조회가 2초 안에 안 오면 그 스토어는 10분 동안 0명 상태가 된다 · 보고서 열 이름이 구글 쪽에서 바뀌면 안드로이드가 조용히 0명 상태로 돌아간다(경고 로그만 남는다).
 
 ## 5. 현재 배포 상태 (아래 표는 2026-11-14 새벽 기준 — 2026-11-16 개정은 첫 문단)
