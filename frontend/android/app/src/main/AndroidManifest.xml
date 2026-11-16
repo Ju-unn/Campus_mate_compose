@@ -11,8 +11,9 @@
     <uses-permission android:name="android.permission.ACCESS_ADSERVICES_AD_ID" tools:node="remove" />
     <!-- 백업은 끈다 — 로그인 토큰 · 온보딩 임시 저장이 구글 드라이브 백업 · adb backup 으로 기기 밖에 나가지 않게
          (2026-10-12 보안 점검 #15). 기기를 바꾸면 다시 로그인한다. -->
+    <!-- 폰 아이콘 밑 이름(스토어 이름과 따로다). 앱 안의 글자 로고 · 홈 제목 "CampusMate" 는 그대로 둔다(2026-11-16 사용자 결정: 캠퍼스메이트). -->
     <application
-        android:label="CampusMate"
+        android:label="캠퍼스메이트"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false">
