@@ -5,6 +5,7 @@ import 'package:campus_mate/account/view/withdraw_sheets.dart';
 import 'package:campus_mate/common/support_email.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/confirm_popup.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -68,12 +69,17 @@ void main() {
     expect(tester.getSize(find.byType(Image)), const Size(120, 120));
   });
 
-  testWidgets('"로그아웃"을 누르면 signOutProvider 를 한 번 부른다', (tester) async {
+  // 다른 로그아웃 자리와 같이 확인 팝업을 한 번 거친다(대장 전달 2026-11-16).
+  testWidgets('"로그아웃"을 누르면 확인 팝업으로 묻고, 확인하면 signOutProvider 를 한 번 부른다', (tester) async {
     await pump(tester);
 
     await tester.tap(find.text('로그아웃'));
-    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(find.text('로그아웃할까요?'), findsOneWidget);
+    expect(signOutCalls, 0);
 
+    await tester.tap(find.descendant(of: find.byKey(confirmPopupCardKey), matching: find.text('로그아웃')));
+    await tester.pumpAndSettle();
     expect(signOutCalls, 1);
   });
 
@@ -101,7 +107,7 @@ void main() {
     expect(style.decoration, isNot(TextDecoration.underline));
   });
 
-  testWidgets('탈퇴하기는 일시중지 제안 없이 정지 중 탈퇴 시트(pen XHGTs) 한 장을 연다', (tester) async {
+  testWidgets('탈퇴하기는 일시중지 제안 없이 정지 중 탈퇴 확인 팝업(위험) 한 장을 연다', (tester) async {
     await pump(tester);
 
     await tester.tap(find.text('탈퇴하기'));
@@ -111,8 +117,11 @@ void main() {
     expect(find.text('정지 중에 탈퇴할까요?'), findsOneWidget);
     expect(account.withdrawCalls, 0);
 
-    await tester.tap(find.descendant(of: find.byType(WithdrawFinalSheet), matching: find.text('정말 영구 삭제')));
-    await tester.pumpAndSettle();
+    expect(find.text('정지 중에 탈퇴하면 다시 가입할 수 없어요'), findsOneWidget);
+    await tester.tap(find.descendant(of: find.byType(WithdrawFinalPopup), matching: find.text('정말 영구 삭제')));
+    // 성공하면 앱은 로그아웃 → 라우터가 화면을 바꾼다. 시험에는 라우터가 없어 도는 표시인 채 남으므로 시간만 넘긴다.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(account.withdrawCalls, 1);
     // 로그아웃은 main.dart 리스너 한 곳이 한다 — 화면은 상태만 바꾼다.

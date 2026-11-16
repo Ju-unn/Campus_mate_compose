@@ -6,6 +6,7 @@ import 'package:campus_mate/account/view/withdraw_sheets.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/confirm_popup.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -99,7 +100,7 @@ void main() {
   }
 
   Finder inFirst(Finder finder) => find.descendant(of: find.byType(WithdrawFirstSheet), matching: finder);
-  Finder inFinal(Finder finder) => find.descendant(of: find.byType(WithdrawFinalSheet), matching: finder);
+  Finder inFinal(Finder finder) => find.descendant(of: find.byType(WithdrawFinalPopup), matching: finder);
   ElevatedButton deleteButton(WidgetTester tester) => tester.widget<ElevatedButton>(
         find.ancestor(of: find.text('정말 영구 삭제'), matching: find.byType(ElevatedButton)),
       );
@@ -119,7 +120,7 @@ void main() {
         '신청·매칭 기록',
         '모든 대화 내용',
         '남은 하트도 사라져요',
-        '삭제한 내용은 되돌릴 수 없고, 재가입은 2개월 뒤에 가능해요.',
+        '삭제한 내용은 되돌릴 수 없고\n재가입은 2개월 뒤에 가능해요.',
         '영구 삭제',
         '취소',
       ]) {
@@ -224,7 +225,7 @@ void main() {
 
       expect(cards.pausedValue, isTrue);
       expect(find.byType(WithdrawFirstSheet), findsNothing);
-      expect(find.byType(WithdrawFinalSheet), findsNothing);
+      expect(find.byType(WithdrawFinalPopup), findsNothing);
     });
 
     testWidgets('일시중지의 눌림 효과는 그 버튼 안에 그려진다(COMMON §4-2)', (tester) async {
@@ -240,7 +241,7 @@ void main() {
       await openFinalSheet(tester);
 
       expect(find.byType(WithdrawFirstSheet), findsNothing);
-      expect(find.byType(WithdrawFinalSheet), findsOneWidget);
+      expect(find.byType(WithdrawFinalPopup), findsOneWidget);
       expect(account.withdrawCalls, 0);
     });
 
@@ -261,53 +262,49 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(WithdrawFirstSheet), findsNothing);
-      expect(find.byType(WithdrawFinalSheet), findsNothing);
+      expect(find.byType(WithdrawFinalPopup), findsNothing);
       expect(cards.pausedValue, isNull);
       expect(tester.getSize(find.text('열기')), isNot(Size.zero));
     });
   });
 
-  group('최종 시트(pen s7M9MC)', () {
-    testWidgets('값표 6-2 글자와 경고 배지(errorWash, 대장 결정 1)', (tester) async {
+  // 최종 확인 · 정지 중 탈퇴는 공용 확인 팝업 위험 변형이다(대장 전달 2026-11-16) — 빨강 "정말 영구 삭제" · 회색 취소.
+  Finder confirmIn(String label) =>
+      inFinal(find.byWidgetPredicate((widget) => widget is AppButton && widget.label == label));
+
+  group('최종 확인 팝업', () {
+    testWidgets('제목 · 설명(되돌릴 수 없고 · 재가입 2개월 — 사용자 문구) · 빨강 정말 영구 삭제 · 회색 취소', (tester) async {
       await openFinalSheet(tester);
 
-      for (final text in [
-        '정말 삭제할까요?',
-        '프로필, 매칭 기록, 대화, 남은 하트를 모두 영구적으로 삭제합니다. 이 작업은 취소할 수 없어요.',
-        '재가입은 탈퇴 후 2개월이 지나야 가능해요.',
-        '정말 영구 삭제',
-        '취소',
-      ]) {
+      expect(find.byKey(confirmPopupCardKey), findsOneWidget);
+      for (final text in ['정말 삭제할까요?', '삭제한 내용은 되돌릴 수 없고\n재가입은 2개월 뒤에 가능해요.', '정말 영구 삭제', '취소']) {
         expect(inFinal(find.text(text)), findsOneWidget, reason: text);
       }
-      final badge = find.ancestor(
-        of: find.text('재가입은 탈퇴 후 2개월이 지나야 가능해요.'),
-        matching: find.byWidgetPredicate(
-          (widget) => widget is Container && (widget.decoration as BoxDecoration?)?.color == AppColors.errorWash,
-        ),
-      );
-      expect(badge, findsOneWidget);
-      expect(find.descendant(of: badge, matching: find.byIcon(AppIcons.alertTriangle)), findsOneWidget);
+      expect(tester.widget<AppButton>(confirmIn('정말 영구 삭제')).variant, AppButtonVariant.dangerStrong);
+      expect(tester.widget<AppButton>(confirmIn('취소')).variant, AppButtonVariant.tonal);
     });
 
-    testWidgets('final sheet → "정말 영구 삭제" calls withdraw once, button disabled while submitting', (tester) async {
+    testWidgets('정말 영구 삭제 한 번이 곧 탈퇴 — 처리 중엔 빨강 그대로 도는 표시라 다시 눌리지 않는다', (tester) async {
       await openFinalSheet(tester);
       account.holdWithdraw = Completer<void>();
 
       await tester.tap(find.text('정말 영구 삭제'));
       await tester.pump();
 
-      expect(deleteButton(tester).enabled, isFalse);
-      await tester.tap(find.text('정말 영구 삭제'), warnIfMissed: false);
+      expect(tester.widget<AppButton>(confirmIn('정말 영구 삭제')).isLoading, isTrue);
+      expect(find.descendant(of: confirmIn('정말 영구 삭제'), matching: find.byType(CircularProgressIndicator)), findsOneWidget);
+      await tester.tap(confirmIn('정말 영구 삭제'), warnIfMissed: false);
       account.holdWithdraw!.complete();
-      await tester.pumpAndSettle();
+      // 성공하면 앱은 로그아웃 → 라우터가 화면을 바꾼다. 시험에는 라우터가 없어 팝업이 도는 표시인 채 남으므로 settle 대신 시간을 넘긴다.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
 
       expect(account.withdrawCalls, 1);
-      // 로그아웃은 main.dart 리스너 한 곳이 한다 — 시트는 상태만 바꾼다.
+      // 로그아웃은 main.dart 리스너 한 곳이 한다 — 팝업은 상태만 바꾼다.
       expect(container.read(accountStatusListenableProvider).value, AccountStatus.withdrawn);
     });
 
-    testWidgets('실패하면 문구를 보여주고 다시 누를 수 있다', (tester) async {
+    testWidgets('실패하면 팝업 안에 문구를 보여주고 다시 누를 수 있다', (tester) async {
       await openFinalSheet(tester);
       account.withdrawResult = const FailureResult(NetworkFailure());
 
@@ -319,67 +316,37 @@ void main() {
       expect(container.read(accountStatusListenableProvider).value, AccountStatus.active);
     });
 
-    testWidgets('정말 영구 삭제는 회색 · 취소는 #FF385C 이고 간격이 pen 그대로(회색 y290 → 취소 y358, pen `FbrhB`)', (tester) async {
-      await openFinalSheet(tester);
-
-      expectGrayDelete(tester, inFinal, '정말 영구 삭제');
-      expectBrandCancel(tester, inFinal);
-      final gray = tester.getRect(inFinal(find.widgetWithText(ElevatedButton, '정말 영구 삭제')));
-      final cancel = tester.getRect(cancelBox(inFinal));
-      expect(cancel.top - gray.bottom, 16); // 회색 끝(y342) → 취소(y358)
-    });
-
     testWidgets('취소는 탈퇴를 부르지 않고 닫는다', (tester) async {
       await openFinalSheet(tester);
 
       await tester.tap(inFinal(find.text('취소')));
       await tester.pumpAndSettle();
 
-      expect(find.byType(WithdrawFinalSheet), findsNothing);
+      expect(find.byType(WithdrawFinalPopup), findsNothing);
       expect(account.withdrawCalls, 0);
     });
   });
 
-  group('정지 중 탈퇴 시트(pen XHGTs)', () {
-    Future<void> openSuspended(WidgetTester tester) => openSheets(tester, open: showSuspendedWithdrawSheet);
+  group('정지 중 탈퇴 확인 팝업', () {
+    Future<void> openSuspended(WidgetTester tester) => openSheets(tester, open: showSuspendedWithdrawPopup);
 
-    testWidgets('s7M9MC 틀에 제목 · 경고 문구만 다르다(대장 10-03)', (tester) async {
+    testWidgets('제목 · 설명(무기한 재가입 제한)만 다르고 버튼은 같다(대장 10-03)', (tester) async {
       await openSuspended(tester);
 
-      for (final text in [
-        '정지 중에 탈퇴할까요?',
-        '프로필, 매칭 기록, 대화, 남은 하트를 모두 영구적으로 삭제합니다. 이 작업은 취소할 수 없어요.',
-        '정지 중에 탈퇴하면 다시 가입할 수 없어요',
-        '정말 영구 삭제',
-        '취소',
-      ]) {
+      for (final text in ['정지 중에 탈퇴할까요?', '정지 중에 탈퇴하면 다시 가입할 수 없어요', '정말 영구 삭제', '취소']) {
         expect(inFinal(find.text(text)), findsOneWidget, reason: text);
       }
-      expect(find.text('재가입은 탈퇴 후 2개월이 지나야 가능해요.'), findsNothing);
-      final badge = find.ancestor(
-        of: find.text('정지 중에 탈퇴하면 다시 가입할 수 없어요'),
-        matching: find.byWidgetPredicate(
-          (widget) => widget is Container && (widget.decoration as BoxDecoration?)?.color == AppColors.errorWash,
-        ),
-      );
-      expect(find.descendant(of: badge, matching: find.byIcon(AppIcons.alertTriangle)), findsOneWidget);
-    });
-
-    testWidgets('정말 영구 삭제는 일반 탈퇴와 같은 회색(neutral) · 취소 #FF385C — 버튼은 같게(대장 10-03 · pen `XHGTs`)', (tester) async {
-      await openSuspended(tester);
-
-      final button = tester.widget<AppButton>(inFinal(find.byType(AppButton)));
-      expect(button.label, '정말 영구 삭제');
-      expect(button.variant, AppButtonVariant.neutral);
-      expectGrayDelete(tester, inFinal, '정말 영구 삭제');
-      expectBrandCancel(tester, inFinal);
+      expect(find.text('삭제한 내용은 되돌릴 수 없고\n재가입은 2개월 뒤에 가능해요.'), findsNothing);
+      expect(tester.widget<AppButton>(confirmIn('정말 영구 삭제')).variant, AppButtonVariant.dangerStrong);
     });
 
     testWidgets('정말 영구 삭제 한 번이 곧 탈퇴다', (tester) async {
       await openSuspended(tester);
 
       await tester.tap(inFinal(find.text('정말 영구 삭제')));
-      await tester.pumpAndSettle();
+      // 성공하면 앱은 로그아웃 → 라우터가 화면을 바꾼다. 시험에는 라우터가 없어 팝업이 도는 표시인 채 남으므로 settle 대신 시간을 넘긴다.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
 
       expect(account.withdrawCalls, 1);
       expect(container.read(accountStatusListenableProvider).value, AccountStatus.withdrawn);
@@ -454,7 +421,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(tester.takeException(), isNull);
-        expect(find.byType(WithdrawFinalSheet), findsOneWidget);
+        expect(find.byType(WithdrawFinalPopup), findsOneWidget);
       });
     }
   });

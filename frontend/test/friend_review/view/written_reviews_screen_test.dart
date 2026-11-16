@@ -6,6 +6,7 @@ import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/confirm_popup.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -30,7 +31,7 @@ const _notice = '내가 남긴 리뷰는 언제든 지울 수 있어요.\n수정
 const _emptyTitle = '아직 쓴 리뷰가 없어요'; // pen QlDBt/ZBzIg
 const _emptyBody = '친구에게\n리뷰를 남기면 여기에 모여요'; // pen QlDBt/DFs55
 const _sheetTitle = '리뷰를 지울까요?'; // pen UClUE/xd8je
-const _sheetBody = '지우면 봄바람님 프로필에서 바로 사라지고\n되돌릴 수 없어요.'; // pen UClUE/O7tR3q
+const _sheetBody = '프로필에서 바로 사라지고\n되돌릴 수 없어요.'; // 사용자 2026-11-16 문구(닉네임 자리를 뺐다)
 const _deleted = '리뷰를 지웠어요'; // pen W7HENj/LGEZH
 const _sectionTitle = '리뷰를 기다리는 친구'; // pen qa34E
 const _sectionBody = '추천 코드로 이어진 친구예요. 지웠거나 놓친 리뷰도 다시 쓸 수 있어요.'; // pen AJ2hf
@@ -92,7 +93,8 @@ void main() {
         matching: find.byIcon(AppIcons.trash2),
       );
 
-  Finder deleteButton() => find.widgetWithText(AppButton, '지우기');
+  // 지우는 중에는 라벨 자리에 도는 표시가 들어가 글자로 찾지 못한다 — 라벨 값으로 찾는다.
+  Finder deleteButton() => find.byWidgetPredicate((widget) => widget is AppButton && widget.label == '지우기');
 
   Future<void> openSheet(WidgetTester tester, {String nickname = '봄바람'}) async {
     await tester.tap(trashOf(nickname));
@@ -375,34 +377,19 @@ void main() {
   });
 
   group('지우기(20e-2 확인 → 20e-3 토스트)', () {
-    testWidgets('휴지통 → AlertSheet(pen UClUE) — 제목 20/700 · 본문에 받은 사람 닉네임 14 muted 1.55 · 지우기 328×52 danger(HE8FZ 2026-10-01 개편) · 취소 48', (tester) async {
+    // 20e-2 확인은 공용 확인 팝업 위험 변형이다(대장 전달 2026-11-16) — 옛 AlertSheet(pen UClUE) 값표는 지웠다.
+    testWidgets('휴지통 → 확인 팝업(위험) — 제목 20/700 · 본문(닉네임 없이, 사용자 문구) 16 body 1.5 가운데 · 빨강 지우기 · 회색 취소', (tester) async {
       await pump(tester);
 
       await openSheet(tester);
 
-      final title = find.text(_sheetTitle);
-      final titleStyle = tester.widget<Text>(title).style!;
+      expect(find.byKey(confirmPopupCardKey), findsOneWidget);
+      final titleStyle = tester.widget<Text>(find.text(_sheetTitle)).style!;
       expect((titleStyle.fontSize, titleStyle.fontWeight, titleStyle.color), (20, FontWeight.w700, AppColors.ink));
-      // B3: 삭제 확인 공통 시트 — 제목 줄높이는 토큰(navTitle 1.5, pen 렌더 30).
-      expect(tester.getSize(title).height, 30);
-      final bodyStyle = tester.widget<Text>(find.text(_sheetBody)).style!;
-      expect((bodyStyle.fontSize, bodyStyle.color, bodyStyle.height), (14, AppColors.muted, 1.55));
-      final delete = tester.widget<AppButton>(deleteButton());
-      expect(delete.variant, AppButtonVariant.danger);
-      final deleteRect = tester.getRect(deleteButton());
-      expect(deleteRect.size, const Size(328, 52));
-      final cancel = find.widgetWithText(AppButton, '취소');
-      expect(tester.widget<AppButton>(cancel).variant, AppButtonVariant.text);
-      final cancelRect = tester.getRect(cancel);
-      expect(cancelRect.size, const Size(328, 48));
-      // 세로: 손잡이 영역 28 → 8 → 제목 → 16 → 본문 → 16 → 지우기 → 8 → 취소 → 32, 시트는 화면 바닥에 붙는다.
-      final titleRect = tester.getRect(title);
-      final bodyRect = tester.getRect(find.text(_sheetBody));
-      expect(bodyRect.top - titleRect.bottom, 16);
-      expect(deleteRect.top - bodyRect.bottom, 16);
-      expect(cancelRect.top - deleteRect.bottom, 8);
-      expect(780 - cancelRect.bottom, 32);
-      expect(titleRect.left, 16);
+      final body = tester.widget<Text>(find.text(_sheetBody));
+      expect((body.style!.fontSize, body.style!.color, body.style!.height, body.textAlign), (16, AppColors.body, 1.5, TextAlign.center));
+      expect(tester.widget<AppButton>(deleteButton()).variant, AppButtonVariant.dangerStrong);
+      expect(tester.widget<AppButton>(find.widgetWithText(AppButton, '취소')).variant, AppButtonVariant.tonal);
     });
 
     testWidgets('지우기 → 요청 한 번, 시트가 닫히고 카드가 빠지고 "리뷰를 지웠어요"(아이콘 없음, 가운데, 아래 24)', (tester) async {
@@ -423,17 +410,17 @@ void main() {
       expect((rect.center.dx, rect.bottom, rect.height), (180, 780 - 24, 40));
     });
 
-    testWidgets('지우는 중엔 "지우기" 가 꺼진 회색(도는 표시 없음, pen EIEFb) — 다시 눌러도, 시트를 닫고 다시 열어 눌러도 요청은 한 번', (tester) async {
+    testWidgets('지우는 중엔 "지우기" 가 빨강 그대로 흰 도는 표시(사용자 2026-11-16) — 다시 눌러도, 팝업을 닫고 다시 열어 눌러도 요청은 한 번', (tester) async {
       reviews.holdDelete = Completer<void>();
       await pump(tester);
       await openSheet(tester);
 
       await tester.tap(deleteButton());
       await tester.pump();
-      // B3: 쓴 리뷰 지우는 중도 글 · 댓글 삭제와 같이 꺼진 버튼 — 도는 표시는 없다.
-      expect(tester.widget<AppButton>(deleteButton()).onPressed, isNull);
-      expect(find.byType(CircularProgressIndicator), findsNothing);
-      await tester.tap(find.byType(AppButton).first, warnIfMissed: false);
+      // 글 · 댓글 삭제와 같은 공용 확인 팝업 처리 중 모양 — 다시 눌리지 않는다.
+      expect(tester.widget<AppButton>(deleteButton()).isLoading, isTrue);
+      expect(find.descendant(of: deleteButton(), matching: find.byType(CircularProgressIndicator)), findsOneWidget);
+      await tester.tap(deleteButton(), warnIfMissed: false);
       await tester.pump();
       // 닫고(취소) 같은 카드를 다시 지워도 이미 가는 요청을 기다린다.
       await tester.tap(find.widgetWithText(AppButton, '취소'));

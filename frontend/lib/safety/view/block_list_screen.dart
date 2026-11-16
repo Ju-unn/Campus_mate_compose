@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:campus_mate/common/widgets/confirm_popup.dart';
 import 'package:campus_mate/common/widgets/empty_notice.dart';
 import 'package:campus_mate/common/widgets/retry_notice.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
@@ -8,7 +9,6 @@ import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/safety/model/data/blocked_user.dart';
-import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:campus_mate/safety/viewmodel/block_list_ui_state.dart';
 import 'package:campus_mate/safety/viewmodel/block_list_view_model.dart';
 import 'package:flutter/material.dart';
@@ -91,11 +91,11 @@ class BlockListScreen extends ConsumerWidget {
 
   Future<void> _confirmUnblock(BuildContext context, WidgetRef ref, BlockedUser user) async {
     final viewModel = ref.read(blockListViewModelProvider.notifier);
-    final confirmed = await showSafetyConfirmSheet(
+    // 공용 확인 팝업 일반 변형(대장 전달 2026-11-16). 문구는 옛 시트 pen `zzLKe` · `DVmVy` · `Tcqay` 그대로.
+    final confirmed = await showConfirmPopup(
       context,
-      // pen `zzLKe` · `DVmVy` · `Tcqay` 문구 그대로.
       title: context.l10n.safetyUnblockConfirmTitle,
-      description: context.l10n.safetyBlockListUnblockDescription,
+      body: context.l10n.safetyBlockListUnblockDescription,
       confirmLabel: context.l10n.safetyUnblock,
     );
     if (confirmed) {

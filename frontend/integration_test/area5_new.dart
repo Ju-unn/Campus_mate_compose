@@ -228,9 +228,9 @@ Future<Map<String, Object?>> _nwWithdrawOffline(WidgetTester tester) async {
   await _wdOpenFinal(tester);
   await step('final');
   await _wdWithdraw(tester);
-  final error = find.descendant(of: find.byType(WithdrawFinalSheet), matching: find.text(_edNetwork));
+  final error = find.descendant(of: find.byType(WithdrawFinalPopup), matching: find.text(_edNetwork));
   final seen = await appears(tester, error, const Duration(seconds: 20)) != null;
-  final offline = {'error': seen ? _edNetwork : null, 'sheet_open': _has(find.byType(WithdrawFinalSheet)), 'login_seen': _has(screen('start'))};
+  final offline = {'error': seen ? _edNetwork : null, 'sheet_open': _has(find.byType(WithdrawFinalPopup)), 'login_seen': _has(screen('start'))};
   await step('failed');
   final tappedAt = await _wdWithdraw(tester);
   return {...offline, 'tapped_at': tappedAt, ...await _wdToLogin(tester)};
@@ -242,9 +242,13 @@ Future<Map<String, Object?>> _nwWithdrawTwice(WidgetTester tester) async {
   await step('final');
   final tappedAt = await _wdWithdraw(tester);
   await tester.pump(const Duration(milliseconds: 200));
-  final button = find.descendant(of: find.byType(WithdrawFinalSheet), matching: find.byType(AppButton));
-  final blocked = _has(button) && tester.widget<AppButton>(button.first).onPressed == null;
-  await _wdWithdraw(tester); // 꺼진 버튼이면 아무 일도 없다
+  // 최종 확인 팝업(2026-11-16)은 처리 중 "정말 영구 삭제" 자리에 도는 표시를 돌리고 다시 눌리지 않는다.
+  final blocked = _has(_wdBusyButton);
+  if (blocked) {
+    await tester.tap(_wdBusyButton, warnIfMissed: false); // 처리 중인 버튼 — 아무 일도 없다
+  } else {
+    await _wdWithdraw(tester); // 막지 못했으면 실제로 한 번 더 누른다(판정이 잡는다)
+  }
   return {'tapped_at': tappedAt, 'second_blocked': blocked, ...await _wdToLogin(tester, within: _nwSlowLoginWait)};
 }
 

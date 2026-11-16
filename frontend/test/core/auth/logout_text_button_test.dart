@@ -1,8 +1,8 @@
+import 'package:campus_mate/common/widgets/confirm_popup.dart';
 import 'package:campus_mate/core/auth/logout_text_button.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
-import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -31,18 +31,17 @@ void main() {
     expect(label.style!.color, AppColors.muted);
   });
 
-  testWidgets('누르면 16g 시트로 묻고, 확인하면 로그아웃을 한 번 부른다', (tester) async {
+  testWidgets('누르면 16g 확인 팝업(설명 없음 변형)으로 묻고, 확인하면 로그아웃을 한 번 부른다', (tester) async {
     await pump(tester);
 
     await tester.tap(find.text('로그아웃'));
     await tester.pumpAndSettle();
     expect(find.text('로그아웃할까요?'), findsOneWidget);
-    // 소셜 로그인 뒤라 학교 메일 인증코드를 말하지 않는다(지시문 13 A-6).
-    // 공급자를 나열하지 않는다 — iOS 에는 애플도 있다(2026-10-13 대장 결정).
-    expect(find.text('다시 로그인하려면 처음 화면에서 쓰던 소셜 계정으로 로그인해 주세요.'), findsOneWidget);
-    expect(find.textContaining('인증 코드'), findsNothing);
+    // 사용자 2026-11-16 「"로그아웃할까요?"-> 이것만」 — 설명 줄이 없다.
+    expect(find.descendant(of: find.byKey(confirmPopupCardKey), matching: find.byType(Text)), findsNWidgets(3));
+    expect(find.textContaining('다시 로그인하려면'), findsNothing);
 
-    await tester.tap(find.descendant(of: find.byType(SafetyConfirmSheet), matching: find.text('로그아웃')));
+    await tester.tap(find.descendant(of: find.byKey(confirmPopupCardKey), matching: find.text('로그아웃')));
     await tester.pumpAndSettle();
 
     expect(signOutCalls, 1);

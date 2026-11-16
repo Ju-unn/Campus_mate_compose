@@ -151,6 +151,18 @@ void main() {
   });
 
   group('신고(깃발 → 기존 신고 시트, 차단 없음)', () {
+    // 지인 리뷰 신고는 작성자를 차단하지 않는다(P1) — 차단 안내가 없어야 한다(대장 전달 2026-11-16).
+    testWidgets('리뷰 신고 시트에는 차단 안내가 없다', (tester) async {
+      await pump(tester);
+
+      final card = find.ancestor(of: find.text('달빛'), matching: find.byType(FriendReviewCard));
+      await tester.tap(find.descendant(of: card, matching: sirens()));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ReportSheet), findsOneWidget);
+      expect(find.text('신고하면 이 사용자는 차단되어 서로에게 보이지 않아요.'), findsNothing);
+    });
+
     testWidgets('신고하면 friend_review 로 보내고 "신고했어요. 운영팀이 확인할게요" — 화면 · 카드 그대로', (tester) async {
       await pump(tester);
 

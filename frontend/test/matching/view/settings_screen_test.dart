@@ -7,6 +7,7 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/confirm_popup.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/consent/model/data/consent_links.dart';
 import 'package:campus_mate/consent/model/repository/open_url.dart';
@@ -39,7 +40,6 @@ import 'package:campus_mate/safety/view/block_list_screen.dart';
 import 'package:campus_mate/safety/view/contact_block_list_screen.dart';
 import 'package:campus_mate/safety/view/contact_picker_screen.dart';
 import 'package:campus_mate/safety/view/contact_row.dart';
-import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:campus_mate/tour/viewmodel/app_tour_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -194,9 +194,9 @@ void main() {
     return ((box.decoration as BoxDecoration).border as Border?)?.bottom ?? BorderSide.none;
   }
 
-  // 줄 제목과 시트 확인 버튼 글자가 둘 다 "로그아웃" 이다 — 시트 안으로 좁혀 찾는다.
+  // 줄 제목과 팝업 확인 버튼 글자가 둘 다 "로그아웃" 이다 — 확인 팝업 안으로 좁혀 찾는다.
   Finder inSheet(String text) =>
-      find.descendant(of: find.byType(SafetyConfirmSheet), matching: find.text(text));
+      find.descendant(of: find.byKey(confirmPopupCardKey), matching: find.text(text));
 
   Future<void> openLogoutSheet(WidgetTester tester) async {
     await tester.tap(find.text('로그아웃'));
@@ -374,7 +374,8 @@ void main() {
     await openLogoutSheet(tester);
 
     expect(inSheet('로그아웃할까요?'), findsOneWidget);
-    expect(inSheet('다시 로그인하려면 처음 화면에서 쓰던 소셜 계정으로 로그인해 주세요.'), findsOneWidget);
+    // 설명 없음 변형 — 사용자 2026-11-16 「"로그아웃할까요?"-> 이것만」.
+    expect(find.textContaining('다시 로그인하려면'), findsNothing);
     expect(inSheet('로그아웃'), findsOneWidget);
     expect(inSheet('취소'), findsOneWidget);
   });
@@ -391,7 +392,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(signOutCalls, 1);
-    expect(find.byType(SafetyConfirmSheet), findsNothing);
+    expect(find.byKey(confirmPopupCardKey), findsNothing);
     expect(find.byType(SettingsScreen), findsOneWidget);
   });
 
@@ -406,7 +407,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(signOutCalls, 0);
-    expect(find.byType(SafetyConfirmSheet), findsNothing);
+    expect(find.byKey(confirmPopupCardKey), findsNothing);
   });
 
   // 대장 결정 2(2026-09-28): 탈퇴하기는 목록 줄이 아니라 목록 아래 위험 영역 단독 버튼이다.

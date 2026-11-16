@@ -69,6 +69,12 @@ abstract final class AppElevation {
     BoxShadow(color: Color(0x26000000), offset: Offset(0, -2), blurRadius: 16),
   ];
 
+  /// 가운데 확인 팝업 카드 — #00000026 (0,8) blur 24. 아래에 붙은 시트([top])와 같은 색 · 번짐을 아래로 드리운다
+  /// (대장 전달 pen 확인 팝업 값표 2026-11-16, `common/widgets/confirm_popup.dart`).
+  static const List<BoxShadow> popup = <BoxShadow>[
+    BoxShadow(color: Color(0x26000000), offset: Offset(0, 8), blurRadius: 24),
+  ];
+
   /// 하단 내비 알약 (마스터 `AppBottomNavGlass`) — #1A16191F (0,8) blur 24. 블러 뒤에 따로 그려서 `BoxShadow` 하나로 둔다.
   static const BoxShadow glassPill = BoxShadow(color: Color(0x1F1A1619), offset: Offset(0, 8), blurRadius: 24);
 

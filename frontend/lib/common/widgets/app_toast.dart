@@ -1,4 +1,5 @@
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
@@ -40,4 +41,46 @@ class AppToast extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 화면 안 토스트가 뜨고 지는 자리 — [child] 가 생기면 제자리에서 fade 로 나타나고(easeOut 220ms), null 이 되면 제자리에서
+/// fade 로 사라진다(easeIn 180ms). 사용자 2026-11-16 「토스트는 제자리에서 fade로 나타났다 사라지게」.
+/// 사라지는 동안은 자리를 그대로 차지하고 다 사라진 뒤 비운다. 떠 있는 토스트의 글만 바뀌면(같은 종류 위젯) 다시 나타나지 않고
+/// 제자리에서 바뀐다. 기기 "동작 줄이기" 면 바로 나타나고 바로 사라진다.
+/// [gapBelow] 를 주면 토스트 아래 그만큼 띄운 간격도 토스트와 같이 생기고 없어진다(버튼 위 12 등). 토스트는 가로 가운데에 둔다.
+/// SnackBar 자리에 띄우는 토스트는 `showToastSnackBar`(app_snack_bar.dart)가 같은 값으로 움직인다.
+class ToastPresence extends StatelessWidget {
+  const ToastPresence({required this.child, this.gapBelow = 0, super.key});
+
+  final Widget? child;
+  final double gapBelow;
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final toast = child;
+    return AnimatedSwitcher(
+      duration: reduceMotion ? Duration.zero : AppMotion.appear,
+      reverseDuration: reduceMotion ? Duration.zero : AppMotion.disappear,
+      switchInCurve: AppMotion.appearCurve,
+      switchOutCurve: AppMotion.disappearReverseCurve,
+      // 투명할 때도 낭독기 트리에 남긴다 — 토스트는 liveRegion 이라 나타나는 첫 장면에 읽혀야 한다.
+      // 동작 줄이기면 흐려짐 자체를 두지 않는다.
+      transitionBuilder: reduceMotion
+          ? (child, _) => child
+          : (child, animation) => FadeTransition(opacity: animation, alwaysIncludeSemantics: true, child: child),
+      layoutBuilder: _layout,
+      child: toast == null || gapBelow == 0
+          ? toast
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [Center(child: toast), SizedBox(height: gapBelow)],
+            ),
+    );
+  }
+
+  /// 기본 배치와 같되, 아무것도 없을 때는 크기 0 — 빈 Stack 은 받은 제약의 가장 큰 크기를 차지한다.
+  static Widget _layout(Widget? current, List<Widget> previous) => current == null && previous.isEmpty
+      ? const SizedBox.shrink()
+      : Stack(alignment: Alignment.center, children: [...previous, ?current]);
 }

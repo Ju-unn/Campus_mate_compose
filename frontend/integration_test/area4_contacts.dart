@@ -206,7 +206,7 @@ final Map<String, Area1Case> _contactsCases = {
     await tap(tester, find.descendant(of: find.byType(ContactRow), matching: find.byType(IconButton)).first);
     await pumpUntil(tester, find.text('차단을 해제할까요?'));
     must(find.text('이 연락처가 다시 카드에 나타날 수 있어요.').evaluate().isNotEmpty, '해제 시트 설명이 없음');
-    await tap(tester, _sheetButton('해제'));
+    await tap(tester, popupButton('해제')); // 해제 확인은 공용 확인 팝업(2026-11-16)
     await _waitBlockRows(tester, names.length - 1);
     return null;
   }),

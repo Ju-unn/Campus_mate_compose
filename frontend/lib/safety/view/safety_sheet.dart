@@ -1,19 +1,16 @@
+import 'package:campus_mate/common/widgets/app_bottom_sheet.dart';
 import 'package:campus_mate/common/widgets/sheet_handle.dart';
-import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 
-/// 조각 6 바텀시트를 띄운다. 딤은 모달 딤 토큰(pen `colors.scrim`), 키보드가 올라오면 그만큼 밀어 올린다.
+/// 조각 6 바텀시트를 띄운다. 딤 · 움직임은 공용 [showAppBottomSheet], 키보드가 올라오면 그만큼 밀어 올린다.
 Future<T?> showSafetySheet<T>(BuildContext context, WidgetBuilder builder) {
-  return showModalBottomSheet<T>(
+  return showAppBottomSheet<T>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    // 기본 딤(0.8)은 시안보다 어둡다 — 모달 딤 토큰(0.5)을 쓴다.
-    barrierColor: AppColors.scrim,
     builder: (sheetContext) => Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(sheetContext).bottom),
       child: builder(sheetContext),
@@ -127,55 +124,6 @@ class SafetySheetButton extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [leading!, const SizedBox(width: AppSpacing.xs), Flexible(child: text)],
-    );
-  }
-}
-
-/// 확인 시트 하나를 띄우고 확인했으면 true. 바깥 탭·스와이프·취소는 false.
-Future<bool> showSafetyConfirmSheet(
-  BuildContext context, {
-  required String title,
-  required String description,
-  required String confirmLabel,
-}) async {
-  final confirmed = await showSafetySheet<bool>(
-    context,
-    (_) => SafetyConfirmSheet(title: title, description: description, confirmLabel: confirmLabel),
-  );
-  return confirmed ?? false;
-}
-
-/// 14e(pen `aCTy1`) · 16f 해제(`FzXZ4`) 확인 시트. 제목 · 설명 · 주색 확인 · 회색 취소.
-class SafetyConfirmSheet extends StatelessWidget {
-  const SafetyConfirmSheet({
-    required this.title,
-    required this.description,
-    required this.confirmLabel,
-    super.key,
-  });
-
-  final String title;
-  final String description;
-  final String confirmLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafetySheet(
-      children: [
-        // pen `YXdCN` 20/700, 줄높이 속성 없음 · 렌더 29. 신고 시트 제목(18)과 크기가 다르다.
-        Text(title, style: AppTypography.navTitle.copyWith(color: AppColors.ink, height: 29 / 20)),
-        const SizedBox(height: AppSpacing.md),
-        // pen `u3gXUA` 16 / body / 1.5.
-        Text(description, style: AppTypography.body.copyWith(color: AppColors.body, height: 1.5)),
-        // pen 은 설명과 버튼 사이에 4px 투명 사각형(`zlBnH`)을 끼워 간격 16 + 4 + 16 = 36 을 만든다.
-        const SizedBox(height: 36),
-        SafetySheetButton.primary(
-          label: confirmLabel,
-          onPressed: () => Navigator.of(context).pop(true),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        SafetySheetButton.neutral(label: context.l10n.commonCancel, onPressed: () => Navigator.of(context).pop(false)),
-      ],
     );
   }
 }

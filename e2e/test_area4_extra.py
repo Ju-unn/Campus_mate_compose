@@ -276,8 +276,8 @@ class DartContractTest(unittest.TestCase):
     def test_set_26_reads_the_unblock_sheet_text_before_it_confirms(self):
         body = self.case_body("'E-SET-26'", "'E-SET-43'")
         sheet = body.index("find.text('차단을 해제할까요?')")
-        confirm = body.index("find.widgetWithText(SafetySheetButton, '해제')")
-        self.assertIn('_unblockDescription', body[sheet:confirm], '해제 시트 본문 문구를 확인하지 않고 누름(E-SET-27 은 확인한다)')
+        confirm = body.index("popupButton('해제')")  # 해제 확인은 공용 확인 팝업(2026-11-16)
+        self.assertIn('_unblockDescription', body[sheet:confirm], '해제 팝업 본문 문구를 확인하지 않고 누름(E-SET-27 은 확인한다)')
 
     def test_the_unblock_text_is_the_one_the_app_shows(self):
         # 시나리오 · 앱 코드(block_list_screen.dart)와 같은 글이어야 판정이 의미가 있다.

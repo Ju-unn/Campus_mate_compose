@@ -103,15 +103,17 @@ class RegistryTest(unittest.TestCase):
 
 
 class LogoutCopyTest(unittest.TestCase):
-    def test_set_64_expects_the_logout_sheet_text_the_app_shows(self):
-        # eaddab62 뒤 로그아웃 시트는 소셜 로그인 문구다(core/auth/confirm_sign_out.dart) — 앱 쪽 E-SET-64 가 같은 글을 기대해야 한다.
-        # 글자는 문구 파일(ARB)의 coreSignOutConfirmDescription 이 정하고, 시트는 그 키를 읽는다.
+    def test_set_64_expects_the_logout_popup_without_a_description(self):
+        # 2026-11-16 로그아웃 확인은 공용 확인 팝업의 설명 없음 변형이다(사용자 「"로그아웃할까요?"-> 이것만」) —
+        # 앱은 설명을 넘기지 않고, 옛 설명 키는 문구 파일(ARB)에서 지웠다. 앱 쪽 E-SET-64 는 옛 설명이 "없음" 을 본다.
         shown = (tools.ROOT / 'frontend' / 'lib' / 'core' / 'auth' / 'confirm_sign_out.dart').read_text(encoding='utf-8')
         said = (tools.ROOT / 'frontend' / 'integration_test' / 'area4_set2.dart').read_text(encoding='utf-8')
-        text = '다시 로그인하려면 처음 화면에서 쓰던 소셜 계정으로 로그인해 주세요.'
-        self.assertIn('description: context.l10n.coreSignOutConfirmDescription,', shown)
-        self.assertEqual(tools.arb_messages()['coreSignOutConfirmDescription'], text)
-        self.assertIn(f"const _logoutDescription = '{text}';", said)
+        self.assertIn('showConfirmPopup(', shown)
+        self.assertNotIn('body:', shown)
+        self.assertNotIn('coreSignOutConfirmDescription', tools.arb_messages())
+        self.assertNotIn('_logoutDescription', said)
+        self.assertIn("must(find.textContaining('다시 로그인하려면').evaluate().isEmpty", said)
+        self.assertIn("await tap(tester, popupButton('취소'));", said)
 
 
 class NotifyHelpersTest(unittest.TestCase):

@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/widgets/app_snack_bar.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/community/model/data/poll_vote_notice.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
@@ -27,7 +28,7 @@ PollToast showPollToast(BuildContext context, String message, {double bottomInse
   final l10n = context.l10n;
   final textOnly = message == l10n.communityVoteReward || message == l10n.communityDeleted;
   final messenger = ScaffoldMessenger.of(context)..hideCurrentSnackBar();
-  return messenger.showSnackBar(SnackBar(
+  return showToastSnackBar(messenger, SnackBar(
       behavior: SnackBarBehavior.floating,
       backgroundColor: Colors.transparent,
       elevation: 0,

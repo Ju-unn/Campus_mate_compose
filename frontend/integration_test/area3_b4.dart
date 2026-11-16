@@ -8,7 +8,7 @@ part of 'area3.dart';
 
 const _gateLeave = '거절하고 나가기'; // trust_gate_sheet.dart:91
 const _gateChange = '변경'; // trust_gate_sheet.dart:181 — 아이디 칸 오른쪽 TextButton
-const _gateLeaveConfirm = '나가기'; // chat_dialogs.dart:16 — 나가기 확인 창의 빨간 버튼
+const _gateLeaveConfirm = '나가기'; // chat_dialogs.dart — 공용 확인 팝업(위험)의 빨간 버튼(2026-11-16)
 const _gateLeaveTitle = '채팅방을 나갈까요?'; // chat_dialogs.dart:13
 const _kakaoFieldLabel = '카카오톡 아이디'; // kakao_id_settings_screen.dart:68 — 16e-1 입력칸 라벨
 const _kakaoSave = '저장'; // kakao_id_settings_screen.dart:88
@@ -128,7 +128,7 @@ Future<Map<String, Object?>> _rejectAndLeave(WidgetTester tester, Map<String, dy
   if (!confirm) return {'sheet': true, 'confirm': false};
   await tester.pump(const Duration(milliseconds: 800)); // 창이 멈춘 뒤에 누른다
   await tester.pump(const Duration(milliseconds: 800));
-  await tap(tester, find.widgetWithText(TextButton, _gateLeaveConfirm));
+  await tap(tester, popupButton(_gateLeaveConfirm));
   var gone = false;
   final watch = Stopwatch()..start();
   while (!gone && watch.elapsed < const Duration(seconds: 20)) {

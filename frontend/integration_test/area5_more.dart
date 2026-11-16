@@ -60,6 +60,7 @@ final Map<String, Area1Case> area5CasesMore = {
     var afterSave = false;
     if (probe['taken'] != true && probe['save_enabled'] == true) {
       await tap(tester, button(_actSave)); // 확인이 막지 않았으면 저장 뒤 서버(409)가 막아야 한다
+      await _actConfirmNicknameIfAsked(tester);
       afterSave = (await appears(tester, find.text(_actNicknameTaken), const Duration(seconds: 10))) != null;
     }
     return {

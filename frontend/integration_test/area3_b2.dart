@@ -10,7 +10,7 @@ const _reportTitle = '무엇을 신고할까요?'; // report_sheet.dart:56
 const _abuse = '욕설·비방·혐오'; // report_reason.dart:5 — ReportReason.abuse
 const _acceptBanner = '수락하기'; // chat_room_screen.dart:387 — 미리 수락 배너 버튼
 const _acceptSheet = '수락하고 공유하기'; // trust_gate_sheet.dart:90
-const _acceptConfirm = '수락'; // chat_dialogs.dart:27 — 확인 창
+const _acceptConfirm = '수락'; // chat_dialogs.dart — 공용 확인 팝업(2026-11-16)
 const _cancel = '취소'; // written_reviews_screen · chat_dialogs 의 취소
 
 /// PC 가 준 `paste` — 코드포인트 목록 × 횟수.
@@ -69,7 +69,7 @@ Future<Map<String, Object?>> _acceptTwice(WidgetTester tester, Map<String, dynam
   } else {
     await pumpUntil(tester, button(_acceptBanner));
     await tap(tester, button(_acceptBanner));
-    final confirm = find.widgetWithText(TextButton, _acceptConfirm);
+    final confirm = popupButton(_acceptConfirm);
     await pumpUntil(tester, confirm);
     await tester.pump(const Duration(milliseconds: 800)); // 창이 멈춘 뒤에 누른다
     await tester.pump(const Duration(milliseconds: 800));

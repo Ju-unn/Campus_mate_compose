@@ -7,6 +7,7 @@ part of 'area5.dart';
 // 이 파일에 탈퇴 · 삭제 버튼을 누르는 줄은 없다.
 
 const _actSave = '저장';
+const _actNicknameConfirm = '바꾸기'; // basic_info_edit_screen.dart — 닉네임을 실제로 바꿀 때만 뜨는 확인 팝업(2026-11-16)
 const _actManageTitle = '프로필 편집'; // profile_manage_screen.dart 앱바
 const _actBioTitle = '자기소개·태그 수정'; // profile_edit_screen.dart 앱바
 const _actIdealTitle = '이상형 조건 수정'; // ideal_conditions_screen.dart 편집 모드 앱바
@@ -116,10 +117,18 @@ Future<Map<String, Object?>> _actToast(WidgetTester tester) async {
   return {'toast_seen': seen != null, 'toast_ms': shownMs};
 }
 
+/// "저장" 을 누른 뒤 닉네임 확인 팝업이 떴으면 "바꾸기" 를 누른다 — 닉네임을 안 바꿨으면 팝업이 없어 그대로 지나간다.
+Future<void> _actConfirmNicknameIfAsked(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 300)); // 팝업이 커지며 자리를 잡는 시간(220ms)
+  if (_has(popupButton(_actNicknameConfirm))) await tester.tap(popupButton(_actNicknameConfirm));
+}
+
 /// 15-6 의 "저장" 을 눌러 15-5 로 돌아와 토스트가 뜨고 지나갈 때까지 — 눌렀을 때 버튼이 켜져 있었는지와 토스트 · 도착 화면을 말한다.
 Future<Map<String, Object?>> _actSaveBasic(WidgetTester tester) async {
   final pressedEnabled = _actSaveEnabled(tester);
   await tap(tester, button(_actSave));
+  await _actConfirmNicknameIfAsked(tester);
   final toast = await _actToast(tester);
   await _actManageLoaded(tester);
   return {'save_enabled': pressedEnabled, ...toast, 'title': _title(tester)};
@@ -381,6 +390,7 @@ final Map<String, Area1Case> area5CasesAct = {
     await step('opened'); // PC 가 nickname_changed_at 을 지금으로 바꾼다(다른 곳에서 바꾼 것처럼)
     final probe = await _actProbeNickname(tester, job['nickname'] as String);
     await tap(tester, button(_actSave));
+    await _actConfirmNicknameIfAsked(tester);
     final error = find.text(_actNicknameSoon);
     await appears(tester, error, const Duration(seconds: 10));
     final seen = _has(error);

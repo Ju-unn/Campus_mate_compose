@@ -3,12 +3,12 @@ part of 'area3.dart';
 // 영역 3 안전 폰 한 대 — 신고 · 차단 · 정지에서 앱이 누르고 화면을 읽는 27개(02 · 03 · 04 · 06 · 22 · 25 · 32 · 53 · 55 는 시나리오의 두 기기 줄을 폰 한 대 + PC 가 상대 역할로 옮긴 것). PC 쪽은 e2e/area3_safe_phone.py 의 같은 번호(계정 · 매칭 ·
 // 메시지 · 차단 · 정지를 준비하고, 신고 · 차단 · 나감 행은 DB 에서 센다). 앱은 누른 뒤 화면에서 본 것을 Map 으로 돌려준다.
 // 화면 글자 · 위젯은 시나리오가 아니라 지금 화면 코드(chat_room_screen · chat_room_menu_sheet · bubble_report_menu · report_sheet ·
-// block_confirm_sheet · partner_profile_screen · block_list_screen · feed_poll_card · account_suspended_screen)에서 옮겼다.
+// block_confirm · partner_profile_screen · block_list_screen · feed_poll_card · account_suspended_screen)에서 옮겼다.
 // 망 끊기는 PC 가 한다 — 앱은 step 에서 멈춰 PC 가 끝내고 go 를 넣기를 기다린다.
 
 const _reportAction = '신고하기'; // 방 ⋯ 줄 · 14c 링크 · 투표 카드 버튼 · 신고 시트 버튼이 같은 글자다
 const _blockAction = '차단하기'; // chat_room_menu_sheet.dart · partner_profile_screen.dart
-const _blockConfirm = '차단'; // block_confirm_sheet.dart confirmLabel
+const _blockConfirm = '차단'; // block_confirm.dart confirmLabel(공용 확인 팝업)
 const _moreTooltip = '더보기'; // 방 앱바 ⋯ · 내 투표 글 …
 const _bubbleMenuLabel = '이 메시지 신고'; // bubble_report_menu.dart
 const _offlineLine = '네트워크 연결을 확인해 주세요'; // common/failure.dart:16
@@ -108,7 +108,7 @@ Future<void> _pickOther(WidgetTester tester, Map<String, dynamic> job) async {
 /// 방 메뉴 "차단하기" → 확인 시트("$nickname 님을 차단할까요?")까지.
 Future<String> _openBlockConfirm(WidgetTester tester, Map<String, dynamic> job) async {
   final nickname = job['nickname'] as String;
-  final title = '$nickname 님을 차단할까요?'; // block_confirm_sheet.dart
+  final title = '$nickname 님을 차단할까요?'; // block_confirm.dart
   await _openRoom(tester, nickname);
   await pumpUntil(tester, find.byType(ChatInputBar));
   await _roomMenu(tester, _blockAction);
@@ -428,12 +428,12 @@ final Map<String, Area1Case> area3CasesSafe = {
   'E-SAFE-22': _session(_chatWithHidden),
   'E-SAFE-25': _session((tester, job) async {
     await _openBlockConfirm(tester, job);
-    await tap(tester, find.widgetWithText(SafetySheetButton, _blockConfirm));
+    await tap(tester, popupButton(_blockConfirm));
     return _afterSafety(tester, job['nickname'] as String);
   }),
   'E-SAFE-26': _session((tester, job) async {
     final title = await _openBlockConfirm(tester, job);
-    await tap(tester, find.widgetWithText(SafetySheetButton, _cancel));
+    await tap(tester, popupButton(_cancel));
     await wait(tester, const Duration(seconds: 1));
     return {
       'sheet_seen': true, // _openBlockConfirm 이 시트 제목을 기다려 봤다(못 보면 거기서 실패한다)
@@ -447,7 +447,7 @@ final Map<String, Area1Case> area3CasesSafe = {
     await _openPartnerProfile(tester, job);
     await _profileLink(tester, _blockAction);
     await pumpUntil(tester, find.text('$nickname 님을 차단할까요?'));
-    await tap(tester, find.widgetWithText(SafetySheetButton, _blockConfirm));
+    await tap(tester, popupButton(_blockConfirm));
     return _afterSafety(tester, nickname);
   }),
   'E-SAFE-28': _session((tester, job) async {
@@ -500,7 +500,7 @@ final Map<String, Area1Case> area3CasesSafe = {
     final before = _has(row);
     await tap(tester, find.descendant(of: row, matching: find.text(_unblock)));
     await pumpUntil(tester, find.text(_unblockTitle));
-    await tap(tester, find.widgetWithText(SafetySheetButton, _unblock));
+    await tap(tester, popupButton(_unblock));
     final watch = Stopwatch()..start();
     while (_has(row) && watch.elapsed < const Duration(seconds: 15)) {
       await tester.pump(const Duration(milliseconds: 200));
@@ -546,6 +546,9 @@ final Map<String, Area1Case> area3CasesSafe = {
     await arrive(tester, 'suspended'); // 정지된 채 로그인 — 첫 요청이 403
     final again = await step('relogin'); // PC 가 정지를 풀고 새 로그인 토큰을 go 에 실어 준다
     await tap(tester, button(_logoutButton));
+    // 정지 화면 로그아웃도 확인 팝업을 거친다(2026-11-16, 설명 없음 변형).
+    await pumpUntil(tester, find.text('로그아웃할까요?'), timeout: const Duration(seconds: 5));
+    await tap(tester, popupButton('로그아웃'));
     await arrive(tester, 'start', timeout: const Duration(seconds: 15));
     await signIn(again['token_hash'] as String); // 같은 프로세스 — 로그아웃마다 계정 상태가 새로 시작하는지(Ruling 36)
     await arrive(tester, 'home', timeout: const Duration(seconds: 40));
@@ -580,7 +583,7 @@ final Map<String, Area1Case> area3CasesSafe = {
   'E-SAFE-61': _session((tester, job) async {
     final title = await _openBlockConfirm(tester, job);
     await step('cut'); // PC 가 망을 끊는다
-    await tap(tester, find.widgetWithText(SafetySheetButton, _blockConfirm));
+    await tap(tester, popupButton(_blockConfirm));
     final error = await appears(tester, find.text(_offlineLine), const Duration(seconds: 25));
     await wait(tester, const Duration(seconds: 1));
     final line = find.text(_offlineLine);

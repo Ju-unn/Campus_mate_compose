@@ -1,11 +1,11 @@
 import 'package:campus_mate/chat/model/data/message.dart';
 import 'package:campus_mate/chat/view/message_bubble.dart';
+import 'package:campus_mate/common/widgets/app_dialog_route.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
-import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
@@ -18,13 +18,16 @@ import 'package:flutter/material.dart';
 Future<bool> showBubbleReportMenu(BuildContext bubbleContext, Message message) async {
   final box = bubbleContext.findRenderObject()! as RenderBox;
   final row = box.localToGlobal(Offset.zero) & box.size;
-  final picked = await showGeneralDialog<bool>(
-    context: bubbleContext,
-    barrierDismissible: true,
-    barrierLabel: bubbleContext.l10n.commonClose,
-    barrierColor: AppColors.scrim,
-    transitionDuration: AppMotion.press,
-    pageBuilder: (context, _, _) => _BubbleMenuLayer(row: row, message: message),
+  // 막은 경로를 따라 fade 로 짙어지고, 다시 그린 말풍선은 처음부터 제자리 — 팝업 카드만 커지며 나온다([PopupMotion]).
+  final picked = await Navigator.of(bubbleContext, rootNavigator: true).push(
+    AppDialogRoute<bool>(
+      context: bubbleContext,
+      barrierLabel: bubbleContext.l10n.commonClose,
+      barrierColor: AppColors.scrim,
+      // 말풍선 자리를 화면 좌표로 쟀다 — 안전 영역으로 밀면 어긋난다.
+      useSafeArea: false,
+      builder: (context) => _BubbleMenuLayer(row: row, message: message),
+    ),
   );
   return picked ?? false;
 }
@@ -63,7 +66,11 @@ class _BubbleMenuLayer extends StatelessWidget {
             left: row.left,
             top: fitsBelow ? row.bottom + _gap : null,
             bottom: fitsBelow ? null : screen.height - row.top + _gap,
-            child: BubbleReportMenu(onReport: () => Navigator.of(context).pop(true)),
+            // 말풍선에 붙은 모서리에서 커진다(아래면 위 왼쪽, 위로 뒤집으면 아래 왼쪽).
+            child: PopupMotion(
+              alignment: fitsBelow ? Alignment.topLeft : Alignment.bottomLeft,
+              child: BubbleReportMenu(onReport: () => Navigator.of(context).pop(true)),
+            ),
           ),
         ],
       ),

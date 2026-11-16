@@ -16,6 +16,7 @@ import 'package:campus_mate/consent/model/repository/open_url.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/profile/avatar/view/photo_tiles.dart';
@@ -204,6 +205,7 @@ void main() {
     expect(find.text('이번 달에는 더 인증할 수 없어요'), findsOneWidget);
     expect(find.text('18c'), findsNothing);
     await tester.pump(const Duration(seconds: 3));
+    await tester.pump(AppMotion.disappear + const Duration(milliseconds: 1)); // 흐려지며 사라지는 시간(사용자 2026-11-16)
     expect(find.text('이번 달에는 더 인증할 수 없어요'), findsNothing);
   });
 
@@ -530,6 +532,7 @@ void main() {
 
         expect(find.text(failureText(AppLocalizationsKo(), const UnknownFailure())), findsOneWidget, reason: 'throws=$throws');
         await tester.pump(const Duration(seconds: 3));
+        await tester.pump(AppMotion.disappear + const Duration(milliseconds: 1)); // 흐려지며 사라지는 시간(사용자 2026-11-16)
         expect(find.text(failureText(AppLocalizationsKo(), const UnknownFailure())), findsNothing, reason: 'throws=$throws');
       }
     });

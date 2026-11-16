@@ -17,6 +17,7 @@ import 'package:campus_mate/chat/viewmodel/chat_room_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/confirm_popup.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
@@ -126,7 +127,7 @@ void main() {
     await tester.tap(find.widgetWithText(AppButton, '채팅방 나가기'));
     await tester.pumpAndSettle();
     expect(find.text('채팅방을 나갈까요?'), findsOneWidget);
-    await tester.tap(find.widgetWithText(TextButton, '나가기'));
+    await tester.tap(find.descendant(of: find.byKey(confirmPopupCardKey), matching: find.text('나가기')));
     await tester.pumpAndSettle();
 
     expect(repository.leaveCount, 1);
@@ -309,7 +310,7 @@ void main() {
 
     expect(find.text('채팅방을 나갈까요?'), findsOneWidget);
     // 되돌릴 수 없다는 것과 상대에게 보인다는 것을 둘 다 적는다(결정 7).
-    expect(find.text('나가면 이 대화를 다시 볼 수 없고, 상대에게는 나갔다고 표시돼요.'), findsOneWidget);
+    expect(find.text('나가면 이 대화를 다시 볼 수 없어요.'), findsOneWidget);
 
     await tester.tap(find.text('취소'));
     await tester.pumpAndSettle();

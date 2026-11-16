@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:campus_mate/common/widgets/app_snack_bar.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/back_exit/back_exit_view_model.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
@@ -60,26 +61,24 @@ class BackExitScope extends ConsumerWidget {
 }
 
 /// 04-2 · 10b 토스트와 같은 자리(하단 내비 위 16, 가로 가운데)와 만드는 방식. 시간은 [backExitWindow] 로 맞춘다.
+/// 움직임(제자리 fade · 모션 줄이기면 바로)은 [showToastSnackBar] 가 맡는다.
 void _showHint(BuildContext context) {
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        // SnackBar 기본(바깥 아래 10 + 안쪽 위아래 14)을 걷어 내야 내비 위 16 이 된다(poll_toast.dart 와 같다).
-        padding: EdgeInsets.zero,
-        margin: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
-        duration: backExitWindow,
-        content: Center(
-          child: AppToast(
-            leading: const Icon(AppIcons.info, size: 16, color: AppColors.onInk),
-            label: context.l10n.coreBackExitHint,
-          ),
+  showToastSnackBar(
+    ScaffoldMessenger.of(context)..hideCurrentSnackBar(),
+    SnackBar(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      // SnackBar 기본(바깥 아래 10 + 안쪽 위아래 14)을 걷어 내야 내비 위 16 이 된다(poll_toast.dart 와 같다).
+      padding: EdgeInsets.zero,
+      margin: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
+      duration: backExitWindow,
+      content: Center(
+        child: AppToast(
+          leading: const Icon(AppIcons.info, size: 16, color: AppColors.onInk),
+          label: context.l10n.coreBackExitHint,
         ),
       ),
-      // 모션 줄이기를 켜 둔 사람에게는 올라오는 움직임 없이 바로 보여 준다.
-      snackBarAnimationStyle: MediaQuery.disableAnimationsOf(context) ? AnimationStyle.noAnimation : null,
-    );
+    ),
+  );
 }

@@ -1,9 +1,7 @@
-import 'dart:async';
-
 import 'package:campus_mate/account/view/withdraw_sheets.dart';
 import 'package:campus_mate/common/support_email.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
-import 'package:campus_mate/core/auth/sign_out.dart';
+import 'package:campus_mate/core/auth/confirm_sign_out.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -34,11 +32,12 @@ class AccountSuspendedScreen extends ConsumerWidget {
               // 글자를 키운 기기에서는 위쪽이 길어진다 — 로그아웃은 바닥에 두고 위만 스크롤한다.
               const Expanded(child: SingleChildScrollView(child: _SuspendedMessage())),
               const SizedBox(height: _gap),
-              AppButton(label: context.l10n.commonLogout, onPressed: () => unawaited(ref.read(signOutProvider)())),
+              // 다른 로그아웃 자리와 같은 확인 팝업을 거친다(대장 전달 2026-11-16).
+              AppButton(label: context.l10n.commonLogout, onPressed: () => confirmSignOut(context, ref)),
               const SizedBox(height: _gap),
               // pen `r3KNbz` 312×44, 모서리 14, 14/700 muted, 밑줄 없음.
               TextButton(
-                onPressed: () => showSuspendedWithdrawSheet(context),
+                onPressed: () => showSuspendedWithdrawPopup(context),
                 style: TextButton.styleFrom(
                   // 44 는 pen 의 target.compact — 기본 48 터치 여백을 붙이지 않는다.
                   minimumSize: const Size(double.infinity, 44),

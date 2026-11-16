@@ -22,6 +22,7 @@ import 'package:campus_mate/chat/viewmodel/chat_room_ui_state.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_view_model.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/widgets/app_bottom_sheet.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
@@ -258,12 +259,9 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
       if (!mounted) {
         return;
       }
-      await showModalBottomSheet<void>(
+      await showAppBottomSheet<void>(
         context: context,
         isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        // 기본 딤(0.8)은 시안보다 어둡다 — 모달 딤 토큰(0.5)을 쓴다.
-        barrierColor: AppColors.scrim,
         // 16e-1 에서 바꾸고 돌아오면 방을 다시 읽는다 — 시트는 떠 있는 채로 새 아이디를 보여 준다.
         builder: (sheetContext) => Consumer(
           builder: (_, sheetRef, _) => TrustGateSheet(

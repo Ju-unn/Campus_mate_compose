@@ -27,7 +27,7 @@ void main() {
   });
 
   /// pen 보드와 같은 360×780 화면에서 시트를 연다.
-  Future<void> open(WidgetTester tester, {double scale = 1}) async {
+  Future<void> open(WidgetTester tester, {double scale = 1, bool blocksTarget = false}) async {
     tester.view.physicalSize = const Size(360, 780);
     tester.view.devicePixelRatio = 1;
     tester.platformDispatcher.textScaleFactorTestValue = scale;
@@ -47,7 +47,7 @@ void main() {
             body: Builder(
               builder: (context) => TextButton(
                 onPressed: () async {
-                  result = await showReportSheet(context, const ReportTarget.message('msg-7'));
+                  result = await showReportSheet(context, const ReportTarget.message('msg-7'), blocksTarget: blocksTarget);
                   closed = true;
                 },
                 child: const Text('열기'),
@@ -63,6 +63,22 @@ void main() {
 
   SafetySheetButton submitButton(WidgetTester tester) =>
       tester.widget<SafetySheetButton>(find.widgetWithText(SafetySheetButton, '신고하기'));
+
+  // 대장 전달 2026-11-16: 차단까지 되는 신고(프로필 · 메시지)만 버튼 위에 그 사실을 알린다.
+  testWidgets('차단까지 되는 신고면 신고하기 위에 안내 한 줄(14/400 muted, 버튼과 12)', (tester) async {
+    await open(tester, blocksTarget: true);
+
+    const notice = '신고하면 이 사용자는 차단되어 서로에게 보이지 않아요.';
+    final text = tester.widget<Text>(find.text(notice));
+    expect((text.style!.fontSize, text.style!.fontWeight, text.style!.color), (14, FontWeight.w400, AppColors.muted));
+    expect(tester.getTopLeft(find.widgetWithText(SafetySheetButton, '신고하기')).dy - tester.getBottomLeft(find.text(notice)).dy, 12);
+  });
+
+  testWidgets('차단하지 않는 신고(커뮤니티 · 지인 리뷰 — 기본)에는 안내가 없다', (tester) async {
+    await open(tester);
+
+    expect(find.text('신고하면 이 사용자는 차단되어 서로에게 보이지 않아요.'), findsNothing);
+  });
 
   testWidgets('pen yl8gX 문구 — 제목과 사유 다섯 줄', (tester) async {
     await open(tester);

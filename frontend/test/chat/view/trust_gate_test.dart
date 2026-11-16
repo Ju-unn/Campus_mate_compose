@@ -5,9 +5,12 @@ import 'package:campus_mate/chat/view/trust_banner.dart';
 import 'package:campus_mate/chat/view/trust_gate_sheet.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_view_model.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/confirm_popup.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -62,7 +65,7 @@ void main() {
     await tester.tap(find.text('수락하기'));
     await tester.pumpAndSettle();
 
-    expect(find.text('카카오톡 아이디·실사진 공개를 수락할까요?'), findsOneWidget);
+    expect(find.text('카카오톡 아이디·실사진\n공개를 수락할까요?'), findsOneWidget);
     expect(find.text('수락하면 채팅창에 수락했다는 문구가 상대에게 전송됩니다.'), findsOneWidget);
     expect(repository.trustCount, 0);
 
@@ -97,7 +100,7 @@ void main() {
     await tester.tap(find.text('수락하고 공유하기'));
     await tester.pumpAndSettle();
 
-    expect(find.text('카카오톡 아이디·실사진 공개를 수락할까요?'), findsNothing);
+    expect(find.text('카카오톡 아이디·실사진\n공개를 수락할까요?'), findsNothing);
     expect(repository.trustCount, 1);
   });
 
@@ -120,6 +123,65 @@ void main() {
     expect(find.byType(TrustGateSheet), findsNothing);
     expect(find.textContaining('이 대화는'), findsOneWidget);
     expect(find.text('응답 기한이 지나면 대화 목록에서 사라져요'), findsOneWidget);
+  });
+
+  // 대장 전달 2026-11-16: 설명 아래 "수락은 취소할 수 없어요"(14/700 ink), 버튼 셋(사이 8) — 수락 · 조금 더 대화 · 거절하고 나가기.
+  testWidgets('시트 설명 아래 "수락은 취소할 수 없어요" 한 줄 · 버튼 셋은 사이 8', (tester) async {
+    repository.room = Success(roomFixture(createdAt: hoursAgo(25)));
+    await pump(tester);
+
+    final notice = tester.widget<Text>(find.text('수락은 취소할 수 없어요'));
+    expect((notice.style!.fontSize, notice.style!.fontWeight, notice.style!.color), (14, FontWeight.w700, AppColors.ink));
+    expect(
+      tester.getTopLeft(find.text('수락은 취소할 수 없어요')).dy,
+      greaterThan(tester.getBottomLeft(find.text(AppLocalizationsKo().chatGateBody)).dy),
+    );
+    final accept = tester.getRect(find.widgetWithText(AppButton, '수락하고 공유하기'));
+    final later = tester.getRect(find.widgetWithText(AppButton, '조금 더 대화해 볼게요'));
+    final decline = tester.getRect(find.widgetWithText(AppButton, '거절하고 나가기'));
+    expect(later.top - accept.bottom, 8);
+    expect(decline.top - later.bottom, 8);
+    expect(tester.widget<AppButton>(find.widgetWithText(AppButton, '조금 더 대화해 볼게요')).variant, AppButtonVariant.tonal);
+  });
+
+  testWidgets('"조금 더 대화해 볼게요" 는 시트만 닫고(스와이프와 같은 길) 종료 예정 배너로 바뀐다 — 나가기 · 수락은 부르지 않는다', (tester) async {
+    repository.room = Success(roomFixture(createdAt: hoursAgo(25)));
+    await pump(tester);
+
+    await tester.tap(find.text('조금 더 대화해 볼게요'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TrustGateSheet), findsNothing);
+    expect(find.text('응답 기한이 지나면 대화 목록에서 사라져요'), findsOneWidget);
+    expect(find.byKey(confirmPopupCardKey), findsNothing);
+    expect(repository.leaveCount, 0);
+    expect(repository.trustCount, 0);
+  });
+
+  testWidgets('배너 수락 확인은 공용 확인 팝업 일반 변형이고 한 줄 메모는 없다(대장 전달 2026-11-16)', (tester) async {
+    repository.room = Success(roomFixture(createdAt: hoursAgo(1)));
+    await pump(tester);
+
+    await tester.tap(find.text('수락하기'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(confirmPopupCardKey), findsOneWidget);
+    final buttons = find.descendant(of: find.byKey(confirmPopupCardKey), matching: find.byType(AppButton));
+    expect(tester.widget<AppButton>(buttons.last).variant, AppButtonVariant.primary);
+    expect(find.descendant(of: find.byKey(confirmPopupCardKey), matching: find.text('수락은 취소할 수 없어요')), findsNothing);
+  });
+
+  testWidgets('나가기 확인은 공용 확인 팝업 위험 변형이고 설명은 줄인 한 문장이다(사용자 2026-11-16)', (tester) async {
+    repository.room = Success(roomFixture(createdAt: hoursAgo(25)));
+    await pump(tester);
+
+    await tester.tap(find.text('거절하고 나가기'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(confirmPopupCardKey), findsOneWidget);
+    expect(find.text('나가면 이 대화를 다시 볼 수 없어요.'), findsOneWidget);
+    final confirm = find.descendant(of: find.byKey(confirmPopupCardKey), matching: find.widgetWithText(AppButton, '나가기'));
+    expect(tester.widget<AppButton>(confirm).variant, AppButtonVariant.dangerStrong);
   });
 
   testWidgets('거절하고 나가기는 나가기 다이얼로그를 거쳐 /leave 만 부른다', (tester) async {

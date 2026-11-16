@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/confirm_popup.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/mbti_pole_toggle.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
@@ -39,6 +40,25 @@ class _BasicInfoEditScreenState extends ConsumerState<BasicInfoEditScreen> {
       TextEditingController(text: ref.read(basicInfoEditViewModelProvider).nicknameInput);
   late final TextEditingController _height =
       TextEditingController(text: ref.read(basicInfoEditViewModelProvider).heightInput);
+
+  /// 닉네임을 실제로 바꿀 때만 저장 전에 한 번 묻는다 — 바꾸면 30일 동안 다시 못 바꾼다
+  /// (대장 전달 2026-11-16, 공용 확인 팝업 일반 변형). 다른 칸만 바꿨으면 묻지 않고 바로 저장한다.
+  Future<void> _save() async {
+    final viewModel = ref.read(basicInfoEditViewModelProvider.notifier);
+    if (ref.read(basicInfoEditViewModelProvider).isNicknameChanged) {
+      final l10n = context.l10n;
+      final confirmed = await showConfirmPopup(
+        context,
+        title: l10n.meBasicNicknameConfirmTitle,
+        body: l10n.meBasicNicknameConfirmBody,
+        confirmLabel: l10n.meBasicNicknameConfirmAction,
+      );
+      if (!confirmed || !mounted) {
+        return;
+      }
+    }
+    await viewModel.save();
+  }
 
   @override
   void dispose() {
@@ -105,7 +125,7 @@ class _BasicInfoEditScreenState extends ConsumerState<BasicInfoEditScreen> {
               error: state.error,
               showsRecalculationNote: state.showsRecalculationNote,
               isSaving: state.isSubmitting,
-              onSave: state.canSave ? viewModel.save : null,
+              onSave: state.canSave ? _save : null,
             ),
           ],
         ),

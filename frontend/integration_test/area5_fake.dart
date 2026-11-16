@@ -191,9 +191,9 @@ Future<Map<String, Object?>> _fkWithdraw(WidgetTester tester, Map<String, dynami
   await _openFinalSheet(tester);
   await _wdWithdraw(tester);
   final expect = job['expect'] as String;
-  final sheet = find.descendant(of: find.byType(WithdrawFinalSheet), matching: find.text(expect));
+  final sheet = find.descendant(of: find.byType(WithdrawFinalPopup), matching: find.text(expect));
   final seen = await appears(tester, sheet, const Duration(seconds: 15)) != null;
-  return {'place': 'withdraw', 'error': seen ? expect : null, 'sheet_open': _has(find.byType(WithdrawFinalSheet)), 'login': _has(screen('start'))};
+  return {'place': 'withdraw', 'error': seen ? expect : null, 'sheet_open': _has(find.byType(WithdrawFinalPopup)), 'login': _has(screen('start'))};
 }
 
 const _fkLoadFail = '잠시 후 다시 시도해 주세요'; // me/view/me_load_error.dart

@@ -72,13 +72,27 @@ class TrustGateSheet extends StatelessWidget {
                 context.l10n.chatGateBody,
                 style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
               ),
+              // 설명 바로 아래 한 줄(대장 전달 2026-11-16, 14/700 ink — 14g 안내 카드와 같은 문구 키).
+              const SizedBox(height: AppSpacing.xxs),
+              Text(
+                context.l10n.chatIntroEmphasisNoCancel,
+                style: AppTypography.labelSmall.copyWith(color: AppColors.ink, fontWeight: FontWeight.w700),
+              ),
               const SizedBox(height: AppSpacing.md),
               _Countdown(deadlineAt: deadlineAt),
               const SizedBox(height: AppSpacing.md),
               _KakaoIdBlock(myKakaoId: myKakaoId, onChange: onChangeKakaoId),
               const SizedBox(height: AppSpacing.md),
+              // 버튼 셋, 사이 8(대장 전달 2026-11-16): 수락 · 조금 더 대화(닫기만) · 거절하고 나가기.
               AppButton(label: context.l10n.chatGateAccept, onPressed: onAccept),
-              const SizedBox(height: AppSpacing.xxs),
+              const SizedBox(height: AppSpacing.xs),
+              // 스와이프로 닫는 것과 같은 길 — 시트만 닫고 방은 14h 배너로 바뀐다(부른 쪽이 닫힌 뒤 처리한다).
+              AppButton(
+                label: context.l10n.chatGateLater,
+                onPressed: () => Navigator.of(context).pop(),
+                variant: AppButtonVariant.tonal,
+              ),
+              const SizedBox(height: AppSpacing.xs),
               // pen 라벨은 "거절하기" 였다. 거절이 곧 나가기가 되면서 라벨이 그 사실을 말해야 한다(결정 11).
               AppButton(label: context.l10n.chatGateDecline, onPressed: onLeave, variant: AppButtonVariant.text),
             ],

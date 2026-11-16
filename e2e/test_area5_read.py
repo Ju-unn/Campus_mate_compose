@@ -83,13 +83,14 @@ def server_keys(path, function):
 
 
 DART_FILES = ('area5.dart', 'area5_read.dart')
-ALLOWED_BUTTONS = ('_withdraw', '_deleteForever')  # 앱 쪽이 `button(…)` 으로 누를 수 있는 라벨 상수 둘 — 탈퇴하기 · 1차 시트의 영구 삭제(최종 시트를 연다)
+ALLOWED_BUTTONS = ('_withdraw', '_deleteForever', '_actNicknameConfirm')  # 앱 쪽이 `button(…)` · `popupButton(…)` 으로 누를 수 있는 라벨 상수 셋 —
+# 탈퇴하기 · 1차 시트의 영구 삭제(최종 팝업을 연다) · 15-6 닉네임 확인 팝업의 "바꾸기"(2026-11-16, 탈퇴와 무관 — test_area5_act 가 area5_act.dart 에 같은 규칙을 건다)
 
 
 def delete_button_violations(text):
     """앱 쪽 dart 가 탈퇴 버튼("정말 영구 삭제")을 누를 길이 생겼는지 — 주석을 뺀 코드에서 본다.
-    a: 그 글자가 든 코드 줄(상수 선언 포함 — 상수에 담아 누르는 우회를 막는다) · b: 최종 시트(WithdrawFinalSheet)나 형(AppButton)으로 누르는 문장 ·
-    b2: `tap(…button(라벨))` 의 라벨이 허락된 상수 둘이 아님 · c: '영구 삭제' 가 든 다른 코드 줄(새 상수가 생기면 알린다)."""
+    a: 그 글자가 든 코드 줄(상수 선언 포함 — 상수에 담아 누르는 우회를 막는다) · b: 최종 팝업(WithdrawFinalPopup)이나 형(AppButton)으로 누르는 문장 ·
+    b2: `tap(…button(라벨))` · `tap(…popupButton(라벨))` 의 라벨이 허락된 상수 셋이 아님 · c: '영구 삭제' 가 든 다른 코드 줄(새 상수가 생기면 알린다)."""
     code = '\n'.join(re.sub(r'//.*$', '', line) for line in text.replace('\r\n', '\n').split('\n'))
     found = []
     for number, line in enumerate(code.split('\n'), 1):
@@ -100,9 +101,10 @@ def delete_button_violations(text):
     for statement in code.split(';'):
         if not re.search(r'\btap\(', statement):
             continue
-        if 'WithdrawFinalSheet' in statement or 'AppButton' in statement:
+        if 'WithdrawFinalPopup' in statement or 'AppButton' in statement:
             found.append(('b', ' '.join(statement.split())))
-        found += [('b2', ' '.join(statement.split())) for argument in re.findall(r'\bbutton\(([^()]*)\)', statement)
+        # popupButton(…) 은 공용 확인 팝업(2026-11-16) 안의 버튼 글자 — 최종 탈퇴 팝업도 그 팝업이라 같은 규칙으로 막는다.
+        found += [('b2', ' '.join(statement.split())) for argument in re.findall(r'\b(?:button|popupButton)\(([^()]*)\)', statement)
                   if argument.strip() not in ALLOWED_BUTTONS]
     return found
 
@@ -403,7 +405,10 @@ class RegistryTest(unittest.TestCase):
             ('a', "const _x = '정말 영구 삭제';\nawait tap(tester, button(_x));"),  # 상수에 담는 우회 — 선언이 걸린다
             ('b2', "await tap(tester, button('정말 ' + _deleteForever));"),  # 글자 없이 이어 붙이는 우회
             ('b2', "await tap(tester, button(_somethingElse));"),
-            ('b', "await tap(tester,\n    find.descendant(of: find.byType(WithdrawFinalSheet), matching: find.byType(AppButton)));"),
+            ('b', "await tap(tester,\n    find.descendant(of: find.byType(WithdrawFinalPopup), matching: find.byType(AppButton)));"),
+            ('b', "await tester.tap(find.descendant(of: find.byType(WithdrawFinalPopup), matching: find.byType(ElevatedButton)));"),
+            ('b2', "await tap(tester, popupButton(_somethingElse));"),  # 공용 확인 팝업 안의 버튼(2026-11-16)
+            ('b2', "await tap(tester, popupButton('정말 ' + _deleteForever));"),
             ('b', "await tester.tap(find.byType(AppButton).last);"),  # 형으로 누르기
             ('b', "await tap(tester, find.widgetWithText(AppButton, label));"),
             ('c', "const _foreverToo = '영구 삭제하기';"),  # 새 상수
@@ -422,7 +427,7 @@ class RegistryTest(unittest.TestCase):
             "const _deleteForever = '영구 삭제';",
             'await tap(tester, button(_deleteForever));',
             'await tap(tester, button(_withdraw));',
-            'final labels = _buttonLabels(tester, find.byType(WithdrawFinalSheet));  // 읽기만',
+            'final labels = _buttonLabels(tester, find.byType(WithdrawFinalPopup));  // 읽기만',
             'final buttons = [for (final b in tester.widgetList<AppButton>(find.byType(AppButton))) b.label];',
         )
         self.assertEqual(delete_button_violations('\n'.join(fine)), [])
@@ -831,7 +836,7 @@ class WithdrawSheetsTest(ReadBase):
         return said(**{'title': True, 'lead': True, 'items': list(DELETED), 'warning': True, 'buttons': ['영구 삭제'], **over})
 
     def final(self, **over):
-        return said(**{'final_seen': True, 'final_buttons': ['정말 영구 삭제'], 'closed': True, 'title': '설정', **over})
+        return said(**{'final_seen': True, 'final_buttons': ['취소', '정말 영구 삭제'], 'closed': True, 'title': '설정', **over})
 
     def test_wd_01_first_sheet_has_the_title_the_three_lines_the_warning_and_one_button_and_nothing_changes(self):
         _, app = self.passes('E-WD-01', self.first())
@@ -858,7 +863,7 @@ class WithdrawSheetsTest(ReadBase):
         self.assertEqual(self.profile()['status'], 'active')
 
     def test_wd_03_fails_on_a_missing_final_sheet_wrong_buttons_an_open_sheet_or_a_wrong_screen(self):
-        for over, word in (({'final_seen': False}, '최종 시트'), ({'final_buttons': []}, '최종 시트'),
+        for over, word in (({'final_seen': False}, '최종 시트'), ({'final_buttons': []}, '최종 팝업'),
                            ({'closed': False}, '닫힘'), ({'title': '내 프로필'}, '설정')):
             with self.subTest(over):
                 self.fails('E-WD-03', self.final(**over), word)

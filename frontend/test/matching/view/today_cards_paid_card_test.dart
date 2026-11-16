@@ -259,13 +259,13 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('"50으로 열기" → 확인 시트(보유 하트 320개) → "취소" 면 서버로 가지 않는다', (tester) async {
+    testWidgets('"50으로 열기" → 확인 팝업 → "취소" 면 서버로 가지 않는다', (tester) async {
       cards.today = const Success(TodayCards(cards: [_free], paidCard: _offer));
       await pump(tester);
 
       await tapOpen(tester);
       expect(find.text('이 사람을 지금 열어 볼까요?'), findsOneWidget);
-      expect(find.textContaining('지금 보유한 하트는 320개예요'), findsOneWidget);
+      expect(find.text('하트가 모자라요'), findsNothing); // 잔액 320 이면 열기 확인 팝업이다(잔액 문장은 사용자 2026-11-16 결정으로 뺐다)
       await tester.tap(find.text('취소'));
       await tester.pumpAndSettle();
 
@@ -289,7 +289,7 @@ void main() {
       expect(find.byType(SnackBar), findsNothing);
     });
 
-    testWidgets('여는 중에는 버튼이 잠겨 두 번 눌러도 확인 시트가 또 뜨지 않는다', (tester) async {
+    testWidgets('여는 중에는 버튼이 잠겨 두 번 눌러도 확인 팝업이 또 뜨지 않는다', (tester) async {
       cards.today = const Success(TodayCards(cards: [_free], paidCard: _offer));
       cards.holdPurchase = Completer<void>();
       await pump(tester);
@@ -308,7 +308,7 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    testWidgets('잔액을 읽는 동안 버튼이 잠겨 두 번 눌러도 확인 시트는 한 번만 뜬다', (tester) async {
+    testWidgets('잔액을 읽는 동안 버튼이 잠겨 두 번 눌러도 확인 팝업은 한 번만 뜬다', (tester) async {
       cards.today = const Success(TodayCards(cards: [_free], paidCard: _offer));
       me.holdFetch = Completer<void>();
       await pump(tester);
@@ -331,7 +331,7 @@ void main() {
       expect(find.text('이 사람을 지금 열어 볼까요?'), findsOneWidget);
     });
 
-    testWidgets('확인 시트를 보는 사이 제안이 다른 사람으로 바뀌면, 확인한 것과 다른 제안을 열지 않는다', (tester) async {
+    testWidgets('확인 팝업을 보는 사이 제안이 다른 사람으로 바뀌면, 확인한 것과 다른 제안을 열지 않는다', (tester) async {
       cards.today = const Success(TodayCards(cards: [_free], paidCard: _offer));
       await pump(tester);
 
@@ -373,7 +373,8 @@ void main() {
       await tester.pumpAndSettle();
       await tapOpen(tester);
 
-      expect(find.textContaining('지금 보유한 하트는 500개예요'), findsOneWidget);
+      expect(find.text('하트가 모자라요'), findsNothing); // 잔액 500 이면 열기 확인 팝업이다(잔액 문장은 사용자 2026-11-16 결정으로 뺐다)
+      expect(find.text('이 사람을 지금 열어 볼까요?'), findsOneWidget);
     });
 
     testWidgets('402 시트에서 "닫기" 면 스토어로 가지 않는다', (tester) async {
@@ -392,7 +393,7 @@ void main() {
     });
 
     group('열기 전에 잔액을 서버에서 새로 읽는다 (폰 스모크 후속)', () {
-      testWidgets('앱이 들고 있던 잔액이 오래된 0 이어도 서버가 60 이면 확인 시트에 60 이 보인다', (tester) async {
+      testWidgets('앱이 들고 있던 잔액이 오래된 0 이어도 서버가 60 이면 부족 시트가 아니라 확인 팝업이 뜬다', (tester) async {
         cards.today = const Success(TodayCards(cards: [_free], paidCard: _offer));
         me.profile = Success(_profile(0));
         await pump(tester);
@@ -405,11 +406,11 @@ void main() {
         await tapOpen(tester);
 
         expect(find.text('이 사람을 지금 열어 볼까요?'), findsOneWidget);
-        expect(find.textContaining('지금 보유한 하트는 60개예요'), findsOneWidget);
+        expect(find.text('하트가 모자라요'), findsNothing); // 잔액 60 이면 열기 확인 팝업이다(잔액 문장은 사용자 2026-11-16 결정으로 뺐다)
         expect(find.textContaining('보유한 하트는 0개예요'), findsNothing);
       });
 
-      testWidgets('새로 읽은 잔액이 cost 보다 작으면 확인 시트 없이 바로 "하트가 모자라요" 시트가 뜨고 서버 구매는 가지 않는다', (tester) async {
+      testWidgets('새로 읽은 잔액이 cost 보다 작으면 확인 팝업 없이 바로 "하트가 모자라요" 시트가 뜨고 서버 구매는 가지 않는다', (tester) async {
         cards.today = const Success(TodayCards(cards: [_free], paidCard: _offer));
         me.profile = Success(_profile(0));
         await pump(tester);
@@ -422,7 +423,7 @@ void main() {
         expect(cards.purchasedOfferIds, isEmpty);
       });
 
-      testWidgets('부족 시트의 "하트 스토어로 가기" → 스토어, 돌아오면 잔액을 다시 읽어 충전했으면 확인 시트로 간다', (tester) async {
+      testWidgets('부족 시트의 "하트 스토어로 가기" → 스토어, 돌아오면 잔액을 다시 읽어 충전했으면 확인 팝업으로 간다', (tester) async {
         cards.today = const Success(TodayCards(cards: [_free], paidCard: _offer));
         me.profile = Success(_profile(0));
         await pump(tester);
@@ -437,7 +438,8 @@ void main() {
         await tester.pumpAndSettle();
         await tapOpen(tester);
 
-        expect(find.textContaining('지금 보유한 하트는 500개예요'), findsOneWidget);
+        expect(find.text('하트가 모자라요'), findsNothing); // 잔액 500 이면 열기 확인 팝업이다(잔액 문장은 사용자 2026-11-16 결정으로 뺐다)
+        expect(find.text('이 사람을 지금 열어 볼까요?'), findsOneWidget);
         expect(cards.purchasedOfferIds, isEmpty);
       });
 
@@ -455,7 +457,7 @@ void main() {
         expect(find.text('하트가 모자라요'), findsOneWidget);
       });
 
-      testWidgets('잔액이 정확히 cost 와 같으면 부족이 아니다 — 확인 시트가 뜬다', (tester) async {
+      testWidgets('잔액이 정확히 cost 와 같으면 부족이 아니다 — 확인 팝업이 뜬다', (tester) async {
         cards.today = const Success(TodayCards(cards: [_free], paidCard: _offer));
         me.profile = Success(_profile(50));
         await pump(tester);
@@ -463,10 +465,10 @@ void main() {
         await tapOpen(tester);
 
         expect(find.text('이 사람을 지금 열어 볼까요?'), findsOneWidget);
-        expect(find.textContaining('지금 보유한 하트는 50개예요'), findsOneWidget);
+        expect(find.text('하트가 모자라요'), findsNothing); // 잔액 50 이면 열기 확인 팝업이다(잔액 문장은 사용자 2026-11-16 결정으로 뺐다)
       });
 
-      testWidgets('잔액을 못 읽으면 잔액 문장 없이 확인 시트를 띄우고, 부족 판정은 서버 402 에 맡긴다', (tester) async {
+      testWidgets('잔액을 못 읽어도 확인 팝업을 띄우고, 부족 판정은 서버 402 에 맡긴다', (tester) async {
         cards.today = const Success(TodayCards(cards: [_free], paidCard: _offer));
         me.profile = const FailureResult(NetworkFailure());
         cards.purchaseResult = const FailureResult(ServerRejectedFailure(heartsNotEnoughMessage));

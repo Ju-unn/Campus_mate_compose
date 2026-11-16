@@ -265,7 +265,7 @@ final Map<String, Area1Case> area5CasesRead = {
     await _openSettings(tester);
     await _openWithdrawSheet(tester);
     await _openFinalSheet(tester);
-    final finalButtons = _buttonLabels(tester, find.byType(WithdrawFinalSheet)); // 읽기만 — 이 시트의 탈퇴 버튼은 누르지 않는다
+    final finalButtons = _buttonLabels(tester, find.byType(WithdrawFinalPopup)); // 읽기만 — 이 시트의 탈퇴 버튼은 누르지 않는다
     await tap(tester, find.text(_cancel));
     await wait(tester, const Duration(seconds: 1));
     return {'final_seen': true, 'final_buttons': finalButtons, 'closed': !_has(find.text(_finalTitle)), 'title': _title(tester)};

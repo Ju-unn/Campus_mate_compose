@@ -4,6 +4,8 @@ import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart'
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
+import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/confirm_popup.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/community/model/repository/community_repository_provider.dart';
@@ -195,6 +197,19 @@ void main() {
       expect(find.text(AppLocalizationsKo().communityVoteReward), findsNothing);
       expect(fade().opacity, 1);
       expect(find.byKey(CommunityFeedScreen.askButtonKey).hitTestable(), findsOneWidget);
+    });
+
+    // 투표 글 신고는 차단하지 않는다(서버 #191) — 차단 안내가 없어야 한다(대장 전달 2026-11-16).
+    testWidgets('투표 글 신고 시트에는 차단 안내가 없다', (tester) async {
+      repository.page = Success(PollPage(polls: [pollFixture(id: 'p2')], hasMore: false));
+      await pump(tester);
+
+      final siren = find.byWidgetPredicate((w) => w is Icon3d && w.icon == AppIcon3d.siren);
+      await tester.tap(find.ancestor(of: siren, matching: find.byType(InkResponse)).first);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ReportSheet), findsOneWidget);
+      expect(find.text('신고하면 이 사용자는 차단되어 서로에게 보이지 않아요.'), findsNothing);
     });
 
     testWidgets('신고 · 삭제 토스트도 알약을 가린 채 두지 않는다', (tester) async {
@@ -706,29 +721,30 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('삭제 중(15d-2 EIEFb): 확인 시트가 열린 채 "삭제하기" 만 꺼지고, 끝나면 닫히며 "삭제했어요"', (tester) async {
+  // 사용자 2026-11-16 「빨간 버튼 + 돌아가는 표시」 — 옛 EIEFb(꺼진 회색, 도는 표시 없음)를 바꿨다.
+  testWidgets('삭제 중: 확인 팝업이 열린 채 "삭제하기" 가 빨강 그대로 흰 도는 표시가 되고, 끝나면 닫히며 "삭제했어요"', (tester) async {
     repository
       ..page = Success(PollPage(polls: [pollFixture(isMine: true)], hasMore: false))
       ..holdDelete = Completer<void>();
     await pump(tester);
     await openDeleteConfirm(tester);
-    final deleteButton = find.widgetWithText(ElevatedButton, '삭제하기');
+    // 처리 중에는 라벨 자리에 도는 표시가 들어가 글자로 찾지 못한다 — 라벨 값으로 찾는다.
+    final deleteButton = find.byWidgetPredicate((widget) => widget is AppButton && widget.label == '삭제하기');
     await tester.tap(deleteButton);
     await tester.pump();
-    // 시트 닫힘 애니메이션보다 길게 기다려도 그대로다.
+    // 팝업 닫힘 애니메이션보다 길게 기다려도 그대로다.
     await tester.pump(const Duration(seconds: 1));
 
     expect(find.text('이 질문을 삭제할까요?'), findsOneWidget);
     expect(find.byType(FeedPollCard), findsOneWidget);
-    final button = tester.widget<ElevatedButton>(deleteButton);
+    expect(tester.widget<AppButton>(deleteButton).isLoading, isTrue);
+    final button = tester.widget<ElevatedButton>(find.descendant(of: deleteButton, matching: find.byType(ElevatedButton)));
     expect(button.onPressed, isNull);
-    // EIEFb: 채움 #E5E5E5 · 글자 #929292, 스피너 없음 — AppButton 의 꺼진 상태 그대로.
-    expect(button.style!.backgroundColor!.resolve({WidgetState.disabled}), AppColors.primaryDisabled);
-    expect(button.style!.foregroundColor!.resolve({WidgetState.disabled}), AppColors.disabled);
-    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(button.style!.backgroundColor!.resolve({WidgetState.disabled}), AppColors.error);
+    expect(find.descendant(of: deleteButton, matching: find.byType(CircularProgressIndicator)), findsOneWidget);
     expect(tester.widget<ElevatedButton>(find.widgetWithText(ElevatedButton, '취소')).onPressed, isNotNull);
 
-    await tester.tap(deleteButton);
+    await tester.tap(deleteButton, warnIfMissed: false);
     await tester.pump();
     expect(repository.deleted.length, 1);
 
@@ -843,7 +859,8 @@ void main() {
     expect(find.byType(FeedPollCard), findsOneWidget);
   });
 
-  testWidgets('pen 시트 높이: 메뉴 157(15d-1 ofjwb) · 확인 260(15d-2 CCdBk — 버튼 52 로 4 줄어듦, HE8FZ 2026-10-01 개편), 행 52 · 버튼 52/48', (tester) async {
+  // 15d-2 확인은 공용 확인 팝업(위험)으로 바뀌었다(대장 전달 2026-11-16) — 버튼 둘 다 52.
+  testWidgets('pen 시트 높이: 메뉴 157(15d-1 ofjwb) · 행 52, 확인 팝업 버튼 52/52', (tester) async {
     repository.page = Success(PollPage(polls: [pollFixture(isMine: true)], hasMore: false));
     await pump(tester);
     await tester.tap(find.byTooltip('더보기'));
@@ -854,9 +871,9 @@ void main() {
 
     await tester.tap(find.text('삭제하기'));
     await tester.pumpAndSettle();
-    expect(tester.getSize(find.byType(BottomSheet)).height, closeTo(260, 1));
+    expect(find.byKey(confirmPopupCardKey), findsOneWidget);
     expect(tester.getSize(find.widgetWithText(ElevatedButton, '삭제하기')).height, 52);
-    expect(tester.getSize(find.widgetWithText(ElevatedButton, '취소')).height, 48);
+    expect(tester.getSize(find.widgetWithText(ElevatedButton, '취소')).height, 52);
   });
 
   testWidgets('폰 폭(360) · 글자 2배에서 두 시트도 넘치거나 잘리지 않는다', (tester) async {
@@ -868,7 +885,12 @@ void main() {
     repository.page = Success(PollPage(polls: [pollFixture(isMine: true)], hasMore: false));
 
     List<String> clippedInSheet() => [
-      for (final element in find.descendant(of: find.byType(BottomSheet), matching: find.byType(RichText)).evaluate())
+      for (final element in find
+          .descendant(
+            of: find.byWidgetPredicate((widget) => widget is BottomSheet || widget.key == confirmPopupCardKey),
+            matching: find.byType(RichText),
+          )
+          .evaluate())
         if (element.renderObject case final RenderParagraph p
             when p.getMaxIntrinsicHeight(p.size.width) > p.size.height + 0.5 ||
                 p.getMinIntrinsicWidth(double.infinity) > p.size.width + 0.5)

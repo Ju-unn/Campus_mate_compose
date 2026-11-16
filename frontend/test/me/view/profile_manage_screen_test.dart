@@ -15,6 +15,7 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/home/model/repository/home_repository_provider.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
@@ -481,6 +482,7 @@ void main() {
       expect(find.byType(ProfileManageScreen), findsOneWidget);
       expect(find.text('저장했어요'), findsOneWidget);
       await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump(AppMotion.disappear + const Duration(milliseconds: 1)); // 흐려지며 사라지는 시간(사용자 2026-11-16)
       expect(find.text('저장했어요'), findsNothing);
     });
 

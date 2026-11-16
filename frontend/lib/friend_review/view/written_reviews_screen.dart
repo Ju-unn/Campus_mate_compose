@@ -1,8 +1,9 @@
 import 'dart:async';
 
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/widgets/app_snack_bar.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
-import 'package:campus_mate/common/widgets/delete_confirm_sheet.dart';
+import 'package:campus_mate/common/widgets/confirm_popup.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
@@ -16,7 +17,6 @@ import 'package:campus_mate/friend_review/view/friend_review_compose_sheet.dart'
 import 'package:campus_mate/friend_review/view/friend_review_list_frame.dart';
 import 'package:campus_mate/friend_review/viewmodel/friend_review_list_view_model.dart';
 import 'package:campus_mate/friend_review/viewmodel/writable_friends_provider.dart';
-import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -58,22 +58,21 @@ class WrittenReviewsScreen extends ConsumerWidget {
     );
   }
 
-  /// 확인 시트 → 지우기. 시트는 지우기가 끝나면 닫히고, 도중에 닫아도 요청이 끝나면 결과를 알린다
+  /// 확인 팝업(위험) → 지우기. 팝업은 지우기가 끝나면 닫히고, 도중에 닫아도 요청이 끝나면 결과를 알린다
   /// (서버에서는 이미 지워졌을 수 있다 — 15d-2 투표 삭제와 같은 흐름).
   static Future<void> _confirmDelete(BuildContext context, WidgetRef ref, FriendReview review) async {
     final messenger = ScaffoldMessenger.of(context);
     final l10n = context.l10n; // 지우는 동안 화면이 없어져도 결과 토스트는 띄운다 — 글자는 미리 잡는다.
     final viewModel = ref.read(friendReviewListViewModelProvider(_written).notifier);
     Future<Failure?>? deleting;
-    await showSafetySheet<void>(
+    // 20e-2 확인 — 15d-2 투표 삭제와 같은 공용 확인 팝업 위험 변형(대장 전달 2026-11-16).
+    await showConfirmPopup(
       context,
-      // 20e-2 확인(pen `N701NC`, AlertSheet `D0TvG` 인스턴스 `UClUE`) — 15d-2 투표 삭제와 같은 공통 시트. 닉네임은 받은 사람(pen O7tR3q).
-      (_) => DeleteConfirmSheet(
-        title: l10n.friendReviewWrittenDeleteTitle,
-        body: l10n.friendReviewWrittenDeleteBody(nickname: review.nickname),
-        confirmLabel: l10n.friendReviewWrittenDeleteConfirm,
-        onDelete: () => deleting = viewModel.delete(review.id),
-      ),
+      title: l10n.friendReviewWrittenDeleteTitle,
+      body: l10n.friendReviewWrittenDeleteBody,
+      confirmLabel: l10n.friendReviewWrittenDeleteConfirm,
+      danger: true,
+      onConfirm: () => deleting = viewModel.delete(review.id),
     );
     if (deleting == null) return; // "지우기" 를 누르지 않고 닫았다.
     final error = await deleting;
@@ -96,9 +95,9 @@ class WrittenReviewsScreen extends ConsumerWidget {
   /// 20e-3 토스트(pen `W7HENj`, Toast `I8UOWm`): 가운데, 아래 24, 아이콘 꺼짐. 실패는 pen 에 없어 20b 실패 토스트와
   /// 같은 circle-alert 를 단다.
   static void _showToast(ScaffoldMessengerState messenger, String message, {required bool failed}) {
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
+    showToastSnackBar(
+      messenger..hideCurrentSnackBar(),
+      SnackBar(
         behavior: SnackBarBehavior.floating,
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -112,7 +111,8 @@ class WrittenReviewsScreen extends ConsumerWidget {
             label: message,
           ),
         ),
-      ));
+      ),
+    );
   }
 }
 

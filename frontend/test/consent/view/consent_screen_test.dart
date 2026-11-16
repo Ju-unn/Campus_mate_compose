@@ -7,6 +7,7 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_checkbox.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/confirm_popup.dart';
 import 'package:campus_mate/consent/model/data/consent_item.dart';
 import 'package:campus_mate/consent/model/data/consent_links.dart';
 import 'package:campus_mate/consent/model/repository/consent_repository_provider.dart';
@@ -19,13 +20,13 @@ import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/profile/onboarding/model/repository/onboarding_repository_provider.dart';
-import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -230,6 +231,7 @@ void main() {
     expect(find.widgetWithText(AppToast, failureText(AppLocalizationsKo(), const UnknownFailure())), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 3));
+    await tester.pump(AppMotion.disappear + const Duration(milliseconds: 1)); // 흐려지며 사라지는 시간
     expect(find.byType(AppToast), findsNothing);
 
     openUrl = (_) async => throw Exception('no browser');
@@ -266,14 +268,14 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
-  testWidgets('로그아웃은 16g 시트로 한 번 더 묻고, 확인하면 로그아웃을 한 번 부른다', (tester) async {
+  testWidgets('로그아웃은 16g 확인 팝업으로 한 번 더 묻고, 확인하면 로그아웃을 한 번 부른다', (tester) async {
     await pump(tester);
 
     await tester.tap(find.text('로그아웃'));
     await tester.pumpAndSettle();
     expect(find.text('로그아웃할까요?'), findsOneWidget);
 
-    await tester.tap(find.descendant(of: find.byType(SafetyConfirmSheet), matching: find.text('로그아웃')));
+    await tester.tap(find.descendant(of: find.byKey(confirmPopupCardKey), matching: find.text('로그아웃')));
     await tester.pumpAndSettle();
 
     expect(signOutCalls, 1);
@@ -399,6 +401,7 @@ void main() {
 
       await tester.tap(find.text('전체 동의'));
       await tester.pump();
+      await tester.pump(AppMotion.checkbox + const Duration(milliseconds: 1)); // 켜짐 움직임(easeInOut)이 끝난 뒤 잰다
       expect(box().color, AppColors.primary);
       expect(box().border, isNull);
       final check = tester.widget<Icon>(find.descendant(of: find.byType(AppCheckbox).first, matching: find.byType(Icon)));

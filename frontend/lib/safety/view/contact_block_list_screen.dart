@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/widgets/confirm_popup.dart';
 import 'package:campus_mate/common/widgets/empty_notice.dart';
 import 'package:campus_mate/common/widgets/retry_notice.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
@@ -10,7 +11,6 @@ import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/safety/view/contact_permission_sheets.dart';
 import 'package:campus_mate/safety/view/contact_row.dart';
-import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:campus_mate/safety/viewmodel/contact_block_list_ui_state.dart';
 import 'package:campus_mate/safety/viewmodel/contact_block_list_view_model.dart';
 import 'package:flutter/material.dart';
@@ -108,11 +108,11 @@ class ContactBlockListBody extends ConsumerWidget {
 
   Future<void> _confirmRemove(BuildContext context, WidgetRef ref, String blockId) async {
     final viewModel = ref.read(contactBlockListViewModelProvider.notifier);
-    final confirmed = await showSafetyConfirmSheet(
+    // 공용 확인 팝업 일반 변형(대장 전달 2026-11-16). 문구는 옛 시트 pen `rISKU` · `TxO3n` · `JFtKq` 그대로.
+    final confirmed = await showConfirmPopup(
       context,
-      // pen `rISKU` · `TxO3n` · `JFtKq` 문구 그대로.
       title: context.l10n.safetyUnblockConfirmTitle,
-      description: context.l10n.safetyContactBlockUnblockDescription,
+      body: context.l10n.safetyContactBlockUnblockDescription,
       confirmLabel: context.l10n.safetyUnblock,
     );
     if (confirmed) await viewModel.remove(blockId);

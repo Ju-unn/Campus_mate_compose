@@ -10,6 +10,7 @@ import 'package:campus_mate/chat/viewmodel/user_channel.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
+import 'package:campus_mate/common/widgets/confirm_popup.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/http/api_client.dart';
@@ -330,7 +331,7 @@ void main() {
       await swipeAndLeave(tester, '여우비');
       expect(find.text('채팅방을 나갈까요?'), findsOneWidget);
       expect(chat.leaveCount, 0);
-      await tester.tap(find.widgetWithText(TextButton, '나가기'));
+      await tester.tap(find.descendant(of: find.byKey(confirmPopupCardKey), matching: find.text('나가기')));
       await tester.pumpAndSettle();
 
       expect(chat.leaveCount, 1);
@@ -343,7 +344,7 @@ void main() {
       await pump(tester, FakeCardRepository(), chat);
 
       await swipeAndLeave(tester, '여우비');
-      await tester.tap(find.widgetWithText(TextButton, '취소'));
+      await tester.tap(find.descendant(of: find.byKey(confirmPopupCardKey), matching: find.text('취소')));
       await tester.pumpAndSettle();
 
       expect(chat.leaveCount, 0);
@@ -355,7 +356,7 @@ void main() {
       await pump(tester, FakeCardRepository(), chat);
 
       await swipeAndLeave(tester, '여우비');
-      await tester.tap(find.widgetWithText(TextButton, '나가기'));
+      await tester.tap(find.descendant(of: find.byKey(confirmPopupCardKey), matching: find.text('나가기')));
       await tester.pumpAndSettle();
 
       expect(chat.leaveCount, 1);
@@ -368,7 +369,7 @@ void main() {
       await pump(tester, FakeCardRepository(), chat);
 
       await swipeAndLeave(tester, '여우비');
-      await tester.tap(find.widgetWithText(TextButton, '나가기'));
+      await tester.tap(find.descendant(of: find.byKey(confirmPopupCardKey), matching: find.text('나가기')));
       await tester.pumpAndSettle();
 
       expect(find.text('여우비'), findsNothing);

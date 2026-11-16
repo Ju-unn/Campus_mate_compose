@@ -15,6 +15,7 @@ import 'package:campus_mate/core/draft/draft_store.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
@@ -483,8 +484,9 @@ void main() {
     // 초점을 받을 일이 없는 안내라 liveRegion 이라야 토크백이 바로 읽어 준다.
     expect(tester.getSemantics(find.byType(AppToast)), isSemantics(isLiveRegion: true));
 
-    // 3초 뒤에는 저절로 사라진다.
+    // 3초 뒤에는 저절로 사라진다(흐려지는 180ms 뒤 — 사용자 2026-11-16).
     await tester.pump(const Duration(seconds: 3));
+    await tester.pump(AppMotion.disappear + const Duration(milliseconds: 1));
     expect(find.byType(AppToast), findsNothing);
     semantics.dispose();
   });

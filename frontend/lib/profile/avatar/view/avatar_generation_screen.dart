@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' show ImageFilter, TileMode;
 
+import 'package:campus_mate/common/widgets/app_bottom_sheet.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_lottie_view.dart';
 import 'package:campus_mate/common/widgets/sheet_handle.dart';
@@ -108,11 +109,8 @@ class _AvatarGenerationScreenState extends ConsumerState<AvatarGenerationScreen>
   /// 05-12d 보상 안내(pen `Q7VmU`). **시트다** — 화면을 갈아끼우면 방금 들어간 기본 아바타가 사라진다.
   /// "확인" 은 시트를 닫고 20 으로 간다(대장 전달 10-17). 바깥을 눌러 닫으면 리빌에 남아 "확인했어요" 로 간다.
   void _showCompensationSheet(int hearts) {
-    showModalBottomSheet<void>(
+    showAppBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.transparent,
-      // 기본 딤(0.8)은 시안보다 어둡다 — 모달 딤 토큰(0.5)을 쓴다(14f 시트와 같다).
-      barrierColor: AppColors.scrim,
       builder: (sheetContext) => _CompensationSheet(
         hearts: hearts,
         onConfirm: () {

@@ -26,15 +26,20 @@ const Key reportNoteBoxKey = ValueKey('report-note-box');
 
 /// 신고 시트(pen `yl8gX`)를 띄운다. 끝난 결과(신고됨 · 이미 신고 · 하루 상한 · 대상 없음)면 그것을,
 /// 취소 · 바깥 탭이면 null 을 돌려준다. 다시 보내야 하는 실패는 시트 안에서 끝난다.
-Future<ReportSheetResult?> showReportSheet(BuildContext context, ReportTarget target) {
-  return showSafetySheet<ReportSheetResult>(context, (_) => ReportSheet(target: target));
+/// [blocksTarget] — 신고하면 차단까지 되는 신고(프로필 · 메시지, 결정 4)만 켠다. 켜면 버튼 위에 그 사실을 한 줄로 알린다
+/// (대장 전달 2026-11-16). 커뮤니티 · 지인 리뷰 신고는 차단하지 않아 끈다.
+Future<ReportSheetResult?> showReportSheet(BuildContext context, ReportTarget target, {bool blocksTarget = false}) {
+  return showSafetySheet<ReportSheetResult>(context, (_) => ReportSheet(target: target, blocksTarget: blocksTarget));
 }
 
 /// 신고 시트 본문. 상태는 [reportViewModelProvider] 가 들고, 시트는 결과가 나오면 닫기만 한다.
 class ReportSheet extends ConsumerStatefulWidget {
-  const ReportSheet({required this.target, super.key});
+  const ReportSheet({required this.target, this.blocksTarget = false, super.key});
 
   final ReportTarget target;
+
+  /// 신고하면 차단도 되는 대상인가 — 켜면 버튼 위 안내 한 줄.
+  final bool blocksTarget;
 
   @override
   ConsumerState<ReportSheet> createState() => _ReportSheetState();
@@ -92,6 +97,11 @@ class _ReportSheetState extends ConsumerState<ReportSheet> {
         // pen 은 사유 영역과 버튼 사이에 4px 투명 사각형(`CcGmL`)을 끼워 16 + 4 + 16 = 36 을 만든다.
         // 입력칸이 없을 때(pen 에 없는 상태)도 사유 영역 끝에서 같은 36 이다.
         const SizedBox(height: 36),
+        if (widget.blocksTarget) ...[
+          // 14/400 muted. pen 에 줄 사이 값이 오지 않아 버튼과 12 를 둔다(간격 토큰 sm).
+          Text(context.l10n.safetyReportBlockNotice, style: AppTypography.bodySmall.copyWith(color: AppColors.muted)),
+          const SizedBox(height: AppSpacing.sm),
+        ],
         SafetySheetButton.primary(
           label: context.l10n.commonReport,
           onPressed: state.canSubmit ? () => viewModel.submit(widget.target) : null,

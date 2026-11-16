@@ -1,6 +1,7 @@
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
@@ -60,5 +61,80 @@ void main() {
     final label = tester.getRect(find.text('하트 5개를 받았어요'));
     expect(label.left - toast.left, AppSpacing.md);
     expect(find.descendant(of: find.byType(AppToast), matching: find.byType(Icon)), findsNothing);
+  });
+
+  group('뜨고 지는 움직임 [ToastPresence] — 제자리 fade(사용자 2026-11-16 「토스트는 제자리에서 fade로 나타났다 사라지게」)', () {
+    final toast = find.byType(AppToast);
+
+    double opacity(WidgetTester tester) {
+      var value = 1.0;
+      for (final fade in tester.widgetList<FadeTransition>(find.ancestor(of: toast, matching: find.byType(FadeTransition)))) {
+        value *= fade.opacity.value;
+      }
+      return value;
+    }
+
+    Widget host(Widget? child, {bool reduceMotion = false}) => MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (context) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(disableAnimations: reduceMotion),
+              child: Scaffold(body: Center(child: ToastPresence(child: child))),
+            ),
+          ),
+        );
+
+    testWidgets('생기면 자리 그대로 easeOut 으로 220ms 동안 나타난다', (tester) async {
+      await tester.pumpWidget(host(null));
+      await tester.pumpWidget(host(const AppToast(label: '안내')));
+      final start = tester.getRect(toast);
+      expect(opacity(tester), 0);
+
+      await tester.pump(AppMotion.appear ~/ 2);
+      expect(tester.getRect(toast), start);
+      expect(opacity(tester), closeTo(Curves.easeOut.transform(0.5), 1e-6));
+
+      await tester.pump(AppMotion.appear ~/ 2);
+      expect(tester.getRect(toast), start);
+      expect(opacity(tester), 1);
+    });
+
+    testWidgets('없어지면 자리 그대로 easeIn 으로 180ms 동안 흐려지며 사라진다', (tester) async {
+      await tester.pumpWidget(host(null));
+      await tester.pumpWidget(host(const AppToast(label: '안내')));
+      await tester.pump(AppMotion.appear);
+      final rest = tester.getRect(toast);
+
+      await tester.pumpWidget(host(null));
+      await tester.pump(AppMotion.disappear ~/ 2);
+      expect(tester.getRect(toast), rest);
+      expect(opacity(tester), closeTo(1 - Curves.easeIn.transform(0.5), 1e-6));
+
+      // Flutter 애니메이션은 시간을 "넘긴" 첫 장면에서 끝난다.
+      await tester.pump(AppMotion.disappear ~/ 2 + const Duration(milliseconds: 1));
+      expect(toast, findsNothing);
+    });
+
+    testWidgets('떠 있는 토스트의 글만 바뀌면 다시 나타나지 않고 제자리에서 바뀐다', (tester) async {
+      await tester.pumpWidget(host(null));
+      await tester.pumpWidget(host(const AppToast(label: '안내')));
+      await tester.pump(AppMotion.appear);
+
+      await tester.pumpWidget(host(const AppToast(label: '다른 안내')));
+      expect(find.text('안내'), findsNothing);
+      expect(find.text('다른 안내'), findsOneWidget);
+      expect(opacity(tester), 1);
+    });
+
+    testWidgets('기기 "동작 줄이기" 면 바로 나타나고 바로 사라진다', (tester) async {
+      await tester.pumpWidget(host(null, reduceMotion: true));
+      await tester.pumpWidget(host(const AppToast(label: '안내'), reduceMotion: true));
+      expect(opacity(tester), 1);
+
+      await tester.pumpWidget(host(null, reduceMotion: true));
+      await tester.pump();
+      expect(toast, findsNothing);
+    });
   });
 }

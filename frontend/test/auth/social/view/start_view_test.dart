@@ -11,6 +11,7 @@ import 'package:campus_mate/core/supabase/auth_session_listenable_provider.dart'
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_lottie.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
@@ -272,6 +273,7 @@ void main() {
 
       await tester.pump(const Duration(seconds: 3));
       await tester.pump();
+      await tester.pump(AppMotion.disappear + const Duration(milliseconds: 1)); // 흐려지며 사라지는 시간(사용자 2026-11-16)
       expect(find.text(message), findsNothing);
     });
 
@@ -417,6 +419,7 @@ void main() {
     expect(find.text('탈퇴한 계정이에요'), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
     await tester.pump();
+    await tester.pump(AppMotion.disappear + const Duration(milliseconds: 1)); // 흐려지며 사라지는 시간(사용자 2026-11-16)
     expect(find.text('탈퇴한 계정이에요'), findsNothing);
   });
 
@@ -431,6 +434,7 @@ void main() {
     expect(find.descendant(of: find.byKey(StartView.toastKey), matching: find.byIcon(AppIcons.alertTriangle)), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
     await tester.pump();
+    await tester.pump(AppMotion.disappear + const Duration(milliseconds: 1)); // 흐려지며 사라지는 시간(사용자 2026-11-16)
     expect(find.text('세션이 만료됐어요, 다시 로그인해 주세요'), findsNothing);
   });
 
@@ -454,6 +458,7 @@ void main() {
     expect((toast.left, toast.width), (24, 312));
     await tester.pump(const Duration(seconds: 3));
     await tester.pump();
+    await tester.pump(AppMotion.disappear + const Duration(milliseconds: 1)); // 흐려지며 사라지는 시간(사용자 2026-11-16)
     expect(find.text(message), findsNothing);
   });
 

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/widgets/app_snack_bar.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
@@ -10,7 +11,7 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/safety/model/data/report_target.dart';
 import 'package:campus_mate/safety/model/repository/safety_repository_provider.dart';
-import 'package:campus_mate/safety/view/block_confirm_sheet.dart';
+import 'package:campus_mate/safety/view/block_confirm.dart';
 import 'package:campus_mate/safety/view/report_sheet.dart';
 import 'package:campus_mate/safety/viewmodel/report_ui_state.dart';
 import 'package:flutter/material.dart';
@@ -39,7 +40,8 @@ ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showSafetyToast(
 }) {
   final raised = bottomInset > 0;
   final side = raised ? (MediaQuery.sizeOf(messenger.context).width - 288) / 2 : 0.0;
-  return messenger.showSnackBar(
+  return showToastSnackBar(
+    messenger,
     SnackBar(
       content: _toast(icon, message, shrinkToText),
       // pen 토스트 폭 288(전시판 320 안 fill). 글자 칸 232 에서 두 줄로 내려간다. 글자에 맞추는 변형은 폭을 정하지 않고 가운데 정렬한다.
@@ -68,7 +70,7 @@ Future<void> reportThenLeave(BuildContext context, WidgetRef ref, ReportTarget t
   final messenger = ScaffoldMessenger.of(context);
   final conversations = ref.read(conversationsViewModelProvider.notifier);
   final l10n = context.l10n;
-  final result = await showReportSheet(context, target);
+  final result = await showReportSheet(context, target, blocksTarget: true);
   if (result == null || !context.mounted) {
     return;
   }
@@ -89,7 +91,7 @@ Future<Failure?> blockThenLeave(
 }) async {
   final repository = ref.read(safetyRepositoryProvider);
   final conversations = ref.read(conversationsViewModelProvider.notifier);
-  if (!await showBlockConfirmSheet(context, nickname) || !context.mounted) {
+  if (!await confirmBlock(context, nickname) || !context.mounted) {
     return null;
   }
   final result = await repository.block(profileId);

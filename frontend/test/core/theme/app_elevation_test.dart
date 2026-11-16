@@ -58,6 +58,13 @@ void main() {
     expect(AppElevation.homeTileInset, const BoxShadow(color: Color(0x0F000000), offset: Offset(0, 1), blurRadius: 4));
   });
 
+  // 대장 전달 pen 확인 팝업 값표(2026-11-16): AlertSheet 와 같은 색 · 번짐(#00000026 blur 24)을 아래로 8.
+  test('가운데 확인 팝업 그림자는 #00000026 (0,8) blur 24 한 겹이다', () {
+    expect(AppElevation.popup, const <BoxShadow>[
+      BoxShadow(color: Color(0x26000000), offset: Offset(0, 8), blurRadius: 24),
+    ]);
+  });
+
   test('아래에 붙은 시트 · 바의 위쪽 그림자는 한 겹이다(백로그 76)', () {
     expect(AppElevation.top, const <BoxShadow>[
       BoxShadow(color: Color(0x26000000), offset: Offset(0, -2), blurRadius: 16),

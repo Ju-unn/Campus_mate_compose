@@ -261,14 +261,13 @@ class _Hero extends StatelessWidget {
     return Stack(
       children: [
         Positioned.fill(child: _Tagline(safeTop: safeTop)),
-        if (current != null)
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.sm), // 버튼 영역 바로 위 12
-              child: _Toast(toast: current),
-            ),
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.sm), // 버튼 영역 바로 위 12
+            child: ToastPresence(child: current == null ? null : _Toast(toast: current)),
           ),
+        ),
       ],
     );
   }
