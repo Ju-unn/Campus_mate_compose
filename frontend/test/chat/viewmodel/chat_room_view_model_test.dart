@@ -1028,6 +1028,50 @@ void main() {
       container.dispose();
     });
   });
+
+  // 11-17: 알림 설정(#765)과 같은 FATAL — 방을 나가 버려진(autoDispose) 뒤 늦게 온 답이 state · ref 를 쓰면 던진다.
+  group('방을 나가 provider 가 버려지면 늦은 응답은 버린다', () {
+    test('만들자마자 버려지면 방을 읽지 않는다', () async {
+      final container = containerFor();
+      container.read(chatRoomViewModelProvider('m1'));
+
+      container.dispose();
+
+      await pumpEventQueue();
+      expect(repository.roomFetchCount, 0);
+    });
+
+    test('들어오며 첫 페이지를 읽는 도중', () async {
+      final container = containerFor();
+      repository.onFetchMessages = container.dispose; // 요청이 나간 뒤 응답이 오기 전에 닫힌다
+
+      container.listen(chatRoomViewModelProvider('m1'), (_, _) {});
+      await pumpEventQueue();
+
+      expect(repository.readCount, 0);
+    });
+
+    test('다시 연결하며 머리말을 읽는 도중', () async {
+      final container = containerFor();
+      await opened(container);
+      final hold = repository.holdRoom = Completer<void>();
+      final reconnecting = container.read(chatRoomViewModelProvider('m1').notifier).reconnect();
+
+      container.dispose();
+      hold.complete();
+
+      await expectLater(reconnecting, completes);
+    });
+
+    test('다시 연결하며 첫 페이지를 읽는 도중', () async {
+      final container = containerFor();
+      await opened(container);
+      final viewModel = container.read(chatRoomViewModelProvider('m1').notifier);
+      repository.onFetchMessages = container.dispose;
+
+      await expectLater(viewModel.reconnect(), completes);
+    });
+  });
 }
 
 http.Response _json(Object body) =>

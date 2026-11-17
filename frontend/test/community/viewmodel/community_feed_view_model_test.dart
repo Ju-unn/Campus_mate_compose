@@ -416,4 +416,82 @@ void main() {
     });
   });
 
+  // 11-17: 알림 설정(#765)과 같은 FATAL — 받는 사이 로그아웃으로 버려진 뒤 늦게 온 답이 state · ref 를 쓰면 던진다.
+  group('받는 도중 provider 가 버려지면 늦은 응답은 버린다', () {
+    test('만들자마자 버려지면 첫 쪽을 읽지 않는다', () async {
+      final local = ProviderContainer(overrides: [communityRepositoryProvider.overrideWithValue(repository)]);
+      local.read(communityFeedViewModelProvider);
+
+      local.dispose();
+
+      await pumpEventQueue();
+      expect(repository.pageRequests, isEmpty);
+    });
+
+    test('첫 쪽을 받는 도중', () async {
+      final local = ProviderContainer(overrides: [communityRepositoryProvider.overrideWithValue(repository)]);
+      final hold = repository.holdPage = Completer<void>();
+      local.read(communityFeedViewModelProvider);
+      final reading = local.read(communityFeedViewModelProvider.notifier).refresh();
+
+      local.dispose();
+      hold.complete();
+
+      await expectLater(reading, completes);
+    });
+
+    test('다음 쪽을 받는 도중', () async {
+      repository.page = Success(PollPage(polls: [pollFixture()], hasMore: true));
+      final container = await start();
+      final hold = repository.holdPage = Completer<void>();
+      final loading = viewModel(container).loadMore();
+
+      container.dispose();
+      hold.complete();
+
+      await expectLater(loading, completes);
+    });
+
+    test('투표 응답을 기다리는 도중', () async {
+      repository
+        ..page = Success(PollPage(polls: [pollFixture()], hasMore: false))
+        ..voteResult = Success(VoteOutcome(poll: pollFixture(myChoice: PollChoice.a), rewarded: true));
+      final container = await start();
+      final hold = repository.holdVote = Completer<void>();
+      final voting = viewModel(container).vote('p1', PollChoice.a);
+
+      container.dispose();
+      hold.complete();
+
+      await expectLater(voting, completes);
+    });
+
+    test('투표가 막혀 그 글을 다시 읽는 도중', () async {
+      repository
+        ..page = Success(PollPage(polls: [pollFixture()], hasMore: false))
+        ..voteResult = const FailureResult(ServerRejectedFailure('이미 투표했어요'))
+        ..poll = Success(pollFixture(myChoice: PollChoice.a));
+      final container = await start();
+      final hold = repository.holdPoll = Completer<void>();
+      final voting = viewModel(container).vote('p1', PollChoice.b);
+      await pumpEventQueue();
+
+      container.dispose();
+      hold.complete();
+
+      await expectLater(voting, completes);
+    });
+
+    test('지우기 응답을 기다리는 도중 — 지워졌으면 그대로 성공(null)을 준다', () async {
+      repository.page = Success(PollPage(polls: [pollFixture(isMine: true)], hasMore: false));
+      final container = await start();
+      final hold = repository.holdDelete = Completer<void>();
+      final deleting = viewModel(container).delete('p1');
+
+      container.dispose();
+      hold.complete();
+
+      await expectLater(deleting, completion(isNull));
+    });
+  });
 }

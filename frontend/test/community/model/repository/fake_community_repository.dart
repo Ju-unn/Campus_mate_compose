@@ -90,6 +90,9 @@ class FakeCommunityRepository implements CommunityRepository {
   /// 채워 두면 투표 응답이 이것이 끝날 때까지 멈춘다 — 누르는 도중 한 번 더 누르는 상황용.
   Completer<void>? holdVote;
 
+  /// 채워 두면 글 하나 다시 읽기가 이것이 끝날 때까지 멈춘다 — 다시 읽는 도중 버려지는 상황용.
+  Completer<void>? holdPoll;
+
   /// 채워 두면 지우기 응답이 이것이 끝날 때까지 멈춘다 — 삭제 중(15d-2 `EIEFb`) 상태용.
   Completer<void>? holdDelete;
 
@@ -112,6 +115,7 @@ class FakeCommunityRepository implements CommunityRepository {
   @override
   Future<Result<Poll>> fetchPoll(String pollId) async {
     fetchedPollIds.add(pollId);
+    await holdPoll?.future;
     return poll ?? const FailureResult(NotFoundFailure());
   }
 
