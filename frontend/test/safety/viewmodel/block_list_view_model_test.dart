@@ -114,4 +114,14 @@ void main() {
 
     await expectLater(pending, completes);
   });
+
+  // 11-17: 만들자마자 버려지면(로그아웃) build 의 첫 읽기 microtask 가 버려진 ref 를 쓰면 던진다(#768 과 같은 모양).
+  test('만들자마자 버려지면 첫 읽기를 하지 않는다', () async {
+    final local = ProviderContainer(overrides: [safetyRepositoryProvider.overrideWithValue(repository)]);
+    local.read(blockListViewModelProvider);
+
+    local.dispose();
+
+    await pumpEventQueue();
+  });
 }
