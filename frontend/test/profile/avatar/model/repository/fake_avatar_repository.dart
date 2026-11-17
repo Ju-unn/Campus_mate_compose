@@ -15,6 +15,9 @@ class FakeAvatarRepository implements AvatarRepository {
   int generateCount = 0;
   int statusCount = 0;
 
+  /// 채워 두면 상태 조회가 여기서 멈춘다 — 묻는 사이 버려지는 순간을 테스트가 잡을 때만 쓴다.
+  Completer<void>? statusGate;
+
   /// 채워 두면 등록이 여기서 멈춘다 — "올리기는 끝났는데 등록은 아직" 인 순간을 테스트가 잡을 때만 쓴다.
   Completer<void>? generateGate;
 
@@ -38,6 +41,7 @@ class FakeAvatarRepository implements AvatarRepository {
   @override
   Future<Result<AvatarGenerationOutcome>> fetchAvatarStatus() async {
     statusCount++;
+    await statusGate?.future;
     if (statusResults.isEmpty) {
       return nextResult;
     }
