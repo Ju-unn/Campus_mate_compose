@@ -29,7 +29,8 @@ class TodayCardsViewModel extends Notifier<TodayCardsUiState> {
   @override
   TodayCardsUiState build() {
     // 화면이 붙자마자 한 번 읽는다. 결과가 오기 전까지는 loading 이다.
-    Future.microtask(refresh);
+    // 만들자마자 버려졌으면(로그아웃) 읽지 않는다 — 버려진 ref 를 쓰면 던진다.
+    Future.microtask(() => ref.mounted ? refresh() : null);
     return const TodayCardsUiState();
   }
 

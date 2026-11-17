@@ -19,7 +19,8 @@ class AcceptancesViewModel extends Notifier<AcceptancesUiState> {
   AcceptancesUiState build() {
     // 첫 읽기는 isLoading 이라 quiet 여도 실패를 보인다. quiet 로 불러야 화면 initState 의 조용한 읽기와
     // 합쳐질 때 다시 읽기가 생기지 않는다.
-    Future.microtask(() => refresh(quiet: true));
+    // 만들자마자 버려졌으면(로그아웃) 읽지 않는다 — 버려진 ref 를 쓰면 던진다.
+    Future.microtask(() => ref.mounted ? refresh(quiet: true) : null);
     return const AcceptancesUiState();
   }
 

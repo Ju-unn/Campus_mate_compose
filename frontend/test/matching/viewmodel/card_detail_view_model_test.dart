@@ -207,5 +207,14 @@ void main() {
 
       await expectLater(sending, completes);
     });
+
+    test('만들자마자 버려지면 첫 읽기를 하지 않는다', () async {
+      final local = ProviderContainer(overrides: [cardRepositoryProvider.overrideWithValue(repository)]);
+      local.read(cardDetailViewModelProvider('card-1'));
+
+      local.dispose();
+
+      await pumpEventQueue();
+    });
   });
 }
