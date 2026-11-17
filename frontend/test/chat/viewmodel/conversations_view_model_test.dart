@@ -284,4 +284,41 @@ void main() {
 
     await expectLater(reading, completes);
   });
+
+  // 11-17: 만들자마자 버려지면(로그아웃) build 의 첫 읽기 microtask 가 버려진 ref 를 쓰면 던진다(#768 과 같은 모양).
+  test('만들자마자 버려지면 첫 읽기를 하지 않는다', () async {
+    final local = ProviderContainer(overrides: [chatRepositoryProvider.overrideWithValue(chat)]);
+    local.read(conversationsViewModelProvider);
+
+    local.dispose();
+
+    await pumpEventQueue();
+  });
+
+  // 11-17: 읽는 사이 조용하지 않은 읽기가 합쳐져 한 번 더 읽어야 할 때 버려지면, 반복이 버려진 ref 로 다시 읽으면 던진다.
+  test('합쳐진 다시 읽기가 남은 채 버려지면 더 읽지 않는다 — 던지지 않는다', () async {
+    final local = ProviderContainer(overrides: [chatRepositoryProvider.overrideWithValue(chat)]);
+    final hold = chat.holdConversations = Completer<void>();
+    final viewModel = local.read(conversationsViewModelProvider.notifier);
+    final reading = viewModel.refresh(quiet: true);
+    await pumpEventQueue();
+    unawaited(viewModel.refresh());
+
+    local.dispose();
+    hold.complete();
+
+    await expectLater(reading, completes);
+  });
+
+  // 11-17: 밀어서 나가기 응답이 로그아웃 뒤에 오면 버려진 상태를 건드려 던진다.
+  test('나가기 응답이 버려진 뒤에 오면 버린다 — 던지지 않는다', () async {
+    final local = ProviderContainer(overrides: [chatRepositoryProvider.overrideWithValue(chat)]);
+    final hold = chat.holdLeave = Completer<void>();
+    final leaving = local.read(conversationsViewModelProvider.notifier).leave('m1');
+
+    local.dispose();
+    hold.complete();
+
+    await expectLater(leaving, completes);
+  });
 }
