@@ -95,7 +95,8 @@ class AvatarRegenPickViewModel extends Notifier<AvatarRegenPickUiState> {
       return;
     }
     final file = await _pickOrNull();
-    if (file == null) {
+    // 고르는 사이 로그아웃으로 버려졌으면 늦게 온 사진은 버린다 — 상태를 건드리면 던진다.
+    if (file == null || !ref.mounted) {
       return;
     }
     state = state.copyWith(isChecking: true, error: null);
@@ -107,12 +108,15 @@ class AvatarRegenPickViewModel extends Notifier<AvatarRegenPickUiState> {
       accepted = checked ?? accepted;
     } finally {
       // 새 사진으로 바꾸면 서버에 이미 올린 사진은 이 사진이 아니다 — 다시 올려야 한다.
-      state = state.copyWith(
-        photo: accepted,
-        isChecking: false,
-        error: failure,
-        photoReplaced: accepted == state.photo ? state.photoReplaced : false,
-      );
+      // 살펴보는 사이 버려졌으면 내릴 화면이 없다 — 버려진 상태를 건드리면 던진다.
+      if (ref.mounted) {
+        state = state.copyWith(
+          photo: accepted,
+          isChecking: false,
+          error: failure,
+          photoReplaced: accepted == state.photo ? state.photoReplaced : false,
+        );
+      }
     }
   }
 
@@ -162,6 +166,8 @@ class AvatarRegenPickViewModel extends Notifier<AvatarRegenPickUiState> {
     try {
       if (!state.photoReplaced) {
         final failure = await _replaceSource(state.photo!);
+        // 기다리는 사이 로그아웃으로 버려졌으면(keepAlive 로도 못 막는다) 늦게 온 답은 버린다 — 상태 · ref 를 건드리면 던진다.
+        if (!ref.mounted) return;
         if (failure != null) {
           state = state.copyWith(isSubmitting: false, error: failure);
           return;
@@ -170,6 +176,7 @@ class AvatarRegenPickViewModel extends Notifier<AvatarRegenPickUiState> {
       }
       final avatar = ref.read(avatarGenerationViewModelProvider.notifier);
       final blocking = await avatar.regenerate();
+      if (!ref.mounted) return;
       // 등록 응답을 기다리는 사이 화면 15 까지 떠났으면 방금 걸린 폴링을 끊는다 — 15 의 dispose 는 이미 지나갔다.
       if (openMyProfileScreens == 0) avatar.stopPolling();
       state = blocking == null
@@ -187,6 +194,8 @@ class AvatarRegenPickViewModel extends Notifier<AvatarRegenPickUiState> {
   /// 원본 칸을 새 파일로 바꾸고 나머지는 그대로 둔다. 실패(없으면 null)는 15-7 사진 저장과 같은 서버 실패를 쓴다.
   Future<Failure?> _replaceSource(File file) async {
     final profile = await ref.read(myProfileProvider.future);
+    // 읽는 사이 버려졌으면 바꾸지 않는다. 돌려주는 값은 [submit] 이 쓰지 않는다.
+    if (!ref.mounted) return null;
     final photos = profile.when<List<MyPhoto>?>(onSuccess: (p) => p.photos, onFailure: (_) => null);
     if (photos == null || photos.isEmpty) {
       return const UnknownFailure();
@@ -197,6 +206,7 @@ class AvatarRegenPickViewModel extends Notifier<AvatarRegenPickUiState> {
       for (final (index, photo) in photos.indexed) index == replaced ? NewPhoto(file) : KeptPhoto(photo.id),
     ];
     final result = await ref.read(meRepositoryProvider).savePhotos(slots, replaced);
+    if (!ref.mounted) return null;
     // 실패해도 다시 읽는다 — 서버는 여러 요청으로 나눠 바꿔 중간에 멈출 수 있다(15-7 과 같다).
     ref.invalidate(myProfileProvider);
     return result.when<Failure?>(onSuccess: (_) => null, onFailure: (failure) => failure);

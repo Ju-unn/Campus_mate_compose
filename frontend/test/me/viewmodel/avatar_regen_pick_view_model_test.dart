@@ -54,7 +54,11 @@ void main() {
   final photo = File('picked.jpg');
 
   /// 사진을 이미 고른 상태의 뷰모델. 화면 없이 뷰모델만 본다.
-  Future<AvatarRegenPickViewModel> prepare(WidgetTester tester, {MyProfile? profile}) async {
+  Future<AvatarRegenPickViewModel> prepare(
+    WidgetTester tester, {
+    MyProfile? profile,
+    FakeFaceDetector? faceDetector,
+  }) async {
     me = FakeMeRepository(Success(profile ?? _profile()));
     avatars = FakeAvatarRepository();
     compressor = FakeImageCompressor();
@@ -62,7 +66,7 @@ void main() {
       overrides: [
         meRepositoryProvider.overrideWithValue(me),
         avatarRepositoryProvider.overrideWithValue(avatars),
-        faceDetectorProvider.overrideWithValue(FakeFaceDetector()),
+        faceDetectorProvider.overrideWithValue(faceDetector ?? FakeFaceDetector()),
         imageCompressorProvider.overrideWithValue(compressor),
       ],
     );
@@ -247,5 +251,69 @@ void main() {
         expect(me.calls, 2); // 무효화돼 있어 다시 읽는다
       });
     }
+  });
+
+  // 11-17: 갤러리 · 얼굴 검사 · 사진 교체 · 등록을 기다리는 사이 로그아웃으로 버려지면(keepAlive 로도 못 막는다)
+  // 늦게 온 답이 버려진 상태 · ref 를 건드려 던진다.
+  group('기다리는 사이 버려지면 늦게 온 답은 버린다', () {
+    testWidgets('갤러리에서 고르는 중', (tester) async {
+      final viewModel = await prepare(tester);
+      final picking = Completer<File?>();
+      viewModel.pickFromGallery = () => picking.future;
+      final pending = viewModel.pick();
+
+      container.dispose();
+      picking.complete(File('other.jpg'));
+
+      await expectLater(pending, completes);
+    });
+
+    testWidgets('얼굴을 살펴보는 중', (tester) async {
+      final faces = FakeFaceDetector();
+      final viewModel = await prepare(tester, faceDetector: faces);
+      final gate = faces.gate = Completer<bool>();
+      final pending = viewModel.pick();
+      await tester.pump();
+
+      container.dispose();
+      gate.complete(true);
+
+      await expectLater(pending, completes);
+    });
+
+    testWidgets('내 프로필을 읽는 중', (tester) async {
+      final viewModel = await prepare(tester);
+      final hold = me.holdFetch = Completer<void>();
+      final pending = viewModel.submit();
+
+      container.dispose();
+      hold.complete();
+
+      await expectLater(pending, completes);
+    });
+
+    testWidgets('사진을 바꾸는 중', (tester) async {
+      final viewModel = await prepare(tester);
+      final hold = me.holdSavePhotos = Completer<void>();
+      final pending = viewModel.submit();
+      await tester.pump();
+
+      container.dispose();
+      hold.complete();
+
+      await expectLater(pending, completes);
+    });
+
+    testWidgets('아바타를 등록하는 중', (tester) async {
+      final viewModel = await prepare(tester);
+      final gate = avatars.generateGate = Completer<void>();
+      final pending = viewModel.submit();
+      await tester.pump();
+
+      container.dispose();
+      gate.complete();
+
+      await expectLater(pending, completes);
+    });
   });
 }

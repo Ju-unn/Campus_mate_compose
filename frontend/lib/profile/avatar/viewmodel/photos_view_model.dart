@@ -104,7 +104,8 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
       return;
     }
     final picked = await _pickOrEmpty(room);
-    if (picked.isEmpty) {
+    // 고르는 사이 버려졌으면(로그아웃 · 15-7 을 떠남) 늦게 온 사진은 버린다 — 상태를 건드리면 던진다.
+    if (picked.isEmpty || !ref.mounted) {
       return;
     }
     state = state.copyWith(isCheckingPhotos: true, error: null, documentRejected: false);
@@ -129,13 +130,17 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
       }
     } finally {
       // 중간에 무엇이 터지든 기다리는 표시는 반드시 내린다 — 굳으면 칸이 빈 채로 남는다.
-      state = state.copyWith(
-        photos: [...state.photos, ...accepted],
-        isCheckingPhotos: false,
-        // 얼굴 없음 안내가 먼저다 — 한 장도 못 넣었으면 다시 골라야 한다는 뜻이 더 급하다.
-        error: _rejectedFailure(accepted.length, rejected) ?? (duplicated ? const PhotoDuplicateFailure() : null),
-      );
+      // 살펴보는 사이 버려졌으면 내릴 화면이 없다 — 버려진 상태를 건드리면 던진다.
+      if (ref.mounted) {
+        state = state.copyWith(
+          photos: [...state.photos, ...accepted],
+          isCheckingPhotos: false,
+          // 얼굴 없음 안내가 먼저다 — 한 장도 못 넣었으면 다시 골라야 한다는 뜻이 더 급하다.
+          error: _rejectedFailure(accepted.length, rejected) ?? (duplicated ? const PhotoDuplicateFailure() : null),
+        );
+      }
     }
+    if (!ref.mounted) return;
     if (accepted.isEmpty && rejected > 0) {
       // 한 장도 담지 못했다 — 다음 단계로 갈 수 없는 막힘이다(사용 통계 onboarding_blocked).
       ref.read(onboardingStepListenableProvider).blocked(OnboardingBlockReason.photoNoFace);
@@ -239,8 +244,11 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
     // 여기서 바로 state 에 넣지 않는다 — 넣는 순간 isSubmitting 이 내려가 토스트가 꺼지고,
     // 작업을 등록하는 동안 화면에 아무 표시도 없다. 한 번에 갱신해야 둘 다 덮인다.
     var next = await _submittedState();
+    // 올리는 사이 버려졌으면(로그아웃) 늦게 온 답은 버린다 — 서버에는 이미 갔고, 상태 · ref 를 건드리면 던진다.
+    if (!ref.mounted) return;
     if (next.completed) {
       next = await _withAvatarRequested(next);
+      if (!ref.mounted) return;
     }
     state = next;
     _discardDraftIfCompleted();
@@ -278,6 +286,8 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
       for (final (position, photo) in photos.indexed) {
         // 온보딩은 늘 이번에 고른 사진뿐이다 — 이미 올려 둔 사진([SelectedPhoto.saved])은 15-7 에만 있다.
         final result = await repository.uploadPhoto(photo.file!, position, photo.isAvatarSource);
+        // 버려졌으면 남은 사진은 올리지 않는다. 돌려주는 값은 [submit] 이 쓰지 않는다 — 상태를 읽으면 던진다.
+        if (!ref.mounted) return const PhotosUiState();
         final failure = result.when(onSuccess: (_) => null, onFailure: (failure) => failure);
         if (failure != null) {
           return _failedState(failure, photo);

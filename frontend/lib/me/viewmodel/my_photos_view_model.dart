@@ -46,6 +46,8 @@ class MyPhotosViewModel extends PhotosViewModel {
     final keepAlive = ref.keepAlive();
     try {
       final result = await ref.read(meRepositoryProvider).savePhotos(slots, sourceIndex < 0 ? 0 : sourceIndex);
+      // 저장하는 사이 로그아웃으로 버려졌으면(keepAlive 로도 못 막는다) 늦게 온 답은 버린다 — 상태 · ref 를 건드리면 던진다.
+      if (!ref.mounted) return;
       state = result.when(
         onSuccess: (_) => state.copyWith(isSubmitting: false, completed: true),
         // 글자 많은 사진 거절은 여러 장 중 어느 것인지 몰라 칸은 그대로 두고 표시만 켠다(문구는 화면의 앱 고정 문구).
