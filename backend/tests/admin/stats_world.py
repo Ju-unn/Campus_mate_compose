@@ -12,13 +12,23 @@ from admin_world import AdminWorld
 D4_RPCS = ("admin_stats_overview", "admin_stats_daily", "admin_unknown_domains", "admin_universities_status",
            "admin_health", "admin_matching_summary", "admin_matching_daily", "admin_matching_pairs",
            "admin_matching_requests")
+# 메뉴 대기 건수(11-17)가 count=exact 로 세는 표.
+COUNTED_TABLES = ("graduate_verification_requests", "inquiries")
 
 
 class StatsWorld(AdminWorld):
     """RPC 이름 → 돌려줄 JSON 은 rpc_results[이름](기본 []), 오류는 rpc_error_code · rpc_error_message(D2 와 같은 약속),
-    경로 하나를 통째로 실패시키려면 table_status[경로] = 상태 코드."""
+    경로 하나를 통째로 실패시키려면 table_status[경로] = 상태 코드. 건수 세기(Prefer: count=exact)는 content_ranges[표](기본 `*/0`)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.content_ranges: dict[str, str] = {}
 
     def handle(self, request: httpx.Request) -> httpx.Response:
+        table = request.url.path.removeprefix("/rest/v1/")
+        if request.method == "GET" and table in COUNTED_TABLES and "count=exact" in request.headers.get("prefer", ""):
+            self.requests.append(request)
+            return httpx.Response(200, json=[], headers={"Content-Range": self.content_ranges.get(table, "*/0")})
         name = request.url.path.removeprefix("/rest/v1/rpc/")
         if request.method != "POST" or not request.url.path.startswith("/rest/v1/rpc/") or name not in D4_RPCS:
             return super().handle(request)

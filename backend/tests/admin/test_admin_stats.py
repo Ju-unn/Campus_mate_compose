@@ -149,3 +149,49 @@ def test_stats_reads_are_never_recorded(client, world):
 
     assert world.actions == []
     assert [r for r in world.requests if r.method == "POST" and r.url.path == "/rest/v1/admin_actions"] == []
+
+
+# 메뉴 대기 건수(11-17) --------------------------------------------------------------
+
+def _count_params(world: StatsWorld, table: str) -> dict:
+    [request] = [r for r in world.requests if r.method == "GET" and r.url.path == f"/rest/v1/{table}"]
+    return dict(request.url.params)
+
+
+def test_pending_counts_shape(client, world):
+    world.rpc_results["admin_stats_overview"] = [{**OVERVIEW_ROW, "pending_proofs": 2, "open_reports": 3}]
+    world.content_ranges = {"graduate_verification_requests": "0-0/1", "inquiries": "0-0/4"}
+
+    response = client.get("/admin/pending-counts", headers=ADMIN_HEADERS)
+
+    assert response.status_code == 200
+    assert response.json() == {"heart_tasks": 2, "graduates": 1, "reports": 3, "inquiries": 4}
+    assert _count_params(world, "graduate_verification_requests")["status"] == "eq.pending"
+    assert _count_params(world, "inquiries")["status"] == "in.(new,in_progress)"
+
+
+def test_pending_counts_zero(client, world):
+    world.rpc_results["admin_stats_overview"] = [{**OVERVIEW_ROW, "pending_proofs": 0, "open_reports": 0}]
+    world.content_ranges = {"graduate_verification_requests": "*/0", "inquiries": "*/0"}
+
+    response = client.get("/admin/pending-counts", headers=ADMIN_HEADERS)
+
+    assert response.json() == {"heart_tasks": 0, "graduates": 0, "reports": 0, "inquiries": 0}
+
+
+@pytest.mark.parametrize(("who", "headers", "status", "detail"), [
+    ("로그인 안 함", {}, 401, None),
+    ("2단계 전", bearer(sub=ADMIN, aal="aal1"), 403, "mfa_required"),
+    ("관리자 아님", bearer(sub=STRANGER, aal="aal2"), 403, "not_admin"),
+])
+def test_pending_counts_needs_admin(client, world, who, headers, status, detail):
+    if who == "관리자 아님":
+        world.caller = STRANGER
+
+    response = client.get("/admin/pending-counts", headers=headers)
+
+    assert response.status_code == status
+    if detail:
+        assert response.json()["detail"] == detail
+    assert world.rpcs == []
+    assert [r for r in world.requests if r.url.path in ("/rest/v1/inquiries", "/rest/v1/graduate_verification_requests")] == []

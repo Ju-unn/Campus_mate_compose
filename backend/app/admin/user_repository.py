@@ -89,14 +89,6 @@ class AdminUserRepository(AdminRepository):
         rows = await self._rows("profiles", {"select": "status", "id": f"eq.{profile_id}"})
         return rows[0]["status"] if rows else None
 
-    async def _count(self, path: str, params: dict) -> int:
-        """전체 건수 — Content-Range 의 `/` 뒤(`AccountRepository.count_contact_blocks_not_on` 와 같은 방식)."""
-        response = await self._client.get(
-            f"{self._postgrest_url}/{path}", params={**params, "limit": "1"}, headers=self._with_prefer("count=exact"),
-        )
-        raise_for_status(response)
-        return int(response.headers["content-range"].rsplit("/", 1)[1])
-
     async def count_reports(self, profile_id: UUID | str) -> int:
         return await self._count("reports", {"select": "id", "target_profile_id": f"eq.{profile_id}"})
 
