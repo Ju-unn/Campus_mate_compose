@@ -21,6 +21,8 @@ class StartViewModel extends Notifier<StartUiState> {
     }
     state = StartUiState(inProgress: provider);
     final result = await ref.read(socialLoginRepositoryProvider).signIn(provider);
+    // 로그인하는 사이 버려졌으면(앞 세션의 로그아웃 이벤트로 컨테이너째 새로 만듦) 늦게 온 답은 버린다 — 상태 · ref 를 건드리면 던진다.
+    if (!ref.mounted) return;
     state = result.when(
       onSuccess: (_) => const StartUiState(),
       onFailure: (failure) => StartUiState(toast: StartToast.fromFailure(failure)),

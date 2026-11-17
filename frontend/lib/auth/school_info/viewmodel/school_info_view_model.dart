@@ -41,7 +41,9 @@ class SchoolInfoViewModel extends Notifier<SchoolInfoUiState> {
       return;
     }
     state = _copyWith(isSubmitting: true, error: null);
-    state = await _submittedState(department, studentNumber);
+    final next = await _submittedState(department, studentNumber);
+    if (next == null) return;
+    state = next;
     _refreshGateIfCompleted();
   }
 
@@ -58,10 +60,12 @@ class SchoolInfoViewModel extends Notifier<SchoolInfoUiState> {
   /// 저장소 호출이 던지는 예외까지 흡수해 `isSubmitting` 이 영원히 true 로 굳지 않게 한다.
   /// (세션 만료·비정상 응답 바디로 `Result` 밖으로 새는 `TypeError` 등 — 해당 파일은 이 작업 범위 밖이라
   /// ViewModel 에서 막는다). `on Exception` 만으로는 `Error` 계열을 놓치므로 넓게 잡는다.
-  Future<SchoolInfoUiState> _submittedState(Department department, StudentNumber studentNumber) async {
+  Future<SchoolInfoUiState?> _submittedState(Department department, StudentNumber studentNumber) async {
     try {
       final repository = ref.read(schoolInfoRepositoryProvider);
       final result = await repository.submit(department, studentNumber);
+      // 보내는 사이 로그아웃으로 버려졌으면 null — 늦게 온 답으로 버려진 상태 · ref 를 건드리면 던진다.
+      if (!ref.mounted) return null;
       return _stateFromResult(result);
     } catch (_) {
       return _copyWith(isSubmitting: false, error: const UnknownFailure());

@@ -169,4 +169,14 @@ void main() {
     expect(state().toast?.isInfo, isTrue);
     expect(state().toast?.isCancellation, isFalse);
   });
+
+  // 11-17: 로그인하는 사이 버려지면(앞 세션이 끝나 로그아웃 이벤트) 늦게 온 답이 버려진 상태를 건드려 던진다.
+  test('로그인하는 사이 버려지면 늦게 온 답은 버린다 — 던지지 않는다', () async {
+    final pending = viewModel().signIn(SocialProvider.kakao);
+
+    container.dispose();
+    repository.completer.complete(const Success(null));
+
+    await expectLater(pending, completes);
+  });
 }
