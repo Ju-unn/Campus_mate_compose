@@ -135,6 +135,6 @@ abstract final class AppColors {
   /// 코치 마크 덮개 — 검정 알파 B3(70%) (pen `tFIey` Dim). [scrim] 은 50% 라 다르다
   static const Color coachDim = Color(0xB3000000);
 
-  /// 실제 사진 칸의 흐린 뒷 사진 위 흰 15%(pen `TjGzA` fill #FFFFFF26, 11-17 실사진 전체 보기)
-  static const Color photoBlurVeil = Color(0x26FFFFFF);
+  /// 실제 사진 칸의 흐린 뒷 사진 위 흰 35%(pen `TjGzA` fill #FFFFFF59, 11-17 실사진 전체 보기 · 사용자 「c로 수정필요」)
+  static const Color photoBlurVeil = Color(0x59FFFFFF);
 }

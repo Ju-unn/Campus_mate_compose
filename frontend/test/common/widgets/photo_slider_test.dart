@@ -234,7 +234,7 @@ void main() {
       expect((tester.widget<Container>(slide(photos[0])).decoration! as BoxDecoration).color, AppColors.canvas);
     });
 
-    testWidgets('뒤에 같은 사진을 흐리게 깐다 — pen `TjGzA` 420×420 (-70,-70) · cover · blur 20(σ10) · 흰 15%', (tester) async {
+    testWidgets('뒤에 같은 사진을 흐리게 깐다 — pen `TjGzA` 580×580 (-150,-150) · cover · blur 100(σ50) · 흰 35%', (tester) async {
       final photos = _photos(2);
       await pump(tester, photos: photos);
 
@@ -244,11 +244,11 @@ void main() {
       expect((image.fit, image.color, image.colorBlendMode), (BoxFit.cover, AppColors.photoBlurVeil, BlendMode.srcATop));
       expect(image.excludeFromSemantics, isTrue, reason: '뒷층은 장식 — 화면 읽기는 칸 라벨 하나만 읽는다');
       expect(image.errorBuilder, isNotNull, reason: '못 받으면 뒷층을 비운다');
-      // pen 내보내기 CSS 가 blur 20 을 `filter: blur(10px)`(표준 편차 10)로 쓴다.
+      // pen 내보내기 CSS 가 blur 100 을 `filter: blur(50px)`(표준 편차 50)로 쓴다(11-17 사용자 「c로 수정필요」).
       final blur = tester.widget<ImageFiltered>(find.ancestor(of: layer, matching: find.byType(ImageFiltered)));
-      expect(blur.imageFilter, ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10));
+      expect(blur.imageFilter, ui.ImageFilter.blur(sigmaX: 50, sigmaY: 50));
       final box = tester.getRect(slide(photos[0]));
-      expect(tester.getRect(layer), Rect.fromLTWH(box.left - 70, box.top - 70, 420, 420));
+      expect(tester.getRect(layer), Rect.fromLTWH(box.left - 150, box.top - 150, 580, 580));
 
       // 흐린 층이 먼저(밑), 앞 사진이 나중(위)에 그려진다 — 같은 칸 안에서 트리 순서 = 그리는 순서.
       final layers = find.descendant(
