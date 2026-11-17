@@ -170,7 +170,7 @@ class _TotalsLine extends ConsumerWidget {
             TextSpan(text: '남 ${totals.gender['male'] ?? 0}명', style: const TextStyle(color: AdminColors.chartMale)),
             const TextSpan(text: ' · '),
             TextSpan(text: '여 ${totals.gender['female'] ?? 0}명', style: const TextStyle(color: AdminColors.chartFemale)),
-            TextSpan(text: ' (성별 미입력 ${totals.gender['none'] ?? 0}명) / 들어온 경로: ${totals.channelLine}'),
+            TextSpan(text: ' (성별 미입력 ${totals.gender['none'] ?? 0}명) / 들어온 경로: ${totals.channelLine} (테스트대학 제외)'),
           ],
         ),
         key: key,

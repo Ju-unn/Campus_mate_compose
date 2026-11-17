@@ -135,7 +135,7 @@ void main() {
   });
 
   group('성별 · 들어온 경로', () {
-    const totalsLine = '남 12명 · 여 9명 (성별 미입력 3명) / 들어온 경로: 에브리타임 5명 · 인스타그램 4명 · 친구 소개 3명 · 커뮤니티 1명 · 기타 2명 · 미응답 9명';
+    const totalsLine = '남 12명 · 여 9명 (성별 미입력 3명) / 들어온 경로: 에브리타임 5명 · 인스타그램 4명 · 친구 소개 3명 · 커뮤니티 1명 · 기타 2명 · 미응답 9명 (테스트대학 제외)';
     Finder totals() => find.byKey(const ValueKey('user-totals'));
 
     Color? spanColor(WidgetTester tester, String text) {
