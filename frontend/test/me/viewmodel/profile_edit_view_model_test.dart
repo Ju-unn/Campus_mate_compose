@@ -118,4 +118,14 @@ void main() {
 
     expect(subscription.read().bio, '주말엔 산책해요.');
   });
+
+  // 11-17: 보내는 사이 로그아웃으로 버려지면(keepAlive 로도 못 막는다) 늦게 온 답이 버려진 상태 · ref 를 건드려 던진다.
+  test('보내는 사이 버려지면 늦게 온 답은 버린다 — 던지지 않는다', () async {
+    viewModel().changeBio(' 새 소개예요. ');
+    final pending = viewModel().save();
+
+    container.dispose();
+
+    await expectLater(pending, completes);
+  });
 }

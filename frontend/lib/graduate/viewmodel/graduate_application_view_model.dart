@@ -68,7 +68,8 @@ class GraduateApplicationViewModel extends Notifier<GraduateApplicationUiState> 
     _held = null;
     _picking = false;
     ref.onDispose(_discardHeld);
-    Future.microtask(_loadRejection);
+    // 만들자마자 버려졌으면(로그아웃) 읽지 않는다 — 버려진 ref 를 쓰면 던진다.
+    Future.microtask(() => ref.mounted ? _loadRejection() : null);
     return const GraduateApplicationUiState();
   }
 
