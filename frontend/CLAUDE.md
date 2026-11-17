@@ -132,6 +132,7 @@
 - **의존성 방향은 항상 안쪽(Model)을 향한다.** Model 은 View 를 모른다.
 - **ViewModel 은 Flutter 위젯 타입을 참조하지 않는다** (`BuildContext`, `Widget` import 금지). Riverpod `Notifier` 는 순수 Dart 클래스로 쓴다.
 - 핵심 로직은 위젯 없이 테스트 가능해야 한다.
+- **Notifier 는 버려진 뒤에 늦게 온 응답으로 `ref` · `state` 를 쓰지 않는다**(2026-11-17, 앱 PR #768 · #769 · #770 — 화면이 닫혀 Notifier 가 dispose 된 뒤 늦은 네트워크 응답이 `ref` 나 `state` 를 건드리면 `UnmountedRefException` 으로 앱이 죽는다. 알림 설정 화면 크래시(Crashlytics 치명 1건, #765)가 계기이고 53곳을 막았다). 새 ViewModel 을 쓸 때의 모양: ① `await` 다음에 `ref` · `state` 를 쓰기 전에 `if (!ref.mounted) return;` ② `build` 안의 첫 읽기는 `Future.microtask(() => ref.mounted ? load() : null);` ③ 반복은 `while (조건 && ref.mounted)` ④ `finally` 안의 마무리는 `if (ref.mounted) …`. 채팅방(`chat_room_view_model.dart`)은 `ref.onDispose` 로 끄는 자기 `_alive` 깃발을 써 왔고 그대로 둔다. 시험은 가짜 저장소의 응답 멈춤 장치(예: `FakeCardRepository.holdDecide`)로 응답을 붙잡은 채 컨테이너를 dispose 한 뒤 풀어서 던지지 않는지 본다(#768 ~ #770 합계 새 시험 73개, 대장 전달).
 
 ### 3.2 패키지 구조
 
@@ -395,6 +396,7 @@ supabase test db                 # RLS 정책 SQL 테스트
 - 프로젝트 URL · project ref · anon/publishable 키 · `service_role` 키 · DB 비밀번호는 **문서·코드·커밋·PR 에 쓰지 않는다.** 필요하면 MCP 로 조회해 앱에는 `--dart-define` 으로 주입한다. `service_role` 키는 FastAPI 서버 전용이다
 - **스키마 변경은 `supabase migration new <name>` 으로 만든 `../supabase/migrations/*.sql` 파일로만 한다.** 대시보드·`execute_sql` 로 DDL 을 실행하지 않는다
 - **클라우드 쓰기(마이그레이션 적용·seed·`migration repair` 등)는 매번 사용자가 직접 승인한 뒤에만 한다**
+- **2026-11-17 사용자 결정(원문 「앞으로 db는 내 허락 있어야 수정 가능해」 · 「실제 데이터 절대 수정하면 안되 따로 docker나 이런걸로 테스트 로컬로 하거나」): 운영 DB 의 모든 쓰기(데이터 값 · 스키마 · 시험 계정 만들기와 지우기 · Storage 파일 · DB 를 바꾸는 배치 수동 실행)는 그때마다 사용자의 직접 허락을 받는다.** 옛 자율 허락은 DB 쓰기에는 쓰지 않는다. 읽기는 허락 없이 해도 된다. 점검 · 시험은 로컬(Docker Supabase · 시뮬 스택)에서 한다
 - 프로덕션 DB 에서 `execute_sql` 은 **읽기 전용 조회**에만 쓴다
 
 ---
@@ -435,6 +437,7 @@ supabase test db                 # RLS 정책 SQL 테스트
 - [ ] View ↔ ViewModel ↔ Model 구조를 지켰는가?
 - [ ] 기능별 패키지 아래 `model` / `view` / `viewmodel` 로 분리했는가? `model` 안은 `repository` / `data` 로 나눴는가? auth · profile · billing 은 세부 기능 폴더(`<기능>/<세부 기능>/…`)마다 같은 모양이고, 세부 기능끼리 import 가 한 방향(순환 없음)인가?
 - [ ] ViewModel 이 `BuildContext` / `Widget` 을 참조하지 않는가?
+- [ ] `await` 뒤에 `ref` · `state` 를 쓰는 ViewModel 이 `ref.mounted` 를 확인하는가? (§3.1, 버려진 뒤 늦은 응답)
 - [ ] UseCase 는 정말 필요할 때만 도입했는가?
 
 **객체지향 생활 체조** (Model 은 엄격, UiState 는 원칙 7·9 예외)
