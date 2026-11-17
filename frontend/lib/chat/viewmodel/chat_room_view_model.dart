@@ -68,7 +68,8 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
     // 이 방에 온 `read` · `message` 이벤트를 채널이 바로 넘겨주게 건다. 버려질 때 뗀다(onDispose 안에서는 ref 를 못 쓴다).
     final channel = ref.read(userChannelProvider.notifier)..attachRoom(_matchId, this);
     ref.onDispose(() => channel.detachRoom(_matchId, this));
-    Future.microtask(_open);
+    // 만들자마자 버려졌으면(방을 바로 나감) 읽지 않는다 — 버려진 ref 를 쓰면 던진다.
+    Future.microtask(() => _alive ? _open() : null);
     return const ChatRoomUiState();
   }
 
@@ -85,6 +86,10 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
     // 겹치는 줄은 id 가드와 아래의 이어 붙이기가 걸러 낸다(조각 5 리뷰 권고 4번).
     _subscribe();
     await _loadFirstPage();
+    // 읽는 사이 방을 나가 버려졌으면 늦게 온 답은 버린다 — 상태 · ref 를 건드리면 던진다.
+    if (!_alive) {
+      return;
+    }
     _refreshIfRoomChangedMeanwhile();
     await markRead();
     if (_alive && _visible) {
@@ -251,7 +256,14 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
     state = state.copyWith(isDisconnected: false);
     _subscribe();
     await _loadRoom();
+    // 읽는 사이 방을 나가 버려졌으면 늦게 온 답은 버린다 — 상태 · ref 를 건드리면 던진다.
+    if (!_alive) {
+      return;
+    }
     await _loadFirstPage();
+    if (!_alive) {
+      return;
+    }
     _refreshIfRoomChangedMeanwhile();
     // 끊긴 동안 · 백그라운드에 있는 동안 온 상대 줄을 이제 본다.
     _markReadSoon();
