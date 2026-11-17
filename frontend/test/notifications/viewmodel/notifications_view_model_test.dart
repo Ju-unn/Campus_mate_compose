@@ -288,4 +288,32 @@ void main() {
       expect(container.read(unreadCountProvider), 0); // 서버는 이미 0
     });
   });
+
+  // 11-17: 만들자마자 버려지면(로그아웃) build 의 첫 읽기 microtask 가 버려진 ref 를 쓰면 던진다(#768 과 같은 모양).
+  test('만들자마자 버려지면 첫 읽기를 하지 않는다', () async {
+    final local = ProviderContainer(overrides: [
+      notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
+    ]);
+    local.read(notificationsViewModelProvider);
+
+    local.dispose();
+
+    await pumpEventQueue();
+  });
+
+  // 11-17: 읽음 처리 요청이 끝나길 기다린 뒤 개수를 다시 읽는데, 그사이 로그아웃으로 버려지면 버려진 ref 로 읽어 던진다.
+  test('배지 개수: 읽음 처리를 기다리는 사이 버려지면 다시 읽지 않는다 — 던지지 않는다', () async {
+    final local = ProviderContainer(overrides: [
+      notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
+    ]);
+    final unread = local.read(unreadCountProvider.notifier);
+    final marking = Completer<void>();
+    unread.track(marking.future);
+    final pending = unread.refresh();
+
+    local.dispose();
+    marking.complete();
+
+    await expectLater(pending, completes);
+  });
 }
