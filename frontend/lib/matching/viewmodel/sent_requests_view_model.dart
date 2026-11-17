@@ -53,7 +53,8 @@ class SentRequestsViewModel extends Notifier<SentRequestsUiState> {
 
   Future<void> _loadAndRepeat(bool quiet) async {
     await _load(quiet: quiet);
-    while (_readAgain) {
+    // 첫 읽기 사이 로그아웃으로 버려졌으면 합쳐진 읽기도 하지 않는다 — 버려진 ref 를 쓰면 던진다.
+    while (_readAgain && ref.mounted) {
       _readAgain = false;
       await _load(quiet: false);
     }
@@ -62,7 +63,8 @@ class SentRequestsViewModel extends Notifier<SentRequestsUiState> {
   Future<void> _load({required bool quiet}) async {
     final generation = _generation;
     final result = await ref.read(cardRepositoryProvider).fetchSentRequests();
-    if (generation != _generation) return;
+    // 세대는 신청 직후 다시 읽기만 가른다 — 로그아웃으로 버려진 것은 따로 본다(상태를 건드리면 던진다).
+    if (!ref.mounted || generation != _generation) return;
     state = result.when(
       onSuccess: (list) => state.copyWith(isLoading: false, requests: list),
       onFailure: (failure) => quiet && !state.isLoading

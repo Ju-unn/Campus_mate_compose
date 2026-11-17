@@ -21,7 +21,8 @@ class CardDetailViewModel extends Notifier<CardDetailUiState> {
 
   @override
   CardDetailUiState build() {
-    Future.microtask(load);
+    // 만들자마자 버려졌으면(로그아웃) 읽지 않는다 — 버려진 ref 를 쓰면 던진다.
+    Future.microtask(() => ref.mounted ? load() : null);
     return const CardDetailUiState();
   }
 
@@ -46,6 +47,8 @@ class CardDetailViewModel extends Notifier<CardDetailUiState> {
     }
     state = state.copyWith(isSubmitting: true, error: null);
     final result = await ref.read(cardRepositoryProvider).decide(cardId, decision);
+    // 보내는 사이 로그아웃으로 버려졌으면 늦게 온 답은 버린다 — 상태를 건드리면 던진다.
+    if (!ref.mounted) return;
     state = result.when(
       onSuccess: (_) => state.copyWith(isSubmitting: false, decided: true, decision: decision),
       onFailure: (failure) =>

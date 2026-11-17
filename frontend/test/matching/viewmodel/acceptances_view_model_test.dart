@@ -352,4 +352,60 @@ void main() {
 
     await expectLater(reading, completes);
   });
+
+  // 11-17: 알림 설정(#765)과 같은 FATAL — 답을 보내는 사이 버려진 뒤 늦게 온 응답이 상태를 쓰면 던진다.
+  group('답을 보내는 도중 provider 가 버려지면 늦은 응답은 버린다', () {
+    late ProviderContainer local;
+
+    setUp(() async {
+      local = ProviderContainer(overrides: [cardRepositoryProvider.overrideWithValue(repository)]);
+      repository.acceptances = const Success([_acceptance]);
+      await local.read(acceptancesViewModelProvider.notifier).refresh();
+    });
+
+    test('응답을 기다리는 도중', () async {
+      final hold = repository.holdRespond = Completer<void>();
+      final answering = local.read(acceptancesViewModelProvider.notifier).respond('card-1', CardDecision.accept);
+
+      local.dispose();
+      hold.complete();
+
+      await expectLater(answering, completes);
+    });
+
+    test('응답이 실패해 목록을 다시 읽는 도중', () async {
+      repository.acceptanceOutcome = const FailureResult(NetworkFailure());
+      final hold = repository.holdAcceptances = Completer<void>();
+      final answering = local.read(acceptancesViewModelProvider.notifier).respond('card-1', CardDecision.accept);
+      await pumpEventQueue();
+
+      local.dispose();
+      hold.complete();
+
+      await expectLater(answering, completes);
+    });
+
+    test('조용한 읽기에 조용하지 않은 읽기가 합쳐진 도중', () async {
+      final hold = repository.holdAcceptances = Completer<void>();
+      final viewModel = local.read(acceptancesViewModelProvider.notifier);
+      final quiet = viewModel.refresh(quiet: true);
+      final loud = viewModel.refresh();
+
+      local.dispose();
+      hold.complete();
+
+      await expectLater(quiet, completes);
+      await expectLater(loud, completes);
+    });
+  });
+
+  test('만들자마자 버려지면 첫 읽기를 하지 않는다', () async {
+    final local = ProviderContainer(overrides: [cardRepositoryProvider.overrideWithValue(repository)]);
+    local.read(acceptancesViewModelProvider);
+
+    local.dispose();
+
+    await pumpEventQueue();
+    expect(repository.fetchAcceptancesCount, 0);
+  });
 }

@@ -29,7 +29,8 @@ class TodayCardsViewModel extends Notifier<TodayCardsUiState> {
   @override
   TodayCardsUiState build() {
     // 화면이 붙자마자 한 번 읽는다. 결과가 오기 전까지는 loading 이다.
-    Future.microtask(refresh);
+    // 만들자마자 버려졌으면(로그아웃) 읽지 않는다 — 버려진 ref 를 쓰면 던진다.
+    Future.microtask(() => ref.mounted ? refresh() : null);
     return const TodayCardsUiState();
   }
 
@@ -123,7 +124,10 @@ class TodayCardsViewModel extends Notifier<TodayCardsUiState> {
     }
     state = state.copyWith(isPurchasing: true);
     final result = await ref.read(cardRepositoryProvider).purchasePaidCard(offerId);
+    // 사는 사이 로그아웃으로 버려졌으면 늦게 온 답은 버린다 — ref · 상태를 건드리면 던진다.
+    if (!ref.mounted) return;
     await result.when(onSuccess: (_) => _opened(), onFailure: _rejected);
+    if (!ref.mounted) return;
     state = state.copyWith(isPurchasing: false, notice: state.notice);
   }
 
@@ -140,6 +144,7 @@ class TodayCardsViewModel extends Notifier<TodayCardsUiState> {
     }
     if (failure.isPaidOfferGone) {
       await _readFresh();
+      if (!ref.mounted) return;
       state = state.copyWith(notice: const PurchaseNotice(PurchaseNoticeKind.offerGone));
       return;
     }
@@ -149,6 +154,8 @@ class TodayCardsViewModel extends Notifier<TodayCardsUiState> {
   /// 진행 중인 읽기가 있으면 그것은 구매 **전** 에 시작했을 수 있다 — 끝나기를 기다린 뒤 새로 한 번 더 읽는다.
   Future<void> _readFresh() async {
     await _inFlight;
+    // 기다리는 사이 로그아웃으로 버려졌으면 다시 읽지 않는다 — 버려진 ref 를 쓰면 던진다.
+    if (!ref.mounted) return;
     await refresh();
   }
 

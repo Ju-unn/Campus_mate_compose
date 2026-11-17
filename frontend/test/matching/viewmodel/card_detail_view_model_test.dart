@@ -187,4 +187,34 @@ void main() {
 
     await expectLater(reading, completes);
   });
+
+  // 11-17: 알림 설정(#765)과 같은 FATAL — 보내는 사이 로그아웃으로 버려진 뒤 늦게 온 답이 상태를 쓰면 던진다.
+  group('보내는 도중 provider 가 버려지면 늦은 응답은 버린다', () {
+    test('수락을 보내는 도중', () async {
+      final local = ProviderContainer(
+        overrides: [
+          cardRepositoryProvider.overrideWithValue(repository),
+          analyticsServiceProvider.overrideWithValue(analytics),
+        ],
+      );
+      final viewModel = local.read(cardDetailViewModelProvider('card-1').notifier);
+      await viewModel.load();
+      final hold = repository.holdDecide = Completer<void>();
+      final sending = viewModel.decide(CardDecision.accept);
+
+      local.dispose();
+      hold.complete();
+
+      await expectLater(sending, completes);
+    });
+
+    test('만들자마자 버려지면 첫 읽기를 하지 않는다', () async {
+      final local = ProviderContainer(overrides: [cardRepositoryProvider.overrideWithValue(repository)]);
+      local.read(cardDetailViewModelProvider('card-1'));
+
+      local.dispose();
+
+      await pumpEventQueue();
+    });
+  });
 }

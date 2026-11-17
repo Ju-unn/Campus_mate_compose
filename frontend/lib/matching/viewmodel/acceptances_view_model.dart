@@ -19,7 +19,8 @@ class AcceptancesViewModel extends Notifier<AcceptancesUiState> {
   AcceptancesUiState build() {
     // 첫 읽기는 isLoading 이라 quiet 여도 실패를 보인다. quiet 로 불러야 화면 initState 의 조용한 읽기와
     // 합쳐질 때 다시 읽기가 생기지 않는다.
-    Future.microtask(() => refresh(quiet: true));
+    // 만들자마자 버려졌으면(로그아웃) 읽지 않는다 — 버려진 ref 를 쓰면 던진다.
+    Future.microtask(() => ref.mounted ? refresh(quiet: true) : null);
     return const AcceptancesUiState();
   }
 
@@ -37,7 +38,8 @@ class AcceptancesViewModel extends Notifier<AcceptancesUiState> {
 
   Future<void> _loadAndRepeat(bool quiet) async {
     await _load(quiet: quiet);
-    while (_readAgain) {
+    // 첫 읽기 사이 로그아웃으로 버려졌으면 합쳐진 읽기도 하지 않는다 — 버려진 ref 를 쓰면 던진다.
+    while (_readAgain && ref.mounted) {
       _readAgain = false;
       await _load(quiet: false);
     }
@@ -81,6 +83,8 @@ class AcceptancesViewModel extends Notifier<AcceptancesUiState> {
     final nickname = state.nicknameOf(cardId);
     state = state.copyWith(respondingCardId: cardId, error: null);
     final result = await ref.read(cardRepositoryProvider).respondToAcceptance(cardId, decision);
+    // 보내는 사이 로그아웃으로 버려졌으면 늦게 온 답은 버린다 — 상태를 건드리면 던진다.
+    if (!ref.mounted) return;
     Failure? responseError;
     state = result.when(
       onSuccess: (outcome) => state.copyWith(
@@ -95,6 +99,7 @@ class AcceptancesViewModel extends Notifier<AcceptancesUiState> {
     );
     // 성공이든 실패든(410 만료 포함) 목록은 서버 기준으로 다시 맞춘다.
     await refresh();
+    if (!ref.mounted) return;
     // 목록 읽기가 성공하면 오류 문구를 지우니, 읽어야 할 응답 실패 문구는 갱신 뒤에 다시 올린다.
     // (갱신 자체가 실패해 그 문구가 올라와 있으면 그대로 둔다.)
     final failure = responseError;

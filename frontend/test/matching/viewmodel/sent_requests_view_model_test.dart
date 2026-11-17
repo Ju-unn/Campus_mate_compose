@@ -166,4 +166,31 @@ void main() {
   test('신청을 보내지 않았으면 대화 탭이 꺼내 갈 것이 없다', () {
     expect(viewModel().takeJustSent(), isFalse);
   });
+
+  // 11-17: 알림 설정(#765)과 같은 FATAL — 세대 값은 신청 직후 다시 읽기만 가르고, 로그아웃으로 버려진 것은 못 막는다.
+  test('읽는 중에 버려지면(로그아웃) 늦게 온 답을 버린다 — 던지지 않는다', () async {
+    final local = ProviderContainer(overrides: [cardRepositoryProvider.overrideWithValue(repository)]);
+    final hold = repository.holdSent = Completer<void>();
+    final reading = local.read(sentRequestsViewModelProvider.notifier).open();
+    await pumpEventQueue();
+
+    local.dispose();
+    hold.complete();
+
+    await expectLater(reading, completes);
+  });
+
+  test('조용한 읽기에 조용하지 않은 읽기가 합쳐진 도중 버려지면 다시 읽지 않는다 — 던지지 않는다', () async {
+    final local = ProviderContainer(overrides: [cardRepositoryProvider.overrideWithValue(repository)]);
+    final hold = repository.holdSent = Completer<void>();
+    final viewModel = local.read(sentRequestsViewModelProvider.notifier);
+    final quiet = viewModel.open();
+    final loud = viewModel.refresh();
+
+    local.dispose();
+    hold.complete();
+
+    await expectLater(quiet, completes);
+    await expectLater(loud, completes);
+  });
 }
