@@ -42,12 +42,20 @@ class AdminUserRepository(AdminRepository):
         rows = await self._rows("profiles", params)
         return [row for row in rows if row["id"] not in exclude_ids]
 
-    async def count_profiles_by(self, column: str, values: tuple[str, ...], exclude_ids: list[str]) -> dict[str, int]:
-        """값마다 인원 + null 인원("none"). 목록(list_users)과 같은 기준 — 관리자만 빼고 상태는 가리지 않는다.
+    async def e2e_university_ids(self) -> list[str]:
+        """시험 학교(`universities.region_group = 'e2e'`, 사용자 결정 2026-11-12) id 전부(몇 곳뿐이다)."""
+        return [row["id"] for row in await self._rows("universities", {"select": "id", "region_group": "eq.e2e"})]
+
+    async def count_profiles_by(self, column: str, values: tuple[str, ...], exclude_ids: list[str],
+                                exclude_university_ids: list[str]) -> dict[str, int]:
+        """값마다 인원 + null 인원("none"). 관리자와 시험 학교 사람은 빼고, 상태(가입 중 등)는 가리지 않는다.
+        학교 없는 사람(학교 메일 인증 전)은 센다 — `universities!inner` 는 그 사람까지 빼므로 학교 id 로 거른다.
         값마다 count=exact 한 번(묶어 세는 집계는 PostgREST 기본 설정에서 꺼져 있고, 줄을 받아 세면 1000줄 상한에 잘린다)."""
         base = {"select": "id"}
         if exclude_ids:
             base["id"] = f"not.in.({','.join(exclude_ids)})"
+        if exclude_university_ids:  # 빈 not.in.() 은 PostgREST 가 거절한다 — 시험 학교가 없으면 거르지 않는다
+            base["or"] = f"(university_id.is.null,university_id.not.in.({','.join(exclude_university_ids)}))"
         keys = (*values, "none")
         counts = await asyncio.gather(*(
             self._count("profiles", {**base, column: "is.null" if key == "none" else f"eq.{key}"}) for key in keys))

@@ -124,7 +124,7 @@ def test_search_by_profile_id_and_admins_never_appear(client, world):
 
 # 합계(성별 · 들어온 경로) ------------------------------------------------------------
 
-def test_totals_count_gender_and_channel_on_the_same_basis_as_the_list(client, world):
+def test_totals_count_gender_and_channel_without_admins_across_every_status(client, world):
     # 목록과 같은 기준: 관리자만 빼고 상태(가입 중 · 정지 · 탈퇴)는 가리지 않는다. 고르기 전(null)은 none.
     world.user_profiles[U1] = user_profile(U1, "닉네임A", acquisition_channel="everytime")
     world.user_profiles[U2] = user_profile(U2, "닉네임B", status="suspended", gender="female")
@@ -148,6 +148,70 @@ def test_totals_count_gender_and_channel_on_the_same_basis_as_the_list(client, w
     # 개수만 — 닉네임 · 프로필 id · 메모는 싣지 않는다
     for secret in ("닉네임A", "탈퇴자", "메모", U1, "u3"):
         assert secret not in response.text
+
+
+E2E_UNI = "22222222-0000-0000-0000-0000000000e2"
+E2E_UNI_2 = "22222222-0000-0000-0000-0000000000e3"
+REAL_UNI = "22222222-0000-0000-0000-000000000001"
+
+
+def _school_world(world) -> None:
+    """시험 학교(region_group 'e2e') 둘 · 진짜 학교 하나. 학교 없는 가입 중 한 명."""
+    world.universities = {E2E_UNI: "e2e", E2E_UNI_2: "e2e", REAL_UNI: "seoul"}
+    world.user_profiles[U1] = user_profile(U1, "닉네임A", university_id=REAL_UNI, acquisition_channel="everytime")
+    world.user_profiles[U2] = user_profile(U2, "시험A", university_id=E2E_UNI, gender="female", acquisition_channel="instagram")
+    world.user_profiles["u3"] = user_profile("u3", "시험B", university_id=E2E_UNI_2, status="pending", acquisition_channel="friend")
+    world.user_profiles["u4"] = user_profile("u4", None, status="pending", university=None, university_id=None, gender=None)
+    world.user_profiles[ADMIN] = user_profile(ADMIN, "관리자", university_id=REAL_UNI, acquisition_channel="community")
+
+
+def test_totals_leave_out_people_at_a_test_school(client, world):
+    # 테스트대학(region_group 'e2e') 사람은 합계에서 빠진다 — 가입 중이어도.
+    _school_world(world)
+
+    response = client.get("/admin/users/totals", headers=ADMIN_HEADERS)
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "gender": {"male": 1, "female": 0, "none": 1},
+        "acquisition_channel": {"everytime": 1, "instagram": 0, "friend": 0, "community": 0, "other": 0, "none": 1},
+    }
+
+
+def test_totals_keep_a_signing_up_person_without_a_school(client, world):
+    # 학교 메일 인증 전(university_id null)인 가입 중 사람은 시험 학교가 아니다 — 학교 표를 inner 로 끼우면 같이 빠진다.
+    _school_world(world)
+    del world.user_profiles[U1]
+
+    response = client.get("/admin/users/totals", headers=ADMIN_HEADERS)
+
+    assert response.json()["gender"] == {"male": 0, "female": 0, "none": 1}
+    assert response.json()["acquisition_channel"]["none"] == 1
+
+
+def test_totals_send_the_school_filter_and_the_admin_filter_on_every_count(client, world):
+    _school_world(world)
+
+    client.get("/admin/users/totals", headers=ADMIN_HEADERS)
+
+    counts = world.calls("GET", "/rest/v1/profiles")
+    assert len(counts) == 9
+    for request in counts:
+        assert request.url.params["id"] == f"not.in.({ADMIN})"
+        assert request.url.params["or"] == f"(university_id.is.null,university_id.not.in.({E2E_UNI},{E2E_UNI_2}))"
+    [schools] = world.calls("GET", "/rest/v1/universities")
+    assert schools.url.params["region_group"] == "eq.e2e"
+
+
+def test_totals_without_any_test_school_send_no_school_filter(client, world):
+    # 시험 학교가 하나도 없으면 빈 not.in.() 을 보내지 않는다(PostgREST 가 문법 오류로 거절한다).
+    world.universities = {REAL_UNI: "seoul"}
+    world.user_profiles[U1] = user_profile(U1, "닉네임A", university_id=REAL_UNI)
+
+    response = client.get("/admin/users/totals", headers=ADMIN_HEADERS)
+
+    assert response.json()["gender"] == {"male": 1, "female": 0, "none": 0}
+    assert all("or" not in request.url.params for request in world.calls("GET", "/rest/v1/profiles"))
 
 
 # 학교 메일 찾기 ------------------------------------------------------------------

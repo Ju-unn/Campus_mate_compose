@@ -155,6 +155,8 @@ class AdminWorld:
         # auth_users 는 auth 관리자 API 의 사용자(identities), rpc_results 는 새 DB 함수 이름 → 돌려줄 JSON,
         # table_status 는 경로 → 그 경로를 통째로 실패시키는 상태 코드.
         self.user_profiles: dict[str, dict] = {}
+        # universities 는 학교 id → region_group('e2e' 면 시험 학교). 프로필 줄의 university_id 가 이 id 를 가리킨다.
+        self.universities: dict[str, str] = {}
         self.claims: list[dict] = []
         self.report_targets: list[str] = []
         self.balances: dict[str, int] = {}
@@ -292,6 +294,11 @@ class AdminWorld:
         if params.get("id", "").startswith("not.in."):
             blocked = params["id"].removeprefix("not.in.(").removesuffix(")").split(",")
             rows = [r for r in rows if r["id"] not in blocked]
+        if "or" in params:  # 합계가 쓰는 하나뿐인 모양: (university_id.is.null,university_id.not.in.(a,b))
+            prefix = "(university_id.is.null,university_id.not.in.("
+            assert params["or"].startswith(prefix) and params["or"].endswith("))"), params["or"]
+            blocked = params["or"].removeprefix(prefix).removesuffix("))").split(",")
+            rows = [r for r in rows if r.get("university_id") is None or r["university_id"] not in blocked]
         if "nickname" in params:  # ilike.*패턴* — 이스케이프(백슬래시)를 풀어 부분 일치로 본다
             needle = params["nickname"].removeprefix("ilike.*").removesuffix("*").replace("\\", "")
             rows = [r for r in rows if r["nickname"] and needle.lower() in r["nickname"].lower()]
@@ -393,6 +400,9 @@ class AdminWorld:
             if params.get("select") == "status" and asked in submitters and asked not in self.user_profiles:
                 return None
             return self._profiles(params, counting="count=exact" in request.headers.get("prefer", ""))
+        if path == "/rest/v1/universities" and method == "GET":
+            wanted = params["region_group"].removeprefix("eq.")
+            return httpx.Response(200, json=[{"id": u} for u, group in self.universities.items() if group == wanted])
         if path == "/rest/v1/school_email_claims" and method == "GET":
             key, value = next((k, v) for k, v in params.items() if k in ("school_email_hmac", "profile_id"))
             rows = [c for c in self.claims if c[key] == value.removeprefix("eq.")]
