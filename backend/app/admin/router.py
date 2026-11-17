@@ -11,6 +11,7 @@ from app.admin.inquiry_review import router as inquiry_review_router
 from app.admin.matching import router as matching_router
 from app.admin.moderation import router as moderation_router
 from app.admin.report_review import router as report_review_router
+from app.admin.server_status import router as server_status_router
 from app.admin.stats import router as stats_router
 from app.admin.user_actions import router as user_actions_router
 from app.admin.users import router as users_router
@@ -29,6 +30,7 @@ router.include_router(stats_router)
 router.include_router(health_router)
 router.include_router(matching_router)
 router.include_router(inquiry_review_router)
+router.include_router(server_status_router)
 
 
 @router.get("/me")
