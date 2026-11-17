@@ -17,7 +17,8 @@ class PartnerProfileViewModel extends Notifier<PartnerProfileUiState> {
 
   @override
   PartnerProfileUiState build() {
-    Future.microtask(_load);
+    // 만들자마자 버려졌으면(로그아웃) 읽지 않는다 — 버려진 ref 를 쓰면 던진다.
+    Future.microtask(() => ref.mounted ? _load() : null);
     return const PartnerProfileUiState();
   }
 

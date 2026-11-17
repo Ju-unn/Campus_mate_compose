@@ -12,7 +12,8 @@ final contactBlockListViewModelProvider =
 class ContactBlockListViewModel extends Notifier<ContactBlockListUiState> {
   @override
   ContactBlockListUiState build() {
-    Future.microtask(load);
+    // 만들자마자 버려졌으면(로그아웃) 읽지 않는다 — 버려진 ref 를 쓰면 던진다.
+    Future.microtask(() => ref.mounted ? load() : null);
     return const ContactBlockListUiState();
   }
 

@@ -42,10 +42,16 @@ class FakeHeartStoreGateway implements HeartStoreGateway {
   }
 
   @override
-  Future<Map<String, StorePrice>> loadPrices(Set<String> productIds) async => {
-        for (final entry in prices.entries)
-          if (productIds.contains(entry.key)) entry.key: entry.value,
-      };
+  Future<Map<String, StorePrice>> loadPrices(Set<String> productIds) async {
+    await holdPrices?.future;
+    return {
+      for (final entry in prices.entries)
+        if (productIds.contains(entry.key)) entry.key: entry.value,
+    };
+  }
+
+  /// 채워 두면 가격 조회가 이것이 끝날 때까지 멈춘다 — 읽는 사이 버려지는 순간을 테스트가 잡을 때만 쓴다.
+  Completer<void>? holdPrices;
 
   @override
   Future<bool> buy(String productId, String accountToken) async {

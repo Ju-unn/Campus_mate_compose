@@ -105,4 +105,16 @@ void main() {
       expect(container.read(signUpViewModelProvider).otpSentTo, isNull);
     });
   });
+
+  // 11-17: 코드를 보내는 사이 로그아웃으로 버려지면 늦게 온 답이 버려진 상태를 건드려 던진다.
+  test('보내는 사이 버려지면 늦게 온 답은 버린다 — 던지지 않는다', () async {
+    final container = ProviderContainer(overrides: [
+      schoolEmailRepositoryProvider.overrideWithValue(FakeSchoolEmailRepository()),
+    ]);
+    final pending = (container.read(signUpViewModelProvider.notifier)..changeEmail('student@test.ac.kr')).submit();
+
+    container.dispose();
+
+    await expectLater(pending, completes);
+  });
 }

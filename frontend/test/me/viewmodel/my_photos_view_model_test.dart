@@ -275,4 +275,16 @@ void main() {
     expect(drafts.cleared, isEmpty);
     expect(drafts.deletedFiles, isEmpty);
   });
+
+  // 11-17: 저장하는 사이 로그아웃으로 버려지면(keepAlive 로도 못 막는다) 늦게 온 답이 버려진 상태를 건드려 던진다.
+  test('저장하는 사이 버려지면 늦게 온 답은 버린다 — 던지지 않는다', () async {
+    await open(_profile());
+    final hold = me.holdSavePhotos = Completer<void>();
+    final saving = viewModel().save();
+
+    container.dispose();
+    hold.complete();
+
+    await expectLater(saving, completes);
+  });
 }

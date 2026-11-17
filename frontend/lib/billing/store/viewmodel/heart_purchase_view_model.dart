@@ -77,6 +77,8 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
     if (!ref.mounted) return;
     unawaited(_gateway.recover());
     final prices = await _loadPrices();
+    // 가격을 읽는 사이 로그아웃으로 버려졌으면 더 읽지 않는다 — 버려진 ref 를 쓰면 던진다.
+    if (!ref.mounted) return;
     final status = await _repository.fetchStatus();
     if (!ref.mounted) return;
     final loaded = status.when(onSuccess: (value) => value, onFailure: (_) => null);

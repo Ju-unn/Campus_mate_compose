@@ -113,4 +113,17 @@ void main() {
     }
     expect(me.calls, 0);
   });
+
+  // 11-17: 내 프로필을 다시 읽는 사이 로그아웃으로 버려지면, 이어서 카카오톡 아이디를 다시 읽으려 버려진 ref 를 써 던진다.
+  test('내 프로필을 읽는 사이 버려지면 더 읽지 않는다 — 던지지 않는다', () async {
+    await serverAt(OnboardingStep.photos);
+    final hold = me.holdFetch = Completer<void>();
+    final pending = viewModel().goBack();
+
+    container.dispose();
+    hold.complete();
+
+    await expectLater(pending, completes);
+    expect(account.kakaoIdFetches, 0);
+  });
 }

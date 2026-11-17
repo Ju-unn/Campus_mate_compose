@@ -31,6 +31,8 @@ class PollDetailViewModel extends Notifier<PollDetailUiState> {
   PollDetailUiState build() {
     final inFeed = _fromFeed();
     unawaited(Future.microtask(() async {
+      // 만들자마자 버려졌으면(화면을 바로 닫음 · 로그아웃) 읽지 않는다 — 버려진 ref 를 쓰면 던진다.
+      if (!ref.mounted) return;
       await (_loadPoll(), _loadComments()).wait;
     }));
     return PollDetailUiState(poll: inFeed, isLoadingPoll: inFeed == null);

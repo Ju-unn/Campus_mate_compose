@@ -109,4 +109,17 @@ void main() {
       },
     );
   });
+
+  // 11-17: 보내는 사이 로그아웃으로 버려지면 늦게 온 답이 버려진 상태 · ref 를 건드려 던진다(catch 안에서 또 던진다).
+  test('보내는 사이 버려지면 늦게 온 답은 버린다 — 던지지 않는다', () async {
+    final c = container(FakeAcquisitionRepository());
+    final pending = (c.read(acquisitionViewModelProvider.notifier)
+          ..select(AcquisitionChannel.other)
+          ..changeNote(' 학교 축제 '))
+        .submit();
+
+    c.dispose();
+
+    await expectLater(pending, completes);
+  });
 }

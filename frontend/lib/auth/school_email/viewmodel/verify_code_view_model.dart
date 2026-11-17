@@ -77,6 +77,8 @@ class VerifyCodeViewModel extends Notifier<VerifyCodeUiState> {
       codeExpiresAt: state.codeExpiresAt,
     );
     final result = await _verifyAndComplete(code);
+    // 기다리는 사이 로그아웃으로 버려졌으면 늦게 온 답은 버린다 — 상태 · ref 를 건드리면 던진다.
+    if (!ref.mounted) return;
     final failure = result.when(onSuccess: (_) => null, onFailure: (failure) => failure);
     if (failure != null) {
       state = _failed(failure);
@@ -90,6 +92,8 @@ class VerifyCodeViewModel extends Notifier<VerifyCodeUiState> {
   /// 임시 연결로 코드를 확인하고, 되면 그 임시 토큰으로 서버에 인증을 마친다. 코드가 틀리면 서버는 부르지 않는다.
   Future<Result<void>> _verifyAndComplete(VerificationCode code) async {
     final token = await _temporaryTokenFor(code);
+    // 확인하는 사이 버려졌으면 마치지 않는다. 돌려주는 값은 [submit] 이 버린다.
+    if (!ref.mounted) return const Success(null);
     return token.when(
       onSuccess: _complete,
       onFailure: (failure) async => FailureResult<void>(failure),
@@ -123,6 +127,8 @@ class VerifyCodeViewModel extends Notifier<VerifyCodeUiState> {
     _temporaryToken = null;
     ref.invalidate(signUpViewModelProvider);
     await ref.read(schoolEmailRepositoryProvider).discard();
+    // 비우는 사이 버려졌으면 다시 만들 것도 없다 — 버려진 ref 를 쓰면 던진다.
+    if (!ref.mounted) return;
     ref.invalidateSelf();
   }
 

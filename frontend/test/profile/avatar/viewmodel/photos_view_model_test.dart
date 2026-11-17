@@ -1009,6 +1009,46 @@ void main() {
       expect(state().completed, isFalse);
     });
   });
+
+  // 11-17: 갤러리 · 얼굴 검사 · 올리기를 기다리는 사이 로그아웃으로 버려지면 늦게 온 결과가 버려진 상태를 건드려 던진다.
+  group('기다리는 사이 버려지면 늦게 온 결과는 버린다', () {
+    test('갤러리에서 고르는 중', () async {
+      final picking = Completer<List<File>>();
+      final viewModel = container.read(photosViewModelProvider.notifier)..pickFromGallery = (limit) => picking.future;
+      final adding = viewModel.addPhoto();
+
+      container.dispose();
+      picking.complete([File('a.jpg')]);
+
+      await expectLater(adding, completes);
+    });
+
+    test('얼굴을 살펴보는 중', () async {
+      final viewModel = buildViewModel([File('a.jpg')]);
+      final gate = faceDetector.gate = Completer<bool>();
+      final adding = viewModel.addPhoto();
+      await pumpEventQueue();
+
+      container.dispose();
+      gate.complete(true);
+
+      await expectLater(adding, completes);
+    });
+
+    test('사진을 올리는 중', () async {
+      final viewModel = buildViewModel([File('a.jpg'), File('b.jpg')]);
+      await viewModel.addPhoto();
+      await viewModel.addPhoto();
+      viewModel.setAvatarSource(0);
+      final hold = repository.holdAt[0] = Completer<void>();
+      final submitting = viewModel.submit();
+
+      container.dispose();
+      hold.complete();
+
+      await expectLater(submitting, completes);
+    });
+  });
 }
 
 final _faceTooSmall = isA<AppErrorFailure>().having((failure) => failure.error, 'error', AppError.faceTooSmall);

@@ -30,7 +30,8 @@ class ConversationsViewModel extends Notifier<ConversationsUiState> {
   ConversationsUiState build() {
     // 첫 읽기는 isLoading 이라 quiet 여도 실패를 보인다. quiet 로 불러야 화면 initState 의 조용한 읽기와
     // 합쳐질 때 다시 읽기가 생기지 않는다.
-    Future.microtask(() => refresh(quiet: true));
+    // 만들자마자 버려졌으면(로그아웃) 읽지 않는다 — 버려진 ref 를 쓰면 던진다.
+    Future.microtask(() => ref.mounted ? refresh(quiet: true) : null);
     return const ConversationsUiState();
   }
 
@@ -48,7 +49,8 @@ class ConversationsViewModel extends Notifier<ConversationsUiState> {
 
   Future<void> _loadAndRepeat(bool quiet) async {
     await _load(quiet: quiet);
-    while (_readAgain || _readAgainQuietly) {
+    // 읽는 사이 버려졌으면(로그아웃) 더 읽지 않는다 — 버려진 ref 로 읽으면 던진다.
+    while ((_readAgain || _readAgainQuietly) && ref.mounted) {
       final loud = _readAgain;
       _readAgain = false;
       _readAgainQuietly = false;
@@ -111,6 +113,8 @@ class ConversationsViewModel extends Notifier<ConversationsUiState> {
   /// 실패면 줄은 두고 목록 위 오류 줄로 알린다.
   Future<void> leave(String matchId) async {
     final result = await ref.read(chatRepositoryProvider).leave(matchId);
+    // 나가는 사이 로그아웃으로 버려졌으면 늦게 온 답은 버린다 — 서버에는 이미 나갔고, 상태를 건드리면 던진다.
+    if (!ref.mounted) return;
     state = result.when(
       onSuccess: (_) => _without(matchId),
       onFailure: (failure) => isAlreadyLeft(failure)

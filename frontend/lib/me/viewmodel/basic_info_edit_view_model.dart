@@ -171,6 +171,8 @@ class BasicInfoEditViewModel extends Notifier<BasicInfoEditUiState> {
             isSmoker: sent.isSmoker,
             appearance: sent.appearance,
           );
+      // 저장하는 사이 로그아웃으로 버려졌으면(keepAlive 로도 못 막는다) 늦게 온 답은 버린다 — 상태 · ref 를 건드리면 던진다.
+      if (!ref.mounted) return;
       state = result.when(
         onSuccess: (_) => state.copyWith(isSubmitting: false, completed: true),
         onFailure: (failure) => _rejectedState(failure, sentHeight: heightCm != null),

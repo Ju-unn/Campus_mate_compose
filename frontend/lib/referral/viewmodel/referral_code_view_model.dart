@@ -24,6 +24,8 @@ class ReferralCodeViewModel extends Notifier<ReferralCodeUiState> {
     state = state.copyWith(isSubmitting: true);
     try {
       final result = await ref.read(referralRepositoryProvider).redeem(state.code);
+      // 보내는 사이 로그아웃으로 버려졌으면 늦게 온 답은 버린다 — 상태 · ref 를 건드리면 던진다.
+      if (!ref.mounted) return;
       state = result.when(
         onSuccess: (referrerId) => state.copyWith(isSubmitting: false, referrerId: referrerId),
         // 404 · 409 · 422 는 서버 문구(errors.py)를 그대로 보여 준다 — 거절 이유를 앱이 지어내지 않는다.

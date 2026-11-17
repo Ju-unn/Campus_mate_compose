@@ -698,4 +698,15 @@ void main() {
       await saving;
     });
   });
+
+  // 11-17: 보내는 사이 로그아웃으로 버려지면(keepAlive 로도 못 막는다) 늦게 온 답이 버려진 상태 · ref 를 건드려 던진다.
+  test('보내는 사이 버려지면 늦게 온 답은 버린다 — 던지지 않는다', () async {
+    await open(_profile());
+    viewModel().changeHeight('180');
+    final pending = viewModel().save();
+
+    container.dispose();
+
+    await expectLater(pending, completes);
+  });
 }

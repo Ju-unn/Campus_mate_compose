@@ -104,8 +104,12 @@ class FakeChatRepository implements ChatRepository {
   @override
   Future<Result<void>> leave(String matchId) async {
     leaveCount += 1;
+    await holdLeave?.future;
     return writeResult;
   }
+
+  /// 채워 두면 나가기 응답이 이것이 끝날 때까지 멈춘다 — 응답 전에 버려지는 상황용.
+  Completer<void>? holdLeave;
 
   @override
   Future<Result<TrustAcceptOutcome>> acceptTrust(String matchId) async {

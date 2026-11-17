@@ -77,7 +77,9 @@ class SurveyViewModel extends Notifier<SurveyUiState> {
       isSmoker: state.isSmoker,
       isSubmitting: true,
     );
-    state = await _submittedState();
+    final next = await _submittedState();
+    if (next == null) return;
+    state = next;
     _discardDraftIfCompleted();
     _refreshOnboardingStepIfCompleted();
   }
@@ -90,10 +92,12 @@ class SurveyViewModel extends Notifier<SurveyUiState> {
     unawaited(ref.read(draftStoreProvider).clear(DraftScreen.survey));
   }
 
-  Future<SurveyUiState> _submittedState() async {
+  Future<SurveyUiState?> _submittedState() async {
     try {
       final repository = ref.read(surveyRepositoryProvider);
       final result = await repository.submit(state.answers, state.religion!, state.isSmoker!);
+      // 보내는 사이 로그아웃으로 버려졌으면 null — 늦게 온 답으로 버려진 상태 · ref 를 건드리면 던진다.
+      if (!ref.mounted) return null;
       reportIfOnboardingBlocked(ref, result);
       return _stateFromResult(result);
     } catch (_) {

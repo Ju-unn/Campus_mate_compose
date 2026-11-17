@@ -411,4 +411,41 @@ void main() {
       expect(state.resendAvailableAt, now.add(const Duration(seconds: 60)));
     });
   });
+
+  // 11-17: 코드 확인 · 인증 마치기 · 처음으로 돌리기를 기다리는 사이 로그아웃으로 버려지면 늦게 온 답이 버려진 상태 · ref 를 건드려 던진다.
+  group('기다리는 사이 버려지면 늦게 온 답은 버린다', () {
+    test('코드를 확인하는 중', () async {
+      final repository = FakeSchoolEmailRepository();
+      final container = buildContainer(repository);
+      final viewModel = container.read(verifyCodeViewModelProvider(email).notifier)..changeCode('123456');
+      final submitting = viewModel.submit();
+
+      container.dispose();
+
+      await expectLater(submitting, completes);
+      expect(repository.calls, ['verifyCode']);
+    });
+
+    test('인증을 마치는 중(저장한 임시 토큰으로 다시 보냄)', () async {
+      final repository = FakeSchoolEmailRepository()..nextCompleteResult = const FailureResult(NetworkFailure());
+      final container = buildContainer(repository);
+      final viewModel = container.read(verifyCodeViewModelProvider(email).notifier)..changeCode('123456');
+      await viewModel.submit();
+      repository.nextCompleteResult = const Success(null);
+      final submitting = viewModel.submit();
+
+      container.dispose();
+
+      await expectLater(submitting, completes);
+    });
+
+    test('처음으로 돌리는 중', () async {
+      final container = buildContainer(FakeSchoolEmailRepository());
+      final going = container.read(verifyCodeViewModelProvider(email).notifier).startOver();
+
+      container.dispose();
+
+      await expectLater(going, completes);
+    });
+  });
 }

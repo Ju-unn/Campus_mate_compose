@@ -52,6 +52,8 @@ class AvatarGenerationViewModel extends Notifier<AvatarGenerationUiState> {
     }
     state = const AvatarGenerationUiState(status: AvatarGenerationStatus.generating);
     final result = await ref.read(avatarRepositoryProvider).generateAvatar();
+    // 기다리는 사이 로그아웃으로 버려졌으면 늦게 온 답은 버린다 — 상태 · ref 를 건드리면 던진다.
+    if (!ref.mounted) return null;
     return result.when(
       onSuccess: (outcome) {
         state = _fromOutcome(outcome);
@@ -66,6 +68,7 @@ class AvatarGenerationViewModel extends Notifier<AvatarGenerationUiState> {
   /// ② 앱이 응답을 놓쳤을 뿐 서버에는 이미 아바타가 있는 경우, 그 답이 여기서 돌아온다.
   Future<void> retry() async {
     await generate();
+    if (!ref.mounted) return;
     await refreshStatus();
   }
 
@@ -79,6 +82,8 @@ class AvatarGenerationViewModel extends Notifier<AvatarGenerationUiState> {
     }
     state = const AvatarGenerationUiState(status: AvatarGenerationStatus.generating);
     final result = await ref.read(avatarRepositoryProvider).regenerateAvatar();
+    // 기다리는 사이 로그아웃으로 버려졌으면 늦게 온 답은 버린다 — 상태 · ref 를 건드리면 던진다.
+    if (!ref.mounted) return null;
     final blocking = result.when<Failure?>(
       onSuccess: (outcome) {
         state = _fromOutcome(outcome);
@@ -103,6 +108,8 @@ class AvatarGenerationViewModel extends Notifier<AvatarGenerationUiState> {
   /// 결과 화면에 들어올 때 한 번, 그 뒤 만드는 중이면 [_pollInterval] 마다.
   Future<void> refreshStatus() async {
     final result = await ref.read(avatarRepositoryProvider).fetchAvatarStatus();
+    // 기다리는 사이 로그아웃으로 버려졌으면 늦게 온 답은 버린다 — 상태 · ref 를 건드리면 던진다.
+    if (!ref.mounted) return;
     result.when(
       // 한 번 못 물어봤다고 화면을 실패로 바꾸지 않는다 — 다음 차례에 다시 묻는다.
       onSuccess: (outcome) => state = _fromOutcome(outcome),

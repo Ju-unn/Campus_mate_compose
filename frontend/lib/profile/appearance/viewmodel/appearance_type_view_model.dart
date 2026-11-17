@@ -57,7 +57,9 @@ class AppearanceTypeViewModel extends Notifier<AppearanceTypeUiState> {
       impressionType: state.impressionType,
       isSubmitting: true,
     );
-    state = await _submittedState();
+    final next = await _submittedState();
+    if (next == null) return;
+    state = next;
     _discardDraftIfCompleted();
     _refreshOnboardingStepIfCompleted();
   }
@@ -70,10 +72,12 @@ class AppearanceTypeViewModel extends Notifier<AppearanceTypeUiState> {
     unawaited(ref.read(draftStoreProvider).clear(DraftScreen.appearanceType));
   }
 
-  Future<AppearanceTypeUiState> _submittedState() async {
+  Future<AppearanceTypeUiState?> _submittedState() async {
     try {
       final repository = ref.read(appearanceTypeRepositoryProvider);
       final result = await repository.submit(state.animalType!, state.impressionType!);
+      // 보내는 사이 로그아웃으로 버려졌으면 null — 늦게 온 답으로 버려진 상태 · ref 를 건드리면 던진다.
+      if (!ref.mounted) return null;
       reportIfOnboardingBlocked(ref, result);
       return _stateFromResult(result);
     } catch (_) {

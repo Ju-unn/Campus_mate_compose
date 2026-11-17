@@ -52,8 +52,12 @@ class HeartTaskSubmitViewModel extends Notifier<HeartTaskSubmitUiState> {
 
     final compressor = ref.read(imageCompressorProvider);
     final compressed = await _compressAll(compressor, photos);
+    // 압축하는 사이 로그아웃으로 버려졌으면 올리지 않고 압축본(인증샷 사본)만 지운다 — 버려진 ref 를 쓰면 던진다.
+    if (!ref.mounted) {
+      if (compressed != null) unawaited(_discardAll(compressor, compressed));
+      return;
+    }
     if (compressed == null) {
-      if (!ref.mounted) return;
       // 압축이 사진을 못 읽었다 — 서버 `errors.PHOTO_UNREADABLE` 과 같은 글자.
       state = HeartTaskSubmitUiState(photos: photos, error: const AppErrorFailure(AppError.photoUnreadable));
       return;

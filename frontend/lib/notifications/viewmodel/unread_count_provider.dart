@@ -16,6 +16,8 @@ class UnreadCountNotifier extends Notifier<int> {
   /// 서버 값으로 맞춘다. 못 읽으면 앞의 값을 그대로 둔다(배지가 잠깐 틀려도 화면을 막지 않는다).
   Future<void> refresh() async {
     if (_pending.isNotEmpty) await Future.wait(_pending.toList());
+    // 기다리는 사이 로그아웃으로 버려졌으면 다시 읽지 않는다 — 버려진 ref 를 쓰면 던진다.
+    if (!ref.mounted) return;
     final result = await ref.read(notificationsRepositoryProvider).fetchUnreadCount();
     if (!ref.mounted) return;
     result.when(onSuccess: (count) => state = count, onFailure: (_) {});

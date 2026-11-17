@@ -68,6 +68,8 @@ class TagPickerViewModel extends Notifier<TagPickerUiState> {
     try {
       final repository = ref.read(tagPickerRepositoryProvider);
       final result = await repository.submit(_kind.endpoint, state.selected.toList());
+      // 보내는 사이 로그아웃으로 버려졌으면 늦게 온 답은 버린다 — 상태 · ref 를 건드리면 던진다.
+      if (!ref.mounted) return;
       reportIfOnboardingBlocked(ref, result);
       state = result.when(
         onSuccess: (_) => state.copyWith(isSubmitting: false, completed: true),

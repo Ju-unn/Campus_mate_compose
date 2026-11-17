@@ -333,6 +333,49 @@ void main() {
     });
   });
 
+  // 11-17: 등록 · 상태 조회를 기다리는 사이 로그아웃으로 버려지면 늦게 온 답이 버려진 상태 · ref 를 건드려 던진다.
+  group('기다리는 사이 버려지면 늦게 온 답은 버린다', () {
+    test('등록(generate)', () async {
+      final gate = repository.generateGate = Completer<void>();
+      final pending = viewModel().generate();
+
+      container.dispose();
+      gate.complete();
+
+      await expectLater(pending, completes);
+    });
+
+    test('다시 만들기(retry) — 등록 뒤 상태를 묻지 않는다', () async {
+      final gate = repository.generateGate = Completer<void>();
+      final pending = viewModel().retry();
+
+      container.dispose();
+      gate.complete();
+
+      await expectLater(pending, completes);
+      expect(repository.statusCount, 0);
+    });
+
+    test('15b 다시 만들기(regenerate)', () async {
+      final gate = repository.generateGate = Completer<void>();
+      final pending = viewModel().regenerate();
+
+      container.dispose();
+      gate.complete();
+
+      await expectLater(pending, completes);
+    });
+
+    test('상태 조회(refreshStatus)', () async {
+      final gate = repository.statusGate = Completer<void>();
+      final pending = viewModel().refreshStatus();
+
+      container.dispose();
+      gate.complete();
+
+      await expectLater(pending, completes);
+    });
+  });
 }
 
 Matcher _rejected(String message) =>

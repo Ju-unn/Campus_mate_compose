@@ -97,4 +97,17 @@ void main() {
     expect(state().rows.map((row) => row.blockId), ['b1', 'b2']);
     expect(state().error, isA<ServerUnavailableFailure>());
   });
+
+  // 11-17: 만들자마자 버려지면(로그아웃) build 의 첫 읽기 microtask 가 버려진 ref 를 쓰면 던진다(#768 과 같은 모양).
+  test('만들자마자 버려지면 첫 읽기를 하지 않는다', () async {
+    final local = ProviderContainer(overrides: [
+      contactBlockRepositoryProvider.overrideWithValue(repository),
+      contactNameStoreProvider.overrideWithValue(nameStore),
+    ]);
+    local.read(contactBlockListViewModelProvider);
+
+    local.dispose();
+
+    await pumpEventQueue();
+  });
 }

@@ -28,6 +28,8 @@ class AcquisitionViewModel extends Notifier<AcquisitionUiState> {
     state = state.copyWith(isSubmitting: true);
     try {
       final result = await ref.read(acquisitionRepositoryProvider).submit(state.channel!, state.noteToSend);
+      // 보내는 사이 로그아웃으로 버려졌으면 늦게 온 답은 버린다 — 상태 · ref 를 건드리면 던진다.
+      if (!ref.mounted) return;
       state = result.when(
         onSuccess: (_) => state.copyWith(isSubmitting: false, completed: true),
         onFailure: (failure) => state.copyWith(isSubmitting: false, error: failure),
