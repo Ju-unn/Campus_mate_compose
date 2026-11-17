@@ -794,4 +794,16 @@ void main() {
     });
   });
 
+  // 11-17: 가격을 읽는 사이 로그아웃으로 버려지면 이어서 서버 자격을 읽으려 버려진 ref 를 써 던진다.
+  test('가격을 읽는 사이 버려지면 더 읽지 않는다 — 던지지 않는다', () async {
+    final hold = gateway.holdPrices = Completer<void>();
+    final pending = vm().refresh(fromStore: true);
+    await pumpEventQueue();
+
+    container.dispose();
+    hold.complete();
+
+    await expectLater(pending, completes);
+    expect(repo.statusCount, 0);
+  });
 }

@@ -230,4 +230,31 @@ void main() {
 
     expect(repository.submitted, hasLength(1));
   });
+
+  // 11-17: 만들자마자 버려지면(로그아웃) build 의 첫 읽기 microtask 가 버려진 ref 를 쓰면 던진다(#768 과 같은 모양).
+  test('만들자마자 버려지면 첫 읽기를 하지 않는다', () async {
+    final local = ProviderContainer(overrides: [
+      heartTaskRepositoryProvider.overrideWithValue(repository),
+      imageCompressorProvider.overrideWithValue(compressor),
+    ]);
+    local.read(heartTasksViewModelProvider);
+
+    local.dispose();
+
+    await pumpEventQueue();
+  });
+
+  // 11-17: 압축하는 사이 로그아웃으로 버려지면 버려진 ref 로 올리기를 시작해 던진다. 만든 압축본도 지워야 한다.
+  test('압축하는 사이 버려지면 올리지 않고 압축본만 지운다 — 던지지 않는다', () async {
+    final viewModel = submitViewModel();
+    await viewModel.addPhotos();
+    final pending = viewModel.submit(HeartTaskKind.kakaoShare);
+
+    container.dispose();
+
+    await expectLater(pending, completes);
+    await pumpEventQueue();
+    expect(repository.submitted, isEmpty);
+    expect(compressor.discardedPaths, hasLength(1));
+  });
 }
