@@ -326,7 +326,9 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
     }
     // 지난 저장의 completed 를 내린다 — 되돌아와 다시 저장하다 실패하면 다음 화면으로 넘어가면 안 된다.
     state = _copyWith(isSubmitting: true, error: null, completed: false);
-    state = await _submittedState();
+    final next = await _submittedState();
+    if (next == null) return;
+    state = next;
     _discardDraftIfCompleted();
     _refreshOnboardingStepIfCompleted();
   }
@@ -339,7 +341,7 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
     unawaited(ref.read(draftStoreProvider).clear(DraftScreen.basicInfo));
   }
 
-  Future<BasicInfoUiState> _submittedState() async {
+  Future<BasicInfoUiState?> _submittedState() async {
     try {
       final repository = ref.read(basicInfoRepositoryProvider);
       final submission = BasicInfoSubmission(
@@ -351,6 +353,8 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
         mbti: state.mbti,
       );
       final result = await repository.submit(submission);
+      // 보내는 사이 로그아웃으로 버려졌으면 null — 늦게 온 답으로 버려진 상태 · ref 를 건드리면 던진다.
+      if (!ref.mounted) return null;
       reportIfOnboardingBlocked(ref, result);
       return _stateFromResult(result);
     } catch (_) {

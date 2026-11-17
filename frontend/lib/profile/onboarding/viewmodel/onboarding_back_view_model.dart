@@ -34,7 +34,8 @@ class OnboardingBackViewModel extends Notifier<bool> {
   Future<void> _readSaved(OnboardingStep back) async {
     ref.invalidate(myProfileProvider);
     await ref.read(myProfileProvider.future);
-    if (back != OnboardingStep.kakaoId) {
+    // 읽는 사이 로그아웃으로 버려졌으면 더 읽지 않는다 — 버려진 ref 를 쓰면 던진다.
+    if (back != OnboardingStep.kakaoId || !ref.mounted) {
       return;
     }
     ref.invalidate(savedKakaoIdProvider);

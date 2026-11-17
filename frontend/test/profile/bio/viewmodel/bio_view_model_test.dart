@@ -189,6 +189,24 @@ void main() {
     expect(analytics.calls, ['onboarding_blocked:bio:server']);
   });
 
+  // 11-17: 보내는 사이 로그아웃으로 버려지면 늦게 온 답이 버려진 상태 · ref 를 건드려 던진다(catch 안에서 또 던진다).
+  test('보내는 사이 버려지면 늦게 온 답은 버린다 — 던지지 않는다', () async {
+    final vm = container.read(bioViewModelProvider.notifier)..changeBio('  같이 밥 먹을 사람 찾아요  ');
+    final pending = vm.submit();
+
+    container.dispose();
+
+    await expectLater(pending, completes);
+  });
+
+  // 11-17: 보내는 사이 로그아웃으로 버려지면 늦게 온 답이 버려진 상태 · ref 를 건드려 던진다(catch 안에서 또 던진다).
+  test('초안을 받는 사이 버려지면 늦게 온 초안은 버린다 — 던지지 않는다', () async {
+    final pending = container.read(bioViewModelProvider.notifier).loadDraft();
+
+    container.dispose();
+
+    await expectLater(pending, completes);
+  });
 }
 
 Matcher _kind(AppError error) => isA<AppErrorFailure>().having((failure) => failure.error, 'error', error);

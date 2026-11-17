@@ -715,6 +715,22 @@ void main() {
     expect(analytics.calls, ['onboarding_blocked:basic_info:rejected']);
   });
 
+  // 11-17: 보내는 사이 로그아웃으로 버려지면 늦게 온 답이 버려진 상태 · ref 를 건드려 던진다(catch 안에서 또 던진다).
+  testWidgets('보내는 사이 버려지면 늦게 온 답은 버린다 — 던지지 않는다', (tester) async {
+    final vm = container.read(basicInfoViewModelProvider.notifier);
+    vm.changeNickname('가나다');
+    await tester.pump(const Duration(milliseconds: 350));
+    vm.changeBirthYear('2002');
+    vm.changeHeight('175');
+    vm.changePhoneNumber('010-0135-2468');
+    vm.changeGender('male');
+    await _verifyPhone(vm);
+    final pending = vm.submit();
+
+    container.dispose();
+
+    await expectLater(pending, completes);
+  });
 }
 
 Matcher _rejected(String message) =>
