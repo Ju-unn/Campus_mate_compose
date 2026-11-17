@@ -1629,7 +1629,7 @@ INFO 를 켠 로거는 핸들러를 직접 달아서 같은 로거의 WARNING �
 | --- | --- |
 | 바뀐 응답 | `GET /admin/users` · `POST /admin/users/search` 의 줄마다 `gender`(`male` · `female` · null) · `acquisition_channel`(`everytime` · `instagram` · `friend` · `community` · `other` · null)이 더해졌다. `GET /admin/users/{id}` 는 거기에 `acquisition_note`(기타일 때 30자 메모, 그 밖은 null)도. 옛 칸은 그대로다 |
 | 새 경로 | `GET /admin/users/totals` → `{"gender": {"male", "female", "none"}, "acquisition_channel": {"everytime", "instagram", "friend", "community", "other", "none"}}` 개수만(null = `none`). 다른 관리자 경로와 같은 관문(`get_admin_caller` — 로그인 → 2단계 aal2 → 명단) 아래이고, 읽기라 작업 기록에 남기지 않는다 |
-| 합계 기준 | 사용자 목록(q 없음)과 같다 — **관리자 계정만 빼고**(`id=not.in.(관리자)`), 상태(가입 중 · 승인 · 정지 · **탈퇴**)는 가리지 않는다. 탈퇴(`withdraw_account`)는 성별 · 경로 칸을 지우지 않아 탈퇴자도 원래 값으로 세진다 |
+| 합계 기준 | **관리자 계정**(`id=not.in.(관리자)`)과 **테스트대학 사람**(학교 `region_group` = `e2e`, 11-17 사용자 요청)을 뺀다. 학교가 아직 없는 가입 중 사람은 센다(`or=(university_id.is.null,university_id.not.in.(시험 학교))` — `universities!inner` 는 이 사람을 빼므로 쓰지 않는다). 그래서 테스트대학이 보이는 사용자 목록과 숫자가 다르다. 상태(가입 중 · 승인 · 정지 · **탈퇴**)는 가리지 않는다. 탈퇴(`withdraw_account`)는 성별 · 경로 칸을 지우지 않아 탈퇴자도 원래 값으로 세진다 |
 | 세는 방법 | 칸 값마다 PostgREST `count=exact` 한 번씩(성별 3 + 경로 6 = 9번, 동시에). 줄을 내려받아 세지 않는다(1000줄 상한에 잘린다) |
 | 화면 | 관리자 웹 A5 찾기: 칩 줄 오른쪽에 합계 한 줄, 표 끝에 "성별" · "들어온 경로" 두 칸. 상세: 머리 카드 메타 줄 끝에 성별 · 들어온 경로(기타면 메모). 경로 글자는 앱 20d 칩(`app_ko.arb`)과 같다(`friend` = "친구 소개") |
 | 시험 | pytest `backend/tests/admin/test_admin_users.py`(합계 · 목록 · 상세 칸), admin_web `test/users/` · `test/api/admin_api_users_billing_test.dart` |
