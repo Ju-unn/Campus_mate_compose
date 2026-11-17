@@ -18,6 +18,8 @@ void main() {
     expect(AdminSection.matching.label, '매칭');
     expect(AdminSection.unknownDomains.titleOf('/unknown-domains'), '미등록 학교 메일');
     expect(AdminSection.actions.titleOf('/actions'), '작업 기록');
+    expect(AdminSection.serverStatus.titleOf('/server-status'), '서버 상태');
+    expect(AdminSection.ownerOf('/server-status'), AdminSection.serverStatus);
   });
 
   test('졸업생 메뉴는 TopBar 에 "졸업생 검수"(pen A10), 메뉴 글자는 "졸업생"', () {

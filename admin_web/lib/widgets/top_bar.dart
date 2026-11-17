@@ -7,12 +7,14 @@ import 'package:flutter/material.dart';
 
 /// pen Web/TopBar(보드 UUkLx · A2 PNG): 높이 64, 흰 바탕, 아래 web-hairline 1, 좌우 32.
 /// 왼쪽 제목(lg), 오른쪽 관리자 메일 · "2단계 인증됨" 배지 · 로그아웃 글자 단추(사이 16).
+/// 서버 상태(pen TopBar · 새로고침 UozLM)는 메일 앞에 [refresh](마지막 갱신 + [새로고침])를 16 띄워 둔다.
 class TopBar extends StatelessWidget {
-  const TopBar({super.key, required this.title, required this.email, required this.onSignOut});
+  const TopBar({super.key, required this.title, required this.email, required this.onSignOut, this.refresh});
 
   final String title;
   final String email;
   final VoidCallback onSignOut;
+  final Widget? refresh;
 
   @override
   Widget build(BuildContext context) {
@@ -28,6 +30,7 @@ class TopBar extends StatelessWidget {
         children: [
           Semantics(header: true, child: Text(title, style: AdminTypography.lg.copyWith(color: AdminColors.ink))),
           const Spacer(),
+          if (refresh case final refresh?) ...[refresh, const SizedBox(width: AdminSpacing.md)],
           Text(email, style: AdminTypography.sm.copyWith(color: AdminColors.muted)),
           const SizedBox(width: AdminSpacing.md),
           const StatusBadge('2단계 인증됨'),

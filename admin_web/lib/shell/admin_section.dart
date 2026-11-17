@@ -14,6 +14,8 @@ enum AdminSection {
   users('/users', '사용자', LucideIcons.users),
   billing('/billing', '결제', LucideIcons.creditCard),
   unknownDomains('/unknown-domains', '미등록 학교 메일', LucideIcons.mail),
+  // pen SideNav v2(BQyo6) — 작업 기록 바로 위, Lucide activity(11-17)
+  serverStatus('/server-status', '서버 상태', LucideIcons.activity),
   actions('/actions', '작업 기록', LucideIcons.clipboardList);
 
   const AdminSection(this.path, this.label, this.icon);

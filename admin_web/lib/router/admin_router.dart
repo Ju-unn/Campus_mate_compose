@@ -16,6 +16,7 @@ import 'package:campus_mate_admin/screens/login_screen.dart';
 import 'package:campus_mate_admin/screens/mfa_enroll_screen.dart';
 import 'package:campus_mate_admin/screens/mfa_verify_screen.dart';
 import 'package:campus_mate_admin/screens/status_screens.dart';
+import 'package:campus_mate_admin/server_status/server_status_screen.dart';
 import 'package:campus_mate_admin/shell/admin_section.dart';
 import 'package:campus_mate_admin/shell/admin_shell.dart';
 import 'package:campus_mate_admin/unknown_domains/unknown_domains_screen.dart';
@@ -142,7 +143,7 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
       ShellRoute(
         builder: (context, state, child) {
           final section = AdminSection.ownerOf(state.uri.path) ?? AdminSection.home;
-          return AdminShell(section: section, title: section.titleOf(state.uri.path), child: child);
+          return AdminShell(section: section, title: section.titleOf(state.uri.path), path: state.uri.path, child: child);
         },
         routes: [for (final section in AdminSection.values) ..._sectionRoutes(section)],
       ),
@@ -191,6 +192,8 @@ Widget _sectionScreen(AdminSection section, String? id, Object? extra) {
     // 매칭 · 미등록 학교 메일 · 작업 기록은 아래 주소가 따로 없다(검색어 · 필터를 주소에 싣지 않는다) — 어떤 주소로 와도 이 한 화면
     AdminSection.matching => const MatchingScreen(),
     AdminSection.unknownDomains => const UnknownDomainsScreen(),
+    // 서버 상태도 아래 주소가 따로 없다 — 어떤 주소로 와도 이 한 화면
+    AdminSection.serverStatus => const ServerStatusScreen(),
     AdminSection.actions => const ActionLogScreen(),
   };
 }

@@ -1101,7 +1101,9 @@ void main() {
       final server = await openDetail(tester, path: '/reports/..%2Fme');
 
       expect(find.text('신고를 찾을 수 없어요'), findsOneWidget);
-      expect(server.requests.map((r) => r.url.path), everyElement('/admin/me'));
+      // 셸의 메뉴 배지 읽기(서버 상태 · 대기 건수)는 빼고 본다
+      final shellReads = {'/admin/server-status', '/admin/pending-counts'};
+      expect(server.requests.map((r) => r.url.path).where((p) => !shellReads.contains(p)), everyElement('/admin/me'));
     });
 
     testWidgets('"← 신고 목록" 을 누르면 목록(/reports)', (tester) async {

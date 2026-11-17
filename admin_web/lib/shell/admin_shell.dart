@@ -1,7 +1,9 @@
 import 'package:campus_mate_admin/gate/gate_controller.dart';
 import 'package:campus_mate_admin/gate/gate_stage.dart';
 import 'package:campus_mate_admin/providers.dart';
+import 'package:campus_mate_admin/server_status/server_status_screen.dart';
 import 'package:campus_mate_admin/shell/admin_section.dart';
+import 'package:campus_mate_admin/shell/nav_badges.dart';
 import 'package:campus_mate_admin/theme/admin_colors.dart';
 import 'package:campus_mate_admin/theme/admin_spacing.dart';
 import 'package:campus_mate_admin/widgets/gate_card.dart';
@@ -16,32 +18,53 @@ import 'package:go_router/go_router.dart';
 /// 브라우저 Ctrl+F 가 안 먹으니 글자는 끌어서 복사할 수 있게 한다 — TopBar(관리자 메일)와 화면마다(router 의 페이지) 따로 건다.
 /// 셸 전체(Navigator 포함)에 하나만 걸면, 상세 화면(/reports/123) 밑에 깔린 목록 페이지(그려지지 않음)의 글자까지
 /// 재려다 멈춘다(10-18 시험에서 확인).
-class AdminShell extends ConsumerWidget {
-  const AdminShell({super.key, required this.section, required this.child, this.title});
+class AdminShell extends ConsumerStatefulWidget {
+  const AdminShell({super.key, required this.section, required this.child, this.title, this.path});
 
   final AdminSection section;
 
   /// TopBar · 탭 제목. null 이면 메뉴 이름(상세 주소는 [AdminSection.titleOf]).
   final String? title;
+
+  /// 지금 주소. 바뀌면(메뉴 이동 · 상세 열기) 메뉴 대기 건수를 다시 읽는다 — 시계로 다시 부르지 않는다.
+  final String? path;
   final Widget child;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AdminShell> createState() => _AdminShellState();
+}
+
+class _AdminShellState extends ConsumerState<AdminShell> {
+  @override
+  void didUpdateWidget(AdminShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 값은 응답이 온 뒤에야 바뀐다(그리는 중 상태를 바꾸지 않는다)
+    if (oldWidget.path != widget.path) ref.read(pendingCountsProvider.notifier).refresh();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final section = widget.section;
     final stage = ref.watch(gateProvider).value;
-    final title = this.title ?? section.label;
+    final title = widget.title ?? section.label;
     final email = stage is Ready ? stage.email : '';
     final shell = Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SideNav(selected: section, onSelect: (next) => context.go(next.path)),
+        SideNav(selected: section, onSelect: (next) => context.go(next.path), badgeOf: ref.watch(navBadgesProvider)),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SelectionArea(
-                child: TopBar(title: title, email: email, onSignOut: () => ref.read(adminAuthProvider).signOut()),
+                child: TopBar(
+                  title: title,
+                  email: email,
+                  onSignOut: () => ref.read(adminAuthProvider).signOut(),
+                  refresh: section == AdminSection.serverStatus ? const ServerRefreshControl() : null,
+                ),
               ),
-              Expanded(child: child),
+              Expanded(child: widget.child),
             ],
           ),
         ),

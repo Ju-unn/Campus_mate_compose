@@ -2,15 +2,21 @@ import 'package:campus_mate_admin/shell/admin_section.dart';
 import 'package:campus_mate_admin/theme/admin_colors.dart';
 import 'package:campus_mate_admin/theme/admin_spacing.dart';
 import 'package:campus_mate_admin/theme/admin_typography.dart';
+import 'package:campus_mate_admin/widgets/count_badge.dart';
 import 'package:flutter/material.dart';
 
 /// pen Web/SideNav(보드 UUkLx · A2 PNG): 폭 240, 흰 바탕, 오른쪽 web-hairline 1.
 /// 로고 묶음(왼쪽 28 · 위 24) 아래 24 띄워 메뉴(좌우 16, 항목 44 · 간격 4).
 class SideNav extends StatelessWidget {
-  const SideNav({super.key, required this.selected, required this.onSelect});
+  const SideNav({super.key, required this.selected, required this.onSelect, this.badgeOf = _noBadge});
 
   final AdminSection selected;
   final ValueChanged<AdminSection> onSelect;
+
+  /// 메뉴 오른쪽 끝 빨간 숫자(pen Web/SideNav Item · 배지 QtFLt). 0 이면 없다.
+  final int Function(AdminSection section) badgeOf;
+
+  static int _noBadge(AdminSection section) => 0;
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +45,7 @@ class SideNav extends StatelessWidget {
                         key: ValueKey('nav-${section.name}'),
                         section: section,
                         selected: section == selected,
+                        badge: badgeOf(section),
                         onTap: () => onSelect(section),
                       ),
                     ),
@@ -80,10 +87,11 @@ class _Logo extends StatelessWidget {
 /// 하루에도 수십 번 누르는 곳이라 움직임은 없다(물결 없음). pen 에 없는 상태는 웹 토큰 안에서 정했다:
 /// 올림 web-ink 4% 덧칠 · 누름 8% · 키보드 초점 web-ink 2 테두리(대장 보고표로 pen 역반영).
 class _NavItem extends StatefulWidget {
-  const _NavItem({super.key, required this.section, required this.selected, required this.onTap});
+  const _NavItem({super.key, required this.section, required this.selected, required this.badge, required this.onTap});
 
   final AdminSection section;
   final bool selected;
+  final int badge;
   final VoidCallback onTap;
 
   @override
@@ -126,14 +134,17 @@ class _NavItemState extends State<_NavItem> {
                 children: [
                   Icon(section.icon, size: AdminSizes.navIcon, color: selected ? foreground : AdminColors.muted),
                   const SizedBox(width: AdminSpacing.sm),
-                  // pen SideNav Item: 켜짐(lJF8t) 14/700 · 꺼짐(k5h02V) 14/600
-                  Text(
-                    section.label,
-                    style: AdminTypography.smStrong.copyWith(
-                      color: foreground,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                  // pen SideNav Item: 켜짐(lJF8t) 14/700 · 꺼짐(k5h02V) 14/600. 글자 칸이 남는 폭을 채워 배지를 맨 오른쪽에 민다(QtFLt).
+                  Expanded(
+                    child: Text(
+                      section.label,
+                      style: AdminTypography.smStrong.copyWith(
+                        color: foreground,
+                        fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                      ),
                     ),
                   ),
+                  if (widget.badge > 0) ...[const SizedBox(width: AdminSpacing.sm), CountBadge(count: widget.badge)],
                 ],
               ),
             ),

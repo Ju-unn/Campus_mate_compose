@@ -250,6 +250,8 @@ class FakeUserServer {
     requests.add(request);
     final path = request.url.path;
     if (path == '/admin/me') return _json(200, const {});
+    // 셸의 메뉴 배지 읽기(서버 상태 · 대기 건수)는 이 가짜가 모른다 — 아래 조치 경로 해석으로 넘기지 않는다
+    if (path == '/admin/server-status' || path == '/admin/pending-counts') return _json(404, const {'detail': 'Not Found'});
     if (path.startsWith('/admin/billing')) return _billing(request);
     if (request.method == 'GET' && path == '/admin/users') {
       await holdList?.future;
