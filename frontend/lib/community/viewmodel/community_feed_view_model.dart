@@ -19,7 +19,8 @@ class CommunityFeedViewModel extends Notifier<CommunityFeedUiState> {
 
   @override
   CommunityFeedUiState build() {
-    Future.microtask(refresh);
+    // 만들자마자 버려졌으면(로그아웃) 읽지 않는다 — 버려진 ref 를 쓰면 던진다.
+    Future.microtask(() => ref.mounted ? refresh() : null);
     return const CommunityFeedUiState();
   }
 
@@ -48,8 +49,8 @@ class CommunityFeedViewModel extends Notifier<CommunityFeedUiState> {
 
   Future<void> _loadFirst(PollFeedTab tab) async {
     final result = await ref.read(communityRepositoryProvider).fetchPolls(tab: tab);
-    // 받는 사이 탭을 바꿨으면 버린다 — 앞 탭 목록이 지금 탭 자리에 뜨면 안 된다.
-    if (state.tab != tab) return;
+    // 받는 사이 로그아웃으로 버려졌거나 탭을 바꿨으면 버린다 — 버려진 상태를 건드리면 던지고, 앞 탭 목록이 지금 탭 자리에 뜨면 안 된다.
+    if (!ref.mounted || state.tab != tab) return;
     state = result.when(
       // 새 상태로 갈아 끼운다 — 지난 오류 문구를 지우려면 copyWith 로는 안 된다.
       onSuccess: (page) => CommunityFeedUiState(
@@ -73,8 +74,8 @@ class CommunityFeedViewModel extends Notifier<CommunityFeedUiState> {
     final result = await ref
         .read(communityRepositoryProvider)
         .fetchPolls(tab: tab, before: last.createdAt, beforeId: last.id);
-    // 받는 사이 탭을 바꿨으면 버린다 — 앞 탭의 다음 쪽이 지금 탭 목록 뒤에 붙으면 안 된다.
-    if (state.tab != tab) return;
+    // 받는 사이 로그아웃으로 버려졌거나 탭을 바꿨으면 버린다 — 앞 탭의 다음 쪽이 지금 탭 목록 뒤에 붙으면 안 된다.
+    if (!ref.mounted || state.tab != tab) return;
     state = result.when(
       onSuccess: (page) {
         // 새로 고침과 겹치면 같은 글이 두 번 올 수 있다 — id 로 거른다.
@@ -94,6 +95,8 @@ class CommunityFeedViewModel extends Notifier<CommunityFeedUiState> {
     if (state.votingIds.contains(pollId)) return null;
     state = state.copyWith(votingIds: {...state.votingIds, pollId});
     final result = await ref.read(communityRepositoryProvider).vote(pollId, choice);
+    // 보내는 사이 로그아웃으로 버려졌으면 늦게 온 답은 버린다 — 상태 · ref 를 건드리면 던진다. 알릴 화면도 없다.
+    if (!ref.mounted) return null;
     final notice = await result.when<Future<PollVoteNotice?>>(
       onSuccess: (outcome) async {
         _replace(outcome.poll);
@@ -110,6 +113,7 @@ class CommunityFeedViewModel extends Notifier<CommunityFeedUiState> {
         return PollVoteNotice.failed(failure);
       },
     );
+    if (!ref.mounted) return null;
     state = state.copyWith(votingIds: {...state.votingIds}..remove(pollId));
     return notice;
   }
@@ -119,7 +123,8 @@ class CommunityFeedViewModel extends Notifier<CommunityFeedUiState> {
     final result = await ref.read(communityRepositoryProvider).deletePoll(pollId);
     return result.when(
       onSuccess: (_) {
-        _remove(pollId);
+        // 지우는 사이 로그아웃으로 버려졌으면 목록은 없다 — 지워진 것은 그대로 알린다.
+        if (ref.mounted) _remove(pollId);
         return null;
       },
       onFailure: (failure) => failure,
@@ -128,6 +133,7 @@ class CommunityFeedViewModel extends Notifier<CommunityFeedUiState> {
 
   Future<void> _reloadOne(String pollId) async {
     final result = await ref.read(communityRepositoryProvider).fetchPoll(pollId);
+    if (!ref.mounted) return;
     result.when(
       onSuccess: _replace,
       onFailure: (failure) {
