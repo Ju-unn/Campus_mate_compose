@@ -10,6 +10,7 @@ import 'package:campus_mate_admin/home/home_item.dart';
 import 'package:campus_mate_admin/inquiries/inquiry_item.dart';
 import 'package:campus_mate_admin/matching/matching_item.dart';
 import 'package:campus_mate_admin/reports/report_item.dart';
+import 'package:campus_mate_admin/server_status/server_status_models.dart';
 import 'package:campus_mate_admin/unknown_domains/unknown_domain_item.dart';
 import 'package:campus_mate_admin/users/user_item.dart';
 import 'package:http/http.dart' as http;
@@ -270,6 +271,12 @@ class AdminApi {
   }
 
   Future<HealthReport> health() => _read(send('GET', '/admin/health'), HealthReport.fromJson);
+
+  // 서버 상태(A11) · 메뉴 배지 — 서버 계약은 backend/app/admin/server_status.py · stats.py. 구글을 못 읽으면 503.
+
+  Future<ServerStatus> serverStatus() => _read(send('GET', '/admin/server-status'), ServerStatus.fromJson);
+
+  Future<PendingCounts> pendingCounts() => _read(send('GET', '/admin/pending-counts'), PendingCounts.fromJson);
 
   /// 많은 순(서버 기본 200곳)
   Future<List<UnknownDomain>> unknownDomains() {
