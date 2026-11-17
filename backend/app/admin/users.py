@@ -112,12 +112,12 @@ async def list_users(
 
 @router.get("/totals")
 async def user_totals(caller: AdminCaller = Depends(get_admin_caller)) -> dict:
-    """사용자 화면 위 합계 — 목록(q 없음)과 같은 기준(관리자 제외, 가입 중 · 정지 · 탈퇴 포함)의 성별 · 들어온 경로 인원.
-    개수만 싣는다. `/{user_id}` 보다 먼저 선언해야 "totals" 가 사용자 번호로 읽히지 않는다."""
+    """사용자 화면 위 합계 — 관리자와 시험 학교(테스트대학) 사람을 뺀(가입 중 · 정지 · 탈퇴는 포함) 성별 · 들어온 경로 인원.
+    목록과 달리 시험 학교를 뺀다(사용자 요청 2026-11-17). 개수만 싣는다. `/{user_id}` 보다 먼저 선언해야 "totals" 가 사용자 번호로 읽히지 않는다."""
     repo = _repo(caller)
-    admins = await repo.admin_ids()
-    gender, channel = await asyncio.gather(repo.count_profiles_by("gender", GENDERS, admins),
-                                           repo.count_profiles_by("acquisition_channel", CHANNELS, admins))
+    admins, schools = await asyncio.gather(repo.admin_ids(), repo.e2e_university_ids())
+    gender, channel = await asyncio.gather(repo.count_profiles_by("gender", GENDERS, admins, schools),
+                                           repo.count_profiles_by("acquisition_channel", CHANNELS, admins, schools))
     return {"gender": gender, "acquisition_channel": channel}
 
 
