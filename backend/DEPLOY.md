@@ -56,6 +56,14 @@ gcloud projects add-iam-policy-binding <PROJECT_ID> \
 역할 이름은 `roles/firebasecloudmessaging.admin` 이다 — `roles/firebasemessaging.admin` 은 없는 역할이라
 `add-iam-policy-binding` 이 그 자리에서 거부한다.
 
+관리자 웹 "서버 상태"(`GET /admin/server-status`)는 Cloud Monitoring 을 **읽기만** 한다 — 같은 서비스 계정에 보기 역할 하나(2026-11-17 부여 끝). 없으면 화면이 늘 503("잠시 후 다시 시도해 주세요")이다.
+
+```bash
+gcloud projects add-iam-policy-binding <PROJECT_ID> \
+  --member=serviceAccount:<PROJECT_NUMBER>-compute@developer.gserviceaccount.com \
+  --role=roles/monitoring.viewer
+```
+
 ## 2. 배포
 
 **운영 서비스는 이미 돌고 있다. 코드 배포 · env 변경 · 되돌림은 아래 "현행 배포 방식" 의 고정 3단계로만 한다**(2026-11-13 개정: 종전에는 되돌리는 명령이 문서에 없었다). `--set-env-vars` · `--set-secrets`(목록을 통째로 갈아끼운다)는 쓰지 않는다 — 목록에 없는 값(애플 · 문자 · 관리자 웹 · 강제 업데이트 설정 등)이 지워진다. 처음 서비스를 만들 때 한 번 쓴 전체 명령은 이 절 맨 아래 "최초 배포 명령(기록)" 에 기록으로만 남겼다. 이 절의 명령은 모두 운영 명령이라 사용자가 승인한 뒤에만 실행한다(위 맨 앞 문장 · spec §13-37).
