@@ -345,4 +345,50 @@ void main() {
 
     await expectLater(reading, completes);
   });
+
+  // 11-17: 알림 설정(#765)과 같은 FATAL — 구매 응답 · 다시 읽기를 기다리는 사이 버려진 뒤 상태를 쓰면 던진다.
+  group('구매 도중 provider 가 버려지면 늦은 응답은 버린다', () {
+    late ProviderContainer local;
+
+    setUp(() async {
+      local = ProviderContainer(overrides: [cardRepositoryProvider.overrideWithValue(repository)]);
+      repository.today = const Success(TodayCards(cards: [_card], paidCard: _offer));
+      await local.read(todayCardsViewModelProvider.notifier).refresh();
+    });
+
+    test('구매 응답을 기다리는 도중', () async {
+      final hold = repository.holdPurchase = Completer<void>();
+      final buying = local.read(todayCardsViewModelProvider.notifier).purchase('offer-1');
+
+      local.dispose();
+      hold.complete();
+
+      await expectLater(buying, completes);
+    });
+
+    test('구매가 막혀(409) 목록을 다시 읽는 도중', () async {
+      repository.purchaseResult = const FailureResult(ServerRejectedFailure(paidOfferGoneMessage));
+      final hold = repository.holdToday = Completer<void>();
+      final buying = local.read(todayCardsViewModelProvider.notifier).purchase('offer-1');
+      await pumpEventQueue();
+
+      local.dispose();
+      hold.complete();
+
+      await expectLater(buying, completes);
+    });
+
+    test('구매가 끝나 진행 중인 읽기를 기다리는 도중', () async {
+      final hold = repository.holdToday = Completer<void>();
+      final viewModel = local.read(todayCardsViewModelProvider.notifier);
+      unawaited(viewModel.refresh());
+      final buying = viewModel.purchase('offer-1');
+      await pumpEventQueue();
+
+      local.dispose();
+      hold.complete();
+
+      await expectLater(buying, completes);
+    });
+  });
 }
