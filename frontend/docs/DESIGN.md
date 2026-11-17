@@ -168,7 +168,7 @@ Airbnb 의 색 체계를 그대로 가져왔다. 캔버스는 **순백**, 잉크
 | `lockOverlay` | 검정 25% | 잠금 카드 덮개(아바타 결과 화면). `{colors.scrim}`(50%)과 다르다 |
 | `photoRemoveBadge` | 검정 60%(pen `#00000099`) | 사진 칸 모서리의 x 동그라미 바탕(04-2 · 하트 과제 · 졸업생 사진 칸) |
 | `coachDim` | 검정 70%(RGBA `#000000B3`) | 앱 투어 코치 마크 덮개(§8.15, pen `tFIey`). `{colors.scrim}` 과 다르다 |
-| `photoBlurVeil` | `#FFFFFF26`(RGBA, 흰색 15%) | 실제 사진 칸(`PhotoSlider`)의 흐린 뒷 사진 위 덮개(pen `oE1rh` 안 `TjGzA`, 2026-11-17 실사진 전체 보기 — 14c · 15-4b · 15-5) |
+| `photoBlurVeil` | `#FFFFFF59`(RGBA, 흰색 35%) | 실제 사진 칸(`PhotoSlider`)의 흐린 뒷 사진 위 덮개(pen `oE1rh` 안 `TjGzA`, 2026-11-17 실사진 전체 보기 — 14c · 15-4b · 15-5) |
 
 - **새 색이 필요하면 위젯에 `Color(0x…)` 를 쓰지 않고 `lib/core/theme/` 에 토큰을 더한다.** 지킴 시험 `test/core/theme/color_tokens_test.dart` 가 `lib/core/theme/` · `lib/l10n/` 밖의 `Color(0x…)` · `Color.fromARGB/fromRGBO` · `Colors.<이름>.withValues/withOpacity/withAlpha` 를 잡는다. 예외 목록은 지금 비어 있다(예외를 더하려면 시험 파일에 이유를 적는다).
 - 이 토큰들은 앱 팔레트의 의미 토큰이 아니라 "이 자리에서 이 값" 이라는 이름 붙이기다. 같은 값이 두 곳 이상에서 필요해지면 이름이 뜻을 가지는지 먼저 본다(예: `reportLabel` 은 투표 카드와 지인 리뷰 카드가 같이 쓴다).

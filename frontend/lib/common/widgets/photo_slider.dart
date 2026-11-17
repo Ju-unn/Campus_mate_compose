@@ -145,17 +145,17 @@ class _PhotoSlide extends StatelessWidget {
           : null,
       child: Stack(
         children: [
-          // pen `TjGzA` Photo Back · Blur — 420×420 을 (-70,-70) 에 둬 흐림이 옅어지는 가장자리가 칸 밖에 남는다.
-          // shortcut: pen 고정값 420 은 흐림 가장자리(약 3σ)를 빼면 칸 약 320×320 까지만 깨끗이 덮는다, 더 큰 칸이 생기면 칸 크기 + 140 으로 바꾼다.
+          // pen `TjGzA` Photo Back · Blur — 580×580 을 (-150,-150) 에 둬 흐림이 옅어지는 가장자리가 칸 밖에 남는다.
+          // shortcut: 고정값 580 은 흐림 가장자리(약 3σ = 150)를 빼면 칸 280×280 까지 3σ 로 덮고 288 폭 칸은 오른쪽 여유 142(2.84σ, 99.8%)라 눈에 차이가 없다, 더 큰 칸이 생기면 칸 크기 + 300 으로 바꾼다.
           Positioned(
-            left: -70,
-            top: -70,
-            width: 420,
-            height: 420,
+            left: -150,
+            top: -150,
+            width: 580,
+            height: 580,
             child: ImageFiltered(
-              // pen blur 20 = 내보낸 CSS `blur(10px)` = 표준 편차 10.
-              imageFilter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              // 앞 사진과 같은 ImageProvider — 캐시 키가 같아 한 번만 내려받는다. 흰 15% 는 사진 위에만 얹는다.
+              // pen blur 100 = 내보낸 CSS `blur(50px)` = 표준 편차 50(11-17 사용자 「c로 수정필요」).
+              imageFilter: ui.ImageFilter.blur(sigmaX: 50, sigmaY: 50),
+              // 앞 사진과 같은 ImageProvider — 캐시 키가 같아 한 번만 내려받는다. 흰 35% 는 사진 위에만 얹는다.
               child: Image(
                 image: image,
                 fit: BoxFit.cover,
