@@ -165,3 +165,14 @@
 - [ ] campus-git draft PR(서버 · 관리자 웹 · 문서 커밋 분리) → CI 초록.
 - [ ] **사용자 허락 받고** 서버 배포(새 리비전 0% → 태그 주소로 확인 → 100%) → 관리자 웹 merge(Vercel 배포).
 - [ ] 문서: `backend/DEPLOY.md` 서버 권한(monitoring.viewer) 한 줄, 노션 진행 기록.
+
+## 구현 편차 기록
+
+(구현 중 계획과 달라진 점만 여기에 덧붙인다. 위 본문은 고치지 않는다. 2026-11-18 문서 정리.)
+
+- **Task 4 확인 방식**: 계획의 "확인 시각 하나"(`ConfirmStore { DateTime? read(); void write(DateTime at); }` · 키 `cm_admin_server_confirmed_at`)는 **이상 열쇠 묶음**으로 바뀌었다. 이상 시각이 5분 칸의 시작이라 "확인 시각 뒤" 로 세면 확인 직후 같은 칸에 생긴 이상을 놓치기 때문이다. 키는 `cm_admin_server_seen`, 값은 "시각 UTC ISO|종류" 글자의 JSON 배열이고 지금 응답 창 밖의 열쇠는 [확인] 때 버려 저장 값이 자라지 않는다. `serverConfirmedAtProvider` 는 `serverSeenProvider`(`Set<String>`)가 됐다. 저장값은 로그아웃해도 지우지 않는다(운영 정보가 아님, 대장 11-18).
+- **Task 4 상태 모양**: `serverStatusProvider` 는 계획의 `AsyncValue<ServerStatus>` 가 아니라 `ServerStatusState(status · failure · loading)` 를 든 `Notifier` 다 — 새로고침 중에도 앞 숫자를 그대로 두려는데 Riverpod 3 의 "앞 값을 든 로딩"이 밖에 열려 있지 않아서다. 도는 중 [새로고침]은 무시한다.
+- **Task 4 관리자 바뀜**: 세 provider(서버 상태 · 대기 건수 · 본 이상)는 지금 들어온 관리자(메일)를 지켜본다. 로그아웃 · 다른 관리자 로그인 · 세션 끊김 때 처음부터 다시 만들어, 같은 브라우저의 다음 사람이 앞 사람의 숫자를 보지 않게 한다(계획에 없음, 대장 11-18).
+- **Task 5 화면**: 이상 패널은 10줄까지 보이고 넘는 것은 "외 N건" 한 줄이다(pen 에 없음, 대장 판단). 확인한 줄은 흐리게(설명 muted · 점 `web-disabled`). 서버 오류 그래프에 "느린 요청" 선은 없다 — 서버가 칸마다 느린 요청 수를 주지 않는다(대장 결정 11-17). Crashlytics 링크는 프로젝트 경로 없이 콘솔 첫 화면으로 보낸다(실제 프로젝트 id 를 코드에 두지 않는다).
+- **Task 6**: 서버 배포는 사용자 허락 뒤 새 리비전 `00135-haz`(태그 `s1118`)를 0% 로 점검하고 100% 로 옮겼다(2026-11-18, `backend/DEPLOY.md` §4-33 · §5 개정 6). 관리자 웹은 같은 PR 의 Vercel 자동 배포가 성공했다. 서버 계정의 `roles/monitoring.viewer` 한 줄은 `backend/DEPLOY.md` §1 에 이미 있다.
+- **남은 것**: pen 이상 없음 변형 `siTuo` 의 메뉴 서버 상태 배지 "2" 숨기기 · `AnomalyRow` 확인함 · "외 N건" · 로딩 · 실패 변형 · 복사본 SideNav `BQyo6` 정리, 구글 Monitoring 질의 동시 호출의 가끔 429 — 모두 추후(사용자 「추후 일로 적어둬」).

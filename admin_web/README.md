@@ -33,10 +33,11 @@ GitHub 저장소 변수 `ADMIN_SUPABASE_URL` · `ADMIN_API_BASE_URL`, 비밀값 
 | `lib/widgets/` | pen `Web/` 컴포넌트와 1:1 부품(단추 · 코드 칸 · SideNav · TopBar · 관문 카드 · 칩 · 상태 배지 · 빈 목록 틀 · 대화상자) |
 | `lib/auth/` · `lib/gate/` · `lib/router/` | 구글 로그인 → 2단계(TOTP) → `GET /admin/me` 관문과 go_router 가드 |
 | `lib/api/` | 관리자 서버 클라이언트(Bearer 토큰 · JSON · 403 이유) |
-| `lib/screens/` · `lib/shell/` | 관문 화면들 · 메뉴 틀(메뉴 9개 모두 실제 화면에 연결 — `lib/shell/admin_section.dart`) |
+| `lib/screens/` · `lib/shell/` | 관문 화면들 · 메뉴 틀(메뉴 11개 모두 실제 화면에 연결 — `lib/shell/admin_section.dart`. 2026-11-18 개정, 종전 서술: "메뉴 9개" — 문의 · 서버 상태가 더해졌다) |
 | `lib/heart_tasks/` | A3 인증샷 검수(`/heart-tasks`, 디스코드 링크 `/heart-tasks/{id}`) — 모델 · 컨트롤러 · 화면 · 사진 보기 |
 | `lib/home/` · `lib/matching/` · `lib/unknown_domains/` · `lib/actions/` | A2 홈(통계 카드 · 그래프 셋 · 학교별 표 · 운영 상태판) · A9 매칭 현황 · A6 미등록 학교 메일 · A7 작업 기록 — 모두 읽기 전용(서버 D4 · D3). **A9 는 맨 아래에 "누가 누구에게 대화를 신청했나" 목록이 더해졌다**(2026-10-27, `MatchRequest` 모델 · `matchingRequestsProvider` · 서버 `GET /admin/matching/requests`, 상태 칩 5개) |
 | `lib/reports/` · `lib/users/` · `lib/billing/` · `lib/graduate/` | A4 신고 · A5 사용자 · A8 결제 · A10 졸업생 검수 — 읽기와 함께 조치(승인 · 반려 · 정지 · 하트 조정 등)가 있고, 조치는 서버가 작업 기록(`admin_actions`)에 한 줄을 남긴다. **A5 에는 pen 에 없는 성별 · 들어온 경로가 더해졌다**(찾기 표 끝 두 칸 · 상세 메타 줄 끝, 칩 줄 오른쪽 합계 한 줄 — `UserTotals` · `userTotalsProvider` · 서버 `GET /admin/users/totals`, 관리자 · 테스트대학 제외 · 모든 상태 기준(줄 끝 "(테스트대학 제외)"), `backend/DEPLOY.md` §4-32) |
+| `lib/server_status/` · `lib/shell/nav_badges.dart` · `lib/widgets/count_badge.dart` · `lib/platform/confirm_store*.dart` | A11 서버 상태(서버 `GET /admin/server-status` — 최근 3시간 5분 칸 · 이상 목록 · 숫자 카드 4 · 그래프 2 · Crashlytics 링크, **[새로고침] 수동 · 자동 새로고침 없음**) · 왼쪽 메뉴 빨간 숫자 배지 (`CountBadge`, 서버 `GET /admin/pending-counts` 의 대기 건수 + 서버 상태의 새 이상 수. 0 이면 숨기고 100 이상은 "99+"). [확인]한 이상은 열쇠(칸 시각 · 종류)로 브라우저 저장소(`cm_admin_server_seen`)에 둬 PC · 휴대폰이 따로 센다 — 로그인한 관리자가 바뀌면 숫자는 처음부터 다시 읽는다. 설계 `../docs/superpowers/specs/2026-11-17-admin-server-status-design.md` · 서버 `../backend/DEPLOY.md` §4-33 |
 | `lib/charts/` · `lib/state/` | 직접 그린 그래프(선 · 묶음 막대 · 가로 막대 — 새 부품 없이 CustomPaint, 결제 그래프와 같은 눈금 계산) · 커서 쪽 나누기 목록 틀 |
 
 첫 운영 배포: 2026-10-18(서버 DB 마이그레이션 11개 · 서버 `00086` 적용 뒤, GitHub 자동 배포가 Vercel 프로젝트 `campusmate-admin` 과 주소 `admin.campus-mates.com` 을 만든다).
