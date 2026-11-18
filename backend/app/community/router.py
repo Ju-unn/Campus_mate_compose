@@ -4,7 +4,7 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator
+from pydantic import AfterValidator, BaseModel, Field, StringConstraints, field_validator, model_validator
 
 from app.cards.push import FcmSender
 from app.cards.repository import CardRepository
@@ -13,6 +13,7 @@ from app.community.comment_push import notify_post_author
 from app.community.repository import COMMENT_PAGE_SIZE, POLL_PAGE_SIZE, CommunityRepository, PollTab
 from app.core import errors
 from app.core.deps import Caller, get_now, get_verified_caller
+from app.core.text import SAFE_TEXT, SafeLine, SafeText, require_visible, visible
 
 logger = logging.getLogger(__name__)
 
@@ -70,15 +71,16 @@ OPTION_MAX_LENGTH = 6
 
 
 class PollRequest(BaseModel):
-    question: str = Field(min_length=1, max_length=QUESTION_MAX_LENGTH)
-    option_a_label: str = Field(default="찬성", min_length=1, max_length=OPTION_MAX_LENGTH)
-    option_b_label: str = Field(default="반대", min_length=1, max_length=OPTION_MAX_LENGTH)
+    # 질문은 여러 줄 칸이다 — 지금 앱(17b)의 질문 상자가 줄바꿈을 받는다. 선택지는 앱이 줄바꿈을 막는 한 줄 칸이다(core/text.py).
+    question: SafeText = Field(min_length=1, max_length=QUESTION_MAX_LENGTH)
+    option_a_label: SafeLine = Field(default="찬성", min_length=1, max_length=OPTION_MAX_LENGTH)
+    option_b_label: SafeLine = Field(default="반대", min_length=1, max_length=OPTION_MAX_LENGTH)
 
     @field_validator("question", "option_a_label", "option_b_label")
     @classmethod
     def _not_blank(cls, value: str) -> str:
         stripped = value.strip()
-        if not stripped:
+        if not visible(stripped):  # 0폭 문자만이어도 빈칸이다
             raise ValueError("빈칸뿐인 값은 올릴 수 없다")
         return stripped
 
@@ -126,7 +128,9 @@ COMMENT_MAX_LENGTH = 200
 
 
 class CommentRequest(BaseModel):
-    body: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=COMMENT_MAX_LENGTH)]
+    # 여러 줄 칸(앱 입력 바 4줄). 0폭 문자만이면 빈 댓글이다.
+    body: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=COMMENT_MAX_LENGTH), SAFE_TEXT,
+                    AfterValidator(require_visible)]
 
 
 @router.get("/community/polls/{poll_id}/comments")

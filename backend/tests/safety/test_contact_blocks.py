@@ -41,6 +41,22 @@ def test_the_answer_lines_up_with_the_input_and_skips_non_mobile_numbers(client,
     assert row_3333["id"] == blocks[2]["id"]
 
 
+def test_one_overlong_entry_is_null_and_the_rest_of_the_batch_still_registers(client, world):
+    """앱은 연락처 번호 원문을 그대로 보낸다(11-18 사용자 ②). 30자를 넘는 칸 하나 때문에 200개 묶음이 통째로 실패하지 않게
+    그 자리만 null(휴대전화 아님)이다."""
+    numbers = [f"0101234{i:04d}" for i in range(199)]
+    numbers.insert(57, "010-1234-5678 회사 내선 1234 (집에는 저녁에만)")
+
+    response = client.post("/contact-blocks", headers=AUTH, json={"numbers": numbers})
+
+    assert response.status_code == 200
+    blocks = response.json()["blocks"]
+    assert len(blocks) == 200
+    assert blocks[57] is None
+    assert all(block is not None for i, block in enumerate(blocks) if i != 57)
+    assert len(world.contact_blocks) == 199
+
+
 def test_the_same_number_twice_in_one_request_is_sent_once(client, world):
     """PostgREST 는 한 배치에 같은 키가 두 번 오면 `cannot affect row a second time` 으로 통째로 실패한다."""
     response = client.post("/contact-blocks", headers=AUTH,

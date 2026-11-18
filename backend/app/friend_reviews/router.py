@@ -20,6 +20,7 @@ from app.chat.router import avatar_url
 from app.core import errors
 from app.core.deps import Caller, get_now, get_verified_caller
 from app.core.rate_window import SlidingWindow
+from app.core.text import SAFE_TEXT, SafeText, visible
 from app.friend_reviews.repository import FriendReviewRepository
 from app.safety.router import find_match
 from app.settings import Settings
@@ -46,7 +47,10 @@ CODE_REVIEW_DAILY_LIMIT = 5
 CODE_REVIEW_WINDOW = timedelta(hours=24)
 
 # 대문자 · 공백 정리는 서버가 한다. 여기서는 빈 값과 터무니없이 긴 값만 막는다(referral RedeemRequest 와 같은 틀).
-FriendCode = Annotated[str, StringConstraints(min_length=1, max_length=20, pattern=r"\S")]
+# 코드 속 공백 · 탭 · 줄바꿈은 서버가 지운다(기존 동작) — 그래서 한 줄 칸이 아니라 널 문자 등만 막는 SAFE_TEXT 다.
+FriendCode = Annotated[str, StringConstraints(min_length=1, max_length=20, pattern=r"\S"), SAFE_TEXT]
+# 한마디 줄 상한(11-18 검토). 앱은 3줄로 막는다(friendReviewCommentMaxLines) — 서버는 넉넉히 5줄.
+COMMENT_MAX_LINES = 5
 
 
 class CodeLookupRequest(BaseModel):
@@ -58,7 +62,7 @@ class ReviewRequest(BaseModel):
     reviewee_id: UUID | None = None
     friend_code: FriendCode | None = None
     tags: list[str] = Field(min_length=1, max_length=MAX_TAGS)
-    comment: str | None = Field(default=None, max_length=COMMENT_MAX_LENGTH)
+    comment: SafeText | None = Field(default=None, max_length=COMMENT_MAX_LENGTH)
 
     @field_validator("tags")
     @classmethod
@@ -73,6 +77,14 @@ class ReviewRequest(BaseModel):
         # 깎은 뒤에 길이(max_length)를 잰다 — "가"×100 뒤에 공백 하나가 붙었다고 422 를 내지 않는다.
         # 공백뿐이면 한마디가 없는 것이다. DB check 는 빈 글을 막으므로 null 로 넣는다.
         return (value.strip() or None) if isinstance(value, str) else value
+
+    @field_validator("comment")
+    @classmethod
+    def _visible_within_lines(cls, value: str | None) -> str | None:
+        # 0폭 문자만인 한마디는 거절한다(11-18 검토). 공백만은 위 _trim 이 "한마디 없음" 으로 바꾼다.
+        if value is not None and (not visible(value) or value.count("\n") >= COMMENT_MAX_LINES):
+            raise ValueError(f"한마디는 {COMMENT_MAX_LINES}줄까지 적을 수 있다")
+        return value
 
     @model_validator(mode="after")
     def _one_target(self) -> "ReviewRequest":

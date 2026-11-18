@@ -11,6 +11,7 @@ from app.cards.repository import CardRepository
 from app.cards.router import get_sender
 from app.core import errors
 from app.core.deps import Caller, get_now, get_verified_caller
+from app.core.text import SAFE_TEXT
 from app.friend_reviews.repository import FriendReviewRepository
 from app.friend_reviews.router import notify_review_request
 from app.referral.repository import ReferralRepository
@@ -21,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 class RedeemRequest(BaseModel):
     # 자르기 · 대문자는 DB 함수가 한다. 여기서는 빈 값과 터무니없이 긴 값만 DB 앞에서 막는다.
-    code: Annotated[str, StringConstraints(min_length=1, max_length=20, pattern=r"\S")]
+    code: Annotated[str, StringConstraints(min_length=1, max_length=20, pattern=r"\S"), SAFE_TEXT]  # 널 문자 등 거절(core/text.py, 친구 코드와 같다)
 
 
 def _repo(caller: Caller) -> ReferralRepository:

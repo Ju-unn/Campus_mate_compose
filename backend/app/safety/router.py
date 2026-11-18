@@ -19,6 +19,7 @@ from app.chat.router import avatar_url, latest_avatar_path, revealed_contact
 from app.community.repository import CommunityRepository
 from app.core import errors
 from app.core.deps import Caller, get_now, get_verified_caller
+from app.core.text import SafeText, visible
 from app.friend_reviews.repository import FriendReviewRepository
 from app.profile_onboarding.phone_number import to_e164
 from app.profile_onboarding.storage import ProfilePhotoStorage
@@ -43,7 +44,7 @@ class ReportRequest(BaseModel):
     target_type: Literal["profile", "message", "friend_review", "poll", "poll_comment"]
     target_id: UUID
     reason: str
-    reason_note: str | None = None
+    reason_note: SafeText | None = None  # 여러 줄 칸(앱 5줄). 널 문자 · 제어 문자 · 글 방향 문자 거절(core/text.py)
 
     @field_validator("reason")
     @classmethod
@@ -59,10 +60,14 @@ class ReportRequest(BaseModel):
             self.reason_note = None
             return self
         note = (self.reason_note or "").strip()
-        if not 1 <= len(note) <= REASON_NOTE_MAX:
+        if not 1 <= len(note) <= REASON_NOTE_MAX or not visible(note):  # 0폭 문자만이어도 빈 사유다
             raise ValueError(f"기타 사유는 한 줄(1~{REASON_NOTE_MAX}자)이 필요하다")
         self.reason_note = note
         return self
+
+
+# 지인 차단 번호 한 칸의 상한. 앱은 연락처 원문을 그대로 보낸다 — 넘으면 422 가 아니라 그 자리만 null 이다.
+CONTACT_NUMBER_MAX_LENGTH = 30
 
 
 class ContactBlocksRequest(BaseModel):
@@ -317,7 +322,9 @@ async def add_contact_blocks(body: ContactBlocksRequest, wiring: _Wiring = Depen
 
     응답은 입력과 같은 길이 · 같은 순서다. 앱이 기기에 (이름, id) 를 짝짓고, 휴대전화가 아닌 자리는 null 이다."""
     key = wiring.settings.identity_hmac_key
-    hmacs = [None if (e164 := to_e164(raw)) is None else bytea_literal(hash_phone(key, e164))
+    # 30자를 넘는 항목은 휴대전화가 아니다 — 그 자리만 null 로 답하고 나머지는 처리한다(11-18 사용자 ②, 묶음 전체 422 대신).
+    hmacs = [None if len(raw) > CONTACT_NUMBER_MAX_LENGTH or (e164 := to_e164(raw)) is None
+             else bytea_literal(hash_phone(key, e164))
              for raw in body.numbers]
     # 같은 번호가 두 번(010… · +82…) 오면 upsert 한 배치가 통째로 실패한다 — 보내기 전에 한 번으로 줄인다.
     unique = list(dict.fromkeys(h for h in hmacs if h))
