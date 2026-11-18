@@ -15,6 +15,7 @@ from app.admin.caller import AdminCaller, get_admin_caller
 from app.admin.repository import NOT_FOUND, AdminRepository
 from app.admin.request_ip import request_ip
 from app.core.deps import get_now
+from app.core.text import SAFE_TEXT
 from app.inquiries.reasons import MEMO_MAX, Status
 from app.inquiries.repository import InquiryRepository
 
@@ -27,7 +28,7 @@ class InquiryPatch(BaseModel):
     """바꿀 칸만 보낸다. status 는 null 로 보낼 수 없다(칸을 빼면 그대로). admin_memo 는 null · 빈 글이면 메모를 지운다."""
 
     status: Status | None = None
-    admin_memo: Annotated[str, StringConstraints(strip_whitespace=True, max_length=MEMO_MAX)] | None = None
+    admin_memo: Annotated[str, StringConstraints(strip_whitespace=True, max_length=MEMO_MAX), SAFE_TEXT] | None = None
 
     @model_validator(mode="after")
     def _something_to_change(self) -> "InquiryPatch":
