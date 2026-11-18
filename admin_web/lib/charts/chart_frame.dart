@@ -31,6 +31,7 @@ class ChartFrame extends StatefulWidget {
     required this.hitTest,
     required this.tipBuilder,
     this.maxWidth,
+    this.legend,
   });
 
   /// 키 이름: `chart-$name`(그림 상자) · `chart-$name-plot`(CustomPaint) · `chart-$name-tooltip` · `chart-$name-legend-N`
@@ -41,6 +42,9 @@ class ChartFrame extends StatefulWidget {
   final double height;
   final double? maxWidth;
   final List<ChartSeries> series;
+
+  /// [series] 범례 대신 그릴 것(서버 오류 그래프의 점선 기준선 · 요청 수 그래프는 범례 없음 — pen A11)
+  final Widget? legend;
   final double legendLeft;
   final double legendTop;
   final CustomPainter Function(double width, int? hover) painterBuilder;
@@ -92,7 +96,7 @@ class _ChartFrameState extends State<ChartFrame> {
                     ),
                   ),
                   ...widget.labelsBuilder(width),
-                  Positioned(left: widget.legendLeft, top: widget.legendTop, height: 16, child: ChartLegend(name: widget.name, series: widget.series)),
+                  Positioned(left: widget.legendLeft, top: widget.legendTop, height: 16, child: widget.legend ?? ChartLegend(name: widget.name, series: widget.series)),
                   if (tip != null) _tooltip(tip, width),
                 ],
               ),

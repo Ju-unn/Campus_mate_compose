@@ -9,6 +9,13 @@ class AdminStatsRepository(AdminRepository):
         """상태별 인원 · 열린 신고 · 검수 대기 · 오늘 / 7일 가입(관리자 제외) 한 줄."""
         return (await self._rpc("admin_stats_overview", {}))[0]
 
+    async def count_pending_graduates(self) -> int:
+        return await self._count("graduate_verification_requests", {"select": "id", "status": "eq.pending"})
+
+    async def count_open_inquiries(self) -> int:
+        """아직 답하지 않은 문의(새로 옴 · 처리 중)."""
+        return await self._count("inquiries", {"select": "id", "status": "in.(new,in_progress)"})
+
     async def daily(self, days: int) -> list[dict]:
         """한국 시간 하루 단위 [{day, male_signups, female_signups, report_count, proof_count}] 오래된 순, 정확히 days 줄."""
         return await self._rpc("admin_stats_daily", {"p_days": days})

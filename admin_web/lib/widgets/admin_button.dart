@@ -22,6 +22,7 @@ class AdminButton extends StatelessWidget {
     this.variant = AdminButtonVariant.primary,
     this.loading = false,
     this.expand = false,
+    this.height = AdminSizes.control,
   });
 
   final String label;
@@ -31,6 +32,9 @@ class AdminButton extends StatelessWidget {
   /// 요청 중 — 글자 앞에 도는 아이콘을 두고 눌리지 않는다(색은 그대로 — 비활성처럼 보이지 않게)
   final bool loading;
   final bool expand;
+
+  /// 기본 44. 서버 상태(A11)의 [새로고침] · [확인]은 pen 36(RefreshControl R5aHkD · AnomalyPanel lEunR).
+  final double height;
 
   static final Color _hoverOverlay = AdminColors.ink.withValues(alpha: 0.06);
   static final Color _pressOverlay = AdminColors.ink.withValues(alpha: 0.12);
@@ -65,8 +69,8 @@ class AdminButton extends StatelessWidget {
         }),
         splashFactory: NoSplash.splashFactory,
         animationDuration: AdminMotion.reduced(context) ? Duration.zero : AdminMotion.press,
-        minimumSize: const WidgetStatePropertyAll(Size(0, AdminSizes.control)),
-        fixedSize: const WidgetStatePropertyAll(Size.fromHeight(AdminSizes.control)),
+        minimumSize: WidgetStatePropertyAll(Size(0, height)),
+        fixedSize: WidgetStatePropertyAll(Size.fromHeight(height)),
         // 데스크톱 웹은 기본 밀도가 compact(높이 -8), 휴대폰 기본은 누름 영역 48 — 둘 다 pen 44 를 바꾸므로 막는다.
         visualDensity: VisualDensity.standard,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,

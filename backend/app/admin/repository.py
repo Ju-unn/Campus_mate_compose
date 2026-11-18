@@ -96,6 +96,14 @@ class AdminRepository(PostgrestRepository):
         raise_for_status(response)
         return response.json()
 
+    async def _count(self, path: str, params: dict) -> int:
+        """전체 건수 — Content-Range 의 `/` 뒤(`AccountRepository.count_contact_blocks_not_on` 와 같은 방식)."""
+        response = await self._client.get(
+            f"{self._postgrest_url}/{path}", params={**params, "limit": "1"}, headers=self._with_prefer("count=exact"),
+        )
+        raise_for_status(response)
+        return int(response.headers["content-range"].rsplit("/", 1)[1])
+
     async def list_reports(self, status: str, target_type: str | None, limit: int) -> list[dict]:
         """오래된 순(애플 1.2 신속 조치 — 먼저 들어온 신고부터 본다)."""
         params = {"select": _REPORT_SELECT, "status": f"eq.{status}", "order": "created_at.asc", "limit": str(limit)}

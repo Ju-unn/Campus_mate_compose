@@ -24,7 +24,7 @@ void main() {
     return pumpAdminApp(tester, auth: FakeAdminAuth(mfa: aal2), api: FakeStatsServer().api(), initialPath: path, size: size);
   }
 
-  testWidgets('메뉴 순서: 홈 · 인증샷 검수 · 졸업생 · 신고 · 문의 · 매칭 · 사용자 · 결제 · 미등록 학교 메일 · 작업 기록(위에서 아래)', (tester) async {
+  testWidgets('메뉴 순서: 홈 · 인증샷 검수 · 졸업생 · 신고 · 문의 · 매칭 · 사용자 · 결제 · 미등록 학교 메일 · 서버 상태 · 작업 기록(위에서 아래, pen BQyo6)', (tester) async {
     await open(tester, '/');
 
     const order = [
@@ -37,15 +37,16 @@ void main() {
       AdminSection.users,
       AdminSection.billing,
       AdminSection.unknownDomains,
+      AdminSection.serverStatus,
       AdminSection.actions,
     ];
     expect(AdminSection.values, order);
     final ys = [for (final section in order) tester.getTopLeft(find.byKey(ValueKey('nav-${section.name}'))).dy];
     expect(ys, [...ys]..sort());
-    expect([for (final section in order) section.label], ['홈', '인증샷 검수', '졸업생', '신고', '문의', '매칭', '사용자', '결제', '미등록 학교 메일', '작업 기록']);
+    expect([for (final section in order) section.label], ['홈', '인증샷 검수', '졸업생', '신고', '문의', '매칭', '사용자', '결제', '미등록 학교 메일', '서버 상태', '작업 기록']);
   });
 
-  testWidgets('가장 낮은 창(1280×560)에서도 메뉴 10개가 넘치지 않고, 마지막 메뉴까지 스크롤로 닿는다', (tester) async {
+  testWidgets('가장 낮은 창(1280×560)에서도 메뉴 11개가 넘치지 않고, 마지막 메뉴까지 스크롤로 닿는다', (tester) async {
     await open(tester, '/', size: const Size(1280, 560));
 
     expect(tester.takeException(), isNull);
@@ -66,7 +67,7 @@ void main() {
     }
   });
 
-  for (final (path, title) in [('/matching', '매칭 현황'), ('/unknown-domains', '미등록 학교 메일'), ('/actions', '작업 기록'), ('/', '홈')]) {
+  for (final (path, title) in [('/matching', '매칭 현황'), ('/unknown-domains', '미등록 학교 메일'), ('/server-status', '서버 상태'), ('/actions', '작업 기록'), ('/', '홈')]) {
     testWidgets('$path → TopBar "$title" · 그 화면', (tester) async {
       await open(tester, path);
 

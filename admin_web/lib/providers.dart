@@ -2,6 +2,7 @@ import 'package:campus_mate_admin/api/admin_api.dart';
 import 'package:campus_mate_admin/auth/admin_auth.dart';
 import 'package:campus_mate_admin/auth/supabase_admin_auth.dart';
 import 'package:campus_mate_admin/config/admin_config.dart';
+import 'package:campus_mate_admin/platform/open_link.dart';
 import 'package:campus_mate_admin/platform/page_reload.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +13,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// 설정 누락 화면의 "다시 불러오기" — 브라우저 페이지를 다시 연다.
 final pageReloaderProvider = Provider<void Function()>((ref) => reloadPage);
+
+/// 바깥 주소를 새 탭으로 연다(서버 상태의 Crashlytics 링크). 시험은 연 주소를 모으는 함수로 갈아 끼운다.
+final linkOpenerProvider = Provider<void Function(String url)>((ref) => openLink);
 
 final adminConfigProvider = Provider<AdminConfig>((ref) => const AdminConfig.fromEnvironment());
 

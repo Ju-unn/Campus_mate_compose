@@ -2,6 +2,8 @@
 
 관리자 계정은 통계에서 빠진다(DB 함수가 거른다). 응답은 칸 이름을 하나씩 적어 만든다 — DB 줄을 그대로 흘리지 않는다.
 """
+import asyncio
+
 from fastapi import APIRouter, Depends, Query
 
 from app.admin.caller import AdminCaller, get_admin_caller
@@ -30,6 +32,14 @@ async def get_stats(caller: AdminCaller = Depends(get_admin_caller)) -> dict:
         "open_reports": row["open_reports"], "pending_proofs": row["pending_proofs"],
         "signups_today": row["signups_today"], "signups_7d": row["signups_7d"],
     }
+
+
+@router.get("/pending-counts")
+async def get_pending_counts(caller: AdminCaller = Depends(get_admin_caller)) -> dict:
+    """왼쪽 메뉴 배지(11-17). 줄은 가져오지 않고 개수만 센다."""
+    repo = _repo(caller)
+    row, graduates, inquiries = await asyncio.gather(repo.overview(), repo.count_pending_graduates(), repo.count_open_inquiries())
+    return {"heart_tasks": row["pending_proofs"], "graduates": graduates, "reports": row["open_reports"], "inquiries": inquiries}
 
 
 @router.get("/stats/daily")
