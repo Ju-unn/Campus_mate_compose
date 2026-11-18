@@ -254,3 +254,16 @@ def test_server_status_needs_admin(client, world, reader, who, headers, status, 
     if detail:
         assert response.json()["detail"] == detail
     assert reader.calls == 0
+
+
+# --- 실패 로그(11-18 운영: 로그에 구글 응답 코드가 안 보였다) -------------------------------------------------------
+
+def test_google_status_code_is_logged(client, world, reader, caplog):
+    reader.error = httpx.HTTPStatusError(
+        "Client error '429' for url 'https://g/secret-path?token=t'", request=httpx.Request("GET", "https://g/secret-path?token=t"), response=httpx.Response(429, text="google-body"))
+
+    with caplog.at_level("WARNING", logger="app.admin.server_status"):
+        assert client.get("/admin/server-status", headers=ADMIN_HEADERS).status_code == 503
+
+    assert "HTTPStatusError 429" in caplog.text
+    assert "secret-path" not in caplog.text and "google-body" not in caplog.text

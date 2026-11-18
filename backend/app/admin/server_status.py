@@ -1,6 +1,6 @@
 """관리자 서버 상태 GET /admin/server-status(설계 2026-11-17-admin-server-status). 최근 3시간 5분 칸 · 지금 숫자 · 이상 목록.
 
-구글이 답하지 못하면 503(AUTH_UNAVAILABLE). 로그에는 예외 이름만 남긴다 — 주소 · 토큰 · 구글 본문은 남기지 않는다.
+구글이 답하지 못하면 503(AUTH_UNAVAILABLE). 로그에는 예외 이름과 구글 상태 코드만 남긴다 — 주소 · 토큰 · 구글 본문은 남기지 않는다.
 """
 import logging
 from datetime import datetime
@@ -34,8 +34,14 @@ async def get_server_status(
         checked_at, buckets = await read_buckets(reader, now)
     # 우리 코드 실수(KeyError 등)는 잡지 않는다 — 500 으로 드러나야 한다. 구글 답 모양이 다른 것만 MonitoringShapeError 로 온다.
     except (httpx.HTTPError, google.auth.exceptions.GoogleAuthError, MonitoringShapeError) as exc:
-        # 모양 오류는 원래 예외 이름(args[0])도 남긴다 — 주소 · 토큰 · 본문은 아니다.
-        logger.warning("구글 모니터링 읽기 실패 %s %s", type(exc).__name__, exc.args[0] if isinstance(exc, MonitoringShapeError) else "")
+        # 모양 오류는 원래 예외 이름(args[0]), 구글 오류는 HTTP 상태 코드(429 등)도 남긴다 — 주소 · 토큰 · 본문은 아니다.
+        if isinstance(exc, MonitoringShapeError):
+            detail = exc.args[0]
+        elif isinstance(exc, httpx.HTTPStatusError):
+            detail = exc.response.status_code
+        else:
+            detail = ""
+        logger.warning("구글 모니터링 읽기 실패 %s %s", type(exc).__name__, detail)
         raise HTTPException(status_code=503, detail=errors.AUTH_UNAVAILABLE) from None
     return {
         "checked_at": checked_at.isoformat(),
