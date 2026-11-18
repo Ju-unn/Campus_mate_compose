@@ -11,6 +11,7 @@ import pytest
 
 from app.billing import play
 from app.billing.play import PACKAGE_NAME, PlayApi, PlayUnavailable, account_token, token_hash
+from app.core.google_adc import AdcToken
 
 PROFILE = UUID("11111111-1111-1111-1111-111111111111")
 TOKEN = "opaque-token.AbC_123-xyz"
@@ -202,7 +203,7 @@ async def test_a_credential_failure_is_unavailable_logged_and_retried_next_time(
         raise google.auth.exceptions.RefreshError(
             "Failed to retrieve the access token from the metadata service. Status: 403")
 
-    monkeypatch.setattr(play, "_credentials", None)
+    monkeypatch.setattr(play, "_adc", AdcToken(play._SCOPE))
     monkeypatch.setattr(google.auth, "default",
                         lambda scopes=None: (SimpleNamespace(valid=False, token=None, refresh=refresh), "campus-test"))
     google_calls = []

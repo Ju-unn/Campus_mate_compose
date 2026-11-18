@@ -17,12 +17,11 @@ from collections.abc import Awaitable, Callable
 from datetime import date
 from urllib.parse import quote
 
-import google.auth
 import httpx
-from google.auth.transport.requests import Request as GoogleAuthRequest
 from pydantic_settings import BaseSettings
 
 from app.billing.play import PACKAGE_NAME
+from app.core.google_adc import AdcToken
 
 logger = logging.getLogger(__name__)
 
@@ -51,17 +50,8 @@ class StoreRatingSettings(BaseSettings):
     play_reports_bucket: str = ""
 
 
-_credentials = None
-
-
-async def _adc_access_token() -> str:
-    """Cloud Storage 읽기 전용 토큰. 프로세스에 자격 하나(billing/play.py `_adc_access_token` 과 같은 길, 범위만 다르다)."""
-    global _credentials
-    if _credentials is None:
-        _credentials, _ = await asyncio.to_thread(google.auth.default, scopes=[_GCS_SCOPE])
-    if not _credentials.valid:
-        await asyncio.to_thread(_credentials.refresh, GoogleAuthRequest())
-    return _credentials.token
+# Cloud Storage 읽기 전용 토큰. 프로세스에 자격 하나(core/google_adc.py, billing/play.py 와 범위만 다르다).
+_adc_access_token = AdcToken(_GCS_SCOPE)
 
 
 def _months(today: date) -> list[str]:
