@@ -12,6 +12,7 @@ from app.cards.repository import CardRepository
 from app.cards.router import profile_detail
 from app.core import errors
 from app.core.deps import Caller, get_now, get_verified_caller, get_vision_client
+from app.core.junk_text import has_letter_run
 from app.matching.repository import MatchingRepository
 from app.matching.vectors import refresh_vectors
 from app.me.photo_layout import parse_layout
@@ -243,6 +244,10 @@ async def update_my_profile(
             # 키만 고친 15-6 저장도 닉네임을 같이 보낸다 — 같으면 30일을 새로 세지 않는다.
             del fields["nickname"]
         else:
+            # 새로 바꾸는 닉네임만 본다 — 예전에 들어온 "aaa" 를 그대로 두고 키만 고치는 저장은 막지 않는다.
+            # 문구는 중복과 같다 — 출시된 앱(15-6)은 이 문구만 닉네임 칸 아래로 보낸다.
+            if has_letter_run(fields["nickname"]):
+                raise HTTPException(status_code=422, detail=errors.NICKNAME_TAKEN)
             changed_at = current["nickname_changed_at"]
             if nickname_changeable_at(changed_at and datetime.fromisoformat(changed_at), now):
                 raise HTTPException(status_code=409, detail=errors.NICKNAME_CHANGE_TOO_SOON)

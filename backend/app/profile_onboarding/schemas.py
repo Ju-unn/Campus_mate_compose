@@ -3,6 +3,7 @@ from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, Field, StrictBool, field_validator, model_validator
 
+from app.core.text import ZERO_WIDTH, SafeLine, SafeText, has_bad_char, require_visible, visible
 from app.core.time import SEOUL
 
 # 닉네임은 한글·영문 2~5자다(DESIGN.md 04-1, frontend BasicInfoUiState 와 같은 정규식).
@@ -37,8 +38,25 @@ class BasicInfoRequest(BaseModel):
 KAKAO_ID_MAX_LENGTH = 64
 
 
+KAKAO_ID_MIN_LENGTH = 2
+
+
 class KakaoIdRequest(BaseModel):
-    kakao_id: str = Field(max_length=KAKAO_ID_MAX_LENGTH)
+    # 모양은 라우터가 is_valid_kakao_id 로 본다 — pydantic 검사로 걸면 detail 이 목록이라 앱(05)이 "알 수 없는 오류" 를 띄운다.
+    # 여기 상한은 터무니없이 긴 본문만 막는 안전판이다.
+    kakao_id: str = Field(max_length=1000)
+
+
+def is_valid_kakao_id(kakao_id: str) -> bool:
+    """앞뒤 공백을 뺀 2~64자, 안쪽 공백 · 줄바꿈 · 제어 문자 · 글 방향 문자 · 0폭 문자 · 한글 자음 · 모음 낱자(U+3130–318F)
+    없음(11-18 검토). 같은 글자 3번은 막지 않는다 — 실제 아이디에 있을 수 있다. 카카오 형식(영문 · 숫자 · ._- 4~20자)은 사용자 결정 전이라 안 넣었다."""
+    text = kakao_id.strip()
+    return (
+        KAKAO_ID_MIN_LENGTH <= len(text) <= KAKAO_ID_MAX_LENGTH
+        and not any(ch.isspace() or ch in ZERO_WIDTH for ch in text)
+        and not has_bad_char(text, multiline=False)
+        and not any(0x3130 <= ord(ch) <= 0x318F for ch in text)
+    )
 
 
 class AppearanceTypeRequest(BaseModel):
@@ -122,9 +140,9 @@ def _within_line_cap(value: str) -> str:
     return value
 
 
-# 자기소개(온보딩 /bio · PATCH /me/profile)와 이상형 글이 같이 쓴다.
+# 자기소개(온보딩 /bio · PATCH /me/profile)와 이상형 글이 같이 쓴다. SafeText = 널 문자 · 제어 문자 · 글 방향 문자 거절(core/text.py).
 FreeText = Annotated[
-    str, BeforeValidator(_unify_line_breaks), Field(max_length=FREE_TEXT_MAX_LENGTH), AfterValidator(_within_line_cap)
+    SafeText, BeforeValidator(_unify_line_breaks), Field(max_length=FREE_TEXT_MAX_LENGTH), AfterValidator(_within_line_cap)
 ]
 
 
@@ -138,13 +156,15 @@ class IdealNoteRequest(BaseModel):
         이 글은 "원해" 문장 임베딩의 재료라 한두 글자면 매칭 점수가 의미를 잃는다.
         자기소개(bio)는 최소 길이가 없다 — 그쪽은 초안 생성이 따로 돕는다."""
         stripped = note.strip()
-        if len(stripped) < IDEAL_NOTE_MIN_LENGTH:
+        # 0폭 문자(core/text.py)는 세지 않는다 — 보이지 않는 글자로 10자를 채우지 못하게. 저장 값은 그대로다.
+        if len(visible(stripped)) < IDEAL_NOTE_MIN_LENGTH:
             raise ValueError(f"{IDEAL_NOTE_MIN_LENGTH}자 이상 입력해 주세요")
         return stripped
 
 
 class BioRequest(BaseModel):
-    bio: FreeText
+    # 06-3 앱 규칙(bio.trim().isNotEmpty)과 같다 — 공백 · 0폭 문자만인 소개는 빈 소개다(11-18 검토, PATCH /me/profile 과 같게).
+    bio: Annotated[FreeText, AfterValidator(require_visible)]
 
 
 ACQUISITION_NOTE_MAX_LENGTH = 30  # pen 값이 다르면 여기와 앱 acquisitionNoteMaxLength 를 같이 바꾼다
@@ -154,7 +174,7 @@ class AcquisitionRequest(BaseModel):
     """20d 유입경로. 칩 값은 DB enum acquisition_channel 과 같은 다섯 개다."""
 
     channel: Literal["everytime", "instagram", "friend", "community", "other"]
-    note: str | None = None
+    note: SafeLine | None = None  # 한 줄 칸 — 제어 문자(줄바꿈 · 탭 · 널 문자) 거절
 
     @model_validator(mode="after")
     def _note_only_for_other(self) -> "AcquisitionRequest":

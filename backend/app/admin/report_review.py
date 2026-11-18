@@ -17,6 +17,7 @@ from app.admin.heart_task_review import PHOTO_URL_TTL_SECONDS
 from app.admin.reason import REASON_MAX, ReasonBody
 from app.admin.repository import NOT_FOUND, SEEN_REPORTS_REQUIRED, AdminRepository
 from app.admin.request_ip import request_ip
+from app.core.text import SAFE_TEXT
 from app.profile_onboarding.storage import ProfilePhotoStorage
 from app.safety.repository import SafetyRepository
 
@@ -38,7 +39,7 @@ TargetType = Literal["profile", "message", "friend_review", "poll", "poll_commen
 class ResolveBody(BaseModel):
     outcome: Literal["actioned", "dismissed"]
     # 메모는 선택이다(작업 기록 reason 칸). 공백뿐이면 없는 것으로 보낸다.
-    note: Annotated[str, StringConstraints(strip_whitespace=True, max_length=REASON_MAX)] | None = None
+    note: Annotated[str, StringConstraints(strip_whitespace=True, max_length=REASON_MAX), SAFE_TEXT] | None = None
     # 같은 사람(target_profile_id)을 향한 다른 열린 신고도 같은 결과로 닫는다 — 단 seen_report_ids(상세의 other_reports 중
     # 운영자가 본 열린 것들)에 든 것만. 상세를 연 뒤 들어온 새 신고는 열린 채 남는다. same_target 이면 이 칸이 꼭 있어야 한다([] 가능).
     same_target: bool = False

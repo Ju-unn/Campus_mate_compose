@@ -13,6 +13,7 @@ from pydantic import BaseModel, field_validator
 from app.core import errors
 from app.core.deps import Caller, get_caller, get_now
 from app.core.rate_window import SlidingWindow
+from app.core.text import has_bad_char, visible
 from app.inquiries import mailer
 from app.inquiries.reasons import BODY_MAX, DAILY_INQUIRY_LIMIT, EMAIL_MAX, REPLY_EMAIL, Reason
 from app.inquiries.repository import InquiryRepository
@@ -40,9 +41,11 @@ class InquiryRequest(BaseModel):
     @classmethod
     def _body_length(cls, value: str) -> str:
         value = value.strip()
-        if not 1 <= len(value) <= BODY_MAX:
+        # 0폭 문자만이면 빈 글이다(core/text.py, 11-18 검토).
+        if not 1 <= len(value) <= BODY_MAX or not visible(value):
             raise ValueError(f"내용은 1~{BODY_MAX}자여야 한다")
-        if "\x00" in value:  # Postgres text 는 NUL 을 못 담는다 — 저장에서 500 이 나기 전에 거절
+        # Postgres text 는 NUL 을 못 담는다 — 저장에서 500 이 나기 전에 거절. 다른 제어 문자 · 글 방향 문자도 같이(줄바꿈 · 탭은 받는다).
+        if has_bad_char(value, multiline=True):
             raise ValueError("내용에 쓸 수 없는 문자가 있다")
         return value
 

@@ -123,6 +123,19 @@ def test_status_verified_without_school_info():
                                          "consent": "current", "school_email_verified": True}
 
 
+@pytest.mark.parametrize(("department", "has_school_info"), [
+    (".", False), ("ㅋㅋ", False), (None, False), ("aaa학과", False), ("가\u200b", False), ("컴퓨터공학과", True),
+    # 학과에는 알파벳 순서 규칙이 없다(11-18 사용자 ②) — 이 학과로 가입한 사람이 3c 에 갇히지 않게.
+    ("Korean Studies", True), ("International Studies", True), ("Defense", True), ("First Aid", True),
+])
+def test_status_sends_a_junk_department_back_to_school_info(department, has_school_info):
+    """운영에 학과 "." 로 가입을 마친 사람이 있다(11-18 사용자 「학과만 다시 띄우기」). 학과 제출과 같은 규칙에 안 맞으면
+    has_school_info=false — 지금 앱이 3c 로 보내 다시 적게 한다(앱 · DB 수정 없이)."""
+    _wire(_gate_row("verified", department=department))
+
+    assert _fetch_status().json()["has_school_info"] is has_school_info
+
+
 @pytest.mark.parametrize("student_id", ["none", "pending", "verified", "rejected"])
 def test_old_app_contract_five_fields_and_the_status_is_always_verified(student_id):
     """옛 앱(빌드 15 · TF 16 · vc8)은 이 응답의 다섯 칸을 읽고 status != verified 면 학생증 화면(3b)으로 보낸다
@@ -224,6 +237,41 @@ def test_school_info_turns_away_anything_but_one_to_three_digits(student_number)
     # 글자 · 4자리 이상 모두 한 문구(10-29 사용자 결정 — 학번은 보통 2자리, 3자리는 혹시 몰라 둔 상한)
     assert response.json()["detail"] == errors.STUDENT_NUMBER_INVALID == "숫자를 입력해 주세요"
     assert _calls(sent, "PATCH", "/rest/v1/profiles") == []
+
+
+@pytest.mark.parametrize("department", [
+    "...", "123", "-_-", "컴공\n", "ㄱ경영", "ㅋㅋ", ".", "..", "가", "aaa", "aaa학과", "   ", "경영\t학과", "ㆍ경영",
+    # 0폭 문자로 2자를 채운 값 · 글 방향 문자(검토 11-18).
+    "가\u200b", "경영\u202e학과",
+])
+def test_school_info_turns_away_a_junk_department_with_a_string_detail(department):
+    """운영에 학과 "." 가 들어왔다(11-18). 문자열 detail 이라야 앱이 버튼 위에 그대로 띄운다(목록이면 "알 수 없는 오류")."""
+    sent = _wire(_gate_row("verified"))
+
+    response = TestClient(app).post(
+        "/school-info", json={"department": department, "student_number": "21"}, headers=AUTH_HEADERS,
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == errors.INVALID_INPUT
+    assert _calls(sent, "PATCH", "/rest/v1/profiles") == []
+
+
+@pytest.mark.parametrize("department", [
+    "컴공", "경영학과", "Computer Science", "AI융합학부", "컴퓨터공학과(야간)",
+    # 알파벳 순서 3글자(stu · def · rst)가 든 실제 영문 학과(11-18 사용자 ② — 학과에는 순서 규칙이 없다).
+    "Korean Studies", "International Studies", "Defense", "First Aid",
+])
+def test_school_info_takes_a_real_department(department):
+    sent = _wire(_gate_row("verified"))
+
+    response = TestClient(app).post(
+        "/school-info", json={"department": f" {department} ", "student_number": "21"}, headers=AUTH_HEADERS,
+    )
+
+    assert response.status_code == 200
+    # 앞뒤 공백은 정리해서 저장한다.
+    assert json.loads(_calls(sent, "PATCH", "/rest/v1/profiles")[0].content)["major"] == department
 
 
 def test_school_info_is_403_with_the_status_header_for_a_suspended_account():

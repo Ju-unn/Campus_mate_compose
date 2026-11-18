@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 
 from pydantic import BaseModel, Field, StrictBool, field_validator, model_validator
 
+from app.core.text import visible
 from app.matching.sentences import ANIMAL_LABELS, IMPRESSION_PHRASES
 from app.profile_onboarding.schemas import NICKNAME_PATTERN, RELIGIONS, FreeText
 
@@ -57,8 +58,8 @@ class ProfileUpdateRequest(BaseModel):
     @field_validator("bio")
     @classmethod
     def _bio_not_blank(cls, bio: str | None) -> str | None:
-        # 06-3 앱 규칙(bio.trim().isNotEmpty)과 같다. 온보딩 /bio 는 이 검사가 없다.
-        if bio is not None and not bio.strip():
+        # 06-3 앱 규칙(bio.trim().isNotEmpty)과 같다. 0폭 문자만이어도 빈 소개다(core/text.py, 온보딩 /bio 와 같다).
+        if bio is not None and not visible(bio):
             raise ValueError("자기소개를 입력해 주세요")
         return bio.strip() if bio is not None else None
 

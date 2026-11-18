@@ -20,6 +20,7 @@ from app.cards.visibility import is_active  # noqa: F401
 from app.chat.realtime import Broadcaster
 from app.core import errors
 from app.core.deps import Caller, get_caller, get_client, get_now, get_settings, get_verified_caller
+from app.core.text import SafeLine
 from app.matching.band import rank_all
 from app.matching.repository import MatchingRepository
 from app.profile_onboarding.storage import AvatarStorage
@@ -49,7 +50,8 @@ class DecisionRequest(BaseModel):
 
 class PushTokenRequest(BaseModel):
     # FCM 등록 토큰은 수백 자다 — 상한이 없으면 아무 길이나 기본 키(text)로 들어간다(10-18 보안 점검).
-    token: str = Field(max_length=4096)
+    # 공백 없는 한 낱말(11-18 검토). 널 문자 · 제어 문자 거절(core/text.py).
+    token: SafeLine = Field(min_length=1, max_length=4096, pattern=r"^\S+$")
     platform: str
 
     @field_validator("platform")

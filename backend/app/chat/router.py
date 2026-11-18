@@ -12,6 +12,7 @@ from app.chat.realtime import Broadcaster
 from app.chat.repository import MESSAGE_MAX_LENGTH, MESSAGE_PAGE_SIZE, ChatRepository
 from app.core import errors
 from app.core.deps import Caller, get_client, get_now, get_settings, get_verified_caller
+from app.core.text import SafeText, visible
 from app.profile_onboarding.storage import ProfilePhotoStorage
 from app.settings import Settings
 
@@ -28,13 +29,14 @@ PHOTO_URL_TTL_SECONDS = 3600
 
 
 class MessageRequest(BaseModel):
-    body: str = Field(min_length=1, max_length=MESSAGE_MAX_LENGTH)
+    # SafeText = 널 문자 · 제어 문자(줄바꿈 · 탭 빼고) · 글 방향 문자 거절(core/text.py). 내용 검사는 하지 않는다("ㅋㅋㅋ" 통과).
+    body: SafeText = Field(min_length=1, max_length=MESSAGE_MAX_LENGTH)
 
     @field_validator("body")
     @classmethod
     def _not_blank(cls, value: str) -> str:
         stripped = value.strip()
-        if not stripped:
+        if not visible(stripped):  # 0폭 문자만이어도 빈 메시지다. 저장 값은 그대로다.
             raise ValueError("빈 메시지는 보낼 수 없다")
         return stripped
 
