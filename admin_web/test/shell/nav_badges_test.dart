@@ -1,12 +1,17 @@
+import 'package:campus_mate_admin/app.dart';
 import 'package:campus_mate_admin/auth/admin_auth.dart';
 import 'package:campus_mate_admin/platform/confirm_store.dart';
+import 'package:campus_mate_admin/providers.dart';
 import 'package:campus_mate_admin/shell/admin_section.dart';
 import 'package:campus_mate_admin/shell/nav_badges.dart';
 import 'package:campus_mate_admin/widgets/count_badge.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import '../helpers/fakes.dart';
 import '../helpers/server_status_fakes.dart';
@@ -158,6 +163,47 @@ void main() {
 
     expect(auth.calls, contains('signOut'));
     expect(auth.session, isFalse);
+  });
+
+  // 11-18 운영 로그의 "같은 순간 두 번"은 CORS 사전 확인(OPTIONS) + GET 한 번이었다. 진짜 adminApiProvider(갈아 끼우지 않음)로
+  // 셸 시작 · 관문 재판정(다른 탭의 로그인 알림 등) 때 GET 이 한 번씩만 나가는지 지킨다. 가짜 서버는 12번 넘게 불리면 던진다(무한 호출 방지).
+  testWidgets('실제 api provider: 셸 시작 · 관문 재판정에도 서버 상태 · 대기 건수를 한 번씩만 부른다', timeout: const Timeout(Duration(seconds: 60)), (tester) async {
+    final paths = <String>[];
+    final auth = FakeAdminAuth(mfa: aal2);
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final client = MockClient((request) async {
+      paths.add(request.url.path);
+      if (paths.length > 12) throw StateError('12번 넘게 불렀다(반복): $paths');
+      final Object body = switch (request.url.path) {
+        '/admin/server-status' => serverStatusJson(),
+        '/admin/pending-counts' => {'heart_tasks': 0, 'graduates': 0, 'reports': 0, 'inquiries': 0},
+        _ => <String, Object?>{},
+      };
+      return http.Response.bytes(utf8.encode(jsonEncode(body)), 200);
+    });
+    Future<void> pumpBoundedFrames() async {
+      for (var i = 0; i < 40; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+    }
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(ProviderScope(overrides: [
+        adminConfigProvider.overrideWithValue(completeConfig),
+        adminAuthProvider.overrideWithValue(auth),
+        confirmStoreProvider.overrideWithValue(memoryStore({})),
+      ], child: const AdminApp()));
+      await pumpBoundedFrames();
+      auth.emitChange();
+      await pumpBoundedFrames();
+    }, () => client);
+
+    int count(String path) => paths.where((p) => p == path).length;
+    expect(count('/admin/me'), 2, reason: '관문은 알림에 다시 판정한다');
+    expect(count('/admin/server-status'), 1);
+    expect(count('/admin/pending-counts'), 1);
   });
 
   test('navBadgeCount: 서버 상태 · 대기 건수 메뉴 말고는 0', () {
