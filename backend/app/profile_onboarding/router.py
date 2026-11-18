@@ -39,6 +39,7 @@ from app.profile_onboarding.schemas import (
     KakaoIdRequest,
     NextStepResponse,
     NicknameAvailabilityResponse,
+    is_valid_kakao_id,
     SurveyRequest,
     TagsRequest,
 )
@@ -174,12 +175,15 @@ async def submit_kakao_id(
     body: KakaoIdRequest, caller: Caller = Depends(get_verified_caller)
 ) -> dict[str, bool]:
     settings, client, profile_id = caller
+    # 문자열 detail 로 거절한다 — 앱(05)이 칸 아래에 그대로 띄운다. 널 문자는 저장에서 500 이었다(11-18 검토).
+    if not is_valid_kakao_id(body.kakao_id):
+        raise HTTPException(status_code=422, detail=errors.INVALID_INPUT)
     # 카톡 아이디는 암호문 열에만 산다(M2) — 둘 중 하나라도 실패하면 저장도 실패다(삼키면 값이 어디에도 안 남는다).
     # set_kakao_id 는 UPDATE 전용이라 행을 먼저 보장한다.
     await _repo(settings, client).ensure_private_row(profile_id)
     await set_encrypted_kakao_id(
         settings.postgrest_url, settings.supabase_service_role_key, client,
-        profile_id, body.kakao_id, settings.phone_encryption_key,
+        profile_id, body.kakao_id.strip(), settings.phone_encryption_key,
     )
     return {"ok": True}
 

@@ -530,6 +530,37 @@ def test_basic_info_takes_a_double_letter_nickname():
     assert response.status_code == 200
 
 
+def _send_kakao_id(kakao_id: str) -> tuple[httpx.Response, list[dict]]:
+    saved: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/rest/v1/rpc/set_kakao_id":
+            saved.append(json.loads(request.content))
+        return httpx.Response(200, json=[])
+
+    response = _wire(handler).post("/profile-onboarding/kakao-id", headers=AUTH_HEADERS, json={"kakao_id": kakao_id})
+    return response, saved
+
+
+@pytest.mark.parametrize("kakao_id", ["a", "my id", "fox\nrain", "fox\x00rain", "ㅋㅋfox", "  ", "a" * 65,
+                                      "fox\u200b", "\ufefffox_rain", "fox\u202erain"])
+def test_kakao_id_turns_away_junk_with_a_string_detail(kakao_id):
+    """널 문자는 저장에서 500 이었다. 문자열 detail 이라야 앱(05)이 칸 아래에 문구를 그대로 띄운다."""
+    response, saved = _send_kakao_id(kakao_id)
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == errors.INVALID_INPUT
+    assert saved == []
+
+
+@pytest.mark.parametrize("kakao_id", ["fox_rain", "aaa.bbb", "ab", "a" * 64])
+def test_kakao_id_takes_a_real_id_and_saves_it_trimmed(kakao_id):
+    response, saved = _send_kakao_id(f" {kakao_id} ")
+
+    assert response.status_code == 200
+    assert saved[0]["p_kakao_id"] == kakao_id
+
+
 def test_nickname_availability_rejects_ilike_wildcard_with_422():
     client = _wire(lambda request: httpx.Response(200, json=[]))
     response = client.get(
