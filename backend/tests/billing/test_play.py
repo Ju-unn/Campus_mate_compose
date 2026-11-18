@@ -1,6 +1,8 @@
 """구글 플레이 개발자 API 창구(billing/play.py). 실제 구글은 부르지 않는다 — httpx.MockTransport 로 답을 정한다."""
+import asyncio
 import hashlib
 import logging
+import time
 from types import SimpleNamespace
 from uuid import UUID
 
@@ -221,6 +223,31 @@ async def test_a_credential_failure_is_unavailable_logged_and_retried_next_time(
     with pytest.raises(PlayUnavailable):
         await api.get_purchase("heart_100", TOKEN)
     assert len(refreshes) == 2
+
+
+async def test_concurrent_first_tokens_share_one_refreshed_credential(monkeypatch):
+    # 새 인스턴스에 결제 확인이 몰리면 각자 ADC 를 만들고 남의 refresh 전 자격을 읽어 Bearer None 을 보낼 수 있었다.
+    made = []
+
+    def default(scopes=None):
+        time.sleep(0.05)  # 메타데이터 서버를 기다리는 동안 다른 요청들도 자격이 없다고 본다
+        credentials = SimpleNamespace(valid=False, token=None)
+
+        def refresh(request):
+            time.sleep(0.02)
+            credentials.token, credentials.valid = "access-token", True
+
+        credentials.refresh = refresh
+        made.append(credentials)
+        return credentials, "campus-test"
+
+    monkeypatch.setattr(play, "_adc", AdcToken(play._SCOPE))
+    monkeypatch.setattr(google.auth, "default", default)
+
+    tokens = await asyncio.gather(*(play._adc_access_token() for _ in range(4)))
+
+    assert tokens == ["access-token"] * 4
+    assert len(made) == 1
 
 
 def test_httpx_request_lines_are_never_logged_at_info():

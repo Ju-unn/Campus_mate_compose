@@ -1,7 +1,11 @@
 """관리자 서버 상태 GET /admin/server-status(설계 2026-11-17-admin-server-status, 계획 Task 1).
 구글 모니터링은 부르지 않는다 — 판정 함수는 칸을 직접 넣고, 읽기는 MockTransport, 경로는 가짜 reader 를 끼운다."""
+import asyncio
+import time
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
+import google.auth
 import google.auth.exceptions
 import httpx
 import pytest
@@ -10,6 +14,7 @@ from admin_world import ADMIN, STRANGER, bearer
 from app.admin import monitoring
 from app.admin.monitoring import Anomaly, Bucket, MonitoringReader, find_anomalies, summarize_now
 from app.admin.server_status import get_monitoring_reader
+from app.core.google_adc import AdcToken
 from app.main import app
 
 ADMIN_HEADERS = bearer(sub=ADMIN, aal="aal2")
@@ -267,3 +272,36 @@ def test_google_status_code_is_logged(client, world, reader, caplog):
 
     assert "HTTPStatusError 429" in caplog.text
     assert "secret-path" not in caplog.text and "google-body" not in caplog.text
+
+
+# --- 새 인스턴스 첫 요청의 토큰 경쟁(11-18 운영: 401 → 503 다섯 번 중 네 번이 시작 직후) -------------------------------
+
+def _fresh_process_adc(monkeypatch) -> list:
+    """새 인스턴스의 ADC: 부를 때마다 새 자격, 메타데이터 서버를 기다리느라 늦고, refresh 해야 token 이 찬다."""
+    made = []
+
+    def default(scopes=None):
+        time.sleep(0.05)  # 기다리는 동안 다른 질의들도 자격이 없다고 본다
+        credentials = SimpleNamespace(valid=False, token=None)
+
+        def refresh(request):
+            time.sleep(0.02)
+            credentials.token, credentials.valid = "access-token", True
+
+        credentials.refresh = refresh
+        made.append(credentials)
+        return credentials, "campus-test"
+
+    monkeypatch.setattr(google.auth, "default", default)
+    return made
+
+
+async def test_concurrent_first_tokens_share_one_refreshed_credential(monkeypatch):
+    # 서버 상태 한 번에 구글 질의 4개가 동시에 토큰을 받는다 — 예전엔 남이 넣은 refresh 전 자격을 읽어 Bearer None 이 나갔다.
+    monkeypatch.setattr(monitoring, "_adc", AdcToken(monitoring._SCOPE))
+    made = _fresh_process_adc(monkeypatch)
+
+    tokens = await asyncio.gather(*(monitoring._monitoring_token() for _ in range(4)))
+
+    assert tokens == ["access-token"] * 4
+    assert len(made) == 1
