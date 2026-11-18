@@ -30,3 +30,7 @@
   - `slow`: 요청 ≥ 20건이고 중앙값(p50) ≥ 1초. p95 로 판정하지 않는다 — 아바타 만들기(20~27초)가 같은 서버에 들어와 한산할 때 p95 를 늘 끌어올린다.
 - 대기 건수: 인증샷 검수 = 기존 `/admin/stats` 의 `pending_proofs`, 신고 = `open_reports`, 졸업생 = `graduate_verification_requests.status = pending`, 문의 = `inquiries.status in (new, in_progress)`(아직 답 안 한 것, 대장 판단).
 - 배지: 0 이면 숨김, 100 이상 "99+". 색 · 크기는 pen 시안 값.
+
+## 구현 상태 (2026-11-18)
+- 서버 PR #773 으로 `GET /admin/server-status` · `GET /admin/pending-counts` 와 관리자 웹 A11 · 메뉴 배지가 main `64f2392c` 에 들어갔고, 서버는 `00135-haz`(태그 `s1118`)로 100% 배포됐다(`backend/DEPLOY.md` §4-33 · §5 개정 6). 화면 규칙은 `frontend/docs/DESIGN.md` §15 A11 · 메뉴 배지.
+- 접근의 "확인 시각 하나" 는 구현 중 열쇠 방식으로 바뀌었다(위 접근 문단 · 계획서 구현 편차 기록). 메뉴는 문의 · 서버 상태가 더해져 11개다.
