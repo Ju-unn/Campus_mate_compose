@@ -10,7 +10,7 @@ from app.graduate_verification.messages import MAX_ATTEMPTS
 from app.graduate_verification.settings import graduate_enabled
 from app.student_verification.current_user import reject_suspended, require_school_email
 from app.student_verification.repository import StudentVerificationRepository
-from app.student_verification.schemas import GraduateState, SchoolInfoRequest, VerificationStatusResponse
+from app.student_verification.schemas import GraduateState, SchoolInfoRequest, VerificationStatusResponse, is_valid_department
 
 router = APIRouter()
 # 졸업생 인증(졸업증명서) 신청자 API 는 이 라우터 밑에 붙인다 — main.py(공유 파일)를 건드리지 않는 우회.
@@ -47,7 +47,8 @@ async def fetch_verification_status(caller: Caller = Depends(get_caller)) -> Ver
             settings.postgrest_url, settings.supabase_service_role_key, client).fetch_history(profile_id))
     return VerificationStatusResponse(
         status="verified",
-        has_school_info=gate["department"] is not None,
+        # 규칙에 안 맞는 옛 학과(".")도 3c 로 다시 보낸다(11-18 사용자 「학과만 다시 띄우기」). 관문(get_verified_user_id)은 None 만 본다.
+        has_school_info=gate["department"] is not None and is_valid_department(gate["department"]),
         reject_reason=None,
         consent=consent_state(await consents.fetch_rows(profile_id)),
         school_email_verified=verified,
@@ -79,6 +80,9 @@ async def save_school_info(body: SchoolInfoRequest, caller: Caller = Depends(get
     require_school_email(gate)
     if not body.has_valid_student_number():
         raise HTTPException(status_code=422, detail=errors.STUDENT_NUMBER_INVALID)
+    # 학번처럼 문자열 detail 로 거절한다 — 앱(3c)이 입력 칸 아래에 그대로 띄운다(목록 detail 이면 "알 수 없는 오류").
+    if not is_valid_department(body.department):
+        raise HTTPException(status_code=422, detail=errors.INVALID_INPUT)
 
-    await repo.save_school_info(profile_id, body.department, body.student_number)
+    await repo.save_school_info(profile_id, body.department.strip(), body.student_number)
     return {"ok": True}

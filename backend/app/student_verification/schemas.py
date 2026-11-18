@@ -3,6 +3,9 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.core.junk_text import has_letter_run
+from app.core.text import has_bad_char, visible
+
 
 class GraduateState(BaseModel):
     """졸업생 길을 고르고 아직 인증 전인 사람의 신청 상태. 대기(pending) 또는 반려(rejected)일 때만 있다 —
@@ -40,3 +43,21 @@ class SchoolInfoRequest(BaseModel):
         # 학번은 숫자 1~3자리(10-29 사용자 결정, 예: 21). [0-9] 로 쓴다 — \d 는 전각 숫자(２１)도 받는다.
         # pattern 으로 걸면 422 detail 이 목록이라 앱이 "알 수 없는 오류"를 띄워 라우터에서 문자열로 거절한다.
         return re.fullmatch(r"[0-9]{1,3}", self.student_number) is not None
+
+
+def is_valid_department(department: str) -> bool:
+    """학과 규칙 한 곳 — 학과 제출(POST /school-info)과 3c 다시 띄우기(GET /me/verification-status 의 has_school_info)가 같이 쓴다.
+
+    운영에 학과 "." 가 들어왔다(11-18). 앞뒤 공백을 뺀 2~30자, 완성 한글 · 영문이 하나는 있고(숫자 · 기호만은 안 됨),
+    자음 · 모음 낱자(옛 자모 포함 U+3130–318F) · 제어 문자(줄바꿈 · 탭)가 없고, 같은 글자 3번 연속이 아니어야 한다.
+    제어 문자는 strip 전에 본다 — "컴공" 끝의 줄바꿈이 strip 에 사라진다."""
+    text = department.strip()
+    return (
+        # 하한은 0폭 문자를 뺀 길이로 잰다("가" + U+200B 는 1자다). 상한은 앱 칸 30자와 같다.
+        2 <= len(visible(text)) and len(text) <= 30
+        # 제어 문자(줄바꿈 · 탭 포함) · 글 방향 문자는 한 줄 칸 규칙(core/text.py)으로 원문에서 본다.
+        and not has_bad_char(department, multiline=False)
+        and re.search(r"[가-힣a-zA-Z]", text) is not None
+        and re.search(r"[\u3130-\u318f]", text) is None
+        and not has_letter_run(text, alphabet_order=False)  # 학과는 같은 글자 3번만(알파벳 순서는 실제 학과가 걸린다, 11-18 사용자 ②)
+    )
