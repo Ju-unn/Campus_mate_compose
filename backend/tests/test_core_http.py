@@ -19,7 +19,8 @@ def test_duplicate_is_the_only_conflict():
     assert raised.value.detail == errors.ALREADY_REGISTERED
 
 
-@pytest.mark.parametrize("code", ["23503", "23514", "22P02", "23502"])
+# 22P05 = 널 문자(\u0000)를 text 에 넣으려 했다 — 칸 검사를 빠져나간 널 문자가 500 이 되지 않게(11-18 검토).
+@pytest.mark.parametrize("code", ["23503", "23514", "22P02", "23502", "22P05"])
 def test_bad_input_becomes_422(code):
     """FK 위반(23503)도 여기 들어간다 — 가리키는 행이 없는 것은 충돌이 아니라 잘못된 id 다."""
     with pytest.raises(HTTPException) as raised:
