@@ -10,9 +10,9 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 
-import google.auth
 import httpx
-from google.auth.transport.requests import Request as GoogleAuthRequest
+
+from app.core.google_adc import AdcToken
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ _FILTER = f'resource.type="cloud_run_revision" AND resource.labels.service_name=
 _BUCKET = timedelta(minutes=BUCKET_MINUTES)
 _COUNT = WINDOW_MINUTES // BUCKET_MINUTES  # 36칸
 
-_credentials = None
+_adc = AdcToken(_SCOPE)
 _cache: tuple[datetime, list["Bucket"]] | None = None
 
 
@@ -89,14 +89,8 @@ def summarize_now(buckets: list[Bucket]) -> dict:
 
 
 async def _monitoring_token() -> str:
-    """프로세스에 자격증명 하나(billing/play.py _adc_access_token 과 같은 방식). 실패는 GoogleAuthError 로 올린다 — 경로가 503 으로 바꾼다."""
-    global _credentials
-    if _credentials is None:
-        _credentials, _ = await asyncio.to_thread(google.auth.default, scopes=[_SCOPE])
-    if not _credentials.valid:
-        # refresh 는 requests 로 동기 호출이라 이벤트 루프를 막지 않게 스레드로 돌린다.
-        await asyncio.to_thread(_credentials.refresh, GoogleAuthRequest())
-    return _credentials.token
+    """프로세스에 자격증명 하나(core/google_adc.py). 실패는 GoogleAuthError 로 올린다 — 경로가 503 으로 바꾼다."""
+    return await _adc()
 
 
 def _rfc3339(at: datetime) -> str:

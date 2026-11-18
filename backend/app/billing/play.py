@@ -5,17 +5,15 @@
 **구매 토큰은 요청 주소에 들어간다.** 이 모듈과 부르는 쪽은 주소 · 예외 문구를 로그에 남기지 않는다.
 401/403 때만 구글 본문의 원인(code · status · reason · message)을 토큰을 지운 채 한 줄 남긴다.
 """
-import asyncio
 import hashlib
 import json
 import logging
 from collections.abc import Awaitable, Callable
 
-import google.auth
 import google.auth.exceptions
 import httpx
-from google.auth.transport.requests import Request as GoogleAuthRequest
 
+from app.core.google_adc import AdcToken
 from app.core.logs import show_info
 
 logger = logging.getLogger(__name__)
@@ -36,7 +34,7 @@ PURCHASED, CANCELED, PENDING = 0, 1, 2
 NOT_CONSUMED = 0
 TEST_PURCHASE = 0
 
-_credentials = None
+_adc = AdcToken(_SCOPE)
 
 
 class PlayUnavailable(Exception):
@@ -75,19 +73,13 @@ async def _adc_access_token() -> str:
     """프로세스에 자격증명 하나. 요청마다 ADC 를 다시 읽지 않는다(메타데이터 서버를 매번 부르지 않게).
 
     만들기나 refresh 가 실패하면 원인을 남기고 다시 던진다 — _call 이 PlayUnavailable 로 바꾼다."""
-    global _credentials
     try:
-        if _credentials is None:
-            _credentials, _ = await asyncio.to_thread(google.auth.default, scopes=[_SCOPE])
-        if not _credentials.valid:
-            # refresh 는 requests 로 동기 호출이라 이벤트 루프를 막지 않게 스레드로 돌린다(FcmSender 와 같다).
-            await asyncio.to_thread(_credentials.refresh, GoogleAuthRequest())
+        return await _adc()
     except google.auth.exceptions.GoogleAuthError as exc:
         # RefreshError 는 마지막 인자에 원인(응답 본문 · 하위 예외)을 싣는다.
         detail = exc.args[-1] if exc.args else ""
         logger.warning("구글 플레이 자격 만들기 실패 error=%s %s", type(exc).__name__, _google_error(str(detail)))
         raise
-    return _credentials.token
 
 
 class PlayApi:
