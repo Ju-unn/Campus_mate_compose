@@ -475,6 +475,61 @@ def test_basic_info_rejects_under_nineteen_with_422():
     assert f"{this_year - 19}년생부터 가입할 수 있어요" in json.dumps(too_young.json(), ensure_ascii=False)
 
 
+JUNK_NICKNAMES = ["aaa", "AAa", "가가가", "abbb", "abc", "Abcd", "cba"]
+
+
+@pytest.mark.parametrize("nickname", JUNK_NICKNAMES)
+def test_nickname_availability_says_a_junk_nickname_is_not_available(nickname):
+    """출시된 앱은 422 를 받으면 아무 말도 없이 넘어간다 — available=false 라야 '이미 있는 닉네임' 으로 막고 다음 버튼이 꺼진다."""
+    lookups: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        lookups.append(request)
+        return httpx.Response(200, json=[])
+
+    response = _wire(handler).get(
+        "/profile-onboarding/nickname-availability", headers=AUTH_HEADERS, params={"nickname": nickname}
+    )
+
+    assert (response.status_code, response.json()) == (200, {"available": False})
+    assert [r for r in lookups if r.url.path == "/rest/v1/profiles" and "nickname" in r.url.params] == []
+
+
+@pytest.mark.parametrize("nickname", ["진진", "땅땅이", "hy", "양아아"])
+def test_nickname_availability_lets_a_double_letter_nickname_through(nickname):
+    response = _wire(lambda request: httpx.Response(200, json=[])).get(
+        "/profile-onboarding/nickname-availability", headers=AUTH_HEADERS, params={"nickname": nickname}
+    )
+
+    assert response.json() == {"available": True}
+
+
+@pytest.mark.parametrize("nickname", JUNK_NICKNAMES)
+def test_basic_info_turns_away_a_junk_nickname_before_writing(nickname):
+    writes: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method in ("PATCH", "POST"):
+            writes.append(request.url.path)
+        return _pending_profile_patch(request) or httpx.Response(200, json=[])
+
+    response = _wire(handler).post(
+        "/profile-onboarding/basic-info", headers=AUTH_HEADERS, json={**BASIC_INFO, "nickname": nickname}
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == errors.NICKNAME_TAKEN
+    assert writes == []
+
+
+def test_basic_info_takes_a_double_letter_nickname():
+    response = _wire(lambda request: _pending_profile_patch(request) or httpx.Response(200, json=[])).post(
+        "/profile-onboarding/basic-info", headers=AUTH_HEADERS, json={**BASIC_INFO, "nickname": "땅땅이"}
+    )
+
+    assert response.status_code == 200
+
+
 def test_nickname_availability_rejects_ilike_wildcard_with_422():
     client = _wire(lambda request: httpx.Response(200, json=[]))
     response = client.get(
