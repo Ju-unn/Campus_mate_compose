@@ -1672,14 +1672,14 @@ INFO 를 켠 로거는 핸들러를 직접 달아서 같은 로거의 WARNING �
 
 | 항목 | 값 |
 | --- | --- |
-| PR #775 (main `12e1a336`) | 닉네임 · 학과 · 카카오 아이디 · 글 칸 입력 검사를 서버에서 막는다. **공용 글 칸 검사** `backend/app/core/text.py`(`SafeText` · `SafeLine` — 널 · 제어 · 글 방향 문자와 눈에 안 보이는 글자만 있는 값 · 공백만 있는 값을 거절), 연속 글자 검사 `core/junk_text.py`, `core/http.py` 가 PostgREST `22P05`(널 문자)를 422 로 바꾼다 |
+| PR #775 (main `12e1a336`) | 닉네임 · 학과 · 카카오 아이디 · 글 칸 입력 검사를 서버에서 막는다. **공용 글 칸 검사** `backend/app/core/text.py`(`SafeText` · `SafeLine` — 널 · 제어 · 글 방향 문자를 거절. 눈에 안 보이는 글자 · 공백만 있는 값은 각 칸이 `visible()` 로 거절), 연속 글자 검사 `core/junk_text.py`, `core/http.py` 가 PostgREST `22P05`(널 문자)를 422 로 바꾼다 |
 | 닉네임 | 기존 패턴에 더해 같은 글자 3번(대소문자 무시) · 알파벳 순서 3글자("abc" · "cba")를 거절한다. 거절 응답은 세 곳: 닉네임 확인 200 `available:false` · 기본 정보 저장 422 `NICKNAME_TAKEN` · `PATCH /me/profile` 422 `NICKNAME_TAKEN`(출시된 앱이 이 문구만 닉네임 칸 아래에 보인다) |
 | 학과 | `student_verification/schemas.py` `is_valid_department`: 공백을 깎고 2~30자, 눈에 보이는 글자 2자 이상, 한글이나 영문 글자가 하나는 있어야 한다. 자모 낱자 · 같은 글자 3번 · 제어 · 글 방향 문자는 거절한다. **알파벳 순서 규칙은 쓰지 않는다**(영문 학과 때문, 사용자 결정) |
 | 학과 다시 받기 | `has_school_info` 도 같은 판정을 쓴다 — 그래서 **출시된 앱이 규칙에 맞지 않는 학과를 가진 회원에게 3c(학교 정보) 화면을 다시 띄운다.** 관문 `get_verified_user_id` 는 그대로(학과가 None 인지만 본다) |
-| 카카오 아이디 | 2~64자. 안쪽 공백 · 줄바꿈 · 제어 문자 · 자모 · 눈에 안 보이는 글자는 거절한다 |
+| 카카오 아이디 | 2~64자. 안쪽 공백 · 줄바꿈 · 제어 · 글 방향 문자 · 자모 · 눈에 안 보이는 글자는 거절한다 |
 | 지인 차단 | 30자를 넘는 항목은 그 자리만 null 로 답하고 나머지는 처리한다(묶음 전체 422 가 아니다) |
 | 그 밖 | 투표 질문은 여러 줄 칸이다. 친구 · 초대 코드는 널 문자 등만 막는다 |
-| 시험 | 서버 pytest **4095**(2026-11-18 대장 전달). 시험 `backend/tests/test_input_text_guard.py` · `test_core_junk_text.py` 와 기능별 시험 |
+| 시험 | 서버 pytest **4095**(#775 시점, 2026-11-18 대장 전달) · main `28b800cb` 에서 **4096**(#776 이 시험 1개 추가). 시험 `backend/tests/test_input_text_guard.py` · `test_core_junk_text.py` 와 기능별 시험 |
 | 최소 앱 버전 | `MIN_APP_VERSION` 을 `1.0.3` 에서 **`1.0.6`** 으로 올렸다(사용자 요청 「최소버전 업데이트해줘」, 두 스토어에 1.0.6 이 공개된 것을 확인한 뒤 — §2 의 "공개된 뒤에만" 규칙대로다). **env 만 바꾼 배포**(`--update-env-vars MIN_APP_VERSION=1.0.6`, 코드는 `00137-wiz` 와 같다). 이제 1.0.5 이하 앱은 업데이트 안내 화면으로 막힌다 |
 | PR #776 (main `28b800cb`) | `/admin/server-status` 에서 구글 모니터링 읽기가 실패하면 로그에 **HTTP 상태 코드**(429 등)를 남긴다. 주소 · 토큰 · 본문은 남기지 않는다(§4-33 "실패" 줄의 "예외 이름만" 을 이 PR 이 고쳤다). 처음 의심한 관리자 웹 이중 호출은 CORS 사전 요청 `OPTIONS` 였고 실제 `GET` 은 한 번이었다 — admin_web 에는 회귀 시험만 더했다(`test/shell/nav_badges_test.dart`) |
 
