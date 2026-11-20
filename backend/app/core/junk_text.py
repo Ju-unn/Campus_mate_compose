@@ -17,3 +17,18 @@ def has_letter_run(text: str, *, alphabet_order: bool = True) -> bool:
         if alphabet_order and {a, b, c} <= set(ascii_lowercase) and step in (1, -1) and ord(c) - ord(b) == step:
             return True
     return False
+
+
+# 운영진 사칭 · 비속어(11-20 사용자 결정 목록). 5글자 넘는 말은 지금 닉네임 규칙(2~5자)에 안 걸리지만 길이가 바뀔 때를 위해 둔다.
+BANNED_WORDS = (
+    "운영", "관리", "개발", "매니저", "공식", "고객센터", "캠퍼스", "캠메", "시스템", "마스터", "어드민", "스태프",
+    "admin", "master", "staff", "official", "system", "support", "campus",
+    "시발", "씨발", "씨빨", "병신", "븅신", "좆", "존나", "개새", "새끼", "섹스", "니미", "느금", "애미",
+    "sex", "fuck", "shit", "bitch",
+)
+
+
+def has_banned_word(text: str) -> bool:
+    """금지어가 어디든 들어 있으면 True, 대소문자 무시("운영진친구" · "ADMIN")."""
+    lowered = text.lower()
+    return any(word in lowered for word in BANNED_WORDS)
