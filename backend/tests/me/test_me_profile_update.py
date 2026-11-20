@@ -196,7 +196,7 @@ def test_taken_nickname_is_409():
     assert response.json() == {"detail": "이미 있는 닉네임이에요"}
 
 
-@pytest.mark.parametrize("nickname", ["aaa", "AAa", "가가가", "abc", "Abcd", "cba"])
+@pytest.mark.parametrize("nickname", ["aaa", "AAa", "가가가", "abc", "Abcd", "cba", "ADMIN", "Staff", "관리자", "개발자", "시발"])
 def test_junk_nickname_is_422_with_the_taken_text(nickname):
     """출시된 앱(15-6)은 이 문구만 닉네임 칸 아래로 보낸다 — 다른 문구면 '저장하지 못했어요' 가 된다."""
     seen = []
@@ -206,11 +206,12 @@ def test_junk_nickname_is_422_with_the_taken_text(nickname):
     assert _profile_patches(seen) == []
 
 
-def test_an_old_junk_nickname_kept_as_is_does_not_block_other_saves():
-    """키만 고친 저장도 닉네임을 같이 보낸다 — 예전에 들어온 "aaa" 를 그대로 두면 막지 않는다(새로 쓰는 값만 막는다)."""
+@pytest.mark.parametrize("nickname", ["aaa", "관리자"])
+def test_an_old_junk_nickname_kept_as_is_does_not_block_other_saves(nickname):
+    """키만 고친 저장도 닉네임을 같이 보낸다 — 예전에 들어온 "aaa" · 금지어 닉네임을 그대로 두면 막지 않는다(새로 쓰는 값만 막는다)."""
     seen = []
-    old = {"nickname": "aaa", "nickname_changed_at": None}
-    assert _patch({"nickname": "aaa", "height_cm": 180}, current=old, seen=seen).status_code == 200
+    old = {"nickname": nickname, "nickname_changed_at": None}
+    assert _patch({"nickname": nickname, "height_cm": 180}, current=old, seen=seen).status_code == 200
     assert _profile_patches(seen) == [{"height_cm": 180}]
 
 
