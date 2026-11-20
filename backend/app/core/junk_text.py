@@ -23,12 +23,16 @@ def has_letter_run(text: str, *, alphabet_order: bool = True) -> bool:
 BANNED_WORDS = (
     "운영", "관리", "개발", "매니저", "공식", "고객센터", "캠퍼스", "캠메", "시스템", "마스터", "어드민", "스태프",
     "admin", "master", "staff", "official", "system", "support", "campus",
-    "시발", "씨발", "씨빨", "병신", "븅신", "좆", "존나", "개새", "새끼", "섹스", "니미", "느금", "애미",
+    "시발", "씨발", "씨빨", "병신", "븅신", "좆", "존나", "개새", "새끼", "섹스", "느금", "애미",
     "sex", "fuck", "shit", "bitch",
 )
 
 
+# 닉네임 전체가 이 말일 때만 막는다 — "하니미" 같은 평범한 이름에 들어 있어서다(11-20 사용자 「"니미"만 단어로」).
+BANNED_EXACT_WORDS = ("니미",)
+
+
 def has_banned_word(text: str) -> bool:
-    """금지어가 어디든 들어 있으면 True, 대소문자 무시("운영진친구" · "ADMIN")."""
+    """금지어가 어디든 들어 있거나(BANNED_WORDS) 닉네임 전체가 단어 금지어면(BANNED_EXACT_WORDS) True, 대소문자 무시."""
     lowered = text.lower()
-    return any(word in lowered for word in BANNED_WORDS)
+    return lowered in BANNED_EXACT_WORDS or any(word in lowered for word in BANNED_WORDS)

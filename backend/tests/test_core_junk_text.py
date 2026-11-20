@@ -14,11 +14,11 @@ def test_two_in_a_row_or_broken_order_is_not_a_run(text):
     assert not has_letter_run(text)
 
 
-@pytest.mark.parametrize("text", ["운영진친구", "ADMIN", "Campus", "관리자", "개발자", "시발", "Fuck"])
+@pytest.mark.parametrize("text", ["운영진친구", "ADMIN", "Campus", "관리자", "개발자", "시발", "시발점", "애미야", "Fuck", "니미"])
 def test_operator_impersonation_or_profanity_anywhere_is_banned(text):
     assert has_banned_word(text)
 
 
-@pytest.mark.parametrize("text", ["민지", "Jun", "바다", "하늘이", "Mina"])
+@pytest.mark.parametrize("text", ["민지", "Jun", "바다", "하늘이", "Mina", "하니미", "니미야"])
 def test_ordinary_names_are_not_banned(text):
     assert not has_banned_word(text)
