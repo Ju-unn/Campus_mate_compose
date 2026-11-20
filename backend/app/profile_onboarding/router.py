@@ -27,7 +27,7 @@ from app.profile_onboarding.onboarding_progress import next_step
 from app.profile_onboarding.phone_number import to_signup_e164
 from app.profile_onboarding.photos import PHOTO_CHECKS, REJECTION_BODIES, PhotoVerdict, check_photo
 from app.profile_onboarding.repository import ProfileOnboardingRepository
-from app.core.junk_text import has_letter_run
+from app.core.junk_text import has_banned_word, has_letter_run
 from app.profile_onboarding.schemas import (
     NICKNAME_PATTERN,
     AcquisitionRequest,
@@ -84,8 +84,8 @@ async def check_nickname_availability(
     caller: Caller = Depends(get_verified_caller),
 ) -> NicknameAvailabilityResponse:
     settings, client, profile_id = caller
-    # 연속 글자("aaa" · "abc")는 422 가 아니라 available=false 다 — 출시된 앱은 422 에 아무 말도 없이 다음 버튼을 열어 둔다.
-    if has_letter_run(nickname):
+    # 연속 글자("aaa" · "abc") · 금지어(11-20)는 422 가 아니라 available=false 다 — 출시된 앱은 422 에 아무 말도 없이 다음 버튼을 열어 둔다.
+    if has_letter_run(nickname) or has_banned_word(nickname):
         return NicknameAvailabilityResponse(available=False)
     available = await _repo(settings, client).check_nickname_availability(profile_id, nickname)
     return NicknameAvailabilityResponse(available=available)
@@ -128,7 +128,7 @@ async def submit_basic_info(
     repo = _repo(settings, client)
 
     # 연속 글자 닉네임은 쓰기 전에 막는다. 문구는 중복과 같다 — 닉네임 확인(available=false)에서 앱이 보이는 글자와 맞춘다.
-    if has_letter_run(body.nickname):
+    if has_letter_run(body.nickname) or has_banned_word(body.nickname):
         raise HTTPException(status_code=422, detail=errors.NICKNAME_TAKEN)
 
     # 앱이 하이픈을 붙여 보내도 저장은 한 모양(E.164)이어야 한다 — 여기가 신뢰 경계다. 가짜 번호 규칙도 여기서 최종으로 본다.

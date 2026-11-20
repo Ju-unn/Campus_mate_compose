@@ -475,7 +475,8 @@ def test_basic_info_rejects_under_nineteen_with_422():
     assert f"{this_year - 19}년생부터 가입할 수 있어요" in json.dumps(too_young.json(), ensure_ascii=False)
 
 
-JUNK_NICKNAMES = ["aaa", "AAa", "가가가", "abbb", "abc", "Abcd", "cba"]
+# 금지어(운영진 사칭 · 비속어, 11-20 사용자)도 같은 답을 받는다.
+JUNK_NICKNAMES = ["aaa", "AAa", "가가가", "abbb", "abc", "Abcd", "cba", "ADMIN", "Staff", "관리자", "개발자", "시발"]
 
 
 @pytest.mark.parametrize("nickname", JUNK_NICKNAMES)
