@@ -51,10 +51,11 @@ class AdminUserRepository(AdminRepository):
 
     async def list_users(
         self, *, nickname: str | None, profile_id: str | None, page: Page, exclude_ids: list[str],
-        order: str = "created_at.desc,id.desc",
+        school: str | None = None, order: str = "created_at.desc,id.desc",
     ) -> tuple[list[dict], int]:
-        """한 쪽과 전체 건수(기본 가입 최근 순, order 는 [user_order]). nickname 은 부분 일치(대소문자 무시, LIKE 특수문자는 이스케이프),
-        profile_id 는 일치. 관리자는 PostgREST 필터로 뺀다 — 건수와 쪽이 관리자 때문에 어긋나지 않게."""
+        """한 쪽과 전체 건수(기본 가입 최근 순, order 는 [user_order]). nickname · school(학교 이름)은 부분 일치(대소문자 무시,
+        LIKE 특수문자는 이스케이프), profile_id 는 일치. 관리자는 PostgREST 필터로 뺀다 — 건수와 쪽이 관리자 때문에 어긋나지 않게.
+        school 이 있으면 학교 임베드를 inner 로 바꿔 그 학교 사람만 남기고 건수도 같이 맞춘다(학교 없는 사람은 빠진다)."""
         if profile_id in exclude_ids:
             return [], 0
         params = {"select": _SUMMARY_SELECT, "order": order}
@@ -64,6 +65,9 @@ class AdminUserRepository(AdminRepository):
             params["id"] = f"not.in.({','.join(exclude_ids)})"
         if nickname:
             params["nickname"] = f"ilike.*{_escape_like(nickname)}*"
+        if school:
+            params["select"] = _SUMMARY_SELECT.replace("universities(name)", "universities!inner(name)")
+            params["universities.name"] = f"ilike.*{_escape_like(school)}*"
         return await self.read_page("profiles", params, page)
 
     async def e2e_university_ids(self) -> list[str]:
