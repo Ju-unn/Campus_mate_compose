@@ -69,6 +69,9 @@ class _UserListScreenState extends ConsumerState<UserListScreen> {
     final search = ref.watch(userSearchProvider);
     final results = search.results;
     final mail = search.mode == UserSearchMode.schoolMail;
+    final school = search.mode == UserSearchMode.school;
+    // 학교 메일로 찾은 줄(0 또는 1줄)은 쪽 · 정렬이 없다
+    final listed = search.resultMode != UserSearchMode.schoolMail;
     final Widget content;
     if (results.hasError) {
       final error = results.error;
@@ -95,7 +98,11 @@ class _UserListScreenState extends ConsumerState<UserListScreen> {
       content = AdminTableEmpty(
         leading: const Icon(LucideIcons.inbox, size: 32, color: AdminColors.disabled),
         title: '찾은 사용자가 없어요',
-        body: search.resultMode == UserSearchMode.schoolMail ? '그 학교 메일로 가입한 사용자가 없어요' : '입력한 닉네임 · id 를 다시 확인해 보세요',
+        body: switch (search.resultMode) {
+          UserSearchMode.schoolMail => '그 학교 메일로 가입한 사용자가 없어요',
+          UserSearchMode.school => '입력한 학교 이름을 다시 확인해 보세요',
+          UserSearchMode.nickname => '입력한 닉네임 · id 를 다시 확인해 보세요',
+        },
         enter: true,
       );
     } else {
@@ -104,9 +111,12 @@ class _UserListScreenState extends ConsumerState<UserListScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _UserTable(users: results.requireValue),
-              // 학교 메일 찾기는 0 또는 1줄이라 쪽이 없다
-              if (search.resultMode == UserSearchMode.nickname) ...[
+              _UserTable(
+                users: results.requireValue,
+                sort: listed ? search.sort : null,
+                onSort: ref.read(userSearchProvider.notifier).sortBy,
+              ),
+              if (listed) ...[
                 const SizedBox(height: AdminSpacing.md),
                 AdminPager(total: search.total, page: search.page, size: AdminApi.pageSize, onPage: ref.read(userSearchProvider.notifier).goTo),
               ],
@@ -122,9 +132,12 @@ class _UserListScreenState extends ConsumerState<UserListScreen> {
         children: [
           Row(
             children: [
-              AdminChip(label: '닉네임 · id', selected: !mail, onTap: () => _setMode(UserSearchMode.nickname)),
+              AdminChip(label: '닉네임 · id', selected: search.mode == UserSearchMode.nickname, onTap: () => _setMode(UserSearchMode.nickname)),
               const SizedBox(width: AdminSpacing.xs),
               AdminChip(label: '학교 메일', selected: mail, onTap: () => _setMode(UserSearchMode.schoolMail)),
+              // pen 에 없는 칩(사용자 요청 11-22) — pen 칩 두 개 자리는 그대로 두고 뒤에 붙인다
+              const SizedBox(width: AdminSpacing.xs),
+              AdminChip(label: '학교 이름', selected: school, onTap: () => _setMode(UserSearchMode.school)),
               const SizedBox(width: AdminSpacing.md),
               const Expanded(child: _TotalsLine()),
             ],
@@ -137,9 +150,9 @@ class _UserListScreenState extends ConsumerState<UserListScreen> {
                 width: 420,
                 child: AdminSearchField(
                   controller: _query,
-                  hint: mail ? '학교 메일 주소 (정확히 일치)' : '닉네임 또는 프로필 id',
+                  hint: mail ? '학교 메일 주소 (정확히 일치)' : (school ? '학교 이름 일부' : '닉네임 또는 프로필 id'),
                   sensitive: mail,
-                  maxChars: mail ? 254 : 36, // 서버 q 상한(닉네임 · 프로필 id 36자) · 메일 254자
+                  maxChars: mail ? 254 : (school ? 40 : 36), // 서버 q 상한(닉네임 · 프로필 id 36자) · school 40자 · 메일 254자
                   onSubmitted: (_) => _search(),
                 ),
               ),
@@ -201,16 +214,41 @@ class _TotalsLine extends ConsumerWidget {
 /// (1440 에서 표 폭 1136 을 꼭 채운다 — 더 좁은 창에서는 다른 표처럼 오른쪽이 잘린다).
 const List<double> _columns = [180, 220, 180, 120, 150, 110, 64, 112];
 
+/// 열마다 서버 정렬 칸(머리 칸 누르기). 받은 신고(5)는 서버가 다른 표에서 세는 값이라 정렬할 수 없다(null).
+const List<UserSortColumn?> _sortColumns = [
+  UserSortColumn.nickname,
+  UserSortColumn.id,
+  UserSortColumn.university,
+  UserSortColumn.status,
+  UserSortColumn.createdAt,
+  null,
+  UserSortColumn.gender,
+  UserSortColumn.acquisitionChannel,
+];
+
 class _UserTable extends StatelessWidget {
-  const _UserTable({required this.users});
+  const _UserTable({required this.users, required this.sort, required this.onSort});
 
   final List<UserSummary> users;
 
+  /// 지금 정렬(학교 메일로 찾은 줄이면 null — 머리 칸이 눌리지 않는다)
+  final UserSort? sort;
+  final ValueChanged<UserSortColumn> onSort;
+
   @override
   Widget build(BuildContext context) {
+    final sort = this.sort;
     return AdminTable(
       key: const ValueKey('user-table'),
       columns: _columns,
+      sort: sort == null
+          ? null
+          : AdminTableSort(
+              columns: {for (final (i, column) in _sortColumns.indexed) if (column != null) i},
+              current: _sortColumns.indexOf(sort.column),
+              ascending: sort.ascending,
+              onSort: (i) => onSort(_sortColumns[i]!),
+            ),
       heads: const ['닉네임', '프로필 id', '학교', '상태', '가입일', '받은 신고', '성별', '들어온 경로'],
       rows: [
         for (final user in users)

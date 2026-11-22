@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:campus_mate_admin/api/admin_api.dart';
 import 'package:campus_mate_admin/reports/report_item.dart' show ProfileAction;
+import 'package:campus_mate_admin/users/user_item.dart' show UserSort, UserSortColumn;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -40,6 +41,27 @@ void main() {
       expect(all.items.single.status, 'active');
       expect(all.items.single.reportCount, 0);
       expect((all.items.single.gender, all.items.single.acquisitionChannel), ('male', null));
+    });
+
+    test('listUsers: 학교 이름(school) · 정렬(sort · dir)을 쿼리로 — 기본 정렬(가입 최근 순)이면 sort · dir 은 보내지 않는다', () async {
+      final api = apiWith((_) => json(200, {'items': [userRow('u1')], 'total': 1, 'page': 1, 'size': 20}));
+
+      await api.listUsers(school: ' 가나 ', sort: const UserSort(UserSortColumn.university, ascending: true), page: 2);
+      await api.listUsers(sort: const UserSort(UserSortColumn.acquisitionChannel, ascending: false));
+      await api.listUsers(school: '  ', sort: UserSort.newestFirst);
+
+      expect(requests[0].url.queryParameters, {'school': '가나', 'sort': 'university', 'dir': 'asc', 'page': '2', 'size': '20'});
+      expect(requests[1].url.queryParameters, {'sort': 'acquisition_channel', 'dir': 'desc', 'page': '1', 'size': '20'});
+      expect(requests[2].url.queryParameters, {'page': '1', 'size': '20'});
+    });
+
+    test('UserSort: 다른 칸을 누르면 그 칸 오름차순, 같은 칸을 다시 누르면 방향만 뒤집힌다', () {
+      const byName = UserSort(UserSortColumn.nickname, ascending: true);
+
+      expect(UserSort.newestFirst.tapped(UserSortColumn.nickname), byName);
+      expect(byName.tapped(UserSortColumn.nickname), const UserSort(UserSortColumn.nickname, ascending: false));
+      expect(byName.tapped(UserSortColumn.nickname).tapped(UserSortColumn.nickname), byName);
+      expect(UserSort.newestFirst.tapped(UserSortColumn.createdAt), const UserSort(UserSortColumn.createdAt, ascending: true));
     });
 
     test('가입 중인 사람은 닉네임 · 학교 · 성별이 null 이어도 읽는다', () async {

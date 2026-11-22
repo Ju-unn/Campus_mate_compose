@@ -95,6 +95,40 @@ DateTime _time(Object? value, String what) {
 
 DateTime? _timeOrNull(Object? value) => value is String ? DateTime.tryParse(value) : null;
 
+/// 목록을 줄 세울 수 있는 칸(서버 `sort` 값 = 목록 응답 칸 이름). 받은 신고는 서버가 다른 표에서 세는 값이라 정렬할 수 없어 없다.
+enum UserSortColumn {
+  createdAt('created_at'),
+  nickname('nickname'),
+  id('id'),
+  university('university'),
+  status('status'),
+  gender('gender'),
+  acquisitionChannel('acquisition_channel');
+
+  const UserSortColumn(this.code);
+
+  final String code;
+}
+
+/// 목록 정렬(머리 칸 누르기, 사용자 요청 11-22). 기본은 가입 최근 순.
+class UserSort {
+  const UserSort(this.column, {required this.ascending});
+
+  static const UserSort newestFirst = UserSort(UserSortColumn.createdAt, ascending: false);
+
+  final UserSortColumn column;
+  final bool ascending;
+
+  /// 머리 칸을 눌렀다 — 다른 칸이면 그 칸 오름차순, 같은 칸이면 방향만 뒤집는다
+  UserSort tapped(UserSortColumn tapped) => UserSort(tapped, ascending: tapped != column || !ascending);
+
+  @override
+  bool operator ==(Object other) => other is UserSort && other.column == column && other.ascending == ascending;
+
+  @override
+  int get hashCode => Object.hash(column, ascending);
+}
+
 /// 목록 한 줄(UserSummary). 가입 중이면 닉네임 · 학교가 null.
 class UserSummary {
   const UserSummary({

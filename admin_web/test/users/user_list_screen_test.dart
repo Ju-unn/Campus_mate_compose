@@ -288,6 +288,129 @@ void main() {
     });
   });
 
+  group('머리 칸 정렬 · 학교 이름으로 찾기(사용자 요청 11-22)', () {
+    Iterable<Map<String, String>> lists(FakeUserServer server) =>
+        server.requests.where((r) => r.url.path == '/admin/users').map((r) => r.url.queryParameters);
+    Finder head(String text) => find.descendant(of: find.byKey(const ValueKey('user-table')), matching: find.text(text));
+    Finder headTap(String text) => find.ancestor(of: head(text), matching: find.byType(InkWell));
+
+    List<Map<String, Object?>> many() => [
+          for (var i = 1; i <= 25; i++)
+            userRow('8f3a1b2c-0000-4000-8000-${i.toString().padLeft(12, '0')}', nickname: '하늘${i.toString().padLeft(2, '0')}',
+                university: i.isEven ? '가나대학교' : '다라대학교'),
+        ];
+
+    testWidgets('처음은 가입 최근 순 — 가입일 칸에 내림 화살표', (tester) async {
+      await openList(tester);
+
+      expect(find.descendant(of: find.byKey(const ValueKey('user-table')), matching: find.byIcon(LucideIcons.arrowDown)), findsOneWidget);
+      expect(tester.getRect(find.byIcon(LucideIcons.arrowDown)).left, greaterThan(tester.getRect(head('가입일')).right));
+    });
+
+    testWidgets('머리 칸을 누르면 그 칸 오름차순, 다시 누르면 내림차순(서버 정렬) — 받은 신고 칸은 눌리지 않는다', (tester) async {
+      final server = await openList(tester, server: FakeUserServer(users: many()));
+
+      await tester.tap(head('닉네임'));
+      await tester.pumpAndSettle();
+      expect(lists(server).last, {'sort': 'nickname', 'dir': 'asc', 'page': '1', 'size': '20'});
+      expect(find.text('하늘01'), findsOneWidget);
+      expect(find.byIcon(LucideIcons.arrowUp), findsOneWidget);
+
+      await tester.tap(head('닉네임'));
+      await tester.pumpAndSettle();
+      expect(lists(server).last, {'sort': 'nickname', 'dir': 'desc', 'page': '1', 'size': '20'});
+      expect(find.text('하늘25'), findsOneWidget);
+      expect(find.text('하늘01'), findsNothing);
+
+      expect(headTap('받은 신고'), findsNothing);
+      for (final (text, code) in [('프로필 id', 'id'), ('학교', 'university'), ('상태', 'status'), ('성별', 'gender'), ('들어온 경로', 'acquisition_channel')]) {
+        await tester.tap(head(text));
+        await tester.pumpAndSettle();
+        expect(lists(server).last['sort'], code, reason: text);
+      }
+    });
+
+    testWidgets('2쪽에서 정렬을 바꾸면 1쪽부터(찾는 글자는 그대로), 쪽을 넘겨도 정렬은 그대로', (tester) async {
+      final server = await openList(tester, server: FakeUserServer(users: many()));
+      await tester.enterText(field(), '하늘');
+      await tester.tap(button('검색'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const ValueKey('pager-page-2')));
+      await tester.tap(find.byKey(const ValueKey('pager-page-2')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(head('학교'));
+      await tester.pumpAndSettle();
+      expect(lists(server).last, {'q': '하늘', 'sort': 'university', 'dir': 'asc', 'page': '1', 'size': '20'});
+
+      await tester.ensureVisible(find.byKey(const ValueKey('pager-page-2')));
+      await tester.tap(find.byKey(const ValueKey('pager-page-2')));
+      await tester.pumpAndSettle();
+      expect(lists(server).last, {'q': '하늘', 'sort': 'university', 'dir': 'asc', 'page': '2', 'size': '20'});
+    });
+
+    testWidgets('"학교 이름" 칩: 학교 이름 일부로 찾는다 — school 쿼리 · 번호 쪽 · 정렬이 함께', (tester) async {
+      final server = await openList(tester, server: FakeUserServer(users: many()));
+      final chip = find.widgetWithText(AdminChip, '학교 이름');
+      expect(tester.getRect(chip).left - tester.getRect(find.widgetWithText(AdminChip, '학교 메일')).right, 8);
+
+      await tester.tap(chip);
+      await tester.pumpAndSettle();
+      expect(tester.widget<AdminChip>(chip).selected, isTrue);
+      expect(find.text('학교 이름 일부'), findsOneWidget);
+      await tester.enterText(field(), '가나');
+      await tester.tap(button('검색'));
+      await tester.pumpAndSettle();
+
+      expect(lists(server).last, {'school': '가나', 'page': '1', 'size': '20'});
+      expect(find.text('전체 12건'), findsOneWidget);
+      expect(find.text('다라대학교'), findsNothing);
+
+      await tester.tap(head('닉네임'));
+      await tester.pumpAndSettle();
+      expect(lists(server).last, {'school': '가나', 'sort': 'nickname', 'dir': 'asc', 'page': '1', 'size': '20'});
+      expect(tester.widget<TextField>(field()).controller!.text, '가나', reason: '학교 이름은 메일이 아니라 칸에 남는다');
+    });
+
+    testWidgets('학교 이름 칸은 40자(서버 school 상한)까지, "@" 가 있어도 막지 않는다(학교 이름 찾기는 메일 검사 대상이 아니다)', (tester) async {
+      await openList(tester);
+      await tester.tap(find.text('학교 이름'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(field(), '가' * 50);
+      expect(tester.widget<TextField>(field()).controller!.text.length, 40);
+      await tester.enterText(field(), 'a@b');
+      await tester.pump();
+      expect(find.byType(ErrorRow), findsNothing);
+    });
+
+    testWidgets('학교 이름으로 못 찾으면 "찾은 사용자가 없어요" + "입력한 학교 이름을 다시 확인해 보세요"', (tester) async {
+      await openList(tester);
+      await tester.tap(find.text('학교 이름'));
+      await tester.pumpAndSettle();
+      await tester.enterText(field(), '없는학교');
+      await tester.tap(button('검색'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('찾은 사용자가 없어요'), findsOneWidget);
+      expect(find.text('입력한 학교 이름을 다시 확인해 보세요'), findsOneWidget);
+    });
+
+    testWidgets('학교 메일로 찾은 한 줄은 정렬 · 쪽이 없다(머리 칸이 눌리지 않는다)', (tester) async {
+      final server = FakeUserServer(users: [userRow('u1')])..mailOwners[mail] = 'u1';
+      await openList(tester, server: server);
+      await tester.tap(find.text('학교 메일'));
+      await tester.pumpAndSettle();
+      await tester.enterText(field(), mail);
+      await tester.tap(button('검색'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('닉네임A'), findsOneWidget);
+      expect(headTap('닉네임'), findsNothing);
+      expect(find.byKey(const ValueKey('pager-total')), findsNothing);
+    });
+  });
+
   group('학교 메일 찾기(대장 결정 2 · 설계 §14-3)', () {
     Future<FakeUserServer> mailMode(WidgetTester tester) async {
       final server = FakeUserServer(users: [userRow('u1')])..mailOwners[mail] = 'u1';
