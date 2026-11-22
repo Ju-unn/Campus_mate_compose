@@ -439,9 +439,9 @@ def test_no_offer_yet_makes_one_lazily(wire):
     assert body["paid_card"]["cost"] == 50
     assert world.count("POST", "paid_card_offers") == 1
     [made] = world.offers
-    assert made["target_id"] in {f"c{i:02d}" for i in range(5)}  # 20명의 20% → 최소 5명 구간
+    assert made["target_id"] in {f"c{i:02d}" for i in range(4)}  # 20명의 20% → 4명 구간
     assert datetime.fromisoformat(made["cycle_started_at"]) == CYCLE
-    assert body["paid_card"]["band_count"] == made["band_count"] == 5
+    assert body["paid_card"]["band_count"] == made["band_count"] == 4
     assert body["locked_card_available"] is True
 
 

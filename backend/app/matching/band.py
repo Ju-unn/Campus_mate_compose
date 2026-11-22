@@ -13,7 +13,9 @@ from app.matching.scoring import rank
 # 무료는 2026-10-28 사용자 결정으로 상위 80% → 20~90% (상위 20%는 유료 전용, 감점 큰 하위 10%는 뺀다).
 FREE_BAND_RATIO = 0.9
 PAID_BAND_RATIO = 0.2
-BAND_MINIMUM = 5
+# 2026-11-23 사용자 결정 「최대한 여자 한명에 카드가 안 쏠리게」: 최소 5명 → 1(= 최소 없음, ceil 이 늘 1 이상).
+# 후보 10명이면 유료 구간이 5명이라 무료가 6~9등 4명에게만 몰렸다(운영 7시 배치 흉내 — 한 명 평균 11장 → 8장).
+BAND_MINIMUM = 1
 
 
 def band_size(total: int, ratio: float, minimum: int = BAND_MINIMUM) -> int:
