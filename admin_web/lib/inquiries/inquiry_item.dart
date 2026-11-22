@@ -46,7 +46,6 @@ class InquiryItem {
     required this.status,
     required this.adminMemo,
     required this.createdAt,
-    required this.createdAtRaw,
     required this.answeredAt,
     required this.nickname,
     required this.university,
@@ -60,9 +59,6 @@ class InquiryItem {
   final InquiryStatus status;
   final String? adminMemo;
   final DateTime createdAt;
-
-  /// 서버가 준 created_at 글자 그대로 — 다음 쪽 커서(before)는 이 글자로 보낸다(다시 만든 글자는 마이크로초가 달라질 수 있다).
-  final String createdAtRaw;
   final DateTime? answeredAt;
   final String? nickname;
   final String? university;
@@ -83,10 +79,10 @@ class InquiryItem {
       'body': final String body,
       'reply_email': final String replyEmail,
       'status': final String status,
-      'created_at': final String createdAtRaw,
+      'created_at': final String createdAt,
     }) {
       final state = InquiryStatus.fromCode(status);
-      final created = DateTime.tryParse(createdAtRaw);
+      final created = DateTime.tryParse(createdAt);
       final memo = json['admin_memo'];
       final answered = json['answered_at'];
       final profile = json['profile'];
@@ -101,7 +97,6 @@ class InquiryItem {
           status: state,
           adminMemo: memo,
           createdAt: created,
-          createdAtRaw: createdAtRaw,
           answeredAt: answered == null ? null : DateTime.tryParse(answered),
           nickname: nickname is String ? nickname : null,
           university: university is String ? university : null,

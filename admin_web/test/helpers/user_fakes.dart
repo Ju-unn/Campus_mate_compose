@@ -5,6 +5,8 @@ import 'package:campus_mate_admin/api/admin_api.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'fakes.dart' show pageJson;
+
 /// 목록 한 줄(서버 `_summary` 모양 — D3 계획서 UserSummary)
 Map<String, Object?> userRow(
   String id, {
@@ -258,9 +260,8 @@ class FakeUserServer {
       final failure = _fail(listFailure);
       if (failure != null) return failure;
       final q = request.url.queryParameters['q'];
-      return _json(200, {
-        'items': [for (final u in users) if (q == null || q.isEmpty || '${u['nickname']}'.contains(q) || u['id'] == q) u],
-      });
+      final found = [for (final u in users) if (q == null || q.isEmpty || '${u['nickname']}'.contains(q) || u['id'] == q) u];
+      return _json(200, pageJson(found, request.url.queryParameters));
     }
     if (request.method == 'POST' && path == '/admin/users/search') {
       await holdSearch?.future;
@@ -307,11 +308,11 @@ class FakeUserServer {
       return _json(200, {'items': [for (final o in orders) if (o['store_order_id'] == order) o]});
     }
     if (failure != null) return failure;
-    if (path == '/admin/billing/frequent-returns') return _fail(returnedFailure) ?? _json(200, {'items': returned});
+    if (path == '/admin/billing/frequent-returns') return _fail(returnedFailure) ?? _json(200, pageJson(returned, request.url.queryParameters));
     return switch (path) {
       '/admin/billing/summary' => _json(200, summary),
       '/admin/billing/daily' => _json(200, {'days': days}),
-      _ => _json(200, {'items': shortfall}),
+      _ => _json(200, pageJson(shortfall, request.url.queryParameters)),
     };
   }
 

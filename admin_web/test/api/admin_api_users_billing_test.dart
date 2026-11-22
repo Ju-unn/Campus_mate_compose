@@ -24,36 +24,37 @@ void main() {
   http.Response json(int status, Object body) => http.Response.bytes(utf8.encode(jsonEncode(body)), status);
 
   group('사용자 찾기', () {
-    test('listUsers: q 가 없으면 쿼리 없이 GET /admin/users, 있으면 q 만 붙는다', () async {
-      final api = apiWith((_) => json(200, {'items': [userRow('u1')]}));
+    test('listUsers: q 가 없으면 쪽만, 있으면 q 도 붙는다', () async {
+      final api = apiWith((_) => json(200, {'items': [userRow('u1')], 'total': 1, 'page': 1, 'size': 20}));
 
       final all = await api.listUsers();
       await api.listUsers(q: '닉네임A');
 
       expect(requests[0].method, 'GET');
       expect(requests[0].url.path, '/admin/users');
-      expect(requests[0].url.queryParameters, isEmpty);
-      expect(requests[1].url.queryParameters, {'q': '닉네임A'});
-      expect(all.single.id, 'u1');
-      expect(all.single.nickname, '닉네임A');
-      expect(all.single.university, '서울대학교');
-      expect(all.single.status, 'active');
-      expect(all.single.reportCount, 0);
-      expect((all.single.gender, all.single.acquisitionChannel), ('male', null));
+      expect(requests[0].url.queryParameters, {'page': '1', 'size': '20'});
+      expect(requests[1].url.queryParameters, {'q': '닉네임A', 'page': '1', 'size': '20'});
+      expect(all.items.single.id, 'u1');
+      expect(all.items.single.nickname, '닉네임A');
+      expect(all.items.single.university, '서울대학교');
+      expect(all.items.single.status, 'active');
+      expect(all.items.single.reportCount, 0);
+      expect((all.items.single.gender, all.items.single.acquisitionChannel), ('male', null));
     });
 
     test('가입 중인 사람은 닉네임 · 학교 · 성별이 null 이어도 읽는다', () async {
       final api = apiWith(
         (_) => json(200, {
           'items': [userRow('u1', nickname: null, university: null, status: 'pending', gender: null, channel: 'friend')],
+          'total': 1,
         }),
       );
 
       final users = await api.listUsers();
 
-      expect(users.single.nickname, isNull);
-      expect(users.single.university, isNull);
-      expect((users.single.gender, users.single.acquisitionChannel), (null, 'friend'));
+      expect(users.items.single.nickname, isNull);
+      expect(users.items.single.university, isNull);
+      expect((users.items.single.gender, users.items.single.acquisitionChannel), (null, 'friend'));
     });
 
     test('성별 · 들어온 경로 칸이 없는 옛 서버 응답도 읽는다(관리자 웹이 서버보다 먼저 나갈 때)', () async {
@@ -62,12 +63,13 @@ void main() {
           'items': [
             {'id': 'u1', 'nickname': '닉네임A', 'university': null, 'status': 'active', 'created_at': '2026-09-30T03:00:00+00:00', 'report_count': 0},
           ],
+          'total': 1,
         }),
       );
 
       final users = await api.listUsers();
 
-      expect((users.single.gender, users.single.acquisitionChannel), (null, null));
+      expect((users.items.single.gender, users.items.single.acquisitionChannel), (null, null));
     });
 
     test('userTotals: GET /admin/users/totals → 성별 · 들어온 경로 인원(쿼리 없음)', () async {
@@ -240,7 +242,7 @@ void main() {
         return switch (request.url.path) {
           '/admin/billing/summary' => json(200, {'month': '2026-10', 'revenue_krw': 1284000, 'order_count': 9, 'refunded_krw': 0}),
           '/admin/billing/daily' => json(200, {'days': [dayRow('2026-10-17', 30000), dayRow('2026-10-18', 0)]}),
-          _ => json(200, {'items': [shortfallRow()]}),
+          _ => json(200, {'items': [shortfallRow()], 'total': 1, 'page': 1, 'size': 20}),
         };
       });
 
@@ -252,21 +254,21 @@ void main() {
       expect(summary.month, '2026-10');
       expect(summary.revenueKrw, 1284000);
       expect(days.map((d) => (d.date, d.revenueKrw)), [('2026-10-17', 30000), ('2026-10-18', 0)]);
-      expect(short.single.purchaseId, 'pu1');
-      expect(short.single.nickname, '닉네임A');
-      expect(short.single.shortfallHearts, 40);
-      expect(short.single.productName, '하트 100개');
-      expect(short.single.refundedAt, DateTime.utc(2026, 10, 10, 9, 20));
+      expect(short.items.single.purchaseId, 'pu1');
+      expect(short.items.single.nickname, '닉네임A');
+      expect(short.items.single.shortfallHearts, 40);
+      expect(short.items.single.productName, '하트 100개');
+      expect(short.items.single.refundedAt, DateTime.utc(2026, 10, 10, 9, 20));
     });
 
-    test('환불이 잦은 계정: 경로 frequent-returns(금지어 refund 없음) · 쿼리 없음 · 줄 차례 그대로', () async {
-      final api = apiWith((request) => json(200, {'items': [returnedRow(), returnedRow(id: 'u7', nickname: null, count: 1)]}));
+    test('환불이 잦은 계정: 경로 frequent-returns(금지어 refund 없음) · 쪽만 · 줄 차례 그대로', () async {
+      final api = apiWith((request) => json(200, {'items': [returnedRow(), returnedRow(id: 'u7', nickname: null, count: 1)], 'total': 2, 'page': 1, 'size': 20}));
 
       final rows = await api.billingReturnedAccounts();
 
       expect(requests.single.url.path, '/admin/billing/frequent-returns');
-      expect(requests.single.url.queryParameters, isEmpty);
-      expect(rows.map((r) => (r.profileId, r.nickname, r.refundCount)), [('u1', '닉네임A', 3), ('u7', null, 1)]);
+      expect(requests.single.url.queryParameters, {'page': '1', 'size': '20'});
+      expect(rows.items.map((r) => (r.profileId, r.nickname, r.refundCount)), [('u1', '닉네임A', 3), ('u7', null, 1)]);
     });
 
     test('환불이 잦은 계정 응답 모양이 틀리면 실패로 다룬다', () async {

@@ -86,15 +86,15 @@ void main() {
     };
 
     test('목록: GET /admin/heart-tasks — 전체면 task 없이, 항목을 고르면 task 를 단다', () async {
-      final api = apiWith((_) => json(200, {'items': [row('s1'), row('s2', 'kakao_share')]}));
+      final api = apiWith((_) => json(200, {'items': [row('s1'), row('s2', 'kakao_share')], 'total': 2, 'page': 1, 'size': 20}));
 
       final all = await api.listHeartTasks();
       await api.listHeartTasks(task: HeartTaskKind.kakaoShare);
 
-      expect(all.map((i) => i.id), ['s1', 's2']);
+      expect(all.items.map((i) => i.id), ['s1', 's2']);
       expect(requests.map((r) => '${r.method} ${r.url}'), [
-        'GET https://api.test/admin/heart-tasks',
-        'GET https://api.test/admin/heart-tasks?task=kakao_share',
+        'GET https://api.test/admin/heart-tasks?page=1&size=20',
+        'GET https://api.test/admin/heart-tasks?task=kakao_share&page=1&size=20',
       ]);
     });
 
@@ -180,15 +180,15 @@ void main() {
     };
 
     test('목록: GET /admin/reports?status= — 종류를 고르면 type 을 단다', () async {
-      final api = apiWith((_) => json(200, {'items': [summary('r1'), summary('r2', 'poll')]}));
+      final api = apiWith((_) => json(200, {'items': [summary('r1'), summary('r2', 'poll')], 'total': 2, 'page': 1, 'size': 20}));
 
       final open = await api.listReports();
       await api.listReports(status: ReportStatus.dismissed, type: ReportTargetType.friendReview);
 
-      expect(open.map((i) => i.id), ['r1', 'r2']);
+      expect(open.items.map((i) => i.id), ['r1', 'r2']);
       expect(requests.map((r) => '${r.method} ${r.url}'), [
-        'GET https://api.test/admin/reports?status=open',
-        'GET https://api.test/admin/reports?status=dismissed&type=friend_review',
+        'GET https://api.test/admin/reports?status=open&page=1&size=20',
+        'GET https://api.test/admin/reports?status=dismissed&type=friend_review&page=1&size=20',
       ]);
     });
 

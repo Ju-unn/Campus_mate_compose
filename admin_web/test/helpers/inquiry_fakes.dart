@@ -5,6 +5,8 @@ import 'package:campus_mate_admin/api/admin_api.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'fakes.dart' show pageJson;
+
 const String inquiryA = '00000000-0000-4000-8000-00000000000a';
 const String inquiryB = '00000000-0000-4000-8000-00000000000b';
 const String inquiryC = '00000000-0000-4000-8000-00000000000c';
@@ -39,14 +41,11 @@ class _Default {
   const _Default();
 }
 
-/// 서버 대신 문의 목록 · 처리에 답한다. 목록은 서버처럼 최근 순 + (created_at, id) 커서 + `has_more`, 처리는 상태 · 메모만 바꾼다.
+/// 서버 대신 문의 목록 · 처리에 답한다. 목록은 서버처럼 최근 순 + 번호 쪽(page · size), 처리는 상태 · 메모만 바꾼다.
 class FakeInquiryServer {
   FakeInquiryServer({List<Map<String, Object?>>? rows}) : rows = rows ?? [];
 
   List<Map<String, Object?>> rows;
-
-  /// 쪽 크기(서버 기본은 50). 작게 줘서 "더 보기"를 시험한다.
-  int pageSize = 50;
 
   /// 0 이면 연결 실패, 그 밖은 그 상태코드
   int? listFailure;
@@ -79,11 +78,7 @@ class FakeInquiryServer {
         final byTime = (b['created_at']! as String).compareTo(a['created_at']! as String);
         return byTime != 0 ? byTime : (b['id']! as String).compareTo(a['id']! as String);
       });
-    var from = 0;
-    final beforeId = query['before_id'];
-    if (beforeId != null) from = sorted.indexWhere((row) => row['id'] == beforeId && row['created_at'] == query['before']) + 1;
-    final slice = sorted.skip(from).take(pageSize + 1).toList();
-    return _json(200, {'items': slice.take(pageSize).toList(), 'has_more': slice.length > pageSize});
+    return _json(200, pageJson(sorted, query));
   }
 
   Future<http.Response> _patch(String id, http.Request request) async {

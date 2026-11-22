@@ -25,13 +25,12 @@ void main() {
     expect(InquiryStatus.fromCode('bogus'), isNull);
   });
 
-  test('한 줄을 읽는다 — 보낸 사람 · 메모 · 시각, 커서용 created_at 원문도 든다', () {
+  test('한 줄을 읽는다 — 보낸 사람 · 메모 · 시각', () {
     final item = InquiryItem.fromJson(inquiryRow(inquiryA, adminMemo: '전화 예정', createdAt: '2026-11-10T01:00:00.123456+00:00'));
 
     expect(item.id, inquiryA);
     expect((item.reason, item.body, item.replyEmail, item.status), ('bug', '앱이 멈춰요', 'me@example.com', InquiryStatus.newInquiry));
     expect(item.adminMemo, '전화 예정');
-    expect(item.createdAtRaw, '2026-11-10T01:00:00.123456+00:00');
     expect(item.createdAt, DateTime.utc(2026, 11, 10, 1, 0, 0, 123, 456));
     expect(item.answeredAt, isNull);
     expect(item.writerLabel, '하늘 · 테스트대학교');

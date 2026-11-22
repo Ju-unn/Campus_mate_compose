@@ -23,22 +23,22 @@ void main() {
   http.Response json(int status, Object body) => http.Response.bytes(utf8.encode(jsonEncode(body)), status);
 
   test('목록은 기본이 대기(pending)이고 status 쿼리로 보낸다', () async {
-    final api = apiWith((_) => json(200, {'items': [graduateRow('g1'), graduateRow('g2', attemptNo: 2)]}));
+    final api = apiWith((_) => json(200, {'items': [graduateRow('g1'), graduateRow('g2', attemptNo: 2)], 'total': 2, 'page': 1, 'size': 20}));
 
     final items = await api.listGraduateRequests();
 
     expect(requests.single.method, 'GET');
     expect(requests.single.url.path, '/admin/graduate-requests');
-    expect(requests.single.url.queryParameters, {'status': 'pending'});
-    expect(items.map((i) => (i.id, i.attemptNo)), [('g1', 1), ('g2', 2)]);
+    expect(requests.single.url.queryParameters, {'status': 'pending', 'page': '1', 'size': '20'});
+    expect(items.items.map((i) => (i.id, i.attemptNo)), [('g1', 1), ('g2', 2)]);
   });
 
-  test('다른 상태와 개수 한도도 보낼 수 있다', () async {
-    final api = apiWith((_) => json(200, {'items': const <Object?>[]}));
+  test('다른 상태와 쪽도 보낼 수 있다', () async {
+    final api = apiWith((_) => json(200, {'items': const <Object?>[], 'total': 0, 'page': 2, 'size': 20}));
 
-    await api.listGraduateRequests(status: GraduateStatus.rejected, limit: 100);
+    await api.listGraduateRequests(status: GraduateStatus.rejected, page: 2);
 
-    expect(requests.single.url.queryParameters, {'status': 'rejected', 'limit': '100'});
+    expect(requests.single.url.queryParameters, {'status': 'rejected', 'page': '2', 'size': '20'});
   });
 
   test('목록 모양이 틀리면 그 상태코드의 실패', () async {
