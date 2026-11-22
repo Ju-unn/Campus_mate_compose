@@ -1,3 +1,4 @@
+import 'package:campus_mate_admin/api/admin_api.dart';
 import 'package:campus_mate_admin/heart_tasks/heart_task_item.dart';
 import 'package:campus_mate_admin/heart_tasks/heart_task_review_controller.dart';
 import 'package:campus_mate_admin/heart_tasks/proof_photo_viewer.dart';
@@ -9,6 +10,7 @@ import 'package:campus_mate_admin/widgets/admin_button.dart';
 import 'package:campus_mate_admin/widgets/admin_chip.dart';
 import 'package:campus_mate_admin/widgets/admin_dialog.dart';
 import 'package:campus_mate_admin/widgets/admin_loader.dart';
+import 'package:campus_mate_admin/widgets/admin_pager.dart';
 import 'package:campus_mate_admin/widgets/admin_toast.dart';
 import 'package:campus_mate_admin/widgets/error_row.dart';
 import 'package:campus_mate_admin/widgets/status_badge.dart';
@@ -96,6 +98,12 @@ class _HeartTaskReviewScreenState extends ConsumerState<HeartTaskReviewScreen> {
   void _openMenu({required bool focusFirstReason}) {
     if (!_menuOpen) setState(() => _menuOpen = true);
     if (focusFirstReason) WidgetsBinding.instance.addPostFrameCallback((_) => _firstReasonFocus.requestFocus());
+  }
+
+  /// 번호 쪽 — 열린 반려 메뉴를 닫고 그 쪽 첫 건으로
+  void _goToPage(int page) {
+    _closeMenu();
+    _controller.goToPage(page);
   }
 
   void _closeMenu({bool refocusSelect = false}) {
@@ -240,6 +248,8 @@ class _HeartTaskReviewScreenState extends ConsumerState<HeartTaskReviewScreen> {
                   ],
                 ),
               ),
+              const SizedBox(height: AdminSpacing.sm),
+              AdminPager(total: state.total, page: state.page, size: AdminApi.pageSize, onPage: _goToPage),
             ],
           ),
         ),

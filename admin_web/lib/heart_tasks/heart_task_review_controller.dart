@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:campus_mate_admin/api/admin_api.dart';
+import 'package:campus_mate_admin/api/list_page.dart';
 import 'package:campus_mate_admin/gate/gate_controller.dart';
 import 'package:campus_mate_admin/heart_tasks/heart_task_item.dart';
 import 'package:campus_mate_admin/providers.dart';
@@ -20,11 +21,17 @@ class HeartTaskReviewState {
     this.busy,
     this.reviewFailed = false,
     this.alreadyReviewed = false,
+    this.page = 1,
+    this.total = 0,
   });
 
   /// null = 전체
   final HeartTaskKind? filter;
   final AsyncValue<List<HeartTaskItem>> items;
+
+  /// 목록의 지금 쪽(1부터)과 같은 필터의 전체 건수
+  final int page;
+  final int total;
   final String? selectedId;
 
   /// 고른 건의 사진 · 지난 제출. 고른 건이 없으면 null.
@@ -63,8 +70,12 @@ class HeartTaskReviewState {
     Object? busy = _keep,
     bool? reviewFailed,
     bool? alreadyReviewed,
+    int? page,
+    int? total,
   }) {
     return HeartTaskReviewState(
+      page: page ?? this.page,
+      total: total ?? this.total,
       filter: identical(filter, _keep) ? this.filter : filter as HeartTaskKind?,
       items: items ?? this.items,
       selectedId: identical(selectedId, _keep) ? this.selectedId : selectedId as String?,
@@ -104,8 +115,15 @@ class HeartTaskReviewController extends Notifier<HeartTaskReviewState> {
     return const HeartTaskReviewState();
   }
 
-  /// 칩. 같은 칩을 다시 눌러도 새로 받는다(새 제출 확인).
-  void setFilter(HeartTaskKind? kind) {
+  /// 칩. 같은 칩을 다시 눌러도 새로 받는다(새 제출 확인). 1쪽부터.
+  void setFilter(HeartTaskKind? kind) => _openPage(kind, 1);
+
+  /// 번호 쪽 — 같은 필터로 그 쪽을 받고 그 쪽 첫 건을 고른다
+  void goToPage(int page) => _openPage(state.filter, page);
+
+  void retryList() => _openPage(state.filter, state.page);
+
+  void _openPage(HeartTaskKind? kind, int page) {
     state = state.copyWith(
       filter: kind,
       items: const AsyncLoading(),
@@ -113,11 +131,10 @@ class HeartTaskReviewController extends Notifier<HeartTaskReviewState> {
       detail: null,
       selectedPhotoIndex: 0,
       reviewFailed: false,
+      page: page,
     );
-    unawaited(_loadList(filter: kind));
+    unawaited(_loadList(filter: kind, page: page));
   }
-
-  void retryList() => setFilter(state.filter);
 
   void retryDetail() {
     final id = state.selectedId;
@@ -149,11 +166,11 @@ class HeartTaskReviewController extends Notifier<HeartTaskReviewState> {
 
   void dismissAlreadyReviewed() => state = state.copyWith(alreadyReviewed: false);
 
-  Future<void> _loadList({required HeartTaskKind? filter, String? prefer}) async {
+  Future<void> _loadList({required HeartTaskKind? filter, String? prefer, int page = 1}) async {
     final request = ++_listRequest;
-    final List<HeartTaskItem> items;
+    final ListPage<HeartTaskItem> result;
     try {
-      items = await _api.listHeartTasks(task: filter);
+      result = await _api.listHeartTasks(task: filter, page: page);
     } on AdminApiFailure catch (failure) {
       if (!_isLatest(request)) return;
       state = state.copyWith(items: AsyncError(failure, StackTrace.current));
@@ -161,18 +178,22 @@ class HeartTaskReviewController extends Notifier<HeartTaskReviewState> {
       return;
     }
     if (!_isLatest(request)) return;
-    state = state.copyWith(items: AsyncData(items));
+    final last = lastPage(result.total, AdminApi.pageSize);
+    // 처리 · 다른 관리자 때문에 그 쪽이 비었다 — 새 마지막 쪽으로
+    if (result.items.isEmpty && page > last) return _loadList(filter: filter, prefer: prefer, page: last);
+    final items = result.items;
+    state = state.copyWith(items: AsyncData(items), page: page, total: result.total);
     final keep = prefer ?? state.selectedId;
     if (keep != null && (prefer != null || items.any((i) => i.id == keep))) {
-      // 링크로 연 건은 목록 밖이어도 한 건으로 받아 본다(이미 처리됨 · 51번째 이후)
+      // 링크로 연 건은 목록 밖이어도 한 건으로 받아 본다(이미 처리됨 · 다른 쪽)
       if (keep != state.selectedId || state.detail?.value == null) await _fetchDetail(keep);
       return;
     }
     await _selectFirst();
   }
 
-  /// 다른 데서 처리됐을 수 있으니 목록만 새로 받는다(지금 줄들은 받을 때까지 그대로 둔다).
-  Future<void> _reload() => _loadList(filter: state.filter);
+  /// 다른 데서 처리됐을 수 있으니 지금 쪽 목록만 새로 받는다(지금 줄들은 받을 때까지 그대로 둔다).
+  Future<void> _reload() => _loadList(filter: state.filter, page: state.page);
 
   Future<void> _selectFirst() async {
     final first = state.items.value?.firstOrNull;
@@ -243,8 +264,13 @@ class HeartTaskReviewController extends Notifier<HeartTaskReviewState> {
     // 같은 필터 안의 다음 건: 처리한 줄 자리에 올라온 줄, 맨 아래였으면 맨 위(가장 오래 기다린 건)
     final index = items?.indexWhere((i) => i.id == id) ?? -1;
     final next = rest.isEmpty ? null : rest[index >= 0 && index < rest.length ? index : 0];
-    state = state.copyWith(items: AsyncData(rest), busy: null, selectedId: next?.id, detail: null, selectedPhotoIndex: 0);
-    if (next != null) unawaited(select(next.id));
+    final total = state.total - 1;
+    state = state.copyWith(items: AsyncData(rest), busy: null, selectedId: next?.id, detail: null, selectedPhotoIndex: 0, total: total);
+    if (next != null) {
+      unawaited(select(next.id));
+    } else if (total > 0) {
+      unawaited(_reload()); // 이 쪽은 비었지만 다른 쪽에 남았다
+    }
     return true;
   }
 

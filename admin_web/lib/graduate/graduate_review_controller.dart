@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:campus_mate_admin/api/admin_api.dart';
 import 'package:campus_mate_admin/gate/gate_controller.dart';
+import 'package:campus_mate_admin/api/list_page.dart';
 import 'package:campus_mate_admin/graduate/graduate_item.dart';
 import 'package:campus_mate_admin/heart_tasks/heart_task_review_controller.dart' show ReviewAction;
 import 'package:campus_mate_admin/home/home_item.dart';
@@ -28,9 +29,15 @@ class GraduateReviewState {
     this.busy,
     this.error,
     this.alreadyReviewed = false,
+    this.page = 1,
+    this.total = 0,
   });
 
   final AsyncValue<List<GraduateItem>> items;
+
+  /// 목록의 지금 쪽(1부터)과 대기 건 전체 수
+  final int page;
+  final int total;
   final String? selectedId;
 
   /// 고른 건의 한 건. 고른 건이 없으면 null.
@@ -84,8 +91,12 @@ class GraduateReviewState {
     Object? busy = _keep,
     Object? error = _keep,
     bool? alreadyReviewed,
+    int? page,
+    int? total,
   }) {
     return GraduateReviewState(
+      page: page ?? this.page,
+      total: total ?? this.total,
       items: items ?? this.items,
       selectedId: identical(selectedId, _keep) ? this.selectedId : selectedId as String?,
       detail: identical(detail, _keep) ? this.detail : detail as AsyncValue<GraduateDetail>?,
@@ -132,9 +143,12 @@ class GraduateReviewController extends Notifier<GraduateReviewState> {
     return const GraduateReviewState();
   }
 
-  void retryList() {
-    state = state.copyWith(items: const AsyncLoading(), selectedId: null, detail: null, error: null);
-    unawaited(_loadList());
+  void retryList() => goToPage(state.page);
+
+  /// 번호 쪽 — 그 쪽을 받고 그 쪽 첫 건을 고른다
+  void goToPage(int page) {
+    state = state.copyWith(items: const AsyncLoading(), selectedId: null, detail: null, error: null, page: page);
+    unawaited(_loadList(page: page));
   }
 
   void retryDetail() {
@@ -193,11 +207,11 @@ class GraduateReviewController extends Notifier<GraduateReviewState> {
     state = state.copyWith(universities: AsyncData([...rows]..sort((a, b) => a.name.compareTo(b.name))));
   }
 
-  Future<void> _loadList({String? prefer}) async {
+  Future<void> _loadList({String? prefer, int page = 1}) async {
     final request = ++_listRequest;
-    final List<GraduateItem> items;
+    final ListPage<GraduateItem> result;
     try {
-      items = await _api.listGraduateRequests();
+      result = await _api.listGraduateRequests(page: page);
     } on AdminApiFailure catch (failure) {
       if (!_isLatest(request)) return;
       state = state.copyWith(items: AsyncError(failure, StackTrace.current));
@@ -205,7 +219,11 @@ class GraduateReviewController extends Notifier<GraduateReviewState> {
       return;
     }
     if (!_isLatest(request)) return;
-    state = state.copyWith(items: AsyncData(items));
+    final last = lastPage(result.total, AdminApi.pageSize);
+    // 처리 · 다른 관리자 때문에 그 쪽이 비었다 — 새 마지막 쪽으로
+    if (result.items.isEmpty && page > last) return _loadList(prefer: prefer, page: last);
+    final items = result.items;
+    state = state.copyWith(items: AsyncData(items), page: page, total: result.total);
     final keep = prefer ?? state.selectedId;
     if (keep != null && (prefer != null || items.any((i) => i.id == keep))) {
       if (keep != state.selectedId || state.detail?.value == null) await _fetchDetail(keep);
@@ -214,7 +232,7 @@ class GraduateReviewController extends Notifier<GraduateReviewState> {
     await _selectFirst();
   }
 
-  Future<void> _reload() => _loadList();
+  Future<void> _reload() => _loadList(page: state.page);
 
   Future<void> _selectFirst() async {
     final first = state.items.value?.firstOrNull;
@@ -299,8 +317,13 @@ class GraduateReviewController extends Notifier<GraduateReviewState> {
       universityChoice: null,
       documentNumber: '',
       studentNumber: '',
+      total: state.total - 1,
     );
-    if (next != null) unawaited(select(next.id));
+    if (next != null) {
+      unawaited(select(next.id));
+    } else if (state.total > 0) {
+      unawaited(_reload()); // 이 쪽은 비었지만 다른 쪽에 남았다
+    }
     return true;
   }
 

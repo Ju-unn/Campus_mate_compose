@@ -49,7 +49,7 @@ void main() {
     expect(state.selected?.nickname, '닉네임A');
     expect(state.detail?.value?.photoUrl, startsWith('https://storage.test/e1.jpg'));
     expect(server.requests.map((r) => r.url.toString()), [
-      'https://api.test/admin/heart-tasks',
+      'https://api.test/admin/heart-tasks?page=1&size=20',
       'https://api.test/admin/heart-tasks/e1',
     ]);
   });
@@ -61,7 +61,7 @@ void main() {
     expect(stateOf(c).items.isLoading, isTrue);
     await pumpEventQueue();
 
-    expect(server.requests[2].url.queryParameters, {'task': 'kakao_share'});
+    expect(server.requests[2].url.queryParameters, {'task': 'kakao_share', 'page': '1', 'size': '20'});
     expect(stateOf(c).filter, HeartTaskKind.kakaoShare);
     expect(ids(stateOf(c)), ['k1', 'k2']);
     expect(stateOf(c).selectedId, 'k1');
@@ -399,5 +399,41 @@ void main() {
     await pumpEventQueue();
 
     expect(server.requests.where((r) => r.url.path == '/admin/me'), isNotEmpty);
+  });
+
+  group('번호 쪽', () {
+    Map<String, String> lastListQuery() => server.requests.lastWhere((r) => r.url.path == '/admin/heart-tasks').url.queryParameters;
+
+    test('쪽을 바꾸면 같은 필터로 그 쪽을 받고 그 쪽 첫 건을 고른다, 필터를 바꾸면 1쪽', () async {
+      server = FakeHeartTaskServer([for (var i = 1; i <= 21; i++) taskRow('x$i', task: 'kakao_share')]);
+      final (c, controller) = await open();
+      controller.setFilter(HeartTaskKind.kakaoShare);
+      await pumpEventQueue();
+      expect(stateOf(c).total, 21);
+
+      controller.goToPage(2);
+      await pumpEventQueue();
+
+      expect(lastListQuery(), {'task': 'kakao_share', 'page': '2', 'size': '20'});
+      expect((stateOf(c).page, stateOf(c).selectedId), (2, 'x21'));
+      expect(ids(stateOf(c)), ['x21']);
+
+      controller.setFilter(null);
+      await pumpEventQueue();
+      expect(lastListQuery(), {'page': '1', 'size': '20'});
+      expect(stateOf(c).page, 1);
+    });
+
+    test('마지막 쪽의 마지막 건을 처리하면 그 쪽을 다시 받고, 비었으면 앞 쪽(새 마지막 쪽)으로', () async {
+      server = FakeHeartTaskServer([for (var i = 1; i <= 21; i++) taskRow('x$i')]);
+      final (c, controller) = await open();
+      controller.goToPage(2);
+      await pumpEventQueue();
+
+      await controller.approve();
+      await pumpEventQueue();
+
+      expect((stateOf(c).page, stateOf(c).total, ids(stateOf(c)).length, stateOf(c).selectedId), (1, 20, 20, 'x1'));
+    });
   });
 }

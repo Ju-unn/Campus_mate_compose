@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:campus_mate_admin/api/admin_api.dart';
+import 'package:campus_mate_admin/api/list_page.dart';
 import 'package:campus_mate_admin/billing/billing_item.dart';
 import 'package:campus_mate_admin/gate/gate_controller.dart';
 import 'package:campus_mate_admin/providers.dart';
@@ -8,12 +9,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 결제 조회 화면의 읽기 네 가지(이번 달 매출 · 30일 일 매출 · 못 거둔 목록 · 환불이 잦은 계정)
 class BillingOverview {
-  const BillingOverview({required this.summary, required this.days, required this.shortfall, required this.returned});
+  const BillingOverview({
+    required this.summary,
+    required this.days,
+    required this.shortfall,
+    required this.returned,
+    this.shortfallPage = 1,
+    this.returnedPage = 1,
+  });
 
   final BillingSummary summary;
   final List<DailyRevenue> days;
-  final List<ShortfallRow> shortfall;
-  final List<ReturnedAccountRow> returned;
+  final ListPage<ShortfallRow> shortfall;
+  final ListPage<ReturnedAccountRow> returned;
+
+  /// 두 표의 지금 쪽(각자 넘긴다)
+  final int shortfallPage;
+  final int returnedPage;
 }
 
 /// A8 첫 화면. 화면에 들어올 때마다 새로 받는다. 한 가지라도 못 받으면 오류 한 가지로 다룬다(다시 시도 한 번으로 넷 다).
@@ -46,8 +58,8 @@ class BillingOverviewController extends Notifier<AsyncValue<BillingOverview>> {
       overview = BillingOverview(
         summary: parts[0] as BillingSummary,
         days: parts[1] as List<DailyRevenue>,
-        shortfall: parts[2] as List<ShortfallRow>,
-        returned: parts[3] as List<ReturnedAccountRow>,
+        shortfall: parts[2] as ListPage<ShortfallRow>,
+        returned: parts[3] as ListPage<ReturnedAccountRow>,
       );
     } on AdminApiFailure catch (failure) {
       if (!_isLatest(request)) return;
@@ -56,6 +68,35 @@ class BillingOverviewController extends Notifier<AsyncValue<BillingOverview>> {
       return;
     }
     if (_isLatest(request)) state = AsyncData(overview);
+  }
+
+  /// 못 거둔 표만 그 쪽으로 다시 받는다(나머지 셋은 그대로)
+  void shortfallPage(int page) => unawaited(_turn((o) async {
+        final rows = await _api.billingShortfall(page: page);
+        return BillingOverview(summary: o.summary, days: o.days, shortfall: rows, returned: o.returned, shortfallPage: page, returnedPage: o.returnedPage);
+      }));
+
+  /// 환불이 잦은 표만 그 쪽으로 다시 받는다
+  void returnedPage(int page) => unawaited(_turn((o) async {
+        final rows = await _api.billingReturnedAccounts(page: page);
+        return BillingOverview(summary: o.summary, days: o.days, shortfall: o.shortfall, returned: rows, shortfallPage: o.shortfallPage, returnedPage: page);
+      }));
+
+  /// 쪽 넘기기 실패는 첫 받기 실패와 같이 화면 전체 오류 한 가지로 둔다([다시 시도]는 넷 다 1쪽부터)
+  Future<void> _turn(Future<BillingOverview> Function(BillingOverview now) next) async {
+    final now = state.value;
+    if (now == null) return;
+    final request = ++_request;
+    final BillingOverview turned;
+    try {
+      turned = await next(now);
+    } on AdminApiFailure catch (failure) {
+      if (!_isLatest(request)) return;
+      state = AsyncError(failure, StackTrace.current);
+      if (failure.isGateProblem) ref.read(gateProvider.notifier).retry();
+      return;
+    }
+    if (_isLatest(request)) state = AsyncData(turned);
   }
 
   bool _isLatest(int request) => ref.mounted && request == _request;

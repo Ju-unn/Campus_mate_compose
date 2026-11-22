@@ -279,7 +279,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(locationOf(tester), '/inquiries');
-    expect(server.lists.last.url.queryParameters, isEmpty); // 상세로 가기 전에 고른 "전체"
+    expect(server.lists.last.url.queryParameters, {'page': '1', 'size': '20'}); // 상세로 가기 전에 고른 "전체"
     expect(find.descendant(of: key('inquiry-row-$inquiryA'), matching: find.text('답변 완료')), findsOneWidget);
   });
 

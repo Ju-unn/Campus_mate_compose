@@ -1,11 +1,12 @@
 import 'package:campus_mate_admin/actions/action_item.dart';
 import 'package:campus_mate_admin/actions/action_log_controller.dart';
+import 'package:campus_mate_admin/api/admin_api.dart';
 import 'package:campus_mate_admin/heart_tasks/heart_task_item.dart' show formatSubmittedAt;
 import 'package:campus_mate_admin/state/paged_controller.dart';
 import 'package:campus_mate_admin/theme/admin_colors.dart';
 import 'package:campus_mate_admin/theme/admin_spacing.dart';
 import 'package:campus_mate_admin/theme/admin_typography.dart';
-import 'package:campus_mate_admin/widgets/admin_button.dart';
+import 'package:campus_mate_admin/widgets/admin_pager.dart';
 import 'package:campus_mate_admin/widgets/admin_search_field.dart';
 import 'package:campus_mate_admin/widgets/admin_table.dart';
 import 'package:campus_mate_admin/widgets/error_row.dart';
@@ -14,7 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// A7 작업 기록(pen RHMgk · 1440×900). 내용 32 안쪽, 세로 24: 검색칸(320×44 "대상 id 검색") → 표(머리 44 · 줄 52 — 시각 180 · 관리자 180 ·
-/// 작업 150 · 대상 200 · 사유 360) → (더 보기) → 안내. 읽기 전용 · 최근 순 50건씩.
+/// 작업 150 · 대상 200 · 사유 360) → 번호 쪽(전체 N건 · 이전 1 … 10 다음) → 안내. 읽기 전용 · 최근 순 20건씩.
 /// 검색은 대상 id 정확 일치(엔터) — UUID 모양이 아니면 요청 없이 칸 아래 오류 줄(서버 필터 문법이 끼어들 틈을 처음부터 없앤다).
 class ActionLogScreen extends ConsumerStatefulWidget {
   const ActionLogScreen({super.key});
@@ -69,7 +70,7 @@ class _ActionLogScreenState extends ConsumerState<ActionLogScreen> {
     } else if (list.items.isEmpty) {
       body = EmptyBlock(target == null ? '기록이 없어요' : '그 id 로 남은 기록이 없어요');
     } else {
-      body = _Rows(list: list, onMore: controller.loadMore);
+      body = _Rows(list: list, onPage: controller.goTo);
     }
     return Padding(
       padding: const EdgeInsets.all(AdminSpacing.xl),
@@ -99,10 +100,10 @@ class _ActionLogScreenState extends ConsumerState<ActionLogScreen> {
 }
 
 class _Rows extends StatelessWidget {
-  const _Rows({required this.list, required this.onMore});
+  const _Rows({required this.list, required this.onPage});
 
   final PagedState<ActionRow> list;
-  final VoidCallback onMore;
+  final ValueChanged<int> onPage;
 
   @override
   Widget build(BuildContext context) {
@@ -128,24 +129,10 @@ class _Rows extends StatelessWidget {
               ),
           ],
         ),
-        if (list.hasMore) ...[
-          const SizedBox(height: AdminSpacing.lg),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (list.moreFailed) ...[
-                  const ErrorRow('더 불러오지 못했어요. 다시 시도해 주세요.', lineHeight: AdminTypography.xsBox),
-                  const SizedBox(height: AdminSpacing.xs),
-                ],
-                AdminButton(label: '더 보기', variant: AdminButtonVariant.secondary, loading: list.loadingMore, onPressed: onMore),
-              ],
-            ),
-          ),
-        ],
+        const SizedBox(height: AdminSpacing.md),
+        AdminPager(total: list.total, page: list.page, size: AdminApi.pageSize, onPage: onPage),
         const SizedBox(height: AdminSpacing.lg),
-        Text('읽기 전용이에요. 기록은 2년 보관돼요. · 최근 순 50건씩', style: AdminTypography.xs.copyWith(height: AdminTypography.xsBox, color: AdminColors.muted)),
+        Text('읽기 전용이에요. 기록은 2년 보관돼요.', style: AdminTypography.xs.copyWith(height: AdminTypography.xsBox, color: AdminColors.muted)),
       ],
     );
   }

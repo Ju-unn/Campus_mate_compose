@@ -132,7 +132,7 @@ void main() {
       expect((styleOf(tester, title).fontSize, styleOf(tester, title).fontWeight), (16, FontWeight.w700));
       expect(tester.getRect(key('shortfall-table')), const Rect.fromLTWH(272, 640, 1136, 44 + 52 * 2));
       final note = find.text('이미 써서 다 거두지 못한 구매예요. 손으로 줄지 판단할 때 참고해요.');
-      expect(tester.getTopLeft(note).dy, 640 + 148 + 20);
+      expect(tester.getTopLeft(note).dy, 640 + 148 + 20 + 36 + 20); // 표 → 20 → 쪽 줄 36 → 20 → 안내
       expect((styleOf(tester, note).fontSize, styleOf(tester, note).color), (12, AdminColors.muted));
     });
 
@@ -231,6 +231,28 @@ void main() {
       await tester.tap(button('다시 시도'));
       await tester.pumpAndSettle();
       expect(key('returned-table'), findsOneWidget);
+    });
+
+    testWidgets('두 표는 쪽을 따로 넘긴다 — 환불이 잦은 표 2쪽은 frequent-returns 만 page=2 로 다시 받는다', (tester) async {
+      final server = FakeUserServer()
+        ..returned = [for (var i = 1; i <= 21; i++) returnedRow(id: 'r$i', nickname: '환불$i')]
+        ..shortfall = [for (var i = 1; i <= 21; i++) shortfallRow(id: 's$i')];
+      await openBilling(tester, server: server);
+      expect(find.descendant(of: key('returned-pager'), matching: find.text('전체 21건')), findsOneWidget);
+      expect(find.descendant(of: key('shortfall-pager'), matching: find.text('전체 21건')), findsOneWidget);
+      final shortfallReads = server.requests.where((r) => r.url.path == '/admin/billing/shortfall').length;
+
+      final page2 = find.descendant(of: key('returned-pager'), matching: key('pager-page-2'));
+      await tester.ensureVisible(page2);
+      await tester.tap(page2);
+      await tester.pumpAndSettle();
+
+      expect(server.requests.last.url.path, '/admin/billing/frequent-returns');
+      expect(server.requests.last.url.queryParameters, {'page': '2', 'size': '20'});
+      expect(server.requests.where((r) => r.url.path == '/admin/billing/shortfall'), hasLength(shortfallReads));
+      expect(key('returned-row-r21'), findsOneWidget);
+      expect(key('returned-row-r1'), findsNothing);
+      expect(key('shortfall-row-s1'), findsOneWidget);
     });
   });
 

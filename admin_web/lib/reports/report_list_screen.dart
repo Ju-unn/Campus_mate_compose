@@ -1,3 +1,4 @@
+import 'package:campus_mate_admin/api/admin_api.dart';
 import 'package:campus_mate_admin/heart_tasks/heart_task_item.dart' show formatSubmittedAt;
 import 'package:campus_mate_admin/providers.dart';
 import 'package:campus_mate_admin/reports/report_controller.dart';
@@ -8,6 +9,7 @@ import 'package:campus_mate_admin/theme/admin_typography.dart';
 import 'package:campus_mate_admin/widgets/admin_button.dart';
 import 'package:campus_mate_admin/widgets/admin_chip.dart';
 import 'package:campus_mate_admin/widgets/admin_loader.dart';
+import 'package:campus_mate_admin/widgets/admin_pager.dart';
 import 'package:campus_mate_admin/widgets/status_badge.dart';
 import 'package:campus_mate_admin/widgets/table_empty.dart';
 import 'package:campus_mate_admin/widgets/tap_box.dart';
@@ -25,18 +27,19 @@ StatusTone reportStatusTone(ReportStatus status) {
   };
 }
 
-/// A4 신고 목록(pen i5AYYB · 1440×900). 내용 32 안쪽: 필터 줄(MhNyJ) → 24 → 표(gVa8u) → 24 → "오래된 순 · 최대 50건".
-/// 필터 줄은 제자리, 표 · 안내만 세로로 스크롤한다(최대 50줄). 줄을 누르면 그 신고의 상세 주소(/reports/{id}).
+/// A4 신고 목록(pen i5AYYB · 1440×900). 내용 32 안쪽: 필터 줄(MhNyJ) → 24 → 표(gVa8u) → 16 → 번호 쪽 → 24 → "오래된 순 · 20건씩"(닫힘은 최근 순).
+/// 필터 줄은 제자리, 표 · 안내만 세로로 스크롤한다(쪽당 20줄). 줄을 누르면 그 신고의 상세 주소(/reports/{id}).
 class ReportListScreen extends ConsumerWidget {
   const ReportListScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final filter = ref.watch(reportFilterProvider);
-    final items = ref.watch(reportListProvider);
+    final list = ref.watch(reportListProvider);
+    final controller = ref.read(reportListProvider.notifier);
     final now = ref.watch(clockProvider)();
     final Widget content;
-    if (items.hasError) {
+    if (list.failed) {
       content = AdminTableEmpty(
         framed: false,
         leading: const Icon(LucideIcons.circleAlert, size: 32, color: AdminColors.danger),
@@ -45,13 +48,13 @@ class ReportListScreen extends ConsumerWidget {
         action: AdminButton(
           label: '다시 시도',
           variant: AdminButtonVariant.secondary,
-          onPressed: ref.read(reportListProvider.notifier).reload,
+          onPressed: controller.retry,
         ),
         alert: true,
       );
-    } else if (!items.hasValue || items.isLoading) {
+    } else if (list.loading) {
       content = const AdminTableEmpty(framed: false, leading: AdminLoader(color: AdminColors.muted), body: '신고 목록을 불러오고 있어요');
-    } else if (items.requireValue.isEmpty) {
+    } else if (list.items.isEmpty) {
       final openOnly = filter.status == ReportStatus.open && filter.type == null;
       content = AdminTableEmpty(
         leading: const Icon(LucideIcons.inbox, size: 32, color: AdminColors.disabled),
@@ -66,12 +69,15 @@ class ReportListScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _Table(
-                items: items.requireValue,
+                items: list.items,
                 now: now,
                 onOpen: (item) => context.go('/reports/${item.id}', extra: item),
               ),
+              const SizedBox(height: AdminSpacing.md),
+              AdminPager(total: list.total, page: list.page, size: AdminApi.pageSize, onPage: controller.goTo),
               const SizedBox(height: AdminSpacing.lg),
-              Text('오래된 순 · 최대 50건', style: AdminTypography.xs.copyWith(height: AdminTypography.xsBox, color: AdminColors.muted)),
+              // 열린 신고는 먼저 들어온 것부터 처리하고, 닫힌 신고는 최근 것부터 본다(서버 순서)
+              Text(filter.status == ReportStatus.open ? '오래된 순 · 20건씩' : '최근 순 · 20건씩', style: AdminTypography.xs.copyWith(height: AdminTypography.xsBox, color: AdminColors.muted)),
             ],
           ),
         ),

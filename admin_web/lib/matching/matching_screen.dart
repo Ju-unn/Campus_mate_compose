@@ -11,13 +11,12 @@ import 'package:campus_mate_admin/state/paged_controller.dart';
 import 'package:campus_mate_admin/theme/admin_colors.dart';
 import 'package:campus_mate_admin/theme/admin_spacing.dart';
 import 'package:campus_mate_admin/theme/admin_typography.dart';
-import 'package:campus_mate_admin/widgets/admin_button.dart';
 import 'package:campus_mate_admin/widgets/admin_chip.dart';
 import 'package:campus_mate_admin/widgets/admin_link.dart';
+import 'package:campus_mate_admin/widgets/admin_pager.dart';
 import 'package:campus_mate_admin/widgets/admin_select.dart';
 import 'package:campus_mate_admin/widgets/admin_table.dart';
 import 'package:campus_mate_admin/widgets/chart_card.dart';
-import 'package:campus_mate_admin/widgets/error_row.dart';
 import 'package:campus_mate_admin/widgets/load_states.dart';
 import 'package:campus_mate_admin/widgets/stat_card.dart';
 import 'package:campus_mate_admin/widgets/status_badge.dart';
@@ -27,8 +26,8 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// A9 매칭 현황(pen H5Pocy · 1440×1200, 내용이 길어 세로로 스크롤). 내용 32 안쪽, 세로 20: 숫자 카드 4장(사이 16, 폭 fill) →
-/// 추이 카드(수락 · 매칭 · 카톡 공유 선 3줄) → 표 제목 → 필터 줄(학교 Select + 상태 칩 4개) → 안내 줄 → 표 → (더 보기) → 안내
-/// → 맨 아래 "누가 누구에게 대화를 신청했나"(제목 → 상태 칩 5개 → 안내 줄 → 표 → (더 보기), 학교 필터 없음).
+/// 추이 카드(수락 · 매칭 · 카톡 공유 선 3줄) → 표 제목 → 필터 줄(학교 Select + 상태 칩 4개) → 안내 줄 → 표 → 번호 쪽 → 안내
+/// → 맨 아래 "누가 누구에게 대화를 신청했나"(제목 → 상태 칩 5개 → 안내 줄 → 표 → 번호 쪽, 학교 필터 없음). 두 표는 쪽을 따로 넘긴다.
 /// 사진 · 카톡 아이디 · 대화는 서버도 주지 않고 표에도 열이 없다. 닉네임을 누르면 사용자 상세(A5).
 class MatchingScreen extends ConsumerWidget {
   const MatchingScreen({super.key});
@@ -109,7 +108,7 @@ class MatchingScreen extends ConsumerWidget {
     );
   }
 
-  /// 신청 목록 자리: 받는 중 · 못 받음 · 빈 목록, 아니면 표 → (더 보기). 표 열은 매칭 쌍 표와 같은 폭이다.
+  /// 신청 목록 자리: 받는 중 · 못 받음 · 빈 목록, 아니면 표 → 번호 쪽. 표 열은 매칭 쌍 표와 같은 폭이다.
   List<Widget> _requestList(WidgetRef ref, PagedState<MatchRequest> list) {
     final controller = ref.read(matchingRequestsProvider.notifier);
     if (list.loading) return const [LoadingBlock('신청 목록을 불러오고 있어요')];
@@ -143,11 +142,11 @@ class MatchingScreen extends ConsumerWidget {
             ),
         ],
       ),
-      if (list.hasMore) _MoreButton(loading: list.loadingMore, failed: list.moreFailed, onPressed: controller.loadMore),
+      AdminPager(key: const ValueKey('request-pager'), total: list.total, page: list.page, size: AdminApi.pageSize, onPage: controller.goTo),
     ];
   }
 
-  /// 목록 자리: 받는 중 · 못 받음 · 빈 목록, 아니면 표 → (더 보기) → 안내
+  /// 목록 자리: 받는 중 · 못 받음 · 빈 목록, 아니면 표 → 번호 쪽 → 안내
   List<Widget> _list(BuildContext context, WidgetRef ref, PagedState<MatchPair> list) {
     final controller = ref.read(matchingPairsProvider.notifier);
     if (list.loading) return const [LoadingBlock('매칭 목록을 불러오고 있어요')];
@@ -182,7 +181,7 @@ class MatchingScreen extends ConsumerWidget {
             ),
         ],
       ),
-      if (list.hasMore) _MoreButton(loading: list.loadingMore, failed: list.moreFailed, onPressed: controller.loadMore),
+      AdminPager(key: const ValueKey('match-pager'), total: list.total, page: list.page, size: AdminApi.pageSize, onPage: controller.goTo),
       Text('닉네임을 누르면 사용자 상세로 가요.', style: AdminTypography.xs.copyWith(height: AdminTypography.xsBox, color: AdminColors.muted)),
     ];
   }
@@ -312,25 +311,3 @@ class _PersonCell extends StatelessWidget {
   }
 }
 
-/// 표 아래 [더 보기](Secondary) — 실패하면 단추 위에 오류 줄(앞 줄은 그대로)
-class _MoreButton extends StatelessWidget {
-  const _MoreButton({required this.loading, required this.failed, required this.onPressed});
-
-  final bool loading;
-  final bool failed;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (failed) ...[
-          const ErrorRow('더 불러오지 못했어요. 다시 시도해 주세요.', lineHeight: AdminTypography.xsBox),
-          const SizedBox(height: AdminSpacing.xs),
-        ],
-        AdminButton(label: '더 보기', variant: AdminButtonVariant.secondary, loading: loading, onPressed: onPressed),
-      ],
-    );
-  }
-}
