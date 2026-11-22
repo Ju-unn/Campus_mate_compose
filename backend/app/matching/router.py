@@ -1,14 +1,22 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.core import errors
-from app.core.deps import Caller, get_verified_caller
+from app.core.deps import Caller, get_settings, get_verified_caller
 from app.matching.repository import MatchingRepository
 from app.matching.scoring import rank
+from app.settings import Settings
 
 router = APIRouter()
 
 
-@router.get("/matching/candidates")
+def _local_only(settings: Settings = Depends(get_settings)) -> None:
+    """운영 서버에서는 없는 주소처럼 404 — 앱은 안 쓰고 순위 · 점수를 다 보여 주기 때문이다(2026-11-23 보안 점검 B1).
+    E2E 하네스 · 로컬 점검은 로컬 스택에서 계속 쓴다. 경로 dependencies 는 인증 인자보다 먼저 돌아 토큰 없이도 404 다."""
+    if not settings.runs_locally:
+        raise HTTPException(status_code=404)
+
+
+@router.get("/matching/candidates", dependencies=[Depends(_local_only)])
 async def get_candidates(
     limit: int = Query(default=10, ge=1, le=100),
     caller: Caller = Depends(get_verified_caller),
