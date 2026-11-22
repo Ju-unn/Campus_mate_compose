@@ -8,6 +8,7 @@ from datetime import datetime
 import httpx
 
 from admin_world import AdminWorld
+from postgrest_page import page_response
 from app.core.time import SEOUL
 
 BUCKET_PATH = "/storage/v1/object/graduate-cert-temp/"
@@ -144,8 +145,8 @@ class GraduateAdminWorld(AdminWorld):
             row = self.rows.get(params["id"].removeprefix("eq."))
             return httpx.Response(200, json=[self._embed(row, params["select"])] if row else [])
         status = params["status"].removeprefix("eq.")
-        rows = sorted((r for r in self.rows.values() if r["status"] == status), key=lambda r: r["created_at"])
-        return httpx.Response(200, json=[self._embed(r, params["select"]) for r in rows[:int(params["limit"])]])
+        rows = sorted((r for r in self.rows.values() if r["status"] == status), key=lambda r: (r["created_at"], r["id"]))
+        return page_response(request, [self._embed(r, params["select"]) for r in rows])
 
     def _embed(self, row: dict, select: str) -> dict:
         """PostgREST 처럼 select 에 적은 칸만 돌려주고, profile:profiles(all_requests:…) 임베드는 같은 사람의 신청들로 채운다."""

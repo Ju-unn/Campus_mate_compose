@@ -84,8 +84,8 @@ def test_list_asks_for_open_reports_oldest_first_with_the_reported_person(client
     assert response.status_code == 200
     params = world.calls("GET", "/rest/v1/reports")[0].url.params
     assert params["status"] == "eq.open"
-    assert params["order"] == "created_at.asc"
-    assert params["limit"] == "50"
+    assert params["order"] == "created_at.asc,id.asc"
+    assert (params["offset"], params["limit"]) == ("0", "20")
     assert "target_type" not in params
     # reports 는 profiles 를 두 번 가리킨다(reporter_id · target_profile_id) — 어느 쪽인지 짚어야 임베드가 된다.
     assert "target_profile:profiles!target_profile_id(id,nickname,status,auto_hidden_at,universities(name))" in params["select"]
@@ -96,15 +96,36 @@ def test_list_asks_for_open_reports_oldest_first_with_the_reported_person(client
     assert "target_snapshot" not in stripped
 
 
-def test_list_filters_by_type_and_status_and_takes_a_limit(client, world):
-    response = client.get("/admin/reports?type=message&status=dismissed&limit=100", headers=ADMIN_HEADERS)
+def test_list_filters_by_type_and_status_and_takes_a_page(client, world):
+    response = client.get("/admin/reports?type=message&status=dismissed&page=3&size=100", headers=ADMIN_HEADERS)
 
-    assert (response.status_code, response.json()) == (200, {"items": []})
-    params = world.calls("GET", "/rest/v1/reports")[0].url.params
-    assert (params["target_type"], params["status"], params["limit"]) == ("eq.message", "eq.dismissed", "100")
+    assert (response.status_code, response.json()) == (200, {"items": [], "total": 0, "page": 3, "size": 100})
+    params = world.calls("GET", "/rest/v1/reports")[-1].url.params
+    assert (params["target_type"], params["status"]) == ("eq.message", "eq.dismissed")
 
 
-@pytest.mark.parametrize("query", ["limit=0", "limit=101", "type=user", "status=closed"])
+@pytest.mark.parametrize("status", ["actioned", "dismissed"])
+def test_closed_reports_are_newest_first(client, world, status):
+    # 처리 대기(열림)는 먼저 들어온 것부터, 닫힌 신고는 최근 것부터 본다 — 오래된 순이면 최근 처리가 뒤쪽 쪽으로 밀린다.
+    client.get(f"/admin/reports?status={status}", headers=ADMIN_HEADERS)
+
+    assert world.calls("GET", "/rest/v1/reports")[0].url.params["order"] == "created_at.desc,id.desc"
+
+
+def test_every_report_is_reachable_with_its_total(client, world):
+    for n in range(1, 26):
+        rid = f"ffffffff-0000-0000-0000-{n:012d}"
+        world.reports[rid] = report(rid, created_at=f"2026-10-18T{n - 1:02d}:00:00+00:00")
+
+    first, second = (client.get("/admin/reports", params={"page": p}, headers=ADMIN_HEADERS).json() for p in (1, 2))
+    past = client.get("/admin/reports", params={"page": 4}, headers=ADMIN_HEADERS).json()
+
+    assert (len(first["items"]), len(second["items"]), first["total"], second["total"]) == (20, 5, 25, 25)
+    assert [i["id"] for i in first["items"] + second["items"]] == sorted(world.reports)  # 오래된 순, 빠짐 · 겹침 없음
+    assert (past["items"], past["total"]) == ([], 25)
+
+
+@pytest.mark.parametrize("query", ["page=0", "size=0", "size=101", "type=user", "status=closed"])
 def test_list_rejects_out_of_range_query_before_reading(client, world, query):
     response = client.get(f"/admin/reports?{query}", headers=ADMIN_HEADERS)
 

@@ -76,7 +76,10 @@ def test_list_is_oldest_first_and_has_no_photo_or_plaintext(client, world):
     assert response.status_code == 200
     (query,) = world.touched(TABLE)  # 읽기 한 번
     assert query.url.params["status"] == "eq.pending"
-    assert query.url.params["order"] == "created_at.asc" and query.url.params["limit"] == "50"
+    assert query.url.params["order"] == "created_at.asc,id.asc"
+    assert (query.url.params["offset"], query.url.params["limit"]) == ("0", "20")
+    assert query.headers["prefer"] == "count=exact"
+    assert (response.json()["total"], response.json()["page"], response.json()["size"]) == (2, 1, 20)
     items = response.json()["items"]
     assert [i["id"] for i in items] == [R1, R2]
     assert set(items[0]) == {"id", "status", "reason", "created_at", "decided_at", "attempt_no", "profile_id",
@@ -88,15 +91,19 @@ def test_list_is_oldest_first_and_has_no_photo_or_plaintext(client, world):
     assert [i["attempt_no"] for i in items] == [1, 2]
 
 
-def test_list_filters_by_status_and_limits(client, world):
+def test_list_filters_by_status_and_pages(client, world):
     world.add(request_row(R3, OTHER_PERSON, status="rejected", reason="unreadable"))
+    world.add(request_row(R1, APPLICANT))
 
-    response = client.get("/admin/graduate-requests?status=rejected&limit=10", headers=ADMIN_HEADERS)
+    response = client.get("/admin/graduate-requests?status=rejected&size=10", headers=ADMIN_HEADERS)
 
-    assert [i["id"] for i in response.json()["items"]] == [R3]
+    assert ([i["id"] for i in response.json()["items"]], response.json()["total"]) == ([R3], 1)
     assert world.touched(TABLE)[0].url.params["limit"] == "10"
+    past = client.get("/admin/graduate-requests?status=rejected&page=5", headers=ADMIN_HEADERS).json()
+    assert (past["items"], past["total"]) == ([], 1)
     assert client.get("/admin/graduate-requests?status=whatever", headers=ADMIN_HEADERS).status_code == 422
-    assert client.get("/admin/graduate-requests?limit=101", headers=ADMIN_HEADERS).status_code == 422
+    for bad in ("size=101", "size=0", "page=0"):
+        assert client.get(f"/admin/graduate-requests?{bad}", headers=ADMIN_HEADERS).status_code == 422
 
 
 # 상세 ---------------------------------------------------------------------------

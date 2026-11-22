@@ -63,14 +63,12 @@ class AdminRepository(PostgrestRepository):
         })
         raise_for_status(response)
 
-    async def list_heart_submissions(self, status: str, task: str | None, limit: int) -> list[dict]:
-        """오래된 순(먼저 낸 사람부터 본다)."""
-        params = {"select": _SUBMISSION_SELECT, "status": f"eq.{status}", "order": "created_at.asc", "limit": str(limit)}
+    async def list_heart_submissions(self, status: str, task: str | None, page: Page) -> tuple[list[dict], int]:
+        """오래된 순(먼저 낸 사람부터 본다) 한 쪽과 전체 건수."""
+        params = {"select": _SUBMISSION_SELECT, "status": f"eq.{status}", "order": "created_at.asc,id.asc"}
         if task:
             params["task"] = f"eq.{task}"
-        response = await self._get("heart_task_submissions", params=params)
-        raise_for_status(response)
-        return response.json()
+        return await self.read_page("heart_task_submissions", params, page)
 
     async def fetch_heart_submission(self, submission_id: UUID) -> dict | None:
         response = await self._get("heart_task_submissions", params={
@@ -118,17 +116,18 @@ class AdminRepository(PostgrestRepository):
         raise_for_status(response)
         return response.json(), int(response.headers["content-range"].rsplit("/", 1)[1])
 
-    async def list_reports(self, status: str, target_type: str | None, limit: int) -> list[dict]:
-        """오래된 순(애플 1.2 신속 조치 — 먼저 들어온 신고부터 본다)."""
-        params = {"select": _REPORT_SELECT, "status": f"eq.{status}", "order": "created_at.asc", "limit": str(limit)}
+    async def list_reports(self, status: str, target_type: str | None, page: Page) -> tuple[list[dict], int]:
+        """열린 신고는 오래된 순(애플 1.2 신속 조치 — 먼저 들어온 신고부터 본다), 닫힌 신고는 최근 순. 한 쪽과 전체 건수."""
+        order = "created_at.asc,id.asc" if status == "open" else "created_at.desc,id.desc"
+        params = {"select": _REPORT_SELECT, "status": f"eq.{status}", "order": order}
         if target_type:
             params["target_type"] = f"eq.{target_type}"
-        return await self._rows("reports", params)
+        return await self.read_page("reports", params, page)
 
     async def count_open_reporters_by_target(self, profile_ids: list[str]) -> dict[str, int]:
         """목록 줄마다 그 사람의 열린 신고의 서로 다른 신고자 수 — 한 번에 묶어 센다. 자동 가림이 세는 기준
         (safety/repository.py count_open_reporters)과 같아 탈퇴해 비게 된 신고자(reporter_id null)는 세지 않는다.
-        shortcut: PostgREST 응답 상한(기본 1000줄)을 넘으면 세던 값이 잘린다 — 목록 100줄에 열린 신고가 1000건 넘을 일이 없다, 넘으면 count 함수로."""
+        shortcut: PostgREST 응답 상한(기본 1000줄)을 넘으면 세던 값이 잘린다 — 목록 한 쪽(최대 100줄)에 열린 신고가 1000건 넘을 일이 없다, 넘으면 count 함수로."""
         if not profile_ids:
             return {}
         rows = await self._rows("reports", {

@@ -81,22 +81,34 @@ def test_list_asks_for_waiting_submissions_oldest_first_with_nickname_and_school
     (query,) = _list_requests(world)
     params = query.url.params
     assert params["status"] == "eq.submitted"
-    assert params["order"] == "created_at.asc"
-    assert params["limit"] == "50"
+    assert params["order"] == "created_at.asc,id.asc"
+    assert (params["offset"], params["limit"]) == ("0", "20")
+    assert query.headers["prefer"] == "count=exact"
     assert "task" not in params
     assert "profiles(id,nickname,universities(name))" in params["select"]
 
 
-def test_list_filters_by_task_and_status_and_takes_a_limit(client, world):
-    response = client.get("/admin/heart-tasks?task=kakao_share&status=rejected&limit=100", headers=ADMIN_HEADERS)
+def test_list_filters_by_task_and_status_and_takes_a_page(client, world):
+    response = client.get("/admin/heart-tasks?task=kakao_share&status=rejected&page=2&size=100", headers=ADMIN_HEADERS)
 
     assert response.status_code == 200
-    assert response.json() == {"items": []}
-    params = _list_requests(world)[0].url.params
-    assert (params["task"], params["status"], params["limit"]) == ("eq.kakao_share", "eq.rejected", "100")
+    assert response.json() == {"items": [], "total": 0, "page": 2, "size": 100}
+    params = _list_requests(world)[-1].url.params
+    assert (params["task"], params["status"]) == ("eq.kakao_share", "eq.rejected")
 
 
-@pytest.mark.parametrize("query", ["limit=0", "limit=101", "task=poll_vote", "status=pending"])
+def test_every_submission_is_reachable_with_its_total(client, world):
+    for n in range(1, 23):
+        sid = f"ffffffff-0000-0000-0000-{n:012d}"
+        world.submissions[sid] = submission(sid, created_at=f"2026-10-18T{n - 1:02d}:00:00+00:00")
+
+    first, second = (client.get("/admin/heart-tasks", params={"page": p}, headers=ADMIN_HEADERS).json() for p in (1, 2))
+
+    assert (len(first["items"]), len(second["items"]), first["total"]) == (20, 2, 22)
+    assert [i["id"] for i in first["items"] + second["items"]] == sorted(world.submissions)
+
+
+@pytest.mark.parametrize("query", ["page=0", "size=0", "size=101", "task=poll_vote", "status=pending"])
 def test_list_rejects_out_of_range_query_before_reading(client, world, query):
     response = client.get(f"/admin/heart-tasks?{query}", headers=ADMIN_HEADERS)
 

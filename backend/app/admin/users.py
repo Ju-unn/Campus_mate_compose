@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 from app.account.repository import SupabaseAdmin
 from app.admin.caller import AdminCaller, get_admin_caller
+from app.admin.paging import Page, page_query
 from app.admin.reason import Reason
 from app.admin.repository import NOT_FOUND
 from app.admin.request_ip import request_ip
@@ -94,10 +95,10 @@ def _purchase(row: dict) -> dict:
 @router.get("")
 async def list_users(
     q: str | None = Query(None, max_length=QUERY_MAX),
-    limit: int = Query(50, ge=1, le=100),
+    page: Page = Depends(page_query),
     caller: AdminCaller = Depends(get_admin_caller),
 ) -> dict:
-    """q 가 UUID 면 프로필 id, 아니면 닉네임 부분 일치. 없으면 가입 최근 순. 관리자 프로필은 빠진다."""
+    """q 가 UUID 면 프로필 id, 아니면 닉네임 부분 일치. 없으면 가입 최근 순. 관리자 프로필은 빠진다(건수에서도)."""
     repo = _repo(caller)
     admins = await repo.admin_ids()
     text = (q or "").strip()
@@ -105,9 +106,9 @@ async def list_users(
         profile_id = str(UUID(text)) if text else None
     except ValueError:
         profile_id = None
-    rows = await repo.list_users(nickname=None if profile_id else text or None, profile_id=profile_id,
-                                 limit=limit, exclude_ids=admins)
-    return {"items": await _summaries(repo, rows)}
+    rows, total = await repo.list_users(nickname=None if profile_id else text or None, profile_id=profile_id,
+                                        page=page, exclude_ids=admins)
+    return page.body(await _summaries(repo, rows), total)
 
 
 @router.get("/totals")
@@ -132,7 +133,7 @@ async def search_by_school_email(body: SearchBody, caller: AdminCaller = Depends
         bytea_literal(hash_email(caller.settings.identity_hmac_key, email)))
     if profile_id is None:
         return {"items": []}
-    rows = await repo.list_users(nickname=None, profile_id=profile_id, limit=1, exclude_ids=await repo.admin_ids())
+    rows, _ = await repo.list_users(nickname=None, profile_id=profile_id, page=Page(1, 1), exclude_ids=await repo.admin_ids())
     return {"items": await _summaries(repo, rows)}
 
 

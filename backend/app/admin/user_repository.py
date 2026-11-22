@@ -5,6 +5,7 @@ import asyncio
 import re
 from uuid import UUID
 
+from app.admin.paging import Page
 from app.admin.repository import ACCOUNT_WITHDRAWN, INSUFFICIENT_HEARTS, AdminRepository
 from app.core.http import raise_for_status
 
@@ -28,10 +29,13 @@ class AdminUserRepository(AdminRepository):
         return [row["user_id"] for row in await self._rows("admin_users", {"select": "user_id"})]
 
     async def list_users(
-        self, *, nickname: str | None, profile_id: str | None, limit: int, exclude_ids: list[str],
-    ) -> list[dict]:
-        """가입 최근 순. nickname 은 부분 일치(대소문자 무시, LIKE 특수문자는 이스케이프), profile_id 는 일치."""
-        params = {"select": _SUMMARY_SELECT, "order": "created_at.desc", "limit": str(limit)}
+        self, *, nickname: str | None, profile_id: str | None, page: Page, exclude_ids: list[str],
+    ) -> tuple[list[dict], int]:
+        """가입 최근 순 한 쪽과 전체 건수. nickname 은 부분 일치(대소문자 무시, LIKE 특수문자는 이스케이프), profile_id 는 일치.
+        관리자는 PostgREST 필터로 뺀다 — 건수와 쪽이 관리자 때문에 어긋나지 않게."""
+        if profile_id in exclude_ids:
+            return [], 0
+        params = {"select": _SUMMARY_SELECT, "order": "created_at.desc,id.desc"}
         if profile_id:
             params["id"] = f"eq.{profile_id}"
         elif exclude_ids:
@@ -39,8 +43,7 @@ class AdminUserRepository(AdminRepository):
         if nickname:
             escaped = _LIKE_SPECIAL.sub(lambda match: "\\" + match[1], nickname)
             params["nickname"] = f"ilike.*{escaped}*"
-        rows = await self._rows("profiles", params)
-        return [row for row in rows if row["id"] not in exclude_ids]
+        return await self.read_page("profiles", params, page)
 
     async def e2e_university_ids(self) -> list[str]:
         """시험 학교(`universities.region_group = 'e2e'`, 사용자 결정 2026-11-12) id 전부(몇 곳뿐이다)."""

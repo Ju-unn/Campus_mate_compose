@@ -3,6 +3,7 @@
 AdminRepository 를 이어받아 DB 함수 오류 약속(42501 · CM404 · CM409 · 22023)을 HTTP 로 바꾸는 _rpc 를 그대로 쓴다."""
 from uuid import UUID
 
+from app.admin.paging import Page
 from app.admin.repository import ALREADY_REVIEWED, AdminRepository
 from app.signup_policy import bytea_literal
 
@@ -21,11 +22,9 @@ CONFLICTS = {code: code for code in ("already_reviewed", "already_verified", "ac
 
 class GraduateAdminRepository(AdminRepository):
 
-    async def list_requests(self, status: str, limit: int) -> list[dict]:
-        """오래된 순(먼저 낸 사람부터 본다)."""
-        return await self._rows(_TABLE, {
-            "select": _LIST_SELECT, "status": f"eq.{status}", "order": "created_at.asc", "limit": str(limit),
-        })
+    async def list_requests(self, status: str, page: Page) -> tuple[list[dict], int]:
+        """오래된 순(먼저 낸 사람부터 본다) 한 쪽과 전체 건수."""
+        return await self.read_page(_TABLE, {"select": _LIST_SELECT, "status": f"eq.{status}", "order": "created_at.asc,id.asc"}, page)
 
     async def fetch_request(self, request_id: UUID) -> dict | None:
         rows = await self._rows(_TABLE, {"select": _ONE_SELECT, "id": f"eq.{request_id}"})

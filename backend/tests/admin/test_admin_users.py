@@ -88,15 +88,55 @@ def test_list_is_newest_first_with_report_counts_in_one_query(client, world):
          "created_at": "2026-10-10T00:00:00+00:00", "report_count": 1, "gender": "female", "acquisition_channel": "instagram"},
         {"id": U1, "nickname": "닉네임A", "university": "테스트대학교", "status": "active",
          "created_at": "2026-09-30T00:00:00+00:00", "report_count": 2, "gender": "male", "acquisition_channel": None},
-    ]}
-    listing = world.calls("GET", "/rest/v1/profiles")[0].url.params
-    assert listing["order"] == "created_at.desc" and listing["limit"] == "50"
+    ], "total": 2, "page": 1, "size": 20}
+    [listing] = world.calls("GET", "/rest/v1/profiles")
+    assert (listing.url.params["order"], listing.url.params["offset"], listing.url.params["limit"]) == ("created_at.desc,id.desc", "0", "20")
+    assert listing.headers["prefer"] == "count=exact"  # 한 쪽과 전체 건수를 한 번에
     assert len(world.calls("GET", "/rest/v1/reports")) == 1  # 줄마다 따로 세지 않는다
 
 
-@pytest.mark.parametrize("limit", [0, 101])
-def test_list_limit_is_bounded(client, world, limit):
-    assert client.get(f"/admin/users?limit={limit}", headers=ADMIN_HEADERS).status_code == 422
+def _many_users(world, n: int) -> list[str]:
+    ids = [f"11111111-0000-0000-0000-{i:012d}" for i in range(1, n + 1)]
+    for i, uid in enumerate(ids):
+        world.user_profiles[uid] = user_profile(uid, f"사람{i}", created_at=f"2026-10-{1 + i // 24:02d}T{i % 24:02d}:00:00+00:00")
+    return ids
+
+
+def test_every_user_is_reachable_page_by_page(client, world):
+    ids = _many_users(world, 45)  # 기본 20줄씩 — 3쪽
+    newest_first = list(reversed(ids))
+
+    pages = [client.get("/admin/users", params={"page": p}, headers=ADMIN_HEADERS).json() for p in (1, 2, 3)]
+
+    assert [len(p["items"]) for p in pages] == [20, 20, 5]
+    assert [u["id"] for p in pages for u in p["items"]] == newest_first
+    assert {(p["total"], p["page"]) for p in pages} == {(45, 1), (45, 2), (45, 3)}
+    assert world.calls("GET", "/rest/v1/profiles")[-1].url.params["offset"] == "40"
+
+
+def test_a_page_past_the_end_is_empty_but_keeps_the_total(client, world):
+    _many_users(world, 3)
+
+    body = client.get("/admin/users", params={"page": 9, "size": 2}, headers=ADMIN_HEADERS).json()
+
+    assert body == {"items": [], "total": 3, "page": 9, "size": 2}
+
+
+def test_the_total_counts_only_rows_matching_the_search(client, world):
+    _two_users(world)
+
+    body = client.get("/admin/users", params={"q": "닉네임B", "size": 1}, headers=ADMIN_HEADERS).json()
+
+    assert ([u["id"] for u in body["items"]], body["total"]) == ([U2], 1)
+
+
+@pytest.mark.parametrize("query", ["page=0", "size=0", "size=101", "limit=0", "page=x"])
+def test_list_paging_is_bounded(client, world, query):
+    response = client.get(f"/admin/users?{query}", headers=ADMIN_HEADERS)
+
+    assert response.status_code == (200 if query == "limit=0" else 422)  # 옛 limit 은 이제 모르는 칸이라 무시된다
+    if response.status_code == 422:
+        assert world.calls("GET", "/rest/v1/profiles") == []
 
 
 def test_nickname_search_escapes_like_wildcards(client, world):
@@ -117,6 +157,7 @@ def test_search_by_profile_id_and_admins_never_appear(client, world):
 
     assert [u["id"] for u in by_id] == [U2]
     assert by_admin_id == []
+    assert client.get("/admin/users", params={"q": ADMIN}, headers=ADMIN_HEADERS).json()["total"] == 0
     assert ADMIN not in [u["id"] for u in everyone]
     # 관리자 제외는 PostgREST 필터로 한다 — 쪽 나누기와 limit 이 관리자 때문에 어긋나지 않게.
     assert world.calls("GET", "/rest/v1/profiles")[-1].url.params["id"] == f"not.in.({ADMIN})"
