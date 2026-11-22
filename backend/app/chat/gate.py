@@ -10,6 +10,10 @@ from app.core.time import SEOUL
 
 GATE_DEADLINE = timedelta(hours=48)
 GATE_REMINDER_AFTER = timedelta(hours=24)
+# 마감 전 마지막 알림(last_call_at) — 마감 몇 시간 전에 한 번 더 알리는가.
+LAST_CALL_BEFORE = timedelta(hours=3)
+# 새벽에 걸린 마지막 알림을 아침 08:00 으로 미룰 때 마감까지 남아야 하는 최소 시간. 모자라면 전날 21시로 앞당긴다.
+LAST_CALL_MORNING_MIN = timedelta(hours=2)
 # 리마인드를 밀어 넣을 아침 시각. push.py 의 조용한 시간(22~8시)과 같은 경계를 쓴다.
 _QUIET_START_HOUR = 22
 _QUIET_END_HOUR = 8
@@ -74,4 +78,36 @@ def needs_reminder(created_at: datetime, now: datetime, responded: bool) -> bool
     if responded:
         return False
     start = reminder_at(created_at)
+    return start <= now < start + timedelta(hours=1)
+
+
+def last_call_at(created_at: datetime) -> datetime:
+    """마감 전 마지막 알림을 보낼 시각. 기본은 마감 3시간 전을 정각으로 내린 것이다 — 받는 사람에게 3시간 이상 남는다.
+
+    정각에서 시작하는 한 시간 창이라 배치가 몇 초 늦어도 그 정각 배치 하나만 걸리고, 그 배치의 '시'가 곧 이 시각의 '시'다.
+    조용한 시간(22~8시)에 걸리면: 22~23시는 같은 날 21시로 앞당긴다(뒤로 밀면 마감을 넘긴다). 0~7시는 그날 08:00 창에 보내도
+    마감까지 2시간 이상 남으면 08:00 — 전날 21시(최대 14시간 전)보다 "3시간 전" 뜻에 가깝다. 2시간 미만이면 전날 21시.
+    어느 경우든 24시간 리마인드보다 10시간 넘게 뒤다 — tests/chat/test_gate.py 의 전수 시험이 못박는다."""
+    deadline = deadline_at(created_at)
+    base = (deadline - LAST_CALL_BEFORE).astimezone(SEOUL)
+    start = base.replace(minute=0, second=0, microsecond=0)
+    if start.hour < _QUIET_END_HOUR:
+        morning = start.replace(hour=_QUIET_END_HOUR)
+        if deadline - morning >= LAST_CALL_MORNING_MIN:
+            return morning
+        return (start - timedelta(days=1)).replace(hour=_QUIET_START_HOUR - 1)
+    if start.hour >= _QUIET_START_HOUR:
+        return start.replace(hour=_QUIET_START_HOUR - 1)
+    return start
+
+
+def needs_last_call(created_at: datetime, now: datetime, responded: bool) -> bool:
+    """매시 배치용. last_call_at 부터 한 시간짜리 창 — needs_reminder 와 같은 방식으로 딱 한 번 간다.
+    창이 24시간 리마인드 창과 겹치거나 그보다 이르면 보내지 않는다(같은 사람에게 같은 배치에서 두 번 금지).
+    지금 상수로는 일어나지 않지만 GATE_DEADLINE 을 줄이면 일어난다."""
+    if responded:
+        return False
+    start = last_call_at(created_at)
+    if start < reminder_at(created_at) + timedelta(hours=1):
+        return False
     return start <= now < start + timedelta(hours=1)
