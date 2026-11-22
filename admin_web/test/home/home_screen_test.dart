@@ -261,15 +261,25 @@ void main() {
       expect(key('chart-schools'), findsNothing);
     });
 
-    testWidgets('가로 막대는 활성 많은 순 최대 8곳(서버 순서), 표는 서버가 준 학교 전부', (tester) async {
-      final many = [for (var i = 0; i < 10; i++) universityRow('학교$i대학교', 50 - i, 40 - i)];
+    testWidgets('가로 막대는 활성 1명 이상인 학교 전부(서버 순서 = 많은 순, 사용자 요청 11-22), 표는 서버가 준 학교 전부', (tester) async {
+      // 활성 0명인 학교는 카드 오픈 시각이 있어 서버가 주지만(표에는 있다) 막대에서는 뺀다
+      final many = [for (var i = 0; i < 12; i++) universityRow('학교$i대학교', 50 - i, 40 - i), universityRow('빈곳대학교', 0, 0)];
       await openHome(tester, server: FakeStatsServer()..universities = many);
 
-      expect(tester.getSize(key('chart-schools')).height, 34 * 8 + 70);
-      expect(find.descendant(of: key('chart-schools'), matching: find.text('학교7대')), findsOneWidget);
-      expect(find.descendant(of: key('chart-schools'), matching: find.text('학교8대')), findsNothing);
-      expect(tester.getSize(key('school-table')).height, 44 + 52 * 10);
-      expect(find.descendant(of: key('school-table'), matching: find.text('학교9대학교')), findsOneWidget);
+      expect(tester.getSize(key('chart-schools')).height, 34 * 12 + 70);
+      expect(find.descendant(of: key('chart-schools'), matching: find.text('학교11대')), findsOneWidget);
+      expect(find.descendant(of: key('chart-schools'), matching: find.textContaining('빈곳')), findsNothing);
+      expect(tester.getSize(key('schools-card')).height, 34 * 12 + 70 + 76, reason: '카드가 그림 높이만큼 늘어나 잘리지 않는다');
+      expect(tester.getSize(key('school-table')).height, 44 + 52 * 13);
+      expect(find.descendant(of: key('school-table'), matching: find.text('빈곳대학교')), findsOneWidget);
+    });
+
+    testWidgets('활성 인원이 있는 학교가 없으면 가로 막대 자리에만 "아직 보여 줄 학교가 없어요"', (tester) async {
+      await openHome(tester, server: FakeStatsServer()..universities = [universityRow('빈곳대학교', 0, 0)]);
+
+      expect(find.text('아직 보여 줄 학교가 없어요'), findsOneWidget);
+      expect(key('chart-schools'), findsNothing);
+      expect(key('school-table'), findsOneWidget);
     });
 
     testWidgets('카드 오픈 시각이 없는 학교는 "—"', (tester) async {
