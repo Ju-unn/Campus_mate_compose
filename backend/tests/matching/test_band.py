@@ -56,14 +56,16 @@ def test_band_size_is_zero_without_candidates():
     assert band_size(0, FREE_BAND_RATIO) == 0
 
 
-def test_band_size_is_everyone_when_fewer_than_minimum():
-    assert band_size(3, PAID_BAND_RATIO) == 3
+def test_band_size_small_pools_follow_ratio_but_keep_one():
+    # 2026-11-23 최소 5명 규칙을 뺐다 — 후보가 적어도 비율대로, 다만 1명은 남는다(ceil).
+    assert band_size(3, PAID_BAND_RATIO) == 1
+    assert band_size(1, PAID_BAND_RATIO) == 1
     assert band_size(3, FREE_BAND_RATIO) == 3
 
 
-def test_band_size_never_drops_below_minimum():
-    """N=10 의 20% 는 2명이지만 최소 5명은 보장한다."""
-    assert band_size(10, PAID_BAND_RATIO) == 5
+def test_band_size_no_longer_padded_to_five():
+    """N=10 의 20% 는 2명 그대로다(옛 최소 5명이면 무료가 6~9등 4명에게만 몰렸다)."""
+    assert band_size(10, PAID_BAND_RATIO) == 2
 
 
 def test_band_size_follows_ratio_for_large_pools():
@@ -79,8 +81,8 @@ def test_band_size_rounds_up():
 
 
 def test_band_size_respects_custom_minimum():
-    assert band_size(10, PAID_BAND_RATIO, minimum=1) == 2
-    assert band_size(10, PAID_BAND_RATIO, minimum=BAND_MINIMUM) == 5
+    assert band_size(10, PAID_BAND_RATIO, minimum=5) == 5
+    assert band_size(10, PAID_BAND_RATIO, minimum=BAND_MINIMUM) == 2
 
 
 @pytest.mark.parametrize("ratio", [0, -0.1, 1.01, 2])
@@ -90,7 +92,7 @@ def test_band_size_rejects_invalid_ratio(ratio):
 
 
 def test_band_ratio_constants():
-    assert (FREE_BAND_RATIO, PAID_BAND_RATIO, BAND_MINIMUM) == (0.9, 0.2, 5)
+    assert (FREE_BAND_RATIO, PAID_BAND_RATIO, BAND_MINIMUM) == (0.9, 0.2, 1)
 
 
 # ---------- rank_all ----------
