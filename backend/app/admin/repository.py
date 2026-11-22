@@ -5,6 +5,7 @@ from uuid import UUID
 
 from fastapi import HTTPException
 
+from app.admin.paging import Page
 from app.core import errors
 from app.core.http import error_code, raise_for_status
 from app.core.postgrest import PostgrestRepository
@@ -103,6 +104,19 @@ class AdminRepository(PostgrestRepository):
         )
         raise_for_status(response)
         return int(response.headers["content-range"].rsplit("/", 1)[1])
+
+    async def read_page(self, path: str, params: dict, page: Page) -> tuple[list[dict], int]:
+        """한 쪽(offset · limit)과 같은 조건의 전체 건수를 한 번에 — `Prefer: count=exact` 의 Content-Range `/` 뒤.
+        params 의 order 끝에 id 를 붙여 둔다(동점이면 쪽 사이에 줄이 겹치거나 빠진다).
+        offset 이 전체보다 크면 PostgREST 가 건수 없이 416 으로 답한다 — 빈 쪽으로 보고 건수만 다시 센다."""
+        response = await self._client.get(
+            f"{self._postgrest_url}/{path}", params={**params, "offset": str(page.offset), "limit": str(page.size)},
+            headers=self._with_prefer("count=exact"),
+        )
+        if response.status_code == 416:
+            return [], await self._count(path, params)
+        raise_for_status(response)
+        return response.json(), int(response.headers["content-range"].rsplit("/", 1)[1])
 
     async def list_reports(self, status: str, target_type: str | None, limit: int) -> list[dict]:
         """오래된 순(애플 1.2 신속 조치 — 먼저 들어온 신고부터 본다)."""
