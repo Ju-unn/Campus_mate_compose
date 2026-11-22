@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -113,3 +113,89 @@ def test_every_match_gets_exactly_one_reminder_on_a_batch_outside_the_quiet_hour
 
         assert len(fires) == 1, f"{created:%H:%M:%S} 매칭 · 배치 +{delay}초: 리마인드가 {len(fires)}번 {fires}"
         assert not _is_quiet(fires[0]), f"{created:%H:%M:%S} 매칭 · 배치 +{delay}초: 조용한 시간 {fires[0]:%H:%M:%S} 에 걸린다"
+
+
+# 마감 3시간 전 마지막 알림 ---------------------------------------------------------------
+
+def test_last_call_lands_on_the_hour_three_hours_before_the_deadline():
+    """기본은 마감 - 3시간을 정각으로 내린 창이다 — 받는 사람에게 3시간 이상 남는다."""
+    assert gate.last_call_at(_at(20, 13, 20)) == _at(22, 10)  # 마감 22일 13:20
+    assert gate.last_call_at(_at(20, 13, 0)) == _at(22, 10)   # 마감 22일 13:00 — 딱 3시간 전
+
+
+def test_last_call_window_fires_once_on_the_hourly_batch():
+    created = _at(20, 13, 20)
+
+    assert gate.needs_last_call(created, _at(22, 9), responded=False) is False
+    assert gate.needs_last_call(created, _at(22, 10).replace(second=2), responded=False) is True
+    assert gate.needs_last_call(created, _at(22, 11), responded=False) is False
+
+
+def test_people_who_already_answered_get_no_last_call():
+    assert gate.needs_last_call(_at(20, 13, 20), _at(22, 10), responded=True) is False
+
+
+def test_no_last_call_at_or_after_the_deadline():
+    created = _at(20, 13, 20)
+    assert gate.needs_last_call(created, gate.deadline_at(created), responded=False) is False
+    assert gate.needs_last_call(created, gate.deadline_at(created) + timedelta(hours=1), responded=False) is False
+
+
+@pytest.mark.parametrize(("deadline", "last_call"), [
+    # 기본 시각(마감 - 3시간)이 21:59 → 21시 창 그대로.
+    ((22, 0, 59), (21, 21)),
+    # 22:00 → 조용한 시간이라 같은 날 21:00 으로 앞당긴다(뒤로 밀면 마감을 넘긴다).
+    ((22, 1, 0), (21, 21)),
+    # 23:30 → 21:00.
+    ((22, 2, 30), (21, 21)),
+    # 새벽(0~7시)이면 그날 08:00 창에 보내도 마감까지 2시간 이상 남을 때 08:00 — 14시간 전보다 "3시간 전" 뜻에 가깝다.
+    ((22, 10, 59), (22, 8)),  # 07:59 → 08:00(마감까지 2시간 59분)
+    ((22, 10, 0), (22, 8)),   # 07:00 → 08:00(딱 2시간)
+    # 2시간 미만이면 전날 21:00.
+    ((22, 9, 59), (21, 21)),  # 06:59 → 08:00 이면 1시간 59분이라 안 된다
+    ((22, 8, 30), (21, 21)),
+    # 08:00 → 08시 창 그대로.
+    ((22, 11, 0), (22, 8)),
+])
+def test_a_last_call_in_the_quiet_hours_moves_to_8_or_back_to_21(deadline, last_call):
+    created = _at(*deadline) - gate.GATE_DEADLINE
+
+    assert gate.last_call_at(created) == _at(*last_call)
+
+
+def test_a_last_call_that_would_collide_with_the_24_hour_reminder_is_dropped(monkeypatch):
+    """지금 상수로는 둘이 10시간 넘게 떨어져 있지만(아래 전수 시험), 마감이 짧아지면 같은 배치에 두 번 갈 수 있다 —
+    그때는 마지막 알림을 버린다."""
+    monkeypatch.setattr(gate, "GATE_DEADLINE", timedelta(hours=27))  # 마지막 알림 기본 = 매칭 24시간 뒤 = 리마인드와 같은 창
+    created = _at(20, 13, 0)
+
+    assert gate.needs_reminder(created, _at(21, 13), responded=False) is True
+    assert [t for t in _hourly_batches(created) if gate.needs_last_call(created, t, responded=False)] == []
+
+
+@pytest.mark.parametrize("delay", [0, 2, 30])
+@pytest.mark.parametrize("second", [0, 1, 59])
+def test_every_match_gets_exactly_one_last_call_well_after_the_reminder(second, delay):
+    """분 단위로 매칭 시각을 전부 훑는다 — 마지막 알림은 딱 한 번, 조용한 시간 밖, 마감 2시간 이상 전(창 시작 기준 —
+    배치가 늦은 만큼만 모자랄 수 있다), 24시간 리마인드보다 10시간 이상 뒤에 간다."""
+    for minute_of_day in range(24 * 60):
+        created = _at(20, minute_of_day // 60, minute_of_day % 60).replace(second=second)
+        batches = _hourly_batches(created, delay)
+        reminder = [t for t in batches if gate.needs_reminder(created, t, responded=False)]
+        last = [t for t in batches if gate.needs_last_call(created, t, responded=False)]
+
+        label = f"{created:%H:%M:%S} 매칭 · 배치 +{delay}초"
+        assert len(last) == 1, f"{label}: 마지막 알림 {len(last)}번 {last}"
+        assert not _is_quiet(last[0]), f"{label}: 조용한 시간 {last[0]:%H:%M:%S}"
+        assert gate.remaining(created, last[0]) >= timedelta(hours=2, seconds=-delay), f"{label}: 마감에 너무 가깝다 {last[0]}"
+        assert last[0] - reminder[0] >= timedelta(hours=10), f"{label}: 리마인드 {reminder[0]} 와 가깝다 {last[0]}"
+
+
+def test_a_utc_match_time_gets_the_same_last_call_as_seoul():
+    """DB 의 created_at 은 UTC(+00:00)로 온다 — 조용한 시간 · 08:00 · 21:00 은 서울 시각으로 따져야 한다."""
+    for minute_of_day in range(24 * 60):
+        seoul = _at(20, minute_of_day // 60, minute_of_day % 60)
+        utc = seoul.astimezone(timezone.utc)
+
+        assert gate.last_call_at(utc) == gate.last_call_at(seoul), f"{seoul:%H:%M} 매칭"
+        assert gate.last_call_at(utc).astimezone(SEOUL).hour in range(8, 22), f"{seoul:%H:%M} 매칭"

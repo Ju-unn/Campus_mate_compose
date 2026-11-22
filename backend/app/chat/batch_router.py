@@ -29,19 +29,36 @@ show_info(logger)
 
 router = APIRouter()
 
+# 마감 3시간 전 마지막 알림 문구(gate.last_call_at). kind 는 앱이 이미 아는 trust_reminder 를 같이 쓴다 —
+# 앱 업데이트 없이 설정 스위치 · 누르면 방으로 가기가 그대로 된다.
+LAST_CALL_TITLE = "곧 매칭 대화가 사라져요"
+LAST_CALL_BODY = "{deadline}까지 카카오톡 아이디 공유를 정해 주세요"
+
+
+def last_call_body(deadline: datetime, now: datetime) -> str:
+    """마감 시각을 서울 시간 "오전/오후 H시 M분"(분이 0이면 "H시")으로 넣는다. 보내는 날과 날짜가 다르면 앞에 "내일 "."""
+    deadline = deadline.astimezone(SEOUL)
+    hour = deadline.hour % 12 or 12
+    text = f"{'오전' if deadline.hour < 12 else '오후'} {hour}시" + (f" {deadline.minute}분" if deadline.minute else "")
+    if deadline.date() != now.astimezone(SEOUL).date():
+        text = f"내일 {text}"
+    return LAST_CALL_BODY.format(deadline=text)
+
 
 async def run_chat_gate(repo: ChatRepository, push_repo: CardRepository, sender: FcmSender,
                         now: datetime) -> dict:
     """매시 정각(Asia/Seoul)에 도는 게이트 배치. 세 가지만 한다.
 
     ① 양쪽 다 수락했는데 도장이 빠진 매칭에 trust_passed_at 기록(기한과 상관없이, 백로그 16)
-    ② 리마인드 창에 걸렸고 아직 수락하지 않은 사람에게 trust_reminder 푸시
+    ② 리마인드 창(24시간 뒤) · 마지막 알림 창(마감 3시간 전)에 걸렸고 아직 수락하지 않은 사람에게 trust_reminder 푸시
+       — 마지막 알림 수는 로그에만 남긴다(응답 dict 는 그대로)
     ③ 48시간을 넘겼고 아직 통과하지 않은 매칭에 chat_closed_at 기록
 
     셋 다 **한쪽이라도 나간 매칭은 건너뛴다**(결정 7·11). 거절은 곧 나가기라서, 닫아 봐야
     남은 사람의 기록만 목록에서 감춰진다. **한쪽이라도 정지된 매칭도 통째로 건너뛴다**(조각 6) —
     정지 중에 시간이 흘러 방이 닫히면 풀어 줘도 대화가 돌아오지 않는다."""
     reminded = 0
+    last_called = 0
     closed = 0
     passed = 0
     gone = 0
@@ -68,23 +85,30 @@ async def run_chat_gate(repo: ChatRepository, push_repo: CardRepository, sender:
             continue
 
         for participant in participants:
-            if not gate.needs_reminder(created_at, now, participant["trust_response"] is not None):
+            responded = participant["trust_response"] is not None
+            if gate.needs_reminder(created_at, now, responded):
+                title, body, last_call = "신뢰 확인이 기다리고 있어요", "카카오톡 아이디를 공유할지 정해 주세요", False
+            elif gate.needs_last_call(created_at, now, responded):
+                title, body, last_call = LAST_CALL_TITLE, last_call_body(gate.deadline_at(created_at), now), True
+            else:
                 continue
             try:
                 sent = await notify(
-                    push_repo, sender, participant["profile_id"], "trust_reminder",
-                    "신뢰 확인이 기다리고 있어요", "카카오톡 아이디를 공유할지 정해 주세요",
+                    push_repo, sender, participant["profile_id"], "trust_reminder", title, body,
                     {"route": "chat", "match_id": str(match["id"])}, now=now,
                 )
             except Exception:
                 # 알림 한 건 때문에 뒷사람 리마인드와 마감까지 멈추는 쪽이 훨씬 나쁘다.
-                logger.exception("신뢰 확인 리마인드 실패 match=%s", match["id"])
+                logger.exception("신뢰 확인 리마인드 실패 match=%s last_call=%s", match["id"], last_call)
                 continue
             # 알림을 끈 사람은 0 이 돌아온다 — 보낸 사람만 센다.
-            reminded += 1 if sent else 0
+            if last_call:
+                last_called += 1 if sent else 0
+            else:
+                reminded += 1 if sent else 0
 
-    logger.info("매시 채팅 배치 열린 방=%s 건너뜀(나감·정지)=%s 도장=%s 닫음=%s 리마인드=%s",
-                len(matches), gone, passed, closed, reminded)
+    logger.info("매시 채팅 배치 열린 방=%s 건너뜀(나감·정지)=%s 도장=%s 닫음=%s 리마인드=%s 마지막알림=%s",
+                len(matches), gone, passed, closed, reminded, last_called)
     return {"reminded": reminded, "closed": closed, "passed": passed}
 
 
