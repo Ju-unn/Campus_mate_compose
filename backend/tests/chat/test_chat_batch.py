@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import httpx
 import pytest
@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 import app.core.batch_auth as batch_auth
 from app.cards.push import FcmSender
 from app.cards.repository import CardRepository
-from app.chat.batch_router import run_chat_gate
+from app.chat.batch_router import last_call_body, run_chat_gate
 from app.chat.repository import ChatRepository
 from app.core.deps import get_client, get_settings
 from app.core.time import SEOUL
@@ -204,7 +204,103 @@ async def test_the_run_logs_one_summary_line(caplog):
     await _Run([_match(), gone]).at(MATCHED_AT + timedelta(hours=49))
 
     assert [r.getMessage() for r in caplog.records if r.name == "app.chat.batch_router"] == [
-        "매시 채팅 배치 열린 방=2 건너뜀(나감·정지)=1 도장=0 닫음=1 리마인드=0"]
+        "매시 채팅 배치 열린 방=2 건너뜀(나감·정지)=1 도장=0 닫음=1 리마인드=0 마지막알림=0"]
+
+
+# 마감 3시간 전 마지막 알림 ---------------------------------------------------------------
+# MATCHED_AT(20일 13:20) 매칭 → 마감 22일 13:20 → 마지막 알림 창 22일 10:00~11:00.
+LAST_CALL_RUN = datetime(2026, 9, 22, 10, 0, 2, tzinfo=SEOUL)
+
+
+async def test_both_sides_get_the_last_call_three_hours_before_the_deadline():
+    run = _Run([_match()])
+    await run.at(LAST_CALL_RUN)
+
+    assert [(p["notification"], p["data"]) for p in run.pushes] == [
+        ({"title": "곧 매칭 대화가 사라져요", "body": "오후 1시 20분까지 카카오톡 아이디 공유를 정해 주세요"},
+         {"route": "chat", "match_id": MATCH_ID}),
+    ] * 2
+
+
+async def test_the_last_call_uses_the_trust_reminder_switch():
+    """앱이 이미 아는 kind 라 앱 업데이트 없이 설정 스위치가 그대로 먹는다 — 끈 사람에게는 안 간다."""
+    run = _Run([_match()])
+    original = run._handler
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/rest/v1/notification_settings":
+            return httpx.Response(200, json=[{"trust_reminder": False}])
+        return original(request)
+
+    run._handler = handler
+    await run.at(LAST_CALL_RUN)
+    assert run.pushes == []
+
+
+async def test_only_people_who_have_not_answered_get_the_last_call():
+    half = _match(participants=[
+        {"profile_id": A, "trust_response": "accept", "left_at": None, "last_read_at": None},
+        {"profile_id": B, "trust_response": None, "left_at": None, "last_read_at": None},
+    ])
+    run = _Run([half])
+    await run.at(LAST_CALL_RUN)
+
+    assert [p["data"]["match_id"] for p in run.pushes] == [MATCH_ID]
+
+
+async def test_no_last_call_outside_its_window():
+    for now in (LAST_CALL_RUN - timedelta(hours=1), LAST_CALL_RUN + timedelta(hours=1)):
+        run = _Run([_match()])
+        await run.at(now)
+        assert run.pushes == [], now
+
+
+async def test_rooms_someone_left_or_was_suspended_from_get_no_last_call():
+    left = _match(participants=[
+        {"profile_id": A, "trust_response": None, "left_at": "2026-09-21T20:00:00+09:00", "last_read_at": None},
+        {"profile_id": B, "trust_response": None, "left_at": None, "last_read_at": None},
+    ])
+    for room in (left, _with_status("suspended", "active"), _with_status("active", "withdrawn")):
+        run = _Run([room])
+        await run.at(LAST_CALL_RUN)
+        assert run.pushes == []
+
+
+async def test_a_failing_last_call_does_not_stop_the_next_person(caplog):
+    run = _Run([_match()])
+    original = run._handler
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "fcm.googleapis.com" in str(request.url):
+            calls.append("fcm")
+            if len(calls) == 1:
+                raise RuntimeError("첫 사람 알림이 터진다")
+        return original(request)
+
+    run._handler = handler
+    caplog.set_level(logging.INFO, logger="app.chat.batch_router")
+    await run.at(LAST_CALL_RUN)
+
+    assert len(calls) == 2
+    assert caplog.records[-1].getMessage() == (
+        "매시 채팅 배치 열린 방=1 건너뜀(나감·정지)=0 도장=0 닫음=0 리마인드=0 마지막알림=1")
+
+
+@pytest.mark.parametrize(("deadline", "now", "text"), [
+    (datetime(2026, 9, 22, 13, 20, tzinfo=SEOUL), datetime(2026, 9, 22, 10, 0, tzinfo=SEOUL), "오후 1시 20분"),
+    (datetime(2026, 9, 22, 13, 0, tzinfo=SEOUL), datetime(2026, 9, 22, 10, 0, tzinfo=SEOUL), "오후 1시"),
+    (datetime(2026, 9, 22, 12, 5, tzinfo=SEOUL), datetime(2026, 9, 22, 9, 0, tzinfo=SEOUL), "오후 12시 5분"),
+    (datetime(2026, 9, 22, 11, 0, tzinfo=SEOUL), datetime(2026, 9, 22, 8, 0, tzinfo=SEOUL), "오전 11시"),
+    # 조용한 시간을 피해 전날 21시에 보내면 마감은 다음 날이다.
+    (datetime(2026, 9, 23, 9, 59, tzinfo=SEOUL), datetime(2026, 9, 22, 21, 0, tzinfo=SEOUL), "내일 오전 9시 59분"),
+    (datetime(2026, 9, 23, 0, 30, tzinfo=SEOUL), datetime(2026, 9, 22, 21, 0, tzinfo=SEOUL), "내일 오전 12시 30분"),
+    # DB 시각은 UTC 로 온다 — 서울 날짜 · 시각으로 바꿔 쓴다(UTC 15:30 = 서울 다음 날 00:30).
+    (datetime(2026, 9, 22, 15, 30, tzinfo=timezone.utc), datetime(2026, 9, 22, 21, 0, tzinfo=SEOUL),
+     "내일 오전 12시 30분"),
+])
+def test_last_call_body_names_the_deadline_in_seoul_time(deadline, now, text):
+    assert last_call_body(deadline, now) == f"{text}까지 카카오톡 아이디 공유를 정해 주세요"
 
 
 async def test_a_failing_push_does_not_stop_the_rest_of_the_run():
