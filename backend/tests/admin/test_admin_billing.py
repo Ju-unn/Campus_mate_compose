@@ -107,15 +107,23 @@ def test_shortfall_passes_the_db_rows_through(client, world):
            "purchased_at": "2026-10-10T09:20:00+00:00", "refunded_at": "2026-10-11T00:00:00+00:00"}
     world.rpc_results["admin_billing_shortfall"] = [row]
 
-    response = client.get("/admin/billing/shortfall?limit=7", headers=ADMIN_HEADERS)
+    response = client.get("/admin/billing/shortfall", headers=ADMIN_HEADERS)
 
-    assert response.json() == {"items": [row]}
-    assert world.rpcs == [("admin_billing_shortfall", {"p_limit": 7})]
+    assert response.json() == {"items": [row], "total": 1, "page": 1, "size": 20}
+    assert world.rpcs == [("admin_billing_shortfall", {"p_limit": 500})]  # DB 함수가 주는 최대만큼 받아 쪽으로 자른다
 
 
-@pytest.mark.parametrize("limit", [0, 501])
-def test_shortfall_limit_is_bounded(client, world, limit):
-    assert client.get(f"/admin/billing/shortfall?limit={limit}", headers=ADMIN_HEADERS).status_code == 422
+def test_shortfall_is_cut_into_numbered_pages(client, world):
+    rows = [{"purchase_id": f"p{n}"} for n in range(3)]
+    world.rpc_results["admin_billing_shortfall"] = rows
+
+    assert client.get("/admin/billing/shortfall?page=2&size=2", headers=ADMIN_HEADERS).json() == {
+        "items": rows[2:], "total": 3, "page": 2, "size": 2}
+
+
+@pytest.mark.parametrize("query", ["page=0", "size=0", "size=101"])
+def test_shortfall_paging_is_bounded(client, world, query):
+    assert client.get(f"/admin/billing/shortfall?{query}", headers=ADMIN_HEADERS).status_code == 422
     assert world.rpcs == []
 
 
@@ -127,28 +135,25 @@ def test_frequent_returns_passes_the_db_rows_through(client, world):
            "clawed_back_hearts": 110, "shortfall_hearts": 890, "last_refunded_at": "2026-10-11T00:00:00+00:00"}
     world.rpc_results["admin_billing_returned_accounts"] = [row]
 
-    response = client.get("/admin/billing/frequent-returns?limit=7", headers=ADMIN_HEADERS)
+    response = client.get("/admin/billing/frequent-returns", headers=ADMIN_HEADERS)
 
     assert response.status_code == 200
-    assert response.json() == {"items": [row]}
-    assert world.rpcs == [("admin_billing_returned_accounts", {"p_limit": 7})]
+    assert response.json() == {"items": [row], "total": 1, "page": 1, "size": 20}
+    assert world.rpcs == [("admin_billing_returned_accounts", {"p_limit": 500})]
 
 
-def test_frequent_returns_defaults_to_a_hundred_accounts(client, world):
-    client.get("/admin/billing/frequent-returns", headers=ADMIN_HEADERS)
+def test_frequent_returns_are_cut_into_numbered_pages(client, world):
+    rows = [{"profile_id": f"u{n}"} for n in range(25)]
+    world.rpc_results["admin_billing_returned_accounts"] = rows
 
-    assert world.rpcs == [("admin_billing_returned_accounts", {"p_limit": 100})]
+    body = client.get("/admin/billing/frequent-returns?page=2", headers=ADMIN_HEADERS).json()
 
-
-@pytest.mark.parametrize("limit", [1, 500])
-def test_frequent_returns_limit_edges_are_allowed(client, world, limit):
-    assert client.get(f"/admin/billing/frequent-returns?limit={limit}", headers=ADMIN_HEADERS).status_code == 200
-    assert world.rpcs == [("admin_billing_returned_accounts", {"p_limit": limit})]
+    assert body == {"items": rows[20:], "total": 25, "page": 2, "size": 20}
 
 
-@pytest.mark.parametrize("limit", [0, 501])
-def test_frequent_returns_limit_is_bounded(client, world, limit):
-    assert client.get(f"/admin/billing/frequent-returns?limit={limit}", headers=ADMIN_HEADERS).status_code == 422
+@pytest.mark.parametrize("query", ["page=0", "size=0", "size=101"])
+def test_frequent_returns_paging_is_bounded(client, world, query):
+    assert client.get(f"/admin/billing/frequent-returns?{query}", headers=ADMIN_HEADERS).status_code == 422
     assert world.rpcs == []
 
 
