@@ -50,7 +50,9 @@ def wire():
                "status": "active", "school_email_verified_at": None, **gate}
         http = httpx.AsyncClient(transport=httpx.MockTransport(_gate_handler(row)))
         app = main.app
-        app.dependency_overrides[get_settings] = lambda: settings()
+        # 로컬 스택 주소 — /matching/candidates 는 운영 주소면 관문 전에 404 라(test_matching_router) 로컬에서 관문을 본다.
+        # 관문은 runs_locally 를 보지 않으니 다른 경로의 뜻은 그대로다.
+        app.dependency_overrides[get_settings] = lambda: settings(supabase_url="http://127.0.0.1:54321")
         app.dependency_overrides[get_client] = lambda: http
         return TestClient(app)
     yield _wire

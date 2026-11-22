@@ -13,16 +13,39 @@ PROFILE_ID = "11111111-1111-1111-1111-111111111111"
 AUTH_HEADERS = {"Authorization": "Bearer valid-token"}
 
 
-@pytest.fixture(autouse=True)
-def overrides():
-    app.dependency_overrides[get_settings] = lambda: Settings(
-        supabase_url="https://x.supabase.co", supabase_service_role_key="service-key",
+def _settings(supabase_url: str) -> Settings:
+    return Settings(
+        supabase_url=supabase_url, supabase_service_role_key="service-key",
         auth_hook_signing_secret="whsec_test", discord_webhook_url="https://discord.com/api/webhooks/t",
         google_cloud_project="campus-mate-test", openai_api_key="sk-test",
         phone_encryption_key="phone-key-test", identity_hmac_key="identity-key-test",
     )
+
+
+@pytest.fixture(autouse=True)
+def overrides():
+    # 후보 목록은 로컬 스택에서만 열린다(아래 운영 404 시험) — 나머지 시험은 로컬 서버로 본다.
+    app.dependency_overrides[get_settings] = lambda: _settings("http://127.0.0.1:54321")
     yield
     app.dependency_overrides.clear()
+
+
+@pytest.mark.parametrize("headers", [pytest.param({}, id="no-token"), pytest.param(AUTH_HEADERS, id="verified-token")])
+def test_candidates_are_closed_on_a_production_server(headers):
+    """운영 주소를 보는 서버에서는 404 — 앱은 안 쓰고, 유료 카드가 숨기는 순위 · 점수를 다 보여 주기 때문이다(11-23 보안 점검 B1).
+    인증보다 먼저 막아 토큰 없이도 404 이고, Supabase 에는 아무 호출도 나가지 않는다."""
+    app.dependency_overrides[get_settings] = lambda: _settings("https://prod-like.supabase.co")
+    sent: list[str] = []
+
+    def record(request: httpx.Request) -> httpx.Response:
+        sent.append(str(request.url))
+        return httpx.Response(200, json={"id": PROFILE_ID})
+
+    app.dependency_overrides[get_client] = lambda: httpx.AsyncClient(transport=httpx.MockTransport(record))
+    response = TestClient(app).get("/matching/candidates", headers=headers)
+
+    assert response.status_code == 404
+    assert sent == []
 
 
 def _wire(handler: Callable[[httpx.Request], httpx.Response]) -> TestClient:

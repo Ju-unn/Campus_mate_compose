@@ -37,12 +37,12 @@ NOW = datetime(2026, 10, 8, 12, 0, tzinfo=SEOUL)
 
 
 def settings(**overrides) -> Settings:
-    return Settings(
-        supabase_url="https://x.supabase.co", supabase_service_role_key="service-key",
-        auth_hook_signing_secret="whsec_test", discord_webhook_url="https://discord.com/api/webhooks/t",
-        google_cloud_project="campus-mate-test", openai_api_key="sk-test",
-        phone_encryption_key="phone-key-test", identity_hmac_key=IDENTITY_KEY, **overrides,
-    )
+    return Settings(**{
+        "supabase_url": "https://x.supabase.co", "supabase_service_role_key": "service-key",
+        "auth_hook_signing_secret": "whsec_test", "discord_webhook_url": "https://discord.com/api/webhooks/t",
+        "google_cloud_project": "campus-mate-test", "openai_api_key": "sk-test",
+        "phone_encryption_key": "phone-key-test", "identity_hmac_key": IDENTITY_KEY, **overrides,
+    })
 
 
 def social_user(user_id: str, provider: str = "kakao") -> dict:
