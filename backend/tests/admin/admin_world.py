@@ -321,13 +321,7 @@ class AdminWorld:
             if column in params:
                 rows = [r for r in rows if r[column] == params[column].removeprefix("eq.")]
         rows.sort(key=lambda r: (r["created_at"], r["id"]), reverse=True)
-        if "or" in params:  # or=(created_at.lt.X,and(created_at.eq.X,id.lt.Y))
-            first, rest = params["or"][1:-1].split(",and(", 1)
-            at, last_id = first.removeprefix("created_at.lt."), rest.removesuffix(")").split(",id.lt.")[1]
-            rows = [r for r in rows if r["created_at"] < at or (r["created_at"] == at and r["id"] < last_id)]
-        if "limit" in params:
-            rows = rows[:int(params["limit"])]
-        return httpx.Response(200, json=rows)
+        return page_response(self._request, rows)
 
     def _new_rpc(self, name: str, body: dict) -> httpx.Response:
         """D3 의 DB 함수들. 돌려줄 값은 rpc_results[name], 오류는 rpc_error_code(D2 와 같은 약속)."""

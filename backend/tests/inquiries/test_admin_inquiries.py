@@ -44,7 +44,7 @@ def test_the_list_is_newest_first_with_every_column_and_the_writer(client, world
     assert response.status_code == 200
     body = response.json()
     assert [i["id"] for i in body["items"]] == [B, A]
-    assert body["has_more"] is False
+    assert (body["total"], body["page"], body["size"]) == (2, 1, 20)
     assert body["items"][1] == {
         "id": A, "reason": "bug", "body": "앱이 멈춰요", "reply_email": "me@example.com", "status": "new",
         "admin_memo": None, "created_at": "2026-11-10T01:00:00+00:00", "updated_at": "2026-11-10T01:00:00+00:00",
@@ -54,32 +54,30 @@ def test_the_list_is_newest_first_with_every_column_and_the_writer(client, world
     assert body["items"][0]["profile"] is None      # 탈퇴한 사람의 문의는 남는다
 
 
-def test_has_more_is_exact_it_asks_one_extra_row(client, world):
+def test_pages_reach_every_inquiry_with_the_total(client, world):
     world.inquiries = [row(f"00000000-0000-0000-0000-{i:012d}", created_at=f"2026-11-10T{i % 24:02d}:00:00+00:00")
-                       for i in range(1, 51)]
+                       for i in range(1, 24)]
 
-    exactly_fifty = client.get("/admin/inquiries", headers=ADMIN_AUTH).json()
-    assert (len(exactly_fifty["items"]), exactly_fifty["has_more"]) == (50, False)
+    first = client.get("/admin/inquiries", headers=ADMIN_AUTH).json()
+    second = client.get("/admin/inquiries?page=2", headers=ADMIN_AUTH).json()
+    past = client.get("/admin/inquiries?page=3", headers=ADMIN_AUTH).json()
 
-    world.inquiries.append(row("00000000-0000-0000-0000-000000000099", created_at="2026-11-09T00:00:00+00:00"))
-    fifty_one = client.get("/admin/inquiries", headers=ADMIN_AUTH).json()
-    assert (len(fifty_one["items"]), fifty_one["has_more"]) == (50, True)
-    assert world.calls("GET", "/rest/v1/inquiries")[-1].url.params["limit"] == "51"
+    assert (len(first["items"]), len(second["items"]), first["total"], second["total"]) == (20, 3, 23, 23)
+    assert len({i["id"] for i in first["items"] + second["items"]}) == 23
+    assert (past["items"], past["total"]) == ([], 23)
+    sent = world.calls("GET", "/rest/v1/inquiries")[1]
+    assert (sent.url.params["offset"], sent.url.params["limit"], sent.headers["prefer"]) == ("20", "20", "count=exact")
 
 
-def test_the_cursor_continues_without_skipping_rows_sharing_a_timestamp(client, world):
+def test_rows_sharing_a_timestamp_split_across_pages_without_skipping(client, world):
     same = "2026-11-10T01:00:00+00:00"
     world.inquiries = [row(A, created_at=same), row(B, created_at=same), row(C, created_at=same)]
 
-    first = client.get("/admin/inquiries?limit=2", headers=ADMIN_AUTH).json()
-    assert [i["id"] for i in first["items"]] == [C, B] and first["has_more"] is True
-    last = first["items"][-1]
-    second = client.get("/admin/inquiries", params={"limit": 2, "before": last["created_at"], "before_id": last["id"]},
-                        headers=ADMIN_AUTH).json()
+    first = client.get("/admin/inquiries?size=2", headers=ADMIN_AUTH).json()
+    second = client.get("/admin/inquiries?size=2&page=2", headers=ADMIN_AUTH).json()
 
-    assert [i["id"] for i in second["items"]] == [A] and second["has_more"] is False
-    sent = world.calls("GET", "/rest/v1/inquiries")[-1].url.params
-    assert sent["or"] == f"(created_at.lt.{same},and(created_at.eq.{same},id.lt.{B}))"
+    assert [i["id"] for i in first["items"]] == [C, B] and [i["id"] for i in second["items"]] == [A]
+    assert world.calls("GET", "/rest/v1/inquiries")[-1].url.params["order"] == "created_at.desc,id.desc"
 
 
 def test_the_status_filter_is_an_exact_postgrest_filter(client, world):
@@ -89,13 +87,11 @@ def test_the_status_filter_is_an_exact_postgrest_filter(client, world):
 
     assert [i["id"] for i in items] == [B]
     assert world.calls("GET", "/rest/v1/inquiries")[-1].url.params["status"] == "eq.answered"
+    assert client.get("/admin/inquiries?status=answered", headers=ADMIN_AUTH).json()["total"] == 1
 
 
 @pytest.mark.parametrize("query", [
-    "status=bogus", "limit=0", "limit=101",
-    "before=2026-11-10T01:00:00Z",                                  # 커서는 before 와 before_id 가 한 쌍이다
-    f"before_id={A}", f"before=yesterday&before_id={A}", "before=2026-11-10T01:00:00Z&before_id=not-a-uuid",
-    f"before=2026-W45-1T01:00:00Z&before_id={A}",
+    "status=bogus", "page=0", "size=0", "size=101", "page=x",
 ])
 def test_bad_query_is_422_without_touching_the_database(client, world, query):
     assert client.get(f"/admin/inquiries?{query}", headers=ADMIN_AUTH).status_code == 422
