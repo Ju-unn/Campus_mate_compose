@@ -9,7 +9,8 @@ import 'package:campus_mate_admin/reports/report_item.dart' show ProfileAction;
 import 'package:campus_mate_admin/users/user_item.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-enum UserSearchMode { nickname, schoolMail }
+/// 찾기 방식(칩). [school] 은 학교 이름 일부(사용자 요청 11-22) — 닉네임 · id 처럼 쪽 · 정렬이 있는 목록이다.
+enum UserSearchMode { nickname, school, schoolMail }
 
 /// A5 찾기 상태. **학교 메일은 어디에도 들고 있지 않는다** — 칸 글자는 화면의 입력 칸에만 있고, 여기는 어떤 방식으로
 /// 찾았는지(칩)와 찾은 줄들뿐이다(대장 결정 2 · 설계 §14-3).
@@ -20,6 +21,7 @@ class UserSearchState {
     this.results = const AsyncLoading(),
     this.page = 1,
     this.total = 0,
+    this.sort = UserSort.newestFirst,
   });
 
   /// 고른 칩
@@ -29,17 +31,28 @@ class UserSearchState {
   final UserSearchMode resultMode;
   final AsyncValue<List<UserSummary>> results;
 
-  /// 닉네임 · id 찾기의 지금 쪽과 전체 건수(학교 메일 찾기는 0 또는 1줄이라 쪽이 없다)
+  /// 닉네임 · id · 학교 이름 찾기의 지금 쪽과 전체 건수(학교 메일 찾기는 0 또는 1줄이라 쪽이 없다)
   final int page;
   final int total;
 
-  UserSearchState copyWith({UserSearchMode? mode, UserSearchMode? resultMode, AsyncValue<List<UserSummary>>? results, int? page, int? total}) {
+  /// 목록 정렬(머리 칸). 찾는 방식 · 글자를 바꿔도 유지한다.
+  final UserSort sort;
+
+  UserSearchState copyWith({
+    UserSearchMode? mode,
+    UserSearchMode? resultMode,
+    AsyncValue<List<UserSummary>>? results,
+    int? page,
+    int? total,
+    UserSort? sort,
+  }) {
     return UserSearchState(
       mode: mode ?? this.mode,
       resultMode: resultMode ?? this.resultMode,
       results: results ?? this.results,
       page: page ?? this.page,
       total: total ?? this.total,
+      sort: sort ?? this.sort,
     );
   }
 }
@@ -54,24 +67,25 @@ class UserSearchController extends Notifier<UserSearchState> {
   /// 늦게 온 응답(칩 · 쪽을 바꾼 뒤)을 버리려고 요청마다 올린다
   int _request = 0;
 
-  /// 지금 보이는 닉네임 · id 찾기의 글자 — 쪽을 바꿀 때 같은 글자로 받는다(학교 메일은 여기 두지 않는다)
-  String _nickname = '';
+  /// 지금 보이는 목록(닉네임 · id 또는 학교 이름)의 방식과 글자 — 쪽 · 정렬을 바꿀 때 같은 글자로 받는다(학교 메일은 여기 두지 않는다)
+  UserSearchMode _listMode = UserSearchMode.nickname;
+  String _listText = '';
 
   @override
   UserSearchState build() {
     _api = ref.watch(adminApiProvider);
-    unawaited(_nicknamePage('', 1, announce: false)); // 처음 상태가 이미 받는 중
+    unawaited(_listPage(UserSearchMode.nickname, '', 1, UserSort.newestFirst, announce: false)); // 처음 상태가 이미 받는 중
     return const UserSearchState();
   }
 
   /// 칩 바꾸기. 결과는 그대로 두고 방식만 바뀐다.
   void setMode(UserSearchMode mode) => state = state.copyWith(mode: mode);
 
-  /// 지금 칩의 방식으로 찾는다. [text] 는 이 호출 안에서만 쓰고 어디에도 두지 않는다. 끝나면(성공 · 못 찾음 · 오류 모두) 돌아온다 —
-  /// 학교 메일 칸을 비우는 일은 이 Future 가 끝난 뒤 화면이 한다.
+  /// 지금 칩의 방식으로 찾는다. [text] 는 이 호출 안에서만 쓰고 학교 메일이면 어디에도 두지 않는다. 끝나면(성공 · 못 찾음 · 오류 모두)
+  /// 돌아온다 — 학교 메일 칸을 비우는 일은 이 Future 가 끝난 뒤 화면이 한다.
   Future<void> search(String text) {
     final query = text.trim();
-    if (state.mode == UserSearchMode.nickname) return _nicknamePage(query, 1);
+    if (state.mode != UserSearchMode.schoolMail) return _listPage(state.mode, query, 1, state.sort);
     if (query.isEmpty) return Future.value();
     return _run(UserSearchMode.schoolMail, 1, () async {
       final rows = await _api.searchUsersBySchoolEmail(query);
@@ -79,15 +93,23 @@ class UserSearchController extends Notifier<UserSearchState> {
     });
   }
 
-  /// 번호 쪽 — 지금 닉네임 · id 글자로 그 쪽을 받는다
-  void goTo(int page) => unawaited(_nicknamePage(_nickname, page));
+  /// 번호 쪽 — 지금 목록의 글자 · 정렬로 그 쪽을 받는다
+  void goTo(int page) => unawaited(_listPage(_listMode, _listText, page, state.sort));
 
-  /// 오류 화면의 "다시 시도" — 가입 최근 순으로
-  void reload() => unawaited(_nicknamePage('', 1));
+  /// 머리 칸을 눌렀다 — 다른 칸이면 그 칸 오름차순, 같은 칸이면 방향을 뒤집어 1쪽부터 다시 받는다(찾는 글자는 그대로)
+  void sortBy(UserSortColumn column) {
+    state = state.copyWith(sort: state.sort.tapped(column));
+    unawaited(_listPage(_listMode, _listText, 1, state.sort));
+  }
 
-  Future<void> _nicknamePage(String query, int page, {bool announce = true}) {
-    _nickname = query;
-    return _run(UserSearchMode.nickname, page, () => _api.listUsers(q: query, page: page), announce: announce);
+  /// 오류 화면의 "다시 시도" — 글자 없이(정렬은 그대로)
+  void reload() => unawaited(_listPage(UserSearchMode.nickname, '', 1, state.sort));
+
+  Future<void> _listPage(UserSearchMode mode, String text, int page, UserSort sort, {bool announce = true}) {
+    _listMode = mode;
+    _listText = text;
+    final school = mode == UserSearchMode.school;
+    return _run(mode, page, () => _api.listUsers(q: school ? null : text, school: school ? text : null, sort: sort, page: page), announce: announce);
   }
 
   Future<void> _run(UserSearchMode mode, int page, Future<ListPage<UserSummary>> Function() load, {bool announce = true}) async {

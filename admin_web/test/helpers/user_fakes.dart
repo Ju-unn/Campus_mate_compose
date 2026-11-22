@@ -259,9 +259,19 @@ class FakeUserServer {
       await holdList?.future;
       final failure = _fail(listFailure);
       if (failure != null) return failure;
-      final q = request.url.queryParameters['q'];
-      final found = [for (final u in users) if (q == null || q.isEmpty || '${u['nickname']}'.contains(q) || u['id'] == q) u];
-      return _json(200, pageJson(found, request.url.queryParameters));
+      final query = request.url.queryParameters;
+      final q = query['q'];
+      final school = query['school'];
+      final found = [
+        for (final u in users)
+          if ((q == null || q.isEmpty || '${u['nickname']}'.contains(q) || u['id'] == q) && (school == null || '${u['university'] ?? ''}'.contains(school))) u,
+      ];
+      final sort = query['sort'];
+      if (sort != null) {
+        // 서버 정렬 흉내 — 칸 글자 순(시험이 enum 순서 · null 자리에 기대지 않는다)
+        found.sort((a, b) => '${a[sort] ?? ''}'.compareTo('${b[sort] ?? ''}') * (query['dir'] == 'desc' ? -1 : 1));
+      }
+      return _json(200, pageJson(found, query));
     }
     if (request.method == 'POST' && path == '/admin/users/search') {
       await holdSearch?.future;

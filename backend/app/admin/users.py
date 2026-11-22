@@ -6,6 +6,7 @@
 import asyncio
 import logging
 import re
+from typing import Literal
 from uuid import UUID
 
 import httpx
@@ -18,7 +19,7 @@ from app.admin.paging import Page, page_query
 from app.admin.reason import Reason
 from app.admin.repository import NOT_FOUND
 from app.admin.request_ip import request_ip
-from app.admin.user_repository import CHANNELS, GENDERS, NOTE_ACTION, AdminUserRepository
+from app.admin.user_repository import CHANNELS, GENDERS, NOTE_ACTION, USER_SORTS, AdminUserRepository, user_order
 from app.chat.router import avatar_url
 from app.core import errors
 from app.signup_policy import bytea_literal, hash_email
@@ -30,6 +31,8 @@ logger = logging.getLogger(__name__)
 RECENT_ROWS = 20
 # q 는 닉네임(2~5자) 또는 프로필 id(UUID 36자)다.
 QUERY_MAX = 36
+# school 은 학교 이름 일부(가장 긴 학교 이름도 20자 안쪽).
+SCHOOL_MAX = 40
 # 학교 메일 모양 검사. 틀리면 입력을 되돌리지 않는 422 다(FastAPI 기본 422 는 입력값을 싣는다 — 메일 원문이 새는 길).
 _EMAIL = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 EMAIL_MAX = 254
@@ -95,10 +98,15 @@ def _purchase(row: dict) -> dict:
 @router.get("")
 async def list_users(
     q: str | None = Query(None, max_length=QUERY_MAX),
+    school: str | None = Query(None, max_length=SCHOOL_MAX),
+    sort: Literal[tuple(USER_SORTS)] = "created_at",  # type: ignore[valid-type]
+    direction: Literal["asc", "desc"] = Query("desc", alias="dir"),
     page: Page = Depends(page_query),
     caller: AdminCaller = Depends(get_admin_caller),
 ) -> dict:
-    """q 가 UUID 면 프로필 id, 아니면 닉네임 부분 일치. 없으면 가입 최근 순. 관리자 프로필은 빠진다(건수에서도)."""
+    """q 가 UUID 면 프로필 id, 아니면 닉네임 부분 일치. school 은 학교 이름 부분 일치(같이 오면 둘 다 맞는 사람).
+    정렬은 sort(허용 목록 [USER_SORTS], 밖이면 422) · dir, 기본 가입 최근 순. 관리자 프로필은 빠진다(건수에서도).
+    검색어(q · school)는 로그 · 작업 기록에 남기지 않는다."""
     repo = _repo(caller)
     admins = await repo.admin_ids()
     text = (q or "").strip()
@@ -107,7 +115,8 @@ async def list_users(
     except ValueError:
         profile_id = None
     rows, total = await repo.list_users(nickname=None if profile_id else text or None, profile_id=profile_id,
-                                        page=page, exclude_ids=admins)
+                                        page=page, exclude_ids=admins, school=(school or "").strip() or None,
+                                        order=user_order(sort, direction))
     return page.body(await _summaries(repo, rows), total)
 
 

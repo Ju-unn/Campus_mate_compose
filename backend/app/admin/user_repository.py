@@ -20,6 +20,27 @@ CHANNELS = ("everytime", "instagram", "friend", "community", "other")
 _PURCHASE_SELECT = "id,store,product_id,status,is_test,heart_amount,bonus_hearts,clawed_back_hearts,purchased_at"
 NOTE_ACTION = "profile_note"
 _LIKE_SPECIAL = re.compile(r"([\\%_])")
+# 목록 정렬(머리 칸 누르기, 사용자 요청 11-22): 응답 칸 이름 → PostgREST order 칸. 학교는 to-one 임베드 정렬(PostgREST v11+).
+# 받은 신고(report_count)는 reports 표에서 따로 세는 값이라 PostgREST 로 정렬할 수 없다 — 허용 목록에 없다(422).
+# status · gender · acquisition_channel 은 DB enum 이라 글자 순이 아니라 enum 선언 순으로 정렬된다.
+USER_SORTS = {
+    "created_at": "created_at", "nickname": "nickname", "id": "id", "university": "universities(name)", "status": "status",
+    "gender": "gender", "acquisition_channel": "acquisition_channel",
+}
+# null 이 되는 칸(입력 전 · 학교 인증 전)은 오름 · 내림 모두 맨 뒤로 — 값 있는 줄을 먼저 본다.
+_NULLABLE_SORTS = {"nickname", "university", "gender", "acquisition_channel"}
+
+
+def _escape_like(text: str) -> str:
+    return _LIKE_SPECIAL.sub(lambda match: "\\" + match[1], text)
+
+
+def user_order(sort: str, direction: str) -> str:
+    """정렬 칸 + 방향 → PostgREST order. 끝에 id 로 동점을 깬다(쪽 사이에 줄이 겹치거나 빠지지 않게)."""
+    if sort == "id":
+        return f"id.{direction}"
+    nulls = ".nullslast" if sort in _NULLABLE_SORTS else ""
+    return f"{USER_SORTS[sort]}.{direction}{nulls},id.{direction}"
 
 
 class AdminUserRepository(AdminRepository):
@@ -30,19 +51,23 @@ class AdminUserRepository(AdminRepository):
 
     async def list_users(
         self, *, nickname: str | None, profile_id: str | None, page: Page, exclude_ids: list[str],
+        school: str | None = None, order: str = "created_at.desc,id.desc",
     ) -> tuple[list[dict], int]:
-        """가입 최근 순 한 쪽과 전체 건수. nickname 은 부분 일치(대소문자 무시, LIKE 특수문자는 이스케이프), profile_id 는 일치.
-        관리자는 PostgREST 필터로 뺀다 — 건수와 쪽이 관리자 때문에 어긋나지 않게."""
+        """한 쪽과 전체 건수(기본 가입 최근 순, order 는 [user_order]). nickname · school(학교 이름)은 부분 일치(대소문자 무시,
+        LIKE 특수문자는 이스케이프), profile_id 는 일치. 관리자는 PostgREST 필터로 뺀다 — 건수와 쪽이 관리자 때문에 어긋나지 않게.
+        school 이 있으면 학교 임베드를 inner 로 바꿔 그 학교 사람만 남기고 건수도 같이 맞춘다(학교 없는 사람은 빠진다)."""
         if profile_id in exclude_ids:
             return [], 0
-        params = {"select": _SUMMARY_SELECT, "order": "created_at.desc,id.desc"}
+        params = {"select": _SUMMARY_SELECT, "order": order}
         if profile_id:
             params["id"] = f"eq.{profile_id}"
         elif exclude_ids:
             params["id"] = f"not.in.({','.join(exclude_ids)})"
         if nickname:
-            escaped = _LIKE_SPECIAL.sub(lambda match: "\\" + match[1], nickname)
-            params["nickname"] = f"ilike.*{escaped}*"
+            params["nickname"] = f"ilike.*{_escape_like(nickname)}*"
+        if school:
+            params["select"] = _SUMMARY_SELECT.replace("universities(name)", "universities!inner(name)")
+            params["universities.name"] = f"ilike.*{_escape_like(school)}*"
         return await self.read_page("profiles", params, page)
 
     async def e2e_university_ids(self) -> list[str]:

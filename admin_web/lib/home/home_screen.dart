@@ -59,9 +59,6 @@ class HomeScreen extends ConsumerWidget {
 /// 접수량 막대가 보여 주는 날 수(pen: 최근 14일)
 const int _intakeDays = 14;
 
-/// 학교별 가로 막대에 그리는 학교 수(활성 많은 순 — 서버 순서 그대로, 대장 결정 3)
-const int _schoolBars = 8;
-
 class _HomeBody extends StatelessWidget {
   const _HomeBody({required this.data});
 
@@ -187,7 +184,8 @@ class _SchoolsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shown = universities.take(_schoolBars).toList();
+    // 활성 1명 이상인 학교 전부(서버 순서 = 활성 많은 순, 사용자 요청 11-22). 그림 높이가 학교 수만큼 늘어 카드도 같이 자란다.
+    final shown = [for (final u in universities) if (u.maleActive + u.femaleActive > 0) u];
     final Widget chart;
     if (shown.isEmpty) {
       chart = SizedBox(

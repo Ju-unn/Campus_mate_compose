@@ -162,10 +162,16 @@ class AdminApi {
 
   // 사용자(A5) · 결제(A8) — 서버 계약은 D3 계획서 표 그대로. 학교 메일 · 주문 번호는 POST 본문으로만 보낸다(주소 · 쿼리에 남기지 않음).
 
-  /// 가입 최근 순 · 쪽당 [pageSize]. [q] 는 닉네임 일부 또는 프로필 id.
-  Future<ListPage<UserSummary>> listUsers({String? q, int page = 1}) {
-    final text = q?.trim();
-    return _page('/admin/users', {if (text != null && text.isNotEmpty) 'q': text}, page, UserSummary.fromJson, '사용자 목록');
+  /// [sort] 순(기본 가입 최근 순) · 쪽당 [pageSize]. [q] 는 닉네임 일부 또는 프로필 id, [school] 은 학교 이름 일부.
+  /// 기본 정렬이면 sort · dir 을 보내지 않는다(정렬을 모르는 옛 서버와 같은 요청).
+  Future<ListPage<UserSummary>> listUsers({String? q, String? school, UserSort sort = UserSort.newestFirst, int page = 1}) {
+    final text = q?.trim() ?? '';
+    final schoolText = school?.trim() ?? '';
+    return _page('/admin/users', {
+      if (text.isNotEmpty) 'q': text,
+      if (schoolText.isNotEmpty) 'school': schoolText,
+      if (sort != UserSort.newestFirst) ...{'sort': sort.column.code, 'dir': sort.ascending ? 'asc' : 'desc'},
+    }, page, UserSummary.fromJson, '사용자 목록');
   }
 
   /// 학교 메일 정확히 일치(0 또는 1줄). 메일은 본문에만 — 서버도 기록하지 않는다.

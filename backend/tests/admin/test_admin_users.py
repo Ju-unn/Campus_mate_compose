@@ -163,6 +163,114 @@ def test_search_by_profile_id_and_admins_never_appear(client, world):
     assert world.calls("GET", "/rest/v1/profiles")[-1].url.params["id"] == f"not.in.({ADMIN})"
 
 
+# 정렬(머리 칸 누르기, 사용자 요청 11-22) · 학교로 찾기 ------------------------------------
+
+U3 = "11111111-0000-0000-0000-000000000003"
+
+
+def _three_schools(world) -> None:
+    _two_users(world)  # U1 테스트대학교 · U2 학교 없음(인증 전)
+    world.user_profiles[U3] = user_profile(U3, "닉네임C", university="가나대학교", created_at="2026-10-20T00:00:00+00:00")
+
+
+@pytest.mark.parametrize(("sort", "direction", "order"), [
+    ("created_at", "asc", "created_at.asc,id.asc"),
+    ("nickname", "asc", "nickname.asc.nullslast,id.asc"),
+    ("id", "desc", "id.desc"),
+    ("university", "desc", "universities(name).desc.nullslast,id.desc"),
+    ("status", "asc", "status.asc,id.asc"),
+    ("gender", "desc", "gender.desc.nullslast,id.desc"),
+    ("acquisition_channel", "asc", "acquisition_channel.asc.nullslast,id.asc"),
+])
+def test_sort_and_dir_become_one_postgrest_order_ending_in_id(client, world, sort, direction, order):
+    _two_users(world)
+
+    response = client.get("/admin/users", params={"sort": sort, "dir": direction}, headers=ADMIN_HEADERS)
+
+    assert response.status_code == 200
+    [listing] = world.calls("GET", "/rest/v1/profiles")
+    assert listing.url.params["order"] == order
+
+
+def test_sort_by_school_name_keeps_people_without_a_school_last_both_ways(client, world):
+    _three_schools(world)
+
+    def ids(direction: str) -> list[str]:
+        body = client.get("/admin/users", params={"sort": "university", "dir": direction}, headers=ADMIN_HEADERS).json()
+        return [u["id"] for u in body["items"]]
+
+    assert ids("asc") == [U3, U1, U2]
+    assert ids("desc") == [U1, U3, U2]
+
+
+@pytest.mark.parametrize("query", [
+    "sort=report_count",  # 받은 신고는 다른 표에서 세는 값이라 서버 정렬이 안 된다
+    "sort=password", "sort=nickname.asc,id", "sort=universities(name)", "dir=up", "dir=ASC",
+])
+def test_sort_outside_the_allowlist_is_422_without_touching_the_db(client, world, query):
+    response = client.get(f"/admin/users?{query}", headers=ADMIN_HEADERS)
+
+    assert response.status_code == 422
+    assert world.calls("GET", "/rest/v1/profiles") == []
+
+
+def test_school_filter_is_a_partial_name_match_and_the_total_follows_it(client, world):
+    _three_schools(world)
+
+    body = client.get("/admin/users", params={"school": " 가나 ", "size": 1}, headers=ADMIN_HEADERS).json()
+
+    assert ([u["id"] for u in body["items"]], body["total"]) == ([U3], 1)
+    [listing] = world.calls("GET", "/rest/v1/profiles")
+    # 학교가 없는 사람까지 빼려면 inner 임베드여야 한다(그냥 임베드면 학교 칸만 null 이 되고 사람은 남는다)
+    assert "universities!inner(name)" in listing.url.params["select"]
+    assert listing.url.params["universities.name"] == "ilike.*가나*"
+
+
+def test_school_filter_works_with_sort_and_paging(client, world):
+    _three_schools(world)
+    world.user_profiles[U2]["universities"] = {"name": "가나대학교 세종캠퍼스"}
+
+    body = client.get("/admin/users", params={"school": "가나", "sort": "nickname", "dir": "desc", "page": 2, "size": 1},
+                      headers=ADMIN_HEADERS).json()
+
+    assert ([u["id"] for u in body["items"]], body["total"], body["page"]) == ([U2], 2, 2)
+
+
+def test_school_filter_escapes_like_wildcards(client, world):
+    _three_schools(world)
+
+    client.get("/admin/users", params={"school": "50%_\\"}, headers=ADMIN_HEADERS)
+
+    assert world.calls("GET", "/rest/v1/profiles")[0].url.params["universities.name"] == "ilike.*50\\%\\_\\\\*"
+
+
+def test_blank_school_is_no_filter(client, world):
+    _three_schools(world)
+
+    body = client.get("/admin/users", params={"school": "   "}, headers=ADMIN_HEADERS).json()
+
+    assert body["total"] == 3
+    params = world.calls("GET", "/rest/v1/profiles")[0].url.params
+    assert "universities.name" not in params and "!inner" not in params["select"]
+
+
+def test_school_filter_is_bounded(client, world):
+    response = client.get("/admin/users", params={"school": "가" * 41}, headers=ADMIN_HEADERS)
+
+    assert response.status_code == 422
+    assert world.calls("GET", "/rest/v1/profiles") == []
+
+
+def test_school_search_text_never_reaches_the_logs_or_the_action_log(client, world, caplog):
+    _three_schools(world)
+    caplog.set_level(logging.DEBUG)
+
+    client.get("/admin/users", params={"school": "가나비밀"}, headers=ADMIN_HEADERS)
+
+    assert "가나비밀" not in caplog.text
+    assert world.actions == []
+
+
 # 합계(성별 · 들어온 경로) ------------------------------------------------------------
 
 def test_totals_count_gender_and_channel_without_admins_across_every_status(client, world):

@@ -120,7 +120,28 @@ def _project(row: dict, select: str) -> dict:
         else:
             current += ch
     names.append(current)
-    return {name.split("(")[0]: row[name.split("(")[0]] for name in names if name.split("(")[0] in row}
+    keys = [name.split("(")[0].removesuffix("!inner") for name in names]  # rel!inner(...) 도 rel 칸으로 싣는다
+    return {key: row[key] for key in keys if key in row}
+
+
+def _order_value(row: dict, column: str):
+    """order 칸 하나의 값. universities(name) 은 to-one 임베드의 칸(학교 없으면 None)."""
+    if column == "universities(name)":
+        return (row["universities"] or {}).get("name")
+    return row[column]
+
+
+def _ordered_by(rows: list[dict], order: str) -> list[dict]:
+    """PostgREST order(`칸.asc|desc[.nullslast]` 을 쉼표로)를 흉내 낸다 — 뒤 칸부터 안정 정렬. nullslast 가 없으면
+    PostgreSQL 기본(asc 는 null 이 맨 뒤, desc 는 맨 앞). enum 칸도 글자 순으로 본다(시험이 enum 순서에 기대지 않는다)."""
+    for term in reversed(order.split(",")):
+        nulls_last = term.endswith(".nullslast")
+        column, direction = term.removesuffix(".nullslast").rsplit(".", 1)
+        desc = direction == "desc"
+        present = sorted([r for r in rows if _order_value(r, column) is not None], key=lambda r: _order_value(r, column), reverse=desc)
+        missing = [r for r in rows if _order_value(r, column) is None]
+        rows = present + missing if nulls_last or not desc else missing + present
+    return rows
 
 
 class AdminWorld:
@@ -309,8 +330,12 @@ class AdminWorld:
         if "nickname" in params:  # ilike.*패턴* — 이스케이프(백슬래시)를 풀어 부분 일치로 본다
             needle = params["nickname"].removeprefix("ilike.*").removesuffix("*").replace("\\", "")
             rows = [r for r in rows if r["nickname"] and needle.lower() in r["nickname"].lower()]
-        if params.get("order") == "created_at.desc,id.desc":
-            rows.sort(key=lambda r: (r["created_at"], r["id"]), reverse=True)
+        if "universities.name" in params:  # 학교로 찾기 — inner 임베드일 때만 사람이 빠진다(그냥 임베드면 학교 칸만 비는 것)
+            assert "universities!inner(" in params["select"], params["select"]
+            needle = params["universities.name"].removeprefix("ilike.*").removesuffix("*").replace("\\", "")
+            rows = [r for r in rows if r["universities"] and needle.lower() in r["universities"]["name"].lower()]
+        if "order" in params:
+            rows = _ordered_by(rows, params["order"])
         # PostgREST 처럼 select 에 적은 칸만 — 서버가 고르지 않은 칸(성별 · 들어온 경로 등)을 읽으면 시험이 깨진다.
         # offset · limit · count=exact(건수는 Content-Range 의 / 뒤, limit 앞에서 센다)는 postgrest_page 가 흉내 낸다.
         return page_response(request, [_project(r, params["select"]) for r in rows])
