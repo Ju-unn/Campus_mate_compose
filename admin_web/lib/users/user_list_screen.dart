@@ -9,6 +9,7 @@ import 'package:campus_mate_admin/users/user_item.dart';
 import 'package:campus_mate_admin/widgets/admin_button.dart';
 import 'package:campus_mate_admin/widgets/admin_chip.dart';
 import 'package:campus_mate_admin/widgets/admin_loader.dart';
+import 'package:campus_mate_admin/widgets/admin_pager.dart';
 import 'package:campus_mate_admin/widgets/admin_search_field.dart';
 import 'package:campus_mate_admin/widgets/admin_table.dart';
 import 'package:campus_mate_admin/widgets/error_row.dart';
@@ -99,7 +100,19 @@ class _UserListScreenState extends ConsumerState<UserListScreen> {
       );
     } else {
       content = Expanded(
-        child: SingleChildScrollView(child: _UserTable(users: results.requireValue)),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _UserTable(users: results.requireValue),
+              // 학교 메일 찾기는 0 또는 1줄이라 쪽이 없다
+              if (search.resultMode == UserSearchMode.nickname) ...[
+                const SizedBox(height: AdminSpacing.md),
+                AdminPager(total: search.total, page: search.page, size: AdminApi.pageSize, onPage: ref.read(userSearchProvider.notifier).goTo),
+              ],
+            ],
+          ),
+        ),
       );
     }
     return Padding(

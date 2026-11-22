@@ -57,7 +57,9 @@ void main() {
   test('GET /admin/unknown-domains', () async {
     final rows = await api.unknownDomains();
     expect(lastUrl().path, '/admin/unknown-domains');
-    expect(rows.map((r) => r.attemptCount), [12, 7, 3]);
+    expect(lastUrl().queryParameters, {'page': '1', 'size': '20'});
+    expect(rows.items.map((r) => r.attemptCount), [12, 7, 3]);
+    expect(rows.total, 3);
   });
 
   group('매칭', () {
@@ -71,34 +73,17 @@ void main() {
       expect(days.length, 30);
     });
 
-    test('pairs: 필터가 없으면 쿼리도 없다', () async {
+    test('pairs: 필터가 없으면 쪽만', () async {
       final page = await api.matchingPairs();
       expect(lastUrl().path, '/admin/matching/pairs');
-      expect(lastUrl().queryParameters, isEmpty);
+      expect(lastUrl().queryParameters, {'page': '1', 'size': '20'});
       expect(page.items.length, 7);
-      expect(page.nextBefore, isNull);
+      expect(page.total, 7);
     });
 
-    test('pairs: status · university · before 가 그대로 쿼리로 — before 의 | · + 는 퍼센트 인코딩', () async {
-      await api.matchingPairs(status: 'shared', university: 'uni-서울대학교', before: '2026-10-18T05:02:00+00:00|m1');
-      expect(lastUrl().queryParameters, {'status': 'shared', 'university': 'uni-서울대학교', 'before': '2026-10-18T05:02:00+00:00|m1'});
-      expect(lastUrl().query, contains('%2B00%3A00%7Cm1'));
-    });
-
-    test('before 는 서버가 준 next_before 글자 그대로(소수 초 · Z 꼴도 다시 만들지 않는다) — 인코딩만 Uri 가 한다', () async {
-      for (final cursor in ['2026-10-18T05:02:00.123456+00:00|m1', '2026-10-18T05:02:00Z|m1']) {
-        await api.matchingPairs(before: cursor);
-        expect(lastUrl().queryParameters['before'], cursor);
-        await api.listActions(before: cursor);
-        expect(lastUrl().queryParameters['before'], cursor);
-      }
-    });
-
-    test('pairs: next_before 를 돌려준다', () async {
-      server.pageSize = 3;
-      final page = await api.matchingPairs();
-      expect(page.items.length, 3);
-      expect(page.nextBefore, '2026-10-17T12:10:00+00:00|m3');
+    test('pairs: status · university · page 가 그대로 쿼리로', () async {
+      await api.matchingPairs(status: 'shared', university: 'uni-서울대학교', page: 3);
+      expect(lastUrl().queryParameters, {'status': 'shared', 'university': 'uni-서울대학교', 'page': '3', 'size': '20'});
     });
   });
 
@@ -106,13 +91,13 @@ void main() {
     test('GET /admin/actions — 필터가 없으면 쿼리 없이', () async {
       final page = await api.listActions();
       expect(lastUrl().path, '/admin/actions');
-      expect(lastUrl().queryParameters, isEmpty);
+      expect(lastUrl().queryParameters, {'page': '1', 'size': '20'});
       expect(page.items.length, 3);
     });
 
-    test('target · before 를 쿼리로(서버 이름 그대로)', () async {
-      await api.listActions(target: 'a0000000-0000-4000-8000-000000000001', before: '2026-10-18T05:30:00+00:00|a1');
-      expect(lastUrl().queryParameters, {'target': 'a0000000-0000-4000-8000-000000000001', 'before': '2026-10-18T05:30:00+00:00|a1'});
+    test('target · page 를 쿼리로(서버 이름 그대로)', () async {
+      await api.listActions(target: 'a0000000-0000-4000-8000-000000000001', page: 2);
+      expect(lastUrl().queryParameters, {'target': 'a0000000-0000-4000-8000-000000000001', 'page': '2', 'size': '20'});
     });
   });
 

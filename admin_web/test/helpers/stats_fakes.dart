@@ -5,6 +5,8 @@ import 'package:campus_mate_admin/api/admin_api.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'fakes.dart' show pageJson;
+
 /// "2026-09-19" … "2026-10-18" 처럼 [last] 로 끝나는 [count] 일의 서버 날짜 글자(오래된 순)
 List<String> dateRange(int count, {DateTime? last}) {
   final end = last ?? DateTime.utc(2026, 10, 18);
@@ -221,12 +223,6 @@ class FakeStatsServer {
   List<Map<String, Object?>> matchRequests = requestRows();
   List<Map<String, Object?>> actions = actionRows();
 
-  /// 쪽 크기(서버 기본은 50). 작게 줘서 "더 보기"를 시험한다.
-  int pageSize = 50;
-
-  /// 신청 목록만의 쪽 크기(매칭 쌍 목록의 [pageSize] 와 따로 — 한 화면에 더 보기가 둘이 되지 않게)
-  int matchRequestPageSize = 50;
-
   int? statsFailure;
   int? healthFailure;
   int? matchingFailure;
@@ -253,10 +249,10 @@ class FakeStatsServer {
       '/admin/stats/daily' => _failOr(statsFailure, {'days': daily}),
       '/admin/universities' => _failOr(statsFailure, {'items': universities}),
       '/admin/health' => _failOr(healthFailure, health),
-      '/admin/unknown-domains' => _failOr(domainsFailure, {'items': domains}),
+      '/admin/unknown-domains' => _failOr(domainsFailure, pageJson(domains, query)),
       '/admin/matching/summary' => _failOr(matchingFailure, matchSummary),
       '/admin/matching/daily' => _failOr(matchingFailure, {'days': matchDaily}),
-      '/admin/matching/pairs' => await _page(pairs, pairsFailure, holdPairs, query, (row) => '${row['matched_at']}|${row['id']}', (row) {
+      '/admin/matching/pairs' => await _page(pairs, pairsFailure, holdPairs, query, (row) {
         final status = query['status'];
         final university = query['university'];
         final names = {for (final u in universities) u['id']: u['name']};
@@ -268,11 +264,9 @@ class FakeStatsServer {
         matchRequestsFailure,
         holdMatchRequests,
         query,
-        (row) => '${row['requested_at']}|${row['id']}',
         (row) => query['status'] == null || row['status'] == query['status'],
-        size: matchRequestPageSize,
       ),
-      '/admin/actions' => await _page(actions, actionsFailure, holdActions, query, (row) => '${row['created_at']}|${row['id']}', (row) {
+      '/admin/actions' => await _page(actions, actionsFailure, holdActions, query, (row) {
         final target = query['target'];
         return target == null || row['target_id'] == target;
       }),
@@ -285,19 +279,11 @@ class FakeStatsServer {
     int? failure,
     Completer<void>? hold,
     Map<String, String> query,
-    String Function(Map<String, Object?>) cursorOf,
-    bool Function(Map<String, Object?>) keep, {
-    int? size,
-  }) async {
+    bool Function(Map<String, Object?>) keep,
+  ) async {
     await hold?.future;
     if (failure != null) return _failOr(failure, const {});
-    final matching = rows.where(keep).toList();
-    final before = query['before'];
-    var from = 0;
-    if (before != null) from = matching.indexWhere((row) => cursorOf(row) == before) + 1;
-    final slice = matching.skip(from).take(size ?? pageSize).toList();
-    final more = from + slice.length < matching.length;
-    return _json(200, {'items': slice, 'next_before': more ? cursorOf(slice.last) : null});
+    return _json(200, pageJson(rows.where(keep).toList(), query));
   }
 
   static http.Response _failOr(int? status, Object body) {

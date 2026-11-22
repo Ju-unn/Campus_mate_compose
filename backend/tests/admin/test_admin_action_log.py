@@ -44,19 +44,22 @@ def test_rows_come_back_newest_first_with_every_column(client, world):
 
     response = client.get("/admin/actions", headers=ADMIN_HEADERS)
 
-    assert _ids(response) == ["a2", "a1"] and response.json()["next_before"] is None
+    assert _ids(response) == ["a2", "a1"]
+    assert (response.json()["total"], response.json()["page"], response.json()["size"]) == (2, 1, 20)
     assert response.json()["items"][0]["before"] == {"heart_balance": 10}
     assert response.json()["items"][0]["after"] == {"heart_balance": 60, "amount": 50}
     assert set(response.json()["items"][0]) == {
         "id", "created_at", "admin_user_id", "admin_email", "action", "target_type", "target_id", "target_nickname",
         "before", "after", "reason", "ip"}
-    query = world.calls("GET", "/rest/v1/admin_actions")[0].url.params
-    assert query["order"] == "created_at.desc,id.desc" and query["limit"] == "51"  # 한 줄 더 읽어 다음 쪽이 있는지 안다
+    [request] = world.calls("GET", "/rest/v1/admin_actions")
+    assert (request.url.params["order"], request.url.params["offset"], request.url.params["limit"]) == ("created_at.desc,id.desc", "0", "20")
+    assert request.headers["prefer"] == "count=exact"
 
 
-@pytest.mark.parametrize("limit", [0, 101])
-def test_limit_is_bounded(client, world, limit):
-    assert client.get(f"/admin/actions?limit={limit}", headers=ADMIN_HEADERS).status_code == 422
+@pytest.mark.parametrize("query", ["page=0", "size=0", "size=101"])
+def test_paging_is_bounded(client, world, query):
+    assert client.get(f"/admin/actions?{query}", headers=ADMIN_HEADERS).status_code == 422
+    assert world.calls("GET", "/rest/v1/admin_actions") == []
 
 
 def test_filters_become_exact_postgrest_filters(client, world):
@@ -68,60 +71,30 @@ def test_filters_become_exact_postgrest_filters(client, world):
     by_type = client.get("/admin/actions", params={"type": "report"}, headers=ADMIN_HEADERS)
 
     assert _ids(by_admin) == ["a2"] and _ids(by_target) == ["a3"] and _ids(by_type) == ["a4"]
+    assert by_type.json()["total"] == 1  # 건수도 같은 필터로 센다
     sent = [r.url.params for r in world.calls("GET", "/rest/v1/admin_actions")]
     assert sent[0]["admin_user_id"] == f"eq.{OTHER_ADMIN}" and sent[1]["target_id"] == f"eq.{U2}"
 
 
 @pytest.mark.parametrize("params", [{"admin": "not-a-uuid"}, {"target": "   "}, {"target": "x" * 65}, {"type": "a b"},
-                                    {"before": "garbage"}, {"before": "2026-10-18T10:00:00+00:00|not-a-uuid"},
-                                    {"before": "2026-10-18T10:00:00+00:00),id.lt.x|" + U1}])
+                                    {"target": "a,b"}, {"type": "x)"}])
 def test_malformed_filters_are_422_without_touching_the_db(client, world, params):
     assert client.get("/admin/actions", params=params, headers=ADMIN_HEADERS).status_code == 422
     assert world.calls("GET", "/rest/v1/admin_actions") == []
 
 
-# fromisoformat 은 ISO 주차 · 날짜만 · 기본 꼴도 받아 주지만 PostgREST 는 이걸 시각으로 못 읽어 500 이 났다(D4 검토).
-# 표준 YYYY-MM-DDTHH:MM:SS(.ffffff)(±HH:MM|Z) 꼴만 받는다.
-NON_STANDARD_TIMES = ["2026-W42-1T00:00:00", "2026-W42-1T00:00:00+00:00", "2026-10-18", "20261018T000000+00:00",
-                      "2026-10-18 10:00:00+00:00", "2026-10-18T10:00:00", "2026-10-18T10:00+00:00",
-                      "2026-10-18T10:00:00+0000", "2026-10-18T10:00:00.1234567+00:00", " 2026-10-18T10:00:00+00:00"]
-
-
-@pytest.mark.parametrize("at", NON_STANDARD_TIMES)
-def test_a_cursor_time_that_is_not_the_standard_shape_is_422(client, world, at):
-    response = client.get("/admin/actions", params={"before": f"{at}|{U1}"}, headers=ADMIN_HEADERS)
-
-    assert response.status_code == 422
-    assert world.calls("GET", "/rest/v1/admin_actions") == []
-
-
-@pytest.mark.parametrize("at", ["2026-10-18T10:00:00+00:00", "2026-10-18T10:00:00.123456+09:00", "2026-10-18T10:00:00Z"])
-def test_a_cursor_time_in_the_standard_shape_is_accepted(client, world, at):
-    response = client.get("/admin/actions", params={"before": f"{at}|{U1}"}, headers=ADMIN_HEADERS)
-
-    assert response.status_code == 200
-
-
-def test_cursor_does_not_skip_rows_sharing_a_timestamp(client, world):
-    # 같은 트랜잭션에서 쓴 줄들은 created_at 이 같다(now()) — 시각만으로 자르면 줄을 놓친다.
+def test_rows_sharing_a_timestamp_split_across_pages_without_skipping(client, world):
+    # 같은 트랜잭션에서 쓴 줄들은 created_at 이 같다(now()) — id 로도 정렬해야 쪽 사이에서 줄이 겹치거나 빠지지 않는다.
     a1, a2, a3 = (f"00000000-0000-0000-0000-00000000000{n}" for n in (1, 2, 3))
     world.action_rows = [_row(a1), _row(a2), _row(a3)]
 
-    first = client.get("/admin/actions?limit=2", headers=ADMIN_HEADERS)
-    cursor = first.json()["next_before"]
-    second = client.get("/admin/actions", params={"limit": 2, "before": cursor}, headers=ADMIN_HEADERS)
+    first = client.get("/admin/actions?size=2", headers=ADMIN_HEADERS)
+    second = client.get("/admin/actions?size=2&page=2", headers=ADMIN_HEADERS)
+    past = client.get("/admin/actions?size=2&page=3", headers=ADMIN_HEADERS)
 
-    assert _ids(first) == [a3, a2] and cursor == f"{SAME_TIME}|{a2}"
-    assert _ids(second) == [a1] and second.json()["next_before"] is None
-
-
-def test_the_cursor_is_sent_as_a_composite_condition(client, world):
-    cursor = f"{SAME_TIME}|11111111-0000-0000-0000-0000000000aa"
-
-    client.get("/admin/actions", params={"before": cursor}, headers=ADMIN_HEADERS)
-
-    assert world.calls("GET", "/rest/v1/admin_actions")[0].url.params["or"] == (
-        f"(created_at.lt.{SAME_TIME},and(created_at.eq.{SAME_TIME},id.lt.11111111-0000-0000-0000-0000000000aa))")
+    assert _ids(first) == [a3, a2] and _ids(second) == [a1]
+    assert (first.json()["total"], second.json()["total"]) == (3, 3)
+    assert (past.json()["items"], past.json()["total"]) == ([], 3)
 
 
 def test_admin_email_is_looked_up_once_per_admin_and_a_failure_is_null(client, world):
@@ -163,16 +136,3 @@ def test_the_log_never_writes_anything(client, world):
     client.get("/admin/actions", headers=ADMIN_HEADERS)
 
     assert world.actions == [] and [r for r in world.requests if r.method != "GET"] == []
-
-
-@pytest.mark.parametrize("shape", ["{{{}}}", "urn:uuid:{}", "{nohyphen}"])
-def test_the_cursor_id_is_normalised_to_the_standard_hyphenated_form(client, world, shape):
-    last_id = "11111111-0000-0000-0000-0000000000aa"
-    written = last_id.replace("-", "") if shape == "{nohyphen}" else shape.format(last_id)
-    cursor = f"{SAME_TIME}|{written}"
-
-    response = client.get("/admin/actions", params={"before": cursor}, headers=ADMIN_HEADERS)
-
-    assert response.status_code == 200
-    sent = world.calls("GET", "/rest/v1/admin_actions")[0].url.params["or"]
-    assert sent == f"(created_at.lt.{SAME_TIME},and(created_at.eq.{SAME_TIME},id.lt.{last_id}))"

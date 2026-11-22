@@ -12,6 +12,7 @@ import 'package:campus_mate_admin/widgets/admin_button.dart';
 import 'package:campus_mate_admin/widgets/admin_loader.dart';
 import 'package:campus_mate_admin/widgets/admin_search_field.dart';
 import 'package:campus_mate_admin/widgets/admin_table.dart';
+import 'package:campus_mate_admin/widgets/admin_pager.dart';
 import 'package:campus_mate_admin/widgets/chart_card.dart';
 import 'package:campus_mate_admin/widgets/error_row.dart';
 import 'package:campus_mate_admin/widgets/stat_card.dart';
@@ -84,8 +85,8 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
       below,
       if (data != null) ...[
         if (orders != null) _OrderResult(orders: orders),
-        ..._shortfall(data.shortfall),
-        ..._returned(data.returned),
+        ..._shortfall(data),
+        ..._returned(data),
       ] else if (orders != null)
         _OrderResult(orders: orders),
     ];
@@ -102,8 +103,9 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
     );
   }
 
-  /// 못 거둔 표 위젯들: 제목 → (표 | "다 거두지 못한 구매가 없어요") → 안내(표가 있을 때). 사이는 화면 전체와 같은 20.
-  List<Widget> _shortfall(List<ShortfallRow> rows) {
+  /// 못 거둔 표 위젯들: 제목 → (표 → 번호 쪽 | "다 거두지 못한 구매가 없어요") → 안내(표가 있을 때). 사이는 화면 전체와 같은 20.
+  List<Widget> _shortfall(BillingOverview data) {
+    final rows = data.shortfall.items;
     return [
       Semantics(
         header: true,
@@ -133,13 +135,21 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
               ),
           ],
         ),
+        AdminPager(
+          key: const ValueKey('shortfall-pager'),
+          total: data.shortfall.total,
+          page: data.shortfallPage,
+          size: AdminApi.pageSize,
+          onPage: ref.read(billingOverviewProvider.notifier).shortfallPage,
+        ),
         Text('이미 써서 다 거두지 못한 구매예요. 손으로 줄지 판단할 때 참고해요.', style: AdminTypography.xs.copyWith(height: AdminTypography.xsBox, color: AdminColors.muted)),
       ],
     ];
   }
 
-  /// 환불이 잦은 계정: 제목 → (표 | "환불한 계정이 없어요"). pen 시안이 없어 못 거둔 표와 같은 모양이다. 순서는 서버(환불 건수 많은 순).
-  List<Widget> _returned(List<ReturnedAccountRow> rows) {
+  /// 환불이 잦은 계정: 제목 → (표 → 번호 쪽 | "환불한 계정이 없어요"). pen 시안이 없어 못 거둔 표와 같은 모양이다. 순서는 서버(환불 건수 많은 순).
+  List<Widget> _returned(BillingOverview data) {
+    final rows = data.returned.items;
     return [
       Semantics(
         header: true,
@@ -147,7 +157,7 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
       ),
       if (rows.isEmpty)
         Text('환불한 계정이 없어요', style: AdminTypography.sm.copyWith(height: AdminTypography.smBox, color: AdminColors.muted))
-      else
+      else ...[
         AdminTable(
           key: const ValueKey('returned-table'),
           columns: const [170, 110, 150, 110, 90, 90, 130],
@@ -169,6 +179,14 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
               ),
           ],
         ),
+        AdminPager(
+          key: const ValueKey('returned-pager'),
+          total: data.returned.total,
+          page: data.returnedPage,
+          size: AdminApi.pageSize,
+          onPage: ref.read(billingOverviewProvider.notifier).returnedPage,
+        ),
+      ],
     ];
   }
 }

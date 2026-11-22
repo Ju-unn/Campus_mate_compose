@@ -14,6 +14,8 @@ D4_RPCS = ("admin_stats_overview", "admin_stats_daily", "admin_unknown_domains",
            "admin_matching_requests")
 # 메뉴 대기 건수(11-17)가 count=exact 로 세는 표.
 COUNTED_TABLES = ("graduate_verification_requests", "inquiries")
+# 매칭 목록 DB 함수의 커서 칸(시각, id) — 진짜 함수처럼 최근 순으로 커서 뒤 p_limit 줄만 준다.
+CURSOR_KEYS = {"admin_matching_pairs": ("matched_at", "match_id"), "admin_matching_requests": ("requested_at", "card_id")}
 
 
 class StatsWorld(AdminWorld):
@@ -38,4 +40,16 @@ class StatsWorld(AdminWorld):
             return httpx.Response(self.table_status[request.url.path], json={})
         if self.rpc_error_code:
             return httpx.Response(400, json={"code": self.rpc_error_code, "message": self.rpc_error_message})
-        return httpx.Response(200, json=self.rpc_results.get(name, []))
+        rows = self.rpc_results.get(name, [])
+        if name in CURSOR_KEYS and isinstance(rows, list):
+            rows = _after_cursor(rows, CURSOR_KEYS[name], json.loads(request.content))
+        return httpx.Response(200, json=rows)
+
+
+def _after_cursor(rows: list[dict], keys: tuple[str, str], body: dict) -> list[dict]:
+    at, key = keys
+    ordered = sorted(rows, key=lambda r: (r[at], r[key]), reverse=True)
+    if body.get("p_before_at") is not None:
+        cursor = (body["p_before_at"], body["p_before_id"])
+        ordered = [r for r in ordered if (r[at], r[key]) < cursor]
+    return ordered[:body["p_limit"]]

@@ -51,11 +51,11 @@ void main() {
     expect(find.text('3회'), findsOneWidget);
   });
 
-  testWidgets('표 아래 24: 안내 "많은 순으로 보여요. 읽기 전용이에요." 12 muted', (tester) async {
+  testWidgets('표 아래 16 쪽 줄(36), 그 아래 24: 안내 "많은 순으로 보여요. 읽기 전용이에요." 12 muted', (tester) async {
     await open(tester);
 
     final hint = find.text('많은 순으로 보여요. 읽기 전용이에요.');
-    expect(tester.getTopLeft(hint), const Offset(272, 96 + 200 + 24));
+    expect(tester.getTopLeft(hint), const Offset(272, 96 + 200 + 16 + 36 + 24));
     expect((styleOf(tester, hint).fontSize, styleOf(tester, hint).color), (12, AdminColors.muted));
   });
 
@@ -86,5 +86,19 @@ void main() {
     await tester.tap(find.widgetWithText(AdminButton, '다시 시도'));
     await tester.pumpAndSettle();
     expect(find.text('example-univ.ac.kr'), findsOneWidget);
+  });
+
+  testWidgets('표 아래 전체 건수 · 번호 쪽 — 21곳이면 2를 눌러 page=2 를 받는다', (tester) async {
+    final server = await open(tester, server: FakeStatsServer()..domains = [for (var i = 1; i <= 21; i++) domainRow('d$i.ac.kr', 100 - i, '2026-10-18T04:40:00+00:00')]);
+
+    expect(find.text('전체 21건'), findsOneWidget);
+    expect(find.text('d21.ac.kr'), findsNothing);
+    await tester.ensureVisible(key('pager-page-2'));
+    await tester.tap(key('pager-page-2'));
+    await tester.pumpAndSettle();
+
+    expect(server.to('/admin/unknown-domains').last.url.queryParameters, {'page': '2', 'size': '20'});
+    expect(find.text('d21.ac.kr'), findsOneWidget);
+    expect(find.text('d1.ac.kr'), findsNothing);
   });
 }

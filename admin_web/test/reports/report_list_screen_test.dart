@@ -65,7 +65,7 @@ void main() {
   TextStyle styleOf(WidgetTester tester, Finder text) => tester.widget<Text>(text).style!;
 
   group('pen 배치(i5AYYB)', () {
-    testWidgets('내용 32 안쪽: 칩 줄 y96 높이 36 · 24 아래 표(폭 가득 1136) · 표 아래 24 에 "오래된 순 · 최대 50건"', (tester) async {
+    testWidgets('내용 32 안쪽: 칩 줄 y96 높이 36 · 24 아래 표(폭 가득 1136) · 16 아래 쪽 줄(36) · 24 아래 "오래된 순 · 20건씩"', (tester) async {
       await openList(tester);
 
       expect(tester.getRect(find.widgetWithText(AdminChip, '전체')).topLeft, const Offset(272, 96));
@@ -73,8 +73,9 @@ void main() {
       final tableRect = tester.getRect(table());
       // 머리 44 + 줄 52 × 5
       expect(tableRect, const Rect.fromLTWH(272, 156, 1136, 44 + 52 * 5));
-      final note = find.text('오래된 순 · 최대 50건');
-      expect(tester.getRect(note).top, tableRect.bottom + 24);
+      expect(find.text('전체 5건'), findsOneWidget);
+      final note = find.text('오래된 순 · 20건씩');
+      expect(tester.getRect(note).top, tableRect.bottom + 16 + 36 + 24);
       expect(styleOf(tester, note).fontSize, 12);
       expect(styleOf(tester, note).color, AdminColors.muted);
     });
@@ -188,11 +189,11 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(server.requests.where((r) => r.url.path == '/admin/reports').map((r) => r.url.query), [
-        'status=open',
-        'status=open&type=message',
-        'status=actioned&type=message',
-        'status=actioned&type=message',
-        'status=actioned&type=poll_comment',
+        'status=open&page=1&size=20',
+        'status=open&type=message&page=1&size=20',
+        'status=actioned&type=message&page=1&size=20',
+        'status=actioned&type=message&page=1&size=20',
+        'status=actioned&type=poll_comment&page=1&size=20',
       ]);
       expect(tester.widget<AdminChip>(find.widgetWithText(AdminChip, '조치')).selected, isTrue);
       expect(tester.widget<AdminChip>(find.widgetWithText(AdminChip, '열림')).selected, isFalse);
@@ -314,5 +315,41 @@ void main() {
 
     expect(tester.getSemantics(row('r1')), isSemantics(isButton: true, hasTapAction: true));
     handle.dispose();
+  });
+
+  group('번호 쪽', () {
+    FakeReportServer many() => FakeReportServer([
+          for (var i = 1; i <= 21; i++) reportRow('n$i', createdAt: '2026-10-18T01:${(10 + i).toString()}:00+00:00'),
+        ]);
+
+    testWidgets('표 아래 전체 건수 · 번호 — 2를 누르면 같은 조건으로 page=2 를 받아 그 쪽만 그린다', (tester) async {
+      final server = await openList(tester, server: many());
+
+      expect(find.text('전체 21건'), findsOneWidget);
+      expect(row('n21'), findsNothing);
+      await tester.ensureVisible(find.byKey(const ValueKey('pager-page-2')));
+      await tester.tap(find.byKey(const ValueKey('pager-page-2')));
+      await tester.pumpAndSettle();
+
+      expect(server.requests.lastWhere((r) => r.url.path == '/admin/reports').url.queryParameters, {'status': 'open', 'page': '2', 'size': '20'});
+      expect(row('n21'), findsOneWidget);
+      expect(row('n1'), findsNothing);
+    });
+
+    testWidgets('2쪽에서 상태 칩을 바꾸면 1쪽부터, 닫힌 신고의 안내는 "최근 순 · 20건씩"', (tester) async {
+      final server = await openList(tester, server: many());
+      await tester.ensureVisible(find.byKey(const ValueKey('pager-page-2')));
+      await tester.tap(find.byKey(const ValueKey('pager-page-2')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(AdminChip, '기각'));
+      await tester.pumpAndSettle();
+
+      expect(server.requests.lastWhere((r) => r.url.path == '/admin/reports').url.queryParameters, {'status': 'dismissed', 'page': '1', 'size': '20'});
+      server.reports['n1']!['status'] = 'dismissed';
+      await tester.tap(find.widgetWithText(AdminChip, '기각'));
+      await tester.pumpAndSettle();
+      expect(find.text('최근 순 · 20건씩'), findsOneWidget);
+    });
   });
 }

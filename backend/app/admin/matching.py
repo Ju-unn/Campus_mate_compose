@@ -6,18 +6,23 @@
 """
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.admin import cursor
 from app.admin.caller import AdminCaller, get_admin_caller
 from app.admin.matching_repository import AdminMatchingRepository
+from app.admin.paging import Page, page_query
+from app.core import errors
 
 router = APIRouter(prefix="/matching")
 
 DEFAULT_DAYS = 30
-DEFAULT_LIMIT = 50  # 설계 §12 의 기본 쪽 크기
 STATUSES = frozenset({"chatting", "shared", "closed"})
 REQUEST_STATUSES = frozenset({"waiting", "accepted", "rejected", "expired"})  # 대화 신청의 상대 응답
+
+
+def _bad() -> HTTPException:
+    """입력을 되돌리지 않는 422(FastAPI 기본 422 는 입력값을 싣는다)."""
+    return HTTPException(status_code=422, detail=errors.INVALID_INPUT)
 
 
 def _repo(caller: AdminCaller) -> AdminMatchingRepository:
@@ -62,40 +67,26 @@ async def get_daily(days: int = Query(DEFAULT_DAYS, ge=1, le=90), caller: AdminC
 async def list_pairs(
     status: str | None = None,
     university: str | None = None,
-    limit: int = Query(DEFAULT_LIMIT, ge=1, le=100),
-    before: str | None = None,
+    page: Page = Depends(page_query),
     caller: AdminCaller = Depends(get_admin_caller),
 ) -> dict:
     if status is not None and status not in STATUSES:
-        raise cursor.bad()
+        raise _bad()
     try:
         school = None if university is None else str(UUID(university))
     except ValueError:
-        raise cursor.bad()
-    page = None if before is None else cursor.parse(before)
-    rows = await _repo(caller).pairs(status, school, page, limit + 1)
-    more = len(rows) > limit
-    rows = rows[:limit]
-    return {
-        "items": [_pair(row) for row in rows],
-        "next_before": f"{rows[-1]['matched_at']}|{rows[-1]['match_id']}" if more else None,
-    }
+        raise _bad()
+    rows = await _repo(caller).pairs(status, school)
+    return page.body([_pair(row) for row in page.cut(rows)], len(rows))
 
 
 @router.get("/requests")
 async def list_requests(
     status: str | None = None,
-    limit: int = Query(DEFAULT_LIMIT, ge=1, le=100),
-    before: str | None = None,
+    page: Page = Depends(page_query),
     caller: AdminCaller = Depends(get_admin_caller),
 ) -> dict:
     if status is not None and status not in REQUEST_STATUSES:
-        raise cursor.bad()
-    page = None if before is None else cursor.parse(before)
-    rows = await _repo(caller).requests(status, page, limit + 1)
-    more = len(rows) > limit
-    rows = rows[:limit]
-    return {
-        "items": [_request(row) for row in rows],
-        "next_before": f"{rows[-1]['requested_at']}|{rows[-1]['card_id']}" if more else None,
-    }
+        raise _bad()
+    rows = await _repo(caller).requests(status)
+    return page.body([_request(row) for row in page.cut(rows)], len(rows))

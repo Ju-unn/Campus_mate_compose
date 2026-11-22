@@ -145,3 +145,10 @@ String locationOf(WidgetTester tester) {
   final container = ProviderScope.containerOf(tester.element(find.byType(AdminApp)));
   return container.read(adminRouterProvider).routerDelegate.currentConfiguration.uri.toString();
 }
+
+/// 서버처럼 번호 쪽 한 장을 만든다: `page` · `size`(없으면 1 · 20) 대로 잘라 `{items, total, page, size}`.
+Map<String, Object?> pageJson(List<Object?> rows, Map<String, String> query) {
+  final page = int.parse(query['page'] ?? '1');
+  final size = int.parse(query['size'] ?? '20');
+  return {'items': rows.skip((page - 1) * size).take(size).toList(), 'total': rows.length, 'page': page, 'size': size};
+}

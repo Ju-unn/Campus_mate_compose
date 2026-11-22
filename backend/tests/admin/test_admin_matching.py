@@ -1,8 +1,11 @@
 """관리자 매칭 현황 GET /admin/matching/{summary,daily,pairs}(설계 10-18 §8-4c, 계획서 2026-10-18-admin-stats-matching Task 6). 읽기만 한다.
 pairs 는 사진 · 카톡 아이디 · 대화를 싣지 않고, 필터 값은 PostgREST 필터가 아니라 DB 함수의 타입 있는 인자로만 간다."""
+import logging
+
 import pytest
 
 from admin_world import ADMIN, STRANGER, bearer
+from app.admin import matching_repository
 from stats_world import StatsWorld
 
 ADMIN_HEADERS = bearer(sub=ADMIN, aal="aal2")
@@ -101,32 +104,53 @@ def test_matching_daily_days_is_bounded(client, world, days):
 
 # 누가 누구랑 --------------------------------------------------------------------
 
-def test_pairs_sends_typed_params_and_asks_for_one_extra_row(client, world):
+def test_pairs_sends_typed_params_from_the_start(client, world):
     client.get("/admin/matching/pairs", headers=ADMIN_HEADERS)
 
-    assert _rpc_body(world) == {"p_status": None, "p_university": None, "p_before_at": None, "p_before_id": None, "p_limit": 51}
+    assert _rpc_body(world) == {"p_status": None, "p_university": None, "p_before_at": None, "p_before_id": None, "p_limit": 101}
 
 
-def test_pairs_filters_and_cursor_become_separate_typed_params(client, world):
-    cursor = f"2026-10-18T01:00:00+00:00|{M1}"
+def test_pairs_filters_become_separate_typed_params(client, world):
+    client.get("/admin/matching/pairs", headers=ADMIN_HEADERS, params={"status": "shared", "university": SCHOOL, "page": 2})
 
-    client.get("/admin/matching/pairs", headers=ADMIN_HEADERS,
-               params={"status": "shared", "university": SCHOOL, "limit": 10, "before": cursor})
-
-    assert _rpc_body(world) == {"p_status": "shared", "p_university": SCHOOL, "p_before_at": "2026-10-18T01:00:00+00:00",
-                                "p_before_id": M1, "p_limit": 11}
+    assert _rpc_body(world) == {"p_status": "shared", "p_university": SCHOOL, "p_before_at": None, "p_before_id": None,
+                                "p_limit": 101}
 
 
-def test_pairs_more_rows_give_a_cursor_and_the_last_page_gives_null(client, world):
-    rows = [_pair(n) for n in range(1, 52)]  # 51줄 = 50 + 한 줄 더
+def test_pairs_read_every_row_so_any_page_and_the_total_are_exact(client, world):
+    # DB 함수는 커서로 101줄씩 준다 — 끝까지 이어 읽어 전체 건수와 아무 쪽이나 만든다.
+    rows = sorted((_pair(n) for n in range(1, 231)), key=lambda r: (r["matched_at"], r["match_id"]), reverse=True)
     world.rpc_results["admin_matching_pairs"] = rows
 
-    body = client.get("/admin/matching/pairs", headers=ADMIN_HEADERS).json()
+    body = client.get("/admin/matching/pairs", headers=ADMIN_HEADERS, params={"page": 2, "size": 100}).json()
 
-    assert len(body["items"]) == 50
-    assert body["next_before"] == f"{rows[49]['matched_at']}|{rows[49]['match_id']}"
-    world.rpc_results["admin_matching_pairs"] = rows[:50]
-    assert client.get("/admin/matching/pairs", headers=ADMIN_HEADERS).json()["next_before"] is None
+    assert (body["total"], body["page"], body["size"]) == (230, 2, 100)
+    assert [i["id"] for i in body["items"]] == [r["match_id"] for r in rows[100:200]]
+    bodies = [b for name, b in world.rpcs if name == "admin_matching_pairs"]
+    assert [b["p_limit"] for b in bodies] == [101, 101, 101]
+    assert (bodies[1]["p_before_at"], bodies[1]["p_before_id"]) == (rows[100]["matched_at"], rows[100]["match_id"])
+
+
+def test_pairs_stop_reading_at_the_chunk_cap_and_warn(client, world, monkeypatch, caplog):
+    # 끝없이 이어 읽지 않는다 — 상한 번 읽으면 경고를 남기고 그때까지 읽은 줄로 쪽을 만든다.
+    monkeypatch.setattr(matching_repository, "MAX_CHUNKS", 2)
+    world.rpc_results["admin_matching_pairs"] = sorted((_pair(n) for n in range(1, 400)),
+                                                       key=lambda r: (r["matched_at"], r["match_id"]), reverse=True)
+
+    with caplog.at_level(logging.WARNING, logger="app.admin.matching_repository"):
+        body = client.get("/admin/matching/pairs", headers=ADMIN_HEADERS).json()
+
+    assert body["total"] == 202
+    assert len([name for name, _ in world.rpcs if name == "admin_matching_pairs"]) == 2
+    assert any("admin_matching_pairs" in record.getMessage() for record in caplog.records)
+
+
+def test_pairs_past_the_last_page_is_empty_with_the_total(client, world):
+    world.rpc_results["admin_matching_pairs"] = [_pair(1), _pair(2)]
+
+    body = client.get("/admin/matching/pairs", headers=ADMIN_HEADERS, params={"page": 3}).json()
+
+    assert body == {"items": [], "total": 2, "page": 3, "size": 20}
 
 
 def test_pairs_shape_and_leak_proof_columns(client, world):
@@ -142,7 +166,7 @@ def test_pairs_shape_and_leak_proof_columns(client, world):
         "shared_at": "2026-10-18T02:00:00+00:00",
         "a": {"id": U1, "nickname": "닉네임A", "university": "서울대학교"},
         "b": {"id": U2, "nickname": "닉네임B", "university": "연세대학교"},
-    }], "next_before": None}
+    }], "total": 1, "page": 1, "size": 20}
     for secret in ("secret_kakao", "p.jpg", "비밀 대화", "01012345678"):
         assert secret not in response.text
 
@@ -150,45 +174,16 @@ def test_pairs_shape_and_leak_proof_columns(client, world):
 @pytest.mark.parametrize("params", [
     {"status": "ended"}, {"status": "shared,or=(id.eq.1)"}, {"status": ""}, {"status": "SHARED"},
     {"university": "not-a-uuid"}, {"university": f"{SCHOOL},or=(x)"}, {"university": ""},
-    {"before": "garbage"}, {"before": "2026-10-18T00:00:00+00:00|"}, {"before": f"x,y|{M1}"},
-    {"before": f"2026-10-18T00:00:00+00:00,or=(a)|{M1}"}, {"before": f"|{M1}"},
-    {"limit": 0}, {"limit": 101},
+    {"page": 0}, {"size": 0}, {"size": 101},
 ])
 def test_bad_filters_never_reach_the_db(client, world, params):
     response = client.get("/admin/matching/pairs", headers=ADMIN_HEADERS, params=params)
 
     assert response.status_code == 422
     assert world.rpcs == []
-    for key in ("status", "university", "before"):
+    for key in ("status", "university"):
         if params.get(key):  # 입력 반사 없음(핸들러가 직접 검사해 INVALID_INPUT 만 돌려준다)
             assert str(params[key]) not in response.text
-
-
-@pytest.mark.parametrize("at", ["2026-W42-1T00:00:00", "2026-W42-1T00:00:00+00:00", "2026-10-18", "20261018T000000+00:00",
-                                "2026-10-18 10:00:00+00:00", "2026-10-18T10:00:00", "2026-10-18T10:00:00+0000",
-                                "2026-10-18T10:00:00.1234567+00:00"])
-def test_a_cursor_time_that_is_not_the_standard_shape_is_422(client, world, at):
-    # fromisoformat 은 ISO 주차 · 날짜만 같은 꼴도 받지만 DB(timestamptz)가 못 읽어 500 이 난다 — 표준 꼴만 받는다.
-    response = client.get("/admin/matching/pairs", headers=ADMIN_HEADERS, params={"before": f"{at}|{M1}"})
-
-    assert response.status_code == 422
-    assert world.rpcs == []
-
-
-@pytest.mark.parametrize("at", ["2026-10-18T10:00:00+00:00", "2026-10-18T10:00:00.123456+09:00", "2026-10-18T10:00:00Z"])
-def test_a_cursor_time_in_the_standard_shape_is_accepted(client, world, at):
-    client.get("/admin/matching/pairs", headers=ADMIN_HEADERS, params={"before": f"{at}|{M1}"})
-
-    assert _rpc_body(world)["p_before_at"] == at
-
-
-def test_the_cursor_id_is_normalised_to_the_standard_hyphenated_form(client, world):
-    bare = M1.replace("-", "")
-
-    for form in (f"{{{M1}}}", f"urn:uuid:{M1}", bare):
-        world.rpcs.clear()
-        client.get("/admin/matching/pairs", headers=ADMIN_HEADERS, params={"before": f"2026-10-18T01:00:00+00:00|{form}"})
-        assert _rpc_body(world)["p_before_id"] == M1
 
 
 def test_the_university_id_is_normalised_too(client, world):
@@ -220,18 +215,16 @@ def _requests_body(world) -> dict:
     return world.rpcs[0][1]
 
 
-def test_requests_sends_typed_params_and_asks_for_one_extra_row(client, world):
+def test_requests_sends_typed_params_from_the_start(client, world):
     client.get("/admin/matching/requests", headers=ADMIN_HEADERS)
 
-    assert _requests_body(world) == {"p_status": None, "p_before_at": None, "p_before_id": None, "p_limit": 51}
+    assert _requests_body(world) == {"p_status": None, "p_before_at": None, "p_before_id": None, "p_limit": 101}
 
 
-def test_requests_status_and_cursor_become_separate_typed_params(client, world):
-    cursor = f"2026-10-18T01:00:00+00:00|{M1}"
+def test_requests_status_becomes_a_typed_param(client, world):
+    client.get("/admin/matching/requests", headers=ADMIN_HEADERS, params={"status": "expired", "page": 2})
 
-    client.get("/admin/matching/requests", headers=ADMIN_HEADERS, params={"status": "expired", "limit": 10, "before": cursor})
-
-    assert _requests_body(world) == {"p_status": "expired", "p_before_at": "2026-10-18T01:00:00+00:00", "p_before_id": M1, "p_limit": 11}
+    assert _requests_body(world) == {"p_status": "expired", "p_before_at": None, "p_before_id": None, "p_limit": 101}
 
 
 @pytest.mark.parametrize("status", ["waiting", "accepted", "rejected", "expired"])
@@ -240,16 +233,15 @@ def test_requests_accepts_the_four_statuses(client, world, status):
     assert _requests_body(world)["p_status"] == status
 
 
-def test_requests_more_rows_give_a_cursor_and_the_last_page_gives_null(client, world):
-    rows = [_request(n) for n in range(1, 52)]  # 51줄 = 50 + 한 줄 더
+def test_requests_read_every_row_so_any_page_and_the_total_are_exact(client, world):
+    rows = sorted((_request(n) for n in range(1, 106)), key=lambda r: (r["requested_at"], r["card_id"]), reverse=True)
     world.rpc_results["admin_matching_requests"] = rows
 
-    body = client.get("/admin/matching/requests", headers=ADMIN_HEADERS).json()
+    body = client.get("/admin/matching/requests", headers=ADMIN_HEADERS, params={"page": 6}).json()
 
-    assert len(body["items"]) == 50
-    assert body["next_before"] == f"{rows[49]['requested_at']}|{rows[49]['card_id']}"
-    world.rpc_results["admin_matching_requests"] = rows[:50]
-    assert client.get("/admin/matching/requests", headers=ADMIN_HEADERS).json()["next_before"] is None
+    assert (body["total"], [i["id"] for i in body["items"]]) == (105, [r["card_id"] for r in rows[100:105]])
+    bodies = [b for name, b in world.rpcs if name == "admin_matching_requests"]
+    assert (bodies[1]["p_before_at"], bodies[1]["p_before_id"]) == (rows[100]["requested_at"], rows[100]["card_id"])
 
 
 def test_requests_shape_and_leak_proof_columns(client, world):
@@ -265,22 +257,21 @@ def test_requests_shape_and_leak_proof_columns(client, world):
         "responded_at": "2026-10-18T02:00:00+00:00",
         "requester": {"id": U1, "nickname": "신청자", "university": "서울대학교"},
         "target": {"id": U2, "nickname": "받은이", "university": "연세대학교"},
-    }], "next_before": None}
+    }], "total": 1, "page": 1, "size": 20}
     for secret in ("secret_kakao", "p.jpg", "비밀 대화", "01012345678"):
         assert secret not in response.text
 
 
 @pytest.mark.parametrize("params", [
     {"status": "matched"}, {"status": "chatting"}, {"status": "waiting,or=(id.eq.1)"}, {"status": ""}, {"status": "WAITING"},
-    {"before": "garbage"}, {"before": "2026-10-18T00:00:00+00:00|"}, {"before": f"2026-10-18T00:00:00+00:00,or=(a)|{M1}"},
-    {"before": f"|{M1}"}, {"limit": 0}, {"limit": 101},
+    {"page": 0}, {"size": 0}, {"size": 101},
 ])
 def test_bad_request_filters_never_reach_the_db(client, world, params):
     response = client.get("/admin/matching/requests", headers=ADMIN_HEADERS, params=params)
 
     assert response.status_code == 422
     assert world.rpcs == []
-    for key in ("status", "before"):
+    for key in ("status",):
         if params.get(key):  # 입력 반사 없음(핸들러가 직접 검사해 INVALID_INPUT 만 돌려준다)
             assert str(params[key]) not in response.text
 

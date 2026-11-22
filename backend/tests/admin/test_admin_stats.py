@@ -92,18 +92,27 @@ def test_unknown_domains_passes_rows_with_exactly_the_four_keys(client, world):
     assert response.json() == {"items": [{
         "domain": "example-univ.ac.kr", "attempt_count": 12, "first_seen_at": "2026-10-10T01:00:00+00:00",
         "last_seen_at": "2026-10-18T04:40:00+00:00",
-    }]}
+    }], "total": 1, "page": 1, "size": 20}
     assert "alice" not in response.text
-    assert world.rpcs == [("admin_unknown_domains", {"p_limit": 200})]
+    assert world.rpcs == [("admin_unknown_domains", {"p_limit": 500})]  # DB 함수가 주는 최대만큼 받아 쪽으로 자른다
 
 
-def test_unknown_domains_limit_is_passed_and_bounded(client, world):
-    client.get("/admin/unknown-domains?limit=7", headers=ADMIN_HEADERS)
+def test_unknown_domains_are_cut_into_numbered_pages(client, world):
+    rows = [{"domain": f"d{n}.ac.kr", "attempt_count": 9 - n, "first_seen_at": "2026-10-10T01:00:00+00:00",
+             "last_seen_at": "2026-10-18T04:40:00+00:00"} for n in range(5)]
+    world.rpc_results["admin_unknown_domains"] = rows
 
-    assert world.rpcs == [("admin_unknown_domains", {"p_limit": 7})]
-    for limit in (0, 501):
-        assert client.get(f"/admin/unknown-domains?limit={limit}", headers=ADMIN_HEADERS).status_code == 422
-    assert len(world.rpcs) == 1
+    second = client.get("/admin/unknown-domains?page=2&size=2", headers=ADMIN_HEADERS).json()
+    past = client.get("/admin/unknown-domains?page=4&size=2", headers=ADMIN_HEADERS).json()
+
+    assert second == {"items": rows[2:4], "total": 5, "page": 2, "size": 2}
+    assert (past["items"], past["total"]) == ([], 5)
+
+
+@pytest.mark.parametrize("query", ["page=0", "size=0", "size=101"])
+def test_unknown_domains_paging_is_bounded(client, world, query):
+    assert client.get(f"/admin/unknown-domains?{query}", headers=ADMIN_HEADERS).status_code == 422
+    assert world.rpcs == []
 
 
 # 학교별 현황 --------------------------------------------------------------------

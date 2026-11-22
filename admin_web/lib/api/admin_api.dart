@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:campus_mate_admin/actions/action_item.dart';
-import 'package:campus_mate_admin/api/cursor_page.dart';
+import 'package:campus_mate_admin/api/list_page.dart';
 import 'package:campus_mate_admin/billing/billing_item.dart';
 import 'package:campus_mate_admin/graduate/graduate_item.dart';
 import 'package:campus_mate_admin/heart_tasks/heart_task_item.dart';
@@ -54,12 +54,9 @@ class AdminApi {
 
   // 인증샷 검수(A3) — 실패는 [AdminApiFailure] 로 던진다(409 는 [AlreadyReviewed]). 화면 상태는 컨트롤러가 정한다.
 
-  /// 대기 건 요약(오래된 순 · 최대 50). 사진 · 지난 제출은 없다 — 줄을 고르면 [getHeartTask].
-  Future<List<HeartTaskItem>> listHeartTasks({HeartTaskKind? task}) {
-    return _read(send('GET', '/admin/heart-tasks', query: task == null ? null : {'task': task.code}), (body) {
-      if (body case {'items': final List<Object?> items}) return [for (final row in items) HeartTaskItem.fromJson(row)];
-      throw const FormatException('인증샷 목록의 모양이 아니에요');
-    });
+  /// 대기 건 요약(오래된 순 · 쪽당 [pageSize]). 사진 · 지난 제출은 없다 — 줄을 고르면 [getHeartTask].
+  Future<ListPage<HeartTaskItem>> listHeartTasks({HeartTaskKind? task, int page = 1}) {
+    return _page('/admin/heart-tasks', {'task': ?task?.code}, page, HeartTaskItem.fromJson, '인증샷 목록');
   }
 
   /// 한 건 — 5분 서명 사진 · 지난 제출. 디스코드 링크로 열 때와 서명이 만료돼 사진을 다시 받을 때도 쓴다.
@@ -80,12 +77,8 @@ class AdminApi {
   // 번호 · 학번은 POST 본문으로만 보내고 어디에도 남기지 않는다(예외에도 싣지 않는다).
 
   /// 오래된 순(먼저 낸 사람부터). 사진 · 글자 인식 · 이메일은 없다 — 줄을 고르면 [fetchGraduateRequest].
-  Future<List<GraduateItem>> listGraduateRequests({GraduateStatus status = GraduateStatus.pending, int? limit}) {
-    final query = {'status': status.code, if (limit != null) 'limit': '$limit'};
-    return _read(send('GET', '/admin/graduate-requests', query: query), (body) {
-      if (body case {'items': final List<Object?> items}) return [for (final row in items) GraduateItem.fromJson(row)];
-      throw const FormatException('졸업생 신청 목록의 모양이 아니에요');
-    });
+  Future<ListPage<GraduateItem>> listGraduateRequests({GraduateStatus status = GraduateStatus.pending, int page = 1}) {
+    return _page('/admin/graduate-requests', {'status': status.code}, page, GraduateItem.fromJson, '졸업생 신청 목록');
   }
 
   /// 한 건 — 5분 서명 사진 · 글자 인식 · 이전 학교 메일 · 중복 경고 · 지난 신청. 서명이 만료돼 사진을 다시 받을 때도 쓴다.
@@ -111,13 +104,9 @@ class AdminApi {
 
   // 신고 검수(A4) — 409 already_done 도 [AlreadyReviewed](이미 처리됨)로 던진다. 사유 · 메모는 앞뒤 공백만 떼고 그대로 보낸다.
 
-  /// 오래된 순 · 최대 50(서버 기본). 사본 · 사진은 없다(신고자 수 · 투표 질문 · 댓글 본문 앞부분은 있다) — 줄을 고르면 [getReport].
-  Future<List<ReportSummary>> listReports({ReportStatus status = ReportStatus.open, ReportTargetType? type}) {
-    final query = {'status': status.code, if (type != null) 'type': type.code};
-    return _read(send('GET', '/admin/reports', query: query), (body) {
-      if (body case {'items': final List<Object?> items}) return [for (final row in items) ReportSummary.fromJson(row)];
-      throw const FormatException('신고 목록의 모양이 아니에요');
-    });
+  /// 열림은 오래된 순, 닫힘은 최근 순 · 쪽당 [pageSize]. 사본 · 사진은 없다(신고자 수 · 투표 질문 · 댓글 본문 앞부분은 있다) — 줄을 고르면 [getReport].
+  Future<ListPage<ReportSummary>> listReports({ReportStatus status = ReportStatus.open, ReportTargetType? type, int page = 1}) {
+    return _page('/admin/reports', {'status': status.code, 'type': ?type?.code}, page, ReportSummary.fromJson, '신고 목록');
   }
 
   /// 한 건 — 사본(실사진은 5분 서명) · 글 상태 · 신고자 수 · 같은 대상의 다른 신고. 디스코드 링크로 열 때도 쓴다.
@@ -173,10 +162,10 @@ class AdminApi {
 
   // 사용자(A5) · 결제(A8) — 서버 계약은 D3 계획서 표 그대로. 학교 메일 · 주문 번호는 POST 본문으로만 보낸다(주소 · 쿼리에 남기지 않음).
 
-  /// 가입 최근 순 · 최대 50(서버 기본). [q] 는 닉네임 일부 또는 프로필 id.
-  Future<List<UserSummary>> listUsers({String? q}) {
+  /// 가입 최근 순 · 쪽당 [pageSize]. [q] 는 닉네임 일부 또는 프로필 id.
+  Future<ListPage<UserSummary>> listUsers({String? q, int page = 1}) {
     final text = q?.trim();
-    return _read(send('GET', '/admin/users', query: text == null || text.isEmpty ? null : {'q': text}), _userRows);
+    return _page('/admin/users', {if (text != null && text.isNotEmpty) 'q': text}, page, UserSummary.fromJson, '사용자 목록');
   }
 
   /// 학교 메일 정확히 일치(0 또는 1줄). 메일은 본문에만 — 서버도 기록하지 않는다.
@@ -235,19 +224,13 @@ class AdminApi {
     });
   }
 
-  Future<List<ShortfallRow>> billingShortfall() {
-    return _read(send('GET', '/admin/billing/shortfall'), (body) {
-      if (body case {'items': final List<Object?> items}) return [for (final row in items) ShortfallRow.fromJson(row)];
-      throw const FormatException('못 거둔 하트 목록의 모양이 아니에요');
-    });
+  Future<ListPage<ShortfallRow>> billingShortfall({int page = 1}) {
+    return _page('/admin/billing/shortfall', {}, page, ShortfallRow.fromJson, '못 거둔 하트 목록');
   }
 
-  /// 환불이 잦은 계정, 환불 건수 많은 순(서버 기본 100개)
-  Future<List<ReturnedAccountRow>> billingReturnedAccounts() {
-    return _read(send('GET', '/admin/billing/frequent-returns'), (body) {
-      if (body case {'items': final List<Object?> items}) return [for (final row in items) ReturnedAccountRow.fromJson(row)];
-      throw const FormatException('환불이 잦은 계정 목록의 모양이 아니에요');
-    });
+  /// 환불이 잦은 계정, 환불 건수 많은 순 · 쪽당 [pageSize]
+  Future<ListPage<ReturnedAccountRow>> billingReturnedAccounts({int page = 1}) {
+    return _page('/admin/billing/frequent-returns', {}, page, ReturnedAccountRow.fromJson, '환불이 잦은 계정 목록');
   }
 
   // 홈(A2) · 미등록 학교 메일(A6) · 매칭(A9) · 작업 기록(A7) — 읽기만. 서버 계약은 D4 계획서 표 · D3 action_log.py 그대로.
@@ -278,12 +261,9 @@ class AdminApi {
 
   Future<PendingCounts> pendingCounts() => _read(send('GET', '/admin/pending-counts'), PendingCounts.fromJson);
 
-  /// 많은 순(서버 기본 200곳)
-  Future<List<UnknownDomain>> unknownDomains() {
-    return _read(send('GET', '/admin/unknown-domains'), (body) {
-      if (body case {'items': final List<Object?> rows}) return [for (final row in rows) UnknownDomain.fromJson(row)];
-      throw const FormatException('미등록 학교 메일 목록의 모양이 아니에요');
-    });
+  /// 많은 순 · 쪽당 [pageSize]
+  Future<ListPage<UnknownDomain>> unknownDomains({int page = 1}) {
+    return _page('/admin/unknown-domains', {}, page, UnknownDomain.fromJson, '미등록 학교 메일 목록');
   }
 
   Future<MatchingSummary> matchingSummary() => _read(send('GET', '/admin/matching/summary'), MatchingSummary.fromJson);
@@ -295,43 +275,26 @@ class AdminApi {
     });
   }
 
-  /// 최근 순 · 쪽당 50(서버 기본). [status] `chatting` · `shared` · `closed`, [university] 학교 id, [before] 앞 쪽의 `next_before`.
-  /// 쿼리는 Uri 가 퍼센트 인코딩한다(`|` · `+`).
-  Future<CursorPage<MatchPair>> matchingPairs({String? status, String? university, String? before}) {
-    final query = {'status': ?status, 'university': ?university, 'before': ?before};
-    return _read(send('GET', '/admin/matching/pairs', query: query), (body) => CursorPage.fromJson(body, MatchPair.fromJson, '매칭 목록'));
+  /// 최근 순 · 쪽당 [pageSize]. [status] `chatting` · `shared` · `closed`, [university] 학교 id.
+  Future<ListPage<MatchPair>> matchingPairs({String? status, String? university, int page = 1}) {
+    return _page('/admin/matching/pairs', {'status': ?status, 'university': ?university}, page, MatchPair.fromJson, '매칭 목록');
   }
 
-  /// 누가 누구에게 대화를 신청했나 — 최근 순 · 쪽당 50(서버 기본). [status] `waiting` · `accepted` · `rejected` · `expired`, [before] 는 앞 쪽의 `next_before`.
-  Future<CursorPage<MatchRequest>> matchingRequests({String? status, String? before}) {
-    final query = {'status': ?status, 'before': ?before};
-    return _read(send('GET', '/admin/matching/requests', query: query), (body) => CursorPage.fromJson(body, MatchRequest.fromJson, '대화 신청 목록'));
+  /// 누가 누구에게 대화를 신청했나 — 최근 순 · 쪽당 [pageSize]. [status] `waiting` · `accepted` · `rejected` · `expired`.
+  Future<ListPage<MatchRequest>> matchingRequests({String? status, int page = 1}) {
+    return _page('/admin/matching/requests', {'status': ?status}, page, MatchRequest.fromJson, '대화 신청 목록');
   }
 
-  /// 작업 기록 최근 순 · 쪽당 50. [target] 은 대상 id 정확 일치(UUID 모양 검사는 화면이 먼저 한다).
-  Future<CursorPage<ActionRow>> listActions({String? target, String? before}) {
-    final query = {'target': ?target, 'before': ?before};
-    return _read(send('GET', '/admin/actions', query: query), (body) => CursorPage.fromJson(body, ActionRow.fromJson, '작업 기록'));
+  /// 작업 기록 최근 순 · 쪽당 [pageSize]. [target] 은 대상 id 정확 일치(UUID 모양 검사는 화면이 먼저 한다).
+  Future<ListPage<ActionRow>> listActions({String? target, int page = 1}) {
+    return _page('/admin/actions', {'target': ?target}, page, ActionRow.fromJson, '작업 기록');
   }
 
   // 문의 관리 — 서버 계약은 backend/app/admin/inquiry_review.py. 답장은 서버가 보내지 않는다(운영자가 메일함에서 회신).
 
-  /// 최근 순 · 쪽당 50(서버 기본). 서버 쪽 나누기는 `{items, has_more}` + (created_at, id) 커서라, 다음 쪽 열쇠
-  /// [CursorPage.nextBefore] 를 "마지막 줄의 created_at 원문|id" 로 만들어 돌려주고 [before] 로 받아 `before` · `before_id` 로 가른다.
-  Future<CursorPage<InquiryItem>> listInquiries({InquiryStatus? status, String? before}) {
-    final split = before?.lastIndexOf('|');
-    final query = {
-      'status': ?status?.code,
-      if (before != null && split != null) ...{'before': before.substring(0, split), 'before_id': before.substring(split + 1)},
-    };
-    return _read(send('GET', '/admin/inquiries', query: query), (body) {
-      if (body case {'items': final List<Object?> rows, 'has_more': final bool hasMore}) {
-        final items = [for (final row in rows) InquiryItem.fromJson(row)];
-        final next = hasMore && items.isNotEmpty ? '${items.last.createdAtRaw}|${items.last.id}' : null;
-        return CursorPage(items: items, nextBefore: next);
-      }
-      throw const FormatException('문의 목록의 모양이 아니에요');
-    });
+  /// 최근 순 · 쪽당 [pageSize].
+  Future<ListPage<InquiryItem>> listInquiries({InquiryStatus? status, int page = 1}) {
+    return _page('/admin/inquiries', {'status': ?status?.code}, page, InquiryItem.fromJson, '문의 목록');
   }
 
   /// 바꿀 칸만 보낸다. [memo] 는 앞뒤 공백을 떼고 보내며, 빈 글이면 서버가 메모를 지운다. 응답은 바뀐 한 줄.
@@ -367,6 +330,15 @@ class AdminApi {
     } on FormatException {
       throw AdminApiFailure(response.statusCode);
     }
+  }
+
+  /// 목록 한 쪽의 줄 수(서버 기본과 같다 — 쪽 수는 이 값으로 나눈다)
+  static const int pageSize = 20;
+
+  /// 번호 쪽 목록 하나 — [filters] 에 `page` · `size` 를 붙여 GET 하고 `{items, total}` 을 읽는다.
+  Future<ListPage<T>> _page<T>(String path, Map<String, String> filters, int page, T Function(Object? row) parse, String what) {
+    final query = {...filters, 'page': '$page', 'size': '$pageSize'};
+    return _read(send('GET', path, query: query), (body) => ListPage.fromJson(body, parse, what));
   }
 
   static const String alreadyReviewedReason = 'already_reviewed';

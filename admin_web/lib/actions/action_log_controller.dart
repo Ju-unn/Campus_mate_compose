@@ -1,6 +1,6 @@
 import 'package:campus_mate_admin/actions/action_item.dart';
 import 'package:campus_mate_admin/api/admin_api.dart';
-import 'package:campus_mate_admin/api/cursor_page.dart';
+import 'package:campus_mate_admin/api/list_page.dart';
 import 'package:campus_mate_admin/providers.dart';
 import 'package:campus_mate_admin/state/paged_controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,7 +15,7 @@ class ActionTargetController extends Notifier<String?> {
   void set(String? target) => state = target;
 }
 
-/// A7 작업 기록 목록 — 대상 id 가 바뀌면 처음부터 다시, 더 보기는 같은 id 로 이어 받는다.
+/// A7 작업 기록 목록 — 대상 id 가 바뀌면 1쪽부터 다시, 쪽을 바꾸면 같은 id 로 그 쪽을 받는다.
 final actionLogProvider = NotifierProvider.autoDispose<ActionLogController, PagedState<ActionRow>>(ActionLogController.new);
 
 class ActionLogController extends PagedController<ActionRow> {
@@ -30,5 +30,5 @@ class ActionLogController extends PagedController<ActionRow> {
   }
 
   @override
-  Future<CursorPage<ActionRow>> fetch(String? before) => _api.listActions(target: _target, before: before);
+  Future<ListPage<ActionRow>> fetch(int page) => _api.listActions(target: _target, page: page);
 }

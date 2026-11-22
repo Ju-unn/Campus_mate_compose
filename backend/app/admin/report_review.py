@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field, StringConstraints
 
 from app.admin.caller import AdminCaller, get_admin_caller
 from app.admin.heart_task_review import PHOTO_URL_TTL_SECONDS
+from app.admin.paging import Page, page_query
 from app.admin.reason import REASON_MAX, ReasonBody
 from app.admin.repository import NOT_FOUND, SEEN_REPORTS_REQUIRED, AdminRepository
 from app.admin.request_ip import request_ip
@@ -136,16 +137,16 @@ async def detail(caller: AdminCaller, report_id: UUID) -> dict:
 async def list_reports(
     status: ReportStatus = "open",
     target_type: TargetType | None = Query(None, alias="type"),
-    limit: int = Query(50, ge=1, le=100),
+    page: Page = Depends(page_query),
     caller: AdminCaller = Depends(get_admin_caller),
 ) -> dict:
     """PostgREST 두 번으로 끝난다(목록 + 줄마다 열린 신고자 수 묶음) — 사본 · 사진 · 다른 신고는 웹이 줄을 골라 한 건을 받을 때(GET /{id}).
     open_reporters 는 상세의 같은 이름 칸과 같은 정의(그 사람의 열린 신고를 낸 서로 다른 신고자 수)다."""
     repo = _repo(caller)
-    rows = await repo.list_reports(status, target_type, limit)
+    rows, total = await repo.list_reports(status, target_type, page)
     targets = list(dict.fromkeys(t for t in map(_target_id, rows) if t))
     counts = await repo.count_open_reporters_by_target(targets)
-    return {"items": [{**_summary(row), "open_reporters": counts.get(_target_id(row), 0)} for row in rows]}
+    return page.body([{**_summary(row), "open_reporters": counts.get(_target_id(row), 0)} for row in rows], total)
 
 
 @router.get("/{report_id}")

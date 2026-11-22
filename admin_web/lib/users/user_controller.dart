@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:campus_mate_admin/api/admin_api.dart';
 import 'package:campus_mate_admin/gate/gate_controller.dart';
+import 'package:campus_mate_admin/api/list_page.dart';
 import 'package:campus_mate_admin/providers.dart';
 import 'package:campus_mate_admin/reports/report_controller.dart' show ActionResult;
 import 'package:campus_mate_admin/reports/report_item.dart' show ProfileAction;
@@ -13,7 +14,13 @@ enum UserSearchMode { nickname, schoolMail }
 /// A5 찾기 상태. **학교 메일은 어디에도 들고 있지 않는다** — 칸 글자는 화면의 입력 칸에만 있고, 여기는 어떤 방식으로
 /// 찾았는지(칩)와 찾은 줄들뿐이다(대장 결정 2 · 설계 §14-3).
 class UserSearchState {
-  const UserSearchState({this.mode = UserSearchMode.nickname, this.resultMode = UserSearchMode.nickname, this.results = const AsyncLoading()});
+  const UserSearchState({
+    this.mode = UserSearchMode.nickname,
+    this.resultMode = UserSearchMode.nickname,
+    this.results = const AsyncLoading(),
+    this.page = 1,
+    this.total = 0,
+  });
 
   /// 고른 칩
   final UserSearchMode mode;
@@ -22,8 +29,18 @@ class UserSearchState {
   final UserSearchMode resultMode;
   final AsyncValue<List<UserSummary>> results;
 
-  UserSearchState copyWith({UserSearchMode? mode, UserSearchMode? resultMode, AsyncValue<List<UserSummary>>? results}) {
-    return UserSearchState(mode: mode ?? this.mode, resultMode: resultMode ?? this.resultMode, results: results ?? this.results);
+  /// 닉네임 · id 찾기의 지금 쪽과 전체 건수(학교 메일 찾기는 0 또는 1줄이라 쪽이 없다)
+  final int page;
+  final int total;
+
+  UserSearchState copyWith({UserSearchMode? mode, UserSearchMode? resultMode, AsyncValue<List<UserSummary>>? results, int? page, int? total}) {
+    return UserSearchState(
+      mode: mode ?? this.mode,
+      resultMode: resultMode ?? this.resultMode,
+      results: results ?? this.results,
+      page: page ?? this.page,
+      total: total ?? this.total,
+    );
   }
 }
 
@@ -34,13 +51,16 @@ final userSearchProvider = NotifierProvider.autoDispose<UserSearchController, Us
 class UserSearchController extends Notifier<UserSearchState> {
   late AdminApi _api;
 
-  /// 늦게 온 응답(칩을 바꾼 뒤)을 버리려고 요청마다 올린다
+  /// 늦게 온 응답(칩 · 쪽을 바꾼 뒤)을 버리려고 요청마다 올린다
   int _request = 0;
+
+  /// 지금 보이는 닉네임 · id 찾기의 글자 — 쪽을 바꿀 때 같은 글자로 받는다(학교 메일은 여기 두지 않는다)
+  String _nickname = '';
 
   @override
   UserSearchState build() {
     _api = ref.watch(adminApiProvider);
-    unawaited(_run(UserSearchMode.nickname, _api.listUsers, announce: false)); // 처음 상태가 이미 받는 중
+    unawaited(_nicknamePage('', 1, announce: false)); // 처음 상태가 이미 받는 중
     return const UserSearchState();
   }
 
@@ -51,18 +71,29 @@ class UserSearchController extends Notifier<UserSearchState> {
   /// 학교 메일 칸을 비우는 일은 이 Future 가 끝난 뒤 화면이 한다.
   Future<void> search(String text) {
     final query = text.trim();
-    if (state.mode == UserSearchMode.nickname) return _run(UserSearchMode.nickname, () => _api.listUsers(q: query));
+    if (state.mode == UserSearchMode.nickname) return _nicknamePage(query, 1);
     if (query.isEmpty) return Future.value();
-    return _run(UserSearchMode.schoolMail, () => _api.searchUsersBySchoolEmail(query));
+    return _run(UserSearchMode.schoolMail, 1, () async {
+      final rows = await _api.searchUsersBySchoolEmail(query);
+      return ListPage(items: rows, total: rows.length);
+    });
   }
 
-  /// 오류 화면의 "다시 시도" — 가입 최근 순으로
-  void reload() => unawaited(_run(UserSearchMode.nickname, _api.listUsers));
+  /// 번호 쪽 — 지금 닉네임 · id 글자로 그 쪽을 받는다
+  void goTo(int page) => unawaited(_nicknamePage(_nickname, page));
 
-  Future<void> _run(UserSearchMode mode, Future<List<UserSummary>> Function() load, {bool announce = true}) async {
+  /// 오류 화면의 "다시 시도" — 가입 최근 순으로
+  void reload() => unawaited(_nicknamePage('', 1));
+
+  Future<void> _nicknamePage(String query, int page, {bool announce = true}) {
+    _nickname = query;
+    return _run(UserSearchMode.nickname, page, () => _api.listUsers(q: query, page: page), announce: announce);
+  }
+
+  Future<void> _run(UserSearchMode mode, int page, Future<ListPage<UserSummary>> Function() load, {bool announce = true}) async {
     final request = ++_request;
-    if (announce) state = state.copyWith(resultMode: mode, results: const AsyncLoading());
-    final List<UserSummary> found;
+    if (announce) state = state.copyWith(resultMode: mode, results: const AsyncLoading(), page: page);
+    final ListPage<UserSummary> found;
     try {
       found = await load();
     } on AdminApiFailure catch (failure) {
@@ -71,7 +102,7 @@ class UserSearchController extends Notifier<UserSearchState> {
       if (failure.isGateProblem) ref.read(gateProvider.notifier).retry();
       return;
     }
-    if (_isLatest(request)) state = state.copyWith(results: AsyncData(found));
+    if (_isLatest(request)) state = state.copyWith(results: AsyncData(found.items), page: page, total: found.total);
   }
 
   bool _isLatest(int request) => ref.mounted && request == _request;

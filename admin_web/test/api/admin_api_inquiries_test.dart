@@ -14,27 +14,29 @@ void main() {
     inquiryRow(inquiryC, createdAt: '2026-11-10T03:00:00+00:00'),
   ]);
 
-  test('목록: 상태가 있으면 status 로 보낸다, 없으면 아무것도 붙이지 않는다', () async {
+  test('목록: 상태가 있으면 status 로 보낸다, 없으면 쪽만 붙인다', () async {
     final server = server0();
 
     await server.api().listInquiries();
     await server.api().listInquiries(status: InquiryStatus.answered);
 
-    expect([for (final r in server.lists) r.url.queryParameters], [{}, {'status': 'answered'}]);
+    expect([for (final r in server.lists) r.url.queryParameters], [
+      {'page': '1', 'size': '20'},
+      {'status': 'answered', 'page': '1', 'size': '20'},
+    ]);
   });
 
-  test('다음 쪽 열쇠는 마지막 줄의 created_at 원문 + id — has_more 가 거짓이면 null', () async {
-    final server = server0()..pageSize = 2;
+  test('번호 쪽: page 로 그 쪽을 받고 total 은 같은 필터의 전체 수', () async {
+    final server = server0();
 
     final first = await server.api().listInquiries();
+    final second = await server.api().listInquiries(page: 2);
 
-    expect(first.items.map((i) => i.id), [inquiryC, inquiryB]);
-    expect(first.nextBefore, '2026-11-10T02:00:00+00:00|$inquiryB');
-    final second = await server.api().listInquiries(before: first.nextBefore);
-    expect(server.lists.last.url.queryParameters, {'before': '2026-11-10T02:00:00+00:00', 'before_id': inquiryB});
-    expect(server.lists.last.url.toString(), contains('%2B00%3A00')); // "+" 가 공백으로 읽히지 않게 인코딩
-    expect(second.items.map((i) => i.id), [inquiryA]);
-    expect(second.nextBefore, isNull);
+    expect(first.items.map((i) => i.id), [inquiryC, inquiryB, inquiryA]);
+    expect(first.total, 3);
+    expect(server.lists.last.url.queryParameters, {'page': '2', 'size': '20'});
+    expect(second.items, isEmpty);
+    expect(second.total, 3);
   });
 
   test('처리: 바꾼 칸만 PATCH 로 보내고, 응답의 한 줄을 돌려준다', () async {

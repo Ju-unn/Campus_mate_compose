@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:campus_mate_admin/api/admin_api.dart';
-import 'package:campus_mate_admin/api/cursor_page.dart';
+import 'package:campus_mate_admin/api/list_page.dart';
 import 'package:campus_mate_admin/gate/gate_controller.dart';
 import 'package:campus_mate_admin/home/home_item.dart';
 import 'package:campus_mate_admin/matching/matching_item.dart';
@@ -77,7 +77,7 @@ class MatchingFilterController extends Notifier<MatchingFilter> {
   void setUniversity(String? university) => state = MatchingFilter(status: state.status, university: university);
 }
 
-/// A9 "누가 누구랑 매칭됐나" 목록 — 필터가 바뀌면 처음부터 다시 받는다.
+/// A9 "누가 누구랑 매칭됐나" 목록 — 필터가 바뀌면 1쪽부터 다시 받는다.
 final matchingPairsProvider = NotifierProvider.autoDispose<MatchingPairsController, PagedState<MatchPair>>(MatchingPairsController.new);
 
 class MatchingPairsController extends PagedController<MatchPair> {
@@ -92,7 +92,7 @@ class MatchingPairsController extends PagedController<MatchPair> {
   }
 
   @override
-  Future<CursorPage<MatchPair>> fetch(String? before) => _api.matchingPairs(status: _filter.status, university: _filter.university, before: before);
+  Future<ListPage<MatchPair>> fetch(int page) => _api.matchingPairs(status: _filter.status, university: _filter.university, page: page);
 }
 
 /// "누가 누구에게 대화를 신청했나"의 상태 칩(응답 대기 · 수락 · 거절 · 만료). 위쪽 [MatchingFilter] 의 학교 · 상태와는 따로다. null = 전체.
@@ -106,7 +106,7 @@ class MatchingRequestFilterController extends Notifier<MatchingFilter> {
   void setStatus(String? status) => state = MatchingFilter(status: status);
 }
 
-/// A9 "누가 누구에게 대화를 신청했나" 목록 — 상태 칩이 바뀌면 처음부터 다시 받는다.
+/// A9 "누가 누구에게 대화를 신청했나" 목록 — 상태 칩이 바뀌면 1쪽부터 다시 받는다.
 final matchingRequestsProvider = NotifierProvider.autoDispose<MatchingRequestsController, PagedState<MatchRequest>>(MatchingRequestsController.new);
 
 class MatchingRequestsController extends PagedController<MatchRequest> {
@@ -121,5 +121,5 @@ class MatchingRequestsController extends PagedController<MatchRequest> {
   }
 
   @override
-  Future<CursorPage<MatchRequest>> fetch(String? before) => _api.matchingRequests(status: _filter.status, before: before);
+  Future<ListPage<MatchRequest>> fetch(int page) => _api.matchingRequests(status: _filter.status, page: page);
 }

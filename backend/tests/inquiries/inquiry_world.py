@@ -5,13 +5,13 @@
 """
 import base64
 import json
-import re
 import time
 from datetime import datetime
 
 import httpx
 
 from app.core.time import SEOUL
+from postgrest_page import page_response
 from app.settings import Settings
 
 ME = "11111111-1111-1111-1111-111111111111"
@@ -122,17 +122,12 @@ class InquiryWorld:
             rows = [r for r in rows if r["created_at"] >= params["created_at"].removeprefix("gte.")]
         if "status" in params:
             rows = [r for r in rows if r["status"] == params["status"].removeprefix("eq.")]
-        if "or" in params:
-            at, last_id = re.fullmatch(
-                r"\(created_at\.lt\.(.+),and\(created_at\.eq\.\1,id\.lt\.(.+)\)\)", params["or"]).groups()
-            rows = [r for r in rows if r["created_at"] < at or (r["created_at"] == at and r["id"] < last_id)]
         if "id" in params:
             rows = [r for r in rows if r["id"] == params["id"].removeprefix("eq.")]
         if params.get("order") == "created_at.desc,id.desc":
             rows.sort(key=lambda r: (r["created_at"], r["id"]), reverse=True)
-        rows = rows[: int(params["limit"])] if "limit" in params else rows
         select = params.get("select", "")
-        return httpx.Response(200, json=[self._embed(r) if "profile:" in select else {"id": r["id"]} for r in rows])
+        return page_response(request, [self._embed(r) if "profile:" in select else {"id": r["id"]} for r in rows])
 
     def _post(self, request: httpx.Request, params) -> httpx.Response:
         body = json.loads(request.content)

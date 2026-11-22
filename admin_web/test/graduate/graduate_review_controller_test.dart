@@ -355,4 +355,22 @@ void main() {
     expect(text, isNot(contains('SECRET')));
     expect(text, isNot(contains('A12B')), reason: '글자 인식 번호도 마찬가지');
   });
+
+  test('번호 쪽: 그 쪽을 받고 그 쪽 첫 건을 고른다, 다시 시도는 지금 쪽을 다시', () async {
+    server = FakeGraduateServer([for (var i = 1; i <= 21; i++) graduateRow('g$i')]);
+    final (c, controller) = await open();
+    expect((stateOf(c).page, stateOf(c).total), (1, 21));
+
+    controller.goToPage(2);
+    await pumpEventQueue();
+
+    final lists = server.requests.where((r) => r.url.path == '/admin/graduate-requests');
+    expect(lists.last.url.queryParameters, {'status': 'pending', 'page': '2', 'size': '20'});
+    expect((stateOf(c).page, stateOf(c).selectedId), (2, 'g21'));
+    expect(ids(stateOf(c)), ['g21']);
+
+    controller.retryList();
+    await pumpEventQueue();
+    expect(lists.last.url.queryParameters['page'], '2');
+  });
 }

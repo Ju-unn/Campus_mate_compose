@@ -213,13 +213,35 @@ void main() {
   group('찾기', () {
     testWidgets('처음에는 가입 최근 순 목록(쿼리 없음), 닉네임을 쓰고 [검색] 하면 q 로 찾는다', (tester) async {
       final server = await openList(tester);
-      expect(server.requests.where((r) => r.url.path == '/admin/users').single.url.queryParameters, isEmpty);
+      expect(server.requests.where((r) => r.url.path == '/admin/users').single.url.queryParameters, {'page': '1', 'size': '20'});
 
       await tester.enterText(field(), '닉네임A');
       await tester.tap(button('검색'));
       await tester.pumpAndSettle();
 
-      expect(server.requests.where((r) => r.url.path == '/admin/users').last.url.queryParameters, {'q': '닉네임A'});
+      expect(server.requests.where((r) => r.url.path == '/admin/users').last.url.queryParameters, {'q': '닉네임A', 'page': '1', 'size': '20'});
+    });
+
+    testWidgets('표 아래 전체 건수 · 번호 쪽 — 2를 누르면 같은 닉네임으로 page=2, 다시 찾으면 1쪽부터', (tester) async {
+      final many = [for (var i = 1; i <= 25; i++) userRow('8f3a1b2c-0000-4000-8000-${i.toString().padLeft(12, '0')}', nickname: '하늘$i')];
+      final server = await openList(tester, server: FakeUserServer(users: many));
+      await tester.enterText(field(), '하늘');
+      await tester.tap(button('검색'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('전체 25건'), findsOneWidget);
+      await tester.ensureVisible(find.byKey(const ValueKey('pager-page-2')));
+      await tester.tap(find.byKey(const ValueKey('pager-page-2')));
+      await tester.pumpAndSettle();
+
+      final lists = server.requests.where((r) => r.url.path == '/admin/users');
+      expect(lists.last.url.queryParameters, {'q': '하늘', 'page': '2', 'size': '20'});
+      expect(find.text('하늘21'), findsOneWidget);
+      expect(find.text('하늘1'), findsNothing);
+
+      await tester.tap(button('검색'));
+      await tester.pumpAndSettle();
+      expect(lists.last.url.queryParameters, {'q': '하늘', 'page': '1', 'size': '20'});
     });
 
     testWidgets('Enter 로도 찾는다', (tester) async {

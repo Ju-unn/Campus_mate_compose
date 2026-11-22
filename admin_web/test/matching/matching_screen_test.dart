@@ -182,11 +182,11 @@ void main() {
       expect(inTable(find.text('10/18 12:40')), findsOneWidget);
     });
 
-    testWidgets('아래 안내 "닉네임을 누르면 사용자 상세로 가요." 12 muted (272,1160)', (tester) async {
+    testWidgets('표 아래 20 쪽 줄(36), 그 아래 20 안내 "닉네임을 누르면 사용자 상세로 가요." 12 muted (272,1216)', (tester) async {
       await openMatching(tester);
 
       final hint = find.text('닉네임을 누르면 사용자 상세로 가요.');
-      expect(tester.getTopLeft(hint), const Offset(272, 732 + 408 + 20));
+      expect(tester.getTopLeft(hint), const Offset(272, 732 + 408 + 20 + 36 + 20));
       expect((styleOf(tester, hint).fontSize, styleOf(tester, hint).color), (12, AdminColors.muted));
     });
   });
@@ -260,19 +260,19 @@ void main() {
   group('필터', () {
     testWidgets('칩을 누르면 처음부터 다시 받는다 — 카톡 공유 완료 → status=shared, 전체 → status 없음', (tester) async {
       final server = await openMatching(tester);
-      expect(server.to('/admin/matching/pairs').single.url.queryParameters, isEmpty);
+      expect(server.to('/admin/matching/pairs').single.url.queryParameters, {'page': '1', 'size': '20'});
 
       await tester.tap(chip('카톡 공유 완료'));
       await tester.pumpAndSettle();
 
-      expect(server.to('/admin/matching/pairs').last.url.queryParameters, {'status': 'shared'});
+      expect(server.to('/admin/matching/pairs').last.url.queryParameters, {'status': 'shared', 'page': '1', 'size': '20'});
       expect(tester.widget<AdminChip>(chip('카톡 공유 완료')).selected, isTrue);
       expect(find.byKey(const ValueKey('match-row-m1')), findsNothing);
       expect(find.byKey(const ValueKey('match-row-m2')), findsOneWidget);
 
       await tester.tap(chip('전체'));
       await tester.pumpAndSettle();
-      expect(server.to('/admin/matching/pairs').last.url.queryParameters, isEmpty);
+      expect(server.to('/admin/matching/pairs').last.url.queryParameters, {'page': '1', 'size': '20'});
       expect(find.byKey(const ValueKey('match-row-m1')), findsOneWidget);
     });
 
@@ -281,10 +281,10 @@ void main() {
 
       await tester.tap(chip('대화 중'));
       await tester.pumpAndSettle();
-      expect(server.to('/admin/matching/pairs').last.url.queryParameters, {'status': 'chatting'});
+      expect(server.to('/admin/matching/pairs').last.url.queryParameters, {'status': 'chatting', 'page': '1', 'size': '20'});
       await tester.tap(chip('닫힘'));
       await tester.pumpAndSettle();
-      expect(server.to('/admin/matching/pairs').last.url.queryParameters, {'status': 'closed'});
+      expect(server.to('/admin/matching/pairs').last.url.queryParameters, {'status': 'closed', 'page': '1', 'size': '20'});
     });
 
     testWidgets('학교 Select 옵션은 include_empty=true 의 학교 목록 + "전체 학교" — 고르면 university=학교 id', (tester) async {
@@ -298,7 +298,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('school-select-option-2'))); // 연세대학교
       await tester.pumpAndSettle();
 
-      expect(server.to('/admin/matching/pairs').last.url.queryParameters, {'university': 'uni-연세대학교'});
+      expect(server.to('/admin/matching/pairs').last.url.queryParameters, {'university': 'uni-연세대학교', 'page': '1', 'size': '20'});
       expect(find.descendant(of: key('school-select'), matching: find.text('연세대학교')), findsOneWidget);
       expect(find.byKey(const ValueKey('match-row-m2')), findsOneWidget);
       expect(find.byKey(const ValueKey('match-row-m4')), findsNothing);
@@ -314,64 +314,67 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('school-select-option-1')));
       await tester.pumpAndSettle();
 
-      expect(server.to('/admin/matching/pairs').last.url.queryParameters, {'status': 'shared', 'university': 'uni-서울대학교'});
+      expect(server.to('/admin/matching/pairs').last.url.queryParameters, {'status': 'shared', 'university': 'uni-서울대학교', 'page': '1', 'size': '20'});
     });
   });
 
-  group('더 보기(next_before 커서)', () {
-    testWidgets('쪽이 남았을 때만 표 아래 [더 보기] — 누르면 before 로 다음 쪽을 이어 붙이고, 끝이면 사라진다', (tester) async {
-      final server = FakeStatsServer()..pageSize = 3;
+  group('번호 쪽', () {
+    List<Map<String, Object?>> manyPairs(int count) => [
+          for (var i = 1; i <= count; i++) pairRow('p$i', '2026-10-17T${(23 - i ~/ 2).toString().padLeft(2, '0')}:${(i % 2 * 30).toString().padLeft(2, '0')}:00+00:00', 'chatting'),
+        ];
+
+    testWidgets('표 아래 전체 건수 · 번호 — 2를 누르면 page=2 를 받아 그 쪽만 그린다, 더 보기 단추는 없다', (tester) async {
+      final server = FakeStatsServer()..pairs = manyPairs(21);
       await openMatching(tester, server: server);
 
       expect(find.byType(AdminChip), findsNWidgets(4 + 5)); // 매칭 쌍 필터 4 + 신청 필터 5
-      expect(find.byKey(const ValueKey('match-row-m3')), findsOneWidget);
-      expect(find.byKey(const ValueKey('match-row-m4')), findsNothing);
-      final more = find.widgetWithText(AdminButton, '더 보기');
-      expect(tester.widget<AdminButton>(more).variant, AdminButtonVariant.secondary);
-
-      await tester.ensureVisible(more);
-      await tester.tap(more);
-      await tester.pumpAndSettle();
-
-      expect(server.to('/admin/matching/pairs').last.url.queryParameters, {'before': '2026-10-17T12:10:00+00:00|m3'});
-      expect(find.byKey(const ValueKey('match-row-m3')), findsOneWidget); // 앞 줄은 그대로
-      expect(find.byKey(const ValueKey('match-row-m6')), findsOneWidget);
-      expect(find.widgetWithText(AdminButton, '더 보기'), findsOneWidget);
-
-      await tester.ensureVisible(find.widgetWithText(AdminButton, '더 보기'));
-      await tester.tap(find.widgetWithText(AdminButton, '더 보기'));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('match-row-m7')), findsOneWidget);
+      final pager = key('match-pager');
+      expect(find.descendant(of: pager, matching: find.text('전체 21건')), findsOneWidget);
+      expect(find.byKey(const ValueKey('match-row-p21')), findsNothing);
       expect(find.widgetWithText(AdminButton, '더 보기'), findsNothing);
+
+      final page2 = find.descendant(of: pager, matching: key('pager-page-2'));
+      await tester.ensureVisible(page2);
+      await tester.tap(page2);
+      await tester.pumpAndSettle();
+
+      expect(server.to('/admin/matching/pairs').last.url.queryParameters, {'page': '2', 'size': '20'});
+      expect(find.byKey(const ValueKey('match-row-p21')), findsOneWidget);
+      expect(find.byKey(const ValueKey('match-row-p1')), findsNothing);
     });
 
-    testWidgets('필터를 바꾸면 처음부터 다시 받는다(before 없이)', (tester) async {
-      final server = FakeStatsServer()..pageSize = 3;
+    testWidgets('2쪽에서 필터를 바꾸면 1쪽부터 다시 받는다', (tester) async {
+      final server = FakeStatsServer()..pairs = manyPairs(21);
       await openMatching(tester, server: server);
-      await tester.ensureVisible(find.widgetWithText(AdminButton, '더 보기'));
-      await tester.tap(find.widgetWithText(AdminButton, '더 보기'));
+      final page2 = find.descendant(of: key('match-pager'), matching: key('pager-page-2'));
+      await tester.ensureVisible(page2);
+      await tester.tap(page2);
       await tester.pumpAndSettle();
 
-      await tester.tap(chip('닫힘'));
+      await tester.ensureVisible(chip('대화 중'));
+      await tester.tap(chip('대화 중'));
       await tester.pumpAndSettle();
 
-      expect(server.to('/admin/matching/pairs').last.url.queryParameters, {'status': 'closed'});
-      expect(find.byKey(const ValueKey('match-row-m5')), findsOneWidget);
-      expect(find.byKey(const ValueKey('match-row-m1')), findsNothing);
+      expect(server.to('/admin/matching/pairs').last.url.queryParameters, {'status': 'chatting', 'page': '1', 'size': '20'});
+      expect(find.byKey(const ValueKey('match-row-p1')), findsOneWidget);
     });
 
-    testWidgets('더 받기에 실패하면 앞 줄은 그대로 두고 단추 위에 오류 줄', (tester) async {
-      final server = FakeStatsServer()..pageSize = 3;
+    testWidgets('쪽 받기에 실패하면 오류 틀 + 다시 시도는 그 쪽을 다시 받는다', (tester) async {
+      final server = FakeStatsServer()..pairs = manyPairs(21);
       await openMatching(tester, server: server);
       server.pairsFailure = 500;
-
-      await tester.ensureVisible(find.widgetWithText(AdminButton, '더 보기'));
-      await tester.tap(find.widgetWithText(AdminButton, '더 보기'));
+      final page2 = find.descendant(of: key('match-pager'), matching: key('pager-page-2'));
+      await tester.ensureVisible(page2);
+      await tester.tap(page2);
       await tester.pumpAndSettle();
 
-      expect(find.text('더 불러오지 못했어요. 다시 시도해 주세요.'), findsOneWidget);
-      expect(find.byKey(const ValueKey('match-row-m3')), findsOneWidget);
-      expect(find.widgetWithText(AdminButton, '더 보기'), findsOneWidget);
+      expect(find.text('매칭 목록을 불러오지 못했어요'), findsOneWidget);
+      server.pairsFailure = null;
+      await tester.ensureVisible(find.widgetWithText(AdminButton, '다시 시도'));
+      await tester.tap(find.widgetWithText(AdminButton, '다시 시도'));
+      await tester.pumpAndSettle();
+      expect(server.to('/admin/matching/pairs').last.url.queryParameters, {'page': '2', 'size': '20'});
+      expect(find.byKey(const ValueKey('match-row-p21')), findsOneWidget);
     });
   });
 
@@ -517,12 +520,12 @@ void main() {
 
     testWidgets('칩을 누르면 처음부터 다시 받는다 — 수락 → status=accepted, 전체 → status 없음, 매칭 쌍 목록은 그대로', (tester) async {
       final server = await openRequests(tester);
-      expect(server.to('/admin/matching/requests').single.url.queryParameters, isEmpty);
+      expect(server.to('/admin/matching/requests').single.url.queryParameters, {'page': '1', 'size': '20'});
 
       await tester.tap(requestChip('수락'));
       await tester.pumpAndSettle();
 
-      expect(server.to('/admin/matching/requests').last.url.queryParameters, {'status': 'accepted'});
+      expect(server.to('/admin/matching/requests').last.url.queryParameters, {'status': 'accepted', 'page': '1', 'size': '20'});
       expect(tester.widget<AdminChip>(requestChip('수락')).selected, isTrue);
       expect(find.byKey(const ValueKey('request-row-r1')), findsNothing);
       expect(find.byKey(const ValueKey('request-row-r2')), findsOneWidget);
@@ -530,7 +533,7 @@ void main() {
 
       await tester.tap(requestChip('전체'));
       await tester.pumpAndSettle();
-      expect(server.to('/admin/matching/requests').last.url.queryParameters, isEmpty);
+      expect(server.to('/admin/matching/requests').last.url.queryParameters, {'page': '1', 'size': '20'});
       expect(find.byKey(const ValueKey('request-row-r1')), findsOneWidget);
     });
 
@@ -540,7 +543,7 @@ void main() {
       for (final (label, status) in [('응답 대기', 'waiting'), ('거절', 'rejected'), ('만료', 'expired')]) {
         await tester.tap(requestChip(label));
         await tester.pumpAndSettle();
-        expect(server.to('/admin/matching/requests').last.url.queryParameters, {'status': status}, reason: label);
+        expect(server.to('/admin/matching/requests').last.url.queryParameters, {'status': status, 'page': '1', 'size': '20'}, reason: label);
       }
     });
 
@@ -552,39 +555,26 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(server.to('/admin/matching/requests'), hasLength(1));
-      expect(server.to('/admin/matching/pairs').last.url.queryParameters, {'status': 'closed'});
+      expect(server.to('/admin/matching/pairs').last.url.queryParameters, {'status': 'closed', 'page': '1', 'size': '20'});
     });
 
-    testWidgets('쪽이 남았을 때만 [더 보기] — 누르면 before 로 다음 쪽을 이어 붙이고, 끝이면 사라진다', (tester) async {
-      final server = FakeStatsServer()..matchRequestPageSize = 3;
+    testWidgets('신청 표도 따로 쪽을 넘긴다 — 2를 누르면 requests 만 page=2 로 받는다', (tester) async {
+      final server = FakeStatsServer()
+        ..matchRequests = [
+          for (var i = 1; i <= 21; i++) requestRow('q$i', '2026-10-16T${(23 - i ~/ 2).toString().padLeft(2, '0')}:${(i % 2 * 30).toString().padLeft(2, '0')}:00+00:00', 'waiting'),
+        ];
       await openRequests(tester, server: server);
+      final pairsBefore = server.to('/admin/matching/pairs').length;
 
-      expect(find.byKey(const ValueKey('request-row-r3')), findsOneWidget);
-      expect(find.byKey(const ValueKey('request-row-r4')), findsNothing);
-      final more = find.widgetWithText(AdminButton, '더 보기');
-      expect(tester.widget<AdminButton>(more).variant, AdminButtonVariant.secondary);
-
-      await tester.ensureVisible(more);
-      await tester.tap(more);
+      final page2 = find.descendant(of: key('request-pager'), matching: key('pager-page-2'));
+      await tester.ensureVisible(page2);
+      await tester.tap(page2);
       await tester.pumpAndSettle();
 
-      expect(server.to('/admin/matching/requests').last.url.queryParameters, {'before': '2026-10-16T03:00:00+00:00|r3'});
-      expect(find.byKey(const ValueKey('request-row-r3')), findsOneWidget); // 앞 줄은 그대로
-      expect(find.byKey(const ValueKey('request-row-r4')), findsOneWidget);
-      expect(find.widgetWithText(AdminButton, '더 보기'), findsNothing);
-    });
-
-    testWidgets('더 받기에 실패하면 앞 줄은 그대로 두고 단추 위에 오류 줄', (tester) async {
-      final server = FakeStatsServer()..matchRequestPageSize = 3;
-      await openRequests(tester, server: server);
-      server.matchRequestsFailure = 500;
-
-      await tester.ensureVisible(find.widgetWithText(AdminButton, '더 보기'));
-      await tester.tap(find.widgetWithText(AdminButton, '더 보기'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('더 불러오지 못했어요. 다시 시도해 주세요.'), findsOneWidget);
-      expect(find.byKey(const ValueKey('request-row-r3')), findsOneWidget);
+      expect(server.to('/admin/matching/requests').last.url.queryParameters, {'page': '2', 'size': '20'});
+      expect(server.to('/admin/matching/pairs'), hasLength(pairsBefore));
+      expect(find.byKey(const ValueKey('request-row-q21')), findsOneWidget);
+      expect(find.byKey(const ValueKey('request-row-q1')), findsNothing);
     });
 
     testWidgets('목록이 비면 "조건에 맞는 신청이 없어요" — 매칭 쌍 목록은 그대로', (tester) async {

@@ -5,6 +5,8 @@ import 'package:campus_mate_admin/api/admin_api.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'fakes.dart' show pageJson;
+
 /// 신고당한 사람(서버 `_summary` 의 target_profile 모양)
 Map<String, Object?> targetProfile({
   String id = 'p1',
@@ -137,7 +139,7 @@ class FakeReportServer {
           .where((r) => r['status'] == (query['status'] ?? 'open') && (query['type'] == null || r['target_type'] == query['type']))
           .toList()
         ..sort((a, b) => (a['created_at']! as String).compareTo(b['created_at']! as String));
-      return _json(200, {'items': rows});
+      return _json(200, pageJson(rows, query));
     }
     if (request.method == 'GET' && path.length == 3 && path[1] == 'reports') {
       await holdDetail?.future;

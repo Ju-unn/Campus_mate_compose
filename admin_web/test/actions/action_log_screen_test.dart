@@ -83,11 +83,11 @@ void main() {
       expect(find.descendant(of: key('action-table'), matching: find.text('admin')), findsOneWidget);
     });
 
-    testWidgets('표 아래 24: 안내 12 muted "읽기 전용이에요. 기록은 2년 보관돼요. · 최근 순 50건씩"', (tester) async {
+    testWidgets('표 아래 16 쪽 줄(36), 그 아래 24: 안내 12 muted "읽기 전용이에요. 기록은 2년 보관돼요."', (tester) async {
       await open(tester);
 
-      final hint = find.text('읽기 전용이에요. 기록은 2년 보관돼요. · 최근 순 50건씩');
-      expect(tester.getTopLeft(hint), const Offset(272, 164 + 200 + 24));
+      final hint = find.text('읽기 전용이에요. 기록은 2년 보관돼요.');
+      expect(tester.getTopLeft(hint), const Offset(272, 164 + 200 + 16 + 36 + 24));
       expect((styleOf(tester, hint).fontSize, styleOf(tester, hint).color), (12, AdminColors.muted));
     });
 
@@ -104,7 +104,7 @@ void main() {
 
       await submit(tester, idA);
 
-      expect(server.to('/admin/actions').last.url.queryParameters, {'target': idA});
+      expect(server.to('/admin/actions').last.url.queryParameters, {'target': idA, 'page': '1', 'size': '20'});
       expect(find.byKey(const ValueKey('action-row-a3')), findsOneWidget);
       expect(find.byKey(const ValueKey('action-row-a1')), findsNothing);
     });
@@ -114,7 +114,7 @@ void main() {
 
       await submit(tester, '  $idA ');
 
-      expect(server.to('/admin/actions').last.url.queryParameters, {'target': idA});
+      expect(server.to('/admin/actions').last.url.queryParameters, {'target': idA, 'page': '1', 'size': '20'});
     });
 
     testWidgets('UUID 모양이 아니면 요청 없이 칸 아래 오류 줄 "id 모양이 아니에요", 고치기 시작하면 사라진다', (tester) async {
@@ -149,7 +149,7 @@ void main() {
 
       await submit(tester, '');
 
-      expect(server.to('/admin/actions').last.url.queryParameters, isEmpty);
+      expect(server.to('/admin/actions').last.url.queryParameters, {'page': '1', 'size': '20'});
       expect(find.byKey(const ValueKey('action-row-a1')), findsOneWidget);
     });
 
@@ -163,39 +163,39 @@ void main() {
     });
   });
 
-  group('더 보기', () {
-    testWidgets('쪽이 남았을 때만 [더 보기](Secondary) — 누르면 before 로 이어 붙이고, 끝이면 사라진다', (tester) async {
-      final server = FakeStatsServer()..pageSize = 2;
-      await open(tester, server: server);
+  group('번호 쪽', () {
+    List<Map<String, Object?>> many(int count, {String? target}) => [
+          for (var i = 1; i <= count; i++)
+            actionRow('n$i', '2026-10-18T05:${(60 - i).toString().padLeft(2, '0')}:00+00:00', 'profile_note', targetType: 'profile', targetId: target),
+        ];
 
-      expect(find.byKey(const ValueKey('action-row-a2')), findsOneWidget);
-      expect(find.byKey(const ValueKey('action-row-a3')), findsNothing);
-      final more = find.widgetWithText(AdminButton, '더 보기');
-      expect(tester.widget<AdminButton>(more).variant, AdminButtonVariant.secondary);
+    testWidgets('표 아래 전체 건수, 21건이면 번호 1 · 2 — 2를 누르면 page=2 를 받아 그 쪽만 그린다', (tester) async {
+      final server = await open(tester, server: FakeStatsServer()..actions = many(21));
 
-      await tester.tap(more);
+      expect(find.text('전체 21건'), findsOneWidget);
+      expect(find.byKey(const ValueKey('action-row-n20')), findsOneWidget);
+      expect(find.byKey(const ValueKey('action-row-n21')), findsNothing);
+
+      await tester.ensureVisible(key('pager-page-2'));
+      await tester.tap(key('pager-page-2'));
       await tester.pumpAndSettle();
 
-      expect(server.to('/admin/actions').last.url.queryParameters, {'before': '2026-10-18T05:21:00+00:00|a2'});
-      expect(find.byKey(const ValueKey('action-row-a1')), findsOneWidget);
-      expect(find.byKey(const ValueKey('action-row-a3')), findsOneWidget);
+      expect(server.to('/admin/actions').last.url.queryParameters, {'page': '2', 'size': '20'});
+      expect(find.byKey(const ValueKey('action-row-n21')), findsOneWidget);
+      expect(find.byKey(const ValueKey('action-row-n1')), findsNothing);
       expect(find.widgetWithText(AdminButton, '더 보기'), findsNothing);
     });
 
-    testWidgets('검색해도 더 보기는 같은 대상 id 로 이어 받는다', (tester) async {
-      final server = FakeStatsServer()
-        ..pageSize = 1
-        ..actions = [
-          actionRow('b1', '2026-10-18T05:30:00+00:00', 'profile_note', targetType: 'profile', targetId: idA),
-          actionRow('b2', '2026-10-18T05:20:00+00:00', 'profile_note', targetType: 'profile', targetId: idA),
-        ];
-      await open(tester, server: server);
-
-      await submit(tester, idA);
-      await tester.tap(find.widgetWithText(AdminButton, '더 보기'));
+    testWidgets('2쪽에서 검색하면 그 대상 id 로 1쪽부터', (tester) async {
+      final server = await open(tester, server: FakeStatsServer()..actions = many(21, target: idA));
+      await tester.ensureVisible(key('pager-page-2'));
+      await tester.tap(key('pager-page-2'));
       await tester.pumpAndSettle();
 
-      expect(server.to('/admin/actions').last.url.queryParameters, {'target': idA, 'before': '2026-10-18T05:30:00+00:00|b1'});
+      await submit(tester, idA);
+
+      expect(server.to('/admin/actions').last.url.queryParameters, {'target': idA, 'page': '1', 'size': '20'});
+      expect(find.byKey(const ValueKey('action-row-n1')), findsOneWidget);
     });
   });
 

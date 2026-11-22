@@ -1,3 +1,4 @@
+import 'package:campus_mate_admin/api/admin_api.dart';
 import 'package:campus_mate_admin/graduate/certificate_viewer.dart';
 import 'package:campus_mate_admin/graduate/graduate_item.dart';
 import 'package:campus_mate_admin/graduate/graduate_review_controller.dart';
@@ -15,6 +16,7 @@ import 'package:campus_mate_admin/widgets/admin_dialog.dart';
 import 'package:campus_mate_admin/widgets/admin_field.dart';
 import 'package:campus_mate_admin/widgets/admin_link.dart';
 import 'package:campus_mate_admin/widgets/admin_loader.dart';
+import 'package:campus_mate_admin/widgets/admin_pager.dart';
 import 'package:campus_mate_admin/widgets/admin_select.dart';
 import 'package:campus_mate_admin/widgets/admin_toast.dart';
 import 'package:campus_mate_admin/widgets/error_row.dart';
@@ -234,22 +236,38 @@ class _GraduateReviewScreenState extends ConsumerState<GraduateReviewScreen> {
       children: [
         SizedBox(
           width: 320,
-          child: ReviewQueue(
-            controller: _queueScroll,
+          child: Column(
             children: [
-              for (final item in items)
-                KeyedSubtree(
-                  key: _rowKeys.putIfAbsent(item.id, GlobalKey.new),
-                  child: _QueueRow(
-                    item: item,
-                    now: now,
-                    selected: item.id == selectedId,
-                    onTap: () {
-                      _closeMenu();
-                      _controller.select(item.id);
-                    },
-                  ),
+              Expanded(
+                child: ReviewQueue(
+                  controller: _queueScroll,
+                  children: [
+                    for (final item in items)
+                      KeyedSubtree(
+                        key: _rowKeys.putIfAbsent(item.id, GlobalKey.new),
+                        child: _QueueRow(
+                          item: item,
+                          now: now,
+                          selected: item.id == selectedId,
+                          onTap: () {
+                            _closeMenu();
+                            _controller.select(item.id);
+                          },
+                        ),
+                      ),
+                  ],
                 ),
+              ),
+              const SizedBox(height: AdminSpacing.sm),
+              AdminPager(
+                total: state.total,
+                page: state.page,
+                size: AdminApi.pageSize,
+                onPage: (page) {
+                  _closeMenu();
+                  _controller.goToPage(page);
+                },
+              ),
             ],
           ),
         ),

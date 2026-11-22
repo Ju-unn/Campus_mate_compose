@@ -47,7 +47,7 @@ void main() {
   testWidgets('처음에는 "새 문의"만 받는다(요청 status=new) — 표에는 그 줄만', (tester) async {
     final server = await open(tester);
 
-    expect(server.lists.single.url.queryParameters, {'status': 'new'});
+    expect(server.lists.single.url.queryParameters, {'status': 'new', 'page': '1', 'size': '20'});
     expect(key('inquiry-row-$inquiryA'), findsOneWidget);
     expect(key('inquiry-row-$inquiryB'), findsNothing);
   });
@@ -57,18 +57,18 @@ void main() {
 
     await tester.tap(chip('전체'));
     await tester.pumpAndSettle();
-    expect(server.lists.last.url.queryParameters, isEmpty);
+    expect(server.lists.last.url.queryParameters, {'page': '1', 'size': '20'});
     expect([for (final id in [inquiryA, inquiryB, inquiryC]) key('inquiry-row-$id').evaluate().length], [1, 1, 1]);
 
     await tester.tap(chip('답변 완료'));
     await tester.pumpAndSettle();
-    expect(server.lists.last.url.queryParameters, {'status': 'answered'});
+    expect(server.lists.last.url.queryParameters, {'status': 'answered', 'page': '1', 'size': '20'});
     expect(key('inquiry-row-$inquiryB'), findsOneWidget);
     expect(key('inquiry-row-$inquiryA'), findsNothing);
 
     await tester.tap(chip('처리 중'));
     await tester.pumpAndSettle();
-    expect(server.lists.last.url.queryParameters, {'status': 'in_progress'});
+    expect(server.lists.last.url.queryParameters, {'status': 'in_progress', 'page': '1', 'size': '20'});
     expect(key('inquiry-row-$inquiryC'), findsOneWidget);
   });
 
@@ -95,38 +95,45 @@ void main() {
     expect(find.textContaining('두 번째 줄'), findsNothing);
   });
 
-  testWidgets('더 보기: 첫 쪽 뒤 단추가 뜨고, 누르면 커서(before · before_id)로 이어 받아 단추가 사라진다', (tester) async {
-    final server = FakeInquiryServer(rows: rows())..pageSize = 2;
-    await open(tester, server: server);
-    await tester.tap(chip('전체'));
+  List<Map<String, Object?>> many(int count) => [
+        for (var i = 1; i <= count; i++) inquiryRow('q$i', createdAt: '2026-11-10T10:${60 - i}:00+00:00'), // q1 이 가장 최근
+      ];
+
+  testWidgets('번호 쪽: 표 아래 전체 건수, 2를 누르면 같은 필터로 page=2 를 받아 그 쪽만 그린다', (tester) async {
+    final server = await open(tester, server: FakeInquiryServer(rows: many(21)));
+
+    expect(find.text('전체 21건'), findsOneWidget);
+    expect(key('inquiry-row-q21'), findsNothing);
+    await tester.ensureVisible(key('pager-page-2'));
+    await tester.tap(key('pager-page-2'));
     await tester.pumpAndSettle();
 
-    expect(key('inquiry-row-$inquiryC'), findsOneWidget);
-    expect(key('inquiry-row-$inquiryA'), findsNothing);
-    expect(find.text('더 보기'), findsOneWidget);
-
-    await tester.tap(find.text('더 보기'));
-    await tester.pumpAndSettle();
-
-    expect(server.lists.last.url.queryParameters, {'before': '2026-11-10T02:00:00+00:00', 'before_id': inquiryB});
-    expect(key('inquiry-row-$inquiryA'), findsOneWidget);
-    expect(key('inquiry-row-$inquiryC'), findsOneWidget); // 앞 줄은 그대로
+    expect(server.lists.last.url.queryParameters, {'status': 'new', 'page': '2', 'size': '20'});
+    expect(key('inquiry-row-q21'), findsOneWidget);
+    expect(key('inquiry-row-q1'), findsNothing);
     expect(find.text('더 보기'), findsNothing);
   });
 
-  testWidgets('더 보기가 실패하면 앞 줄은 두고 오류 줄 + 단추 그대로', (tester) async {
-    final server = FakeInquiryServer(rows: rows())..pageSize = 2;
-    await open(tester, server: server);
+  testWidgets('2쪽에서 필터를 바꾸면 1쪽부터, 쪽 받기가 실패하면 오류 + 다시 시도는 그 쪽을 다시', (tester) async {
+    final server = await open(tester, server: FakeInquiryServer(rows: many(21)));
+    await tester.ensureVisible(key('pager-page-2'));
+    await tester.tap(key('pager-page-2'));
+    await tester.pumpAndSettle();
+
     await tester.tap(chip('전체'));
     await tester.pumpAndSettle();
+    expect(server.lists.last.url.queryParameters, {'page': '1', 'size': '20'});
+
     server.listFailure = 500;
-
-    await tester.tap(find.text('더 보기'));
+    await tester.ensureVisible(key('pager-page-2'));
+    await tester.tap(key('pager-page-2'));
     await tester.pumpAndSettle();
-
-    expect(find.text('더 불러오지 못했어요. 다시 시도해 주세요.'), findsOneWidget);
-    expect(key('inquiry-row-$inquiryC'), findsOneWidget);
-    expect(find.text('더 보기'), findsOneWidget);
+    expect(find.text('문의를 불러오지 못했어요'), findsOneWidget);
+    server.listFailure = null;
+    await tester.tap(find.text('다시 시도'));
+    await tester.pumpAndSettle();
+    expect(server.lists.last.url.queryParameters, {'page': '2', 'size': '20'});
+    expect(key('inquiry-row-q21'), findsOneWidget);
   });
 
   testWidgets('받는 중: 안내 글자 / 못 받음: 오류 + 다시 시도 → 성공하면 표', (tester) async {
@@ -181,7 +188,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(locationOf(tester), '/inquiries');
-    expect(server.lists.last.url.queryParameters, isEmpty);
+    expect(server.lists.last.url.queryParameters, {'page': '1', 'size': '20'});
     expect(key('inquiry-row-$inquiryB'), findsOneWidget);
   });
 }

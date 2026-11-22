@@ -7,6 +7,7 @@ import asyncio
 from fastapi import APIRouter, Depends, Query
 
 from app.admin.caller import AdminCaller, get_admin_caller
+from app.admin.paging import Page, page_query
 from app.admin.stats_repository import AdminStatsRepository
 
 router = APIRouter()
@@ -14,8 +15,8 @@ router = APIRouter()
 # 설계 §8-4b: 그래프 기본 30일, 서버는 90일까지(화면은 30일 고정 — 대장 확정 10-18).
 DEFAULT_DAYS = 30
 MAX_DAYS = 90
-# 미등록 도메인은 행 상한이 5000 이라 한 쪽에 다 담지 않는다 — 많은 순 위쪽만.
-DEFAULT_DOMAINS = 200
+# 미등록 도메인은 DB 함수가 많은 순 500곳까지만 준다(행 상한 5000) — 그 안에서 번호 쪽으로 자른다.
+# shortcut: 501번째 곳부터는 어느 쪽에도 안 보인다 — 500곳을 넘게 쌓이면 offset · 건수를 받는 DB 함수로 바꾼다.
 MAX_DOMAINS = 500
 
 
@@ -50,12 +51,10 @@ async def get_stats_daily(days: int = Query(DEFAULT_DAYS, ge=1, le=MAX_DAYS), ca
 
 
 @router.get("/unknown-domains")
-async def get_unknown_domains(
-    limit: int = Query(DEFAULT_DOMAINS, ge=1, le=MAX_DOMAINS), caller: AdminCaller = Depends(get_admin_caller),
-) -> dict:
-    rows = await _repo(caller).unknown_domains(limit)
-    return {"items": [{"domain": row["domain"], "attempt_count": row["attempt_count"],
-                       "first_seen_at": row["first_seen_at"], "last_seen_at": row["last_seen_at"]} for row in rows]}
+async def get_unknown_domains(page: Page = Depends(page_query), caller: AdminCaller = Depends(get_admin_caller)) -> dict:
+    rows = await _repo(caller).unknown_domains(MAX_DOMAINS)
+    return page.body([{"domain": row["domain"], "attempt_count": row["attempt_count"], "first_seen_at": row["first_seen_at"],
+                       "last_seen_at": row["last_seen_at"]} for row in page.cut(rows)], len(rows))
 
 
 @router.get("/universities")

@@ -12,12 +12,16 @@ from pydantic import BaseModel
 
 from app.admin.billing_repository import AdminBillingRepository
 from app.admin.caller import AdminCaller, get_admin_caller
+from app.admin.paging import Page, page_query
 from app.core import errors
 from app.core.time import SEOUL
 
 router = APIRouter(prefix="/billing")
 
 ORDER_RESULTS = 10
+# 못 거둔 하트 · 환불이 잦은 계정은 DB 함수가 주는 최대(500줄)를 받아 번호 쪽으로 자른다.
+# shortcut: 501번째 줄부터는 안 보인다 — 환불이 그만큼 쌓이면 offset · 건수를 받는 DB 함수로 바꾼다.
+REFUND_ROWS = 500
 # 구글 주문 번호(GPA.1234-5678-9012-34567) · 애플 거래 번호(숫자). 글자를 좁혀 두면 PostgREST 필터 문법이 끼어들 틈이 없다.
 _ORDER = re.compile(r"[A-Za-z0-9._-]{1,64}")
 
@@ -65,14 +69,16 @@ async def search_orders(body: OrderSearchBody, caller: AdminCaller = Depends(get
 
 
 @router.get("/shortfall")
-async def get_shortfall(limit: int = Query(100, ge=1, le=500), caller: AdminCaller = Depends(get_admin_caller)) -> dict:
-    return {"items": await _repo(caller).billing_shortfall(limit)}
+async def get_shortfall(page: Page = Depends(page_query), caller: AdminCaller = Depends(get_admin_caller)) -> dict:
+    rows = await _repo(caller).billing_shortfall(REFUND_ROWS)
+    return page.body(page.cut(rows), len(rows))
 
 
 @router.get("/frequent-returns")
-async def get_frequent_returns(limit: int = Query(100, ge=1, le=500), caller: AdminCaller = Depends(get_admin_caller)) -> dict:
+async def get_frequent_returns(page: Page = Depends(page_query), caller: AdminCaller = Depends(get_admin_caller)) -> dict:
     """환불이 잦은 계정(경로 이름은 금지어 'refund' 를 피했다)."""
-    return {"items": await _repo(caller).billing_returned_accounts(limit)}
+    rows = await _repo(caller).billing_returned_accounts(REFUND_ROWS)
+    return page.body(page.cut(rows), len(rows))
 
 
 @router.get("/daily")

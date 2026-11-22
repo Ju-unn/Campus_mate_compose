@@ -1,3 +1,4 @@
+import 'package:campus_mate_admin/api/admin_api.dart';
 import 'package:campus_mate_admin/heart_tasks/heart_task_item.dart' show formatSubmittedAt;
 import 'package:campus_mate_admin/inquiries/inquiry_controller.dart';
 import 'package:campus_mate_admin/inquiries/inquiry_item.dart';
@@ -5,10 +6,9 @@ import 'package:campus_mate_admin/state/paged_controller.dart';
 import 'package:campus_mate_admin/theme/admin_colors.dart';
 import 'package:campus_mate_admin/theme/admin_spacing.dart';
 import 'package:campus_mate_admin/theme/admin_typography.dart';
-import 'package:campus_mate_admin/widgets/admin_button.dart';
 import 'package:campus_mate_admin/widgets/admin_chip.dart';
+import 'package:campus_mate_admin/widgets/admin_pager.dart';
 import 'package:campus_mate_admin/widgets/admin_table.dart';
-import 'package:campus_mate_admin/widgets/error_row.dart';
 import 'package:campus_mate_admin/widgets/load_states.dart';
 import 'package:campus_mate_admin/widgets/status_badge.dart';
 import 'package:flutter/material.dart';
@@ -25,7 +25,7 @@ StatusTone inquiryStatusTone(InquiryStatus status) {
 }
 
 /// 문의 목록(`/inquiries`). pen 에 문의 화면이 없어 신고 목록(A4)의 틀을 그대로 따른다: 내용 32 안쪽, 필터 칩 줄(제자리) → 24 →
-/// 표(머리 44 · 줄 52 — 접수 시각 160 · 사유 130 · 보낸 사람 220 · 상태 130 · 내용은 남는 폭) → (더 보기) → 안내. 줄을 누르면 상세 `/inquiries/{id}`.
+/// 표(머리 44 · 줄 52 — 접수 시각 160 · 사유 130 · 보낸 사람 220 · 상태 130 · 내용은 남는 폭) → 번호 쪽 → 안내. 줄을 누르면 상세 `/inquiries/{id}`.
 class InquiryListScreen extends ConsumerWidget {
   const InquiryListScreen({super.key});
 
@@ -42,7 +42,7 @@ class InquiryListScreen extends ConsumerWidget {
     } else if (list.items.isEmpty) {
       body = EmptyBlock(status == InquiryStatus.newInquiry ? '새 문의가 없어요' : '조건에 맞는 문의가 없어요');
     } else {
-      body = _Rows(list: list, onMore: controller.loadMore, onOpen: (item) => context.go('/inquiries/${item.id}', extra: item));
+      body = _Rows(list: list, onPage: controller.goTo, onOpen: (item) => context.go('/inquiries/${item.id}', extra: item));
     }
     return Padding(
       padding: const EdgeInsets.all(AdminSpacing.xl),
@@ -84,10 +84,10 @@ class _Filters extends StatelessWidget {
 }
 
 class _Rows extends StatelessWidget {
-  const _Rows({required this.list, required this.onMore, required this.onOpen});
+  const _Rows({required this.list, required this.onPage, required this.onOpen});
 
   final PagedState<InquiryItem> list;
-  final VoidCallback onMore;
+  final ValueChanged<int> onPage;
   final ValueChanged<InquiryItem> onOpen;
 
   @override
@@ -115,24 +115,10 @@ class _Rows extends StatelessWidget {
               ),
           ],
         ),
-        if (list.hasMore) ...[
-          const SizedBox(height: AdminSpacing.lg),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (list.moreFailed) ...[
-                  const ErrorRow('더 불러오지 못했어요. 다시 시도해 주세요.', lineHeight: AdminTypography.xsBox),
-                  const SizedBox(height: AdminSpacing.xs),
-                ],
-                AdminButton(label: '더 보기', variant: AdminButtonVariant.secondary, loading: list.loadingMore, onPressed: onMore),
-              ],
-            ),
-          ),
-        ],
+        const SizedBox(height: AdminSpacing.md),
+        AdminPager(total: list.total, page: list.page, size: AdminApi.pageSize, onPage: onPage),
         const SizedBox(height: AdminSpacing.lg),
-        Text('최근 순 · 50건씩', style: AdminTypography.xs.copyWith(height: AdminTypography.xsBox, color: AdminColors.muted)),
+        Text('최근 순 · 20건씩', style: AdminTypography.xs.copyWith(height: AdminTypography.xsBox, color: AdminColors.muted)),
       ],
     );
   }

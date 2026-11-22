@@ -11,6 +11,7 @@ from datetime import datetime
 import httpx
 
 from app.core.time import SEOUL
+from postgrest_page import page_response
 from app.settings import Settings
 
 ADMIN = "aaaaaaaa-0000-0000-0000-000000000001"
@@ -67,6 +68,11 @@ def settings(**overrides) -> Settings:
         google_cloud_project="campus-mate-test", openai_api_key="sk-test",
         phone_encryption_key="phone-key-test", identity_hmac_key="identity-key-test", **overrides,
     )
+
+
+def _ordered(rows: list[dict], params) -> list[dict]:
+    """목록의 order(created_at.asc,id.asc 또는 created_at.desc,id.desc) 흉내."""
+    return sorted(rows, key=lambda r: (r["created_at"], r["id"]), reverse=params.get("order", "").startswith("created_at.desc"))
 
 
 def _b64url(obj) -> str:
@@ -246,7 +252,7 @@ class AdminWorld:
         if "id" in params:
             row = self.reports.get(params["id"].removeprefix("eq."))
             return httpx.Response(200, json=[row] if row else [])
-        return httpx.Response(200, json=list(self.reports.values()))
+        return page_response(self._request, _ordered(list(self.reports.values()), params))
 
     def _messages(self, params) -> httpx.Response:
         rows = [m for m in self.messages if m["match_id"] == params["match_id"].removeprefix("eq.")]
@@ -267,7 +273,7 @@ class AdminWorld:
         if "profile_id" in params:
             return httpx.Response(200, json=self.previous.get(params["profile_id"].removeprefix("eq."), []))
         if "status" in params:
-            return httpx.Response(200, json=list(self.submissions.values()))
+            return page_response(self._request, _ordered(list(self.submissions.values()), params))
         row = self.submissions.get(params["id"].removeprefix("eq."))
         return httpx.Response(200, json=[row] if row else [])
 
@@ -280,7 +286,8 @@ class AdminWorld:
         row.update(status=body["p_status"], reject_reason=body["p_reject_reason"], reviewed_at="2026-10-18T02:00:00+00:00")
         return httpx.Response(200, json={key: row[key] for key in ("id", "status", "reject_reason", "reward_hearts", "reviewed_at")})
 
-    def _profiles(self, params, counting: bool = False) -> httpx.Response:
+    def _profiles(self, request: httpx.Request) -> httpx.Response:
+        params = request.url.params
         rows = list(self.user_profiles.values())
         for column in ("gender", "acquisition_channel"):  # eq.<값> 또는 is.null
             if column in params:
@@ -302,14 +309,11 @@ class AdminWorld:
         if "nickname" in params:  # ilike.*패턴* — 이스케이프(백슬래시)를 풀어 부분 일치로 본다
             needle = params["nickname"].removeprefix("ilike.*").removesuffix("*").replace("\\", "")
             rows = [r for r in rows if r["nickname"] and needle.lower() in r["nickname"].lower()]
-        if counting:  # Prefer: count=exact — 건수는 Content-Range 의 / 뒤(limit 앞에서 센다)
-            return httpx.Response(200, json=[], headers={"Content-Range": f"*/{len(rows)}"})
-        if params.get("order") == "created_at.desc":
-            rows.sort(key=lambda r: r["created_at"], reverse=True)
-        if "limit" in params:
-            rows = rows[:int(params["limit"])]
+        if params.get("order") == "created_at.desc,id.desc":
+            rows.sort(key=lambda r: (r["created_at"], r["id"]), reverse=True)
         # PostgREST 처럼 select 에 적은 칸만 — 서버가 고르지 않은 칸(성별 · 들어온 경로 등)을 읽으면 시험이 깨진다.
-        return httpx.Response(200, json=[_project(r, params["select"]) for r in rows])
+        # offset · limit · count=exact(건수는 Content-Range 의 / 뒤, limit 앞에서 센다)는 postgrest_page 가 흉내 낸다.
+        return page_response(request, [_project(r, params["select"]) for r in rows])
 
     def _admin_actions_get(self, params) -> httpx.Response:
         rows = list(self.action_rows)
@@ -317,13 +321,7 @@ class AdminWorld:
             if column in params:
                 rows = [r for r in rows if r[column] == params[column].removeprefix("eq.")]
         rows.sort(key=lambda r: (r["created_at"], r["id"]), reverse=True)
-        if "or" in params:  # or=(created_at.lt.X,and(created_at.eq.X,id.lt.Y))
-            first, rest = params["or"][1:-1].split(",and(", 1)
-            at, last_id = first.removeprefix("created_at.lt."), rest.removesuffix(")").split(",id.lt.")[1]
-            rows = [r for r in rows if r["created_at"] < at or (r["created_at"] == at and r["id"] < last_id)]
-        if "limit" in params:
-            rows = rows[:int(params["limit"])]
-        return httpx.Response(200, json=rows)
+        return page_response(self._request, rows)
 
     def _new_rpc(self, name: str, body: dict) -> httpx.Response:
         """D3 의 DB 함수들. 돌려줄 값은 rpc_results[name], 오류는 rpc_error_code(D2 와 같은 약속)."""
@@ -334,6 +332,7 @@ class AdminWorld:
 
     def handle(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
+        self._request = request  # 목록 가짜가 offset · limit · count=exact 를 읽는다(postgrest_page)
         path, params = request.url.path, request.url.params
         if path == "/auth/v1/user":
             return httpx.Response(self.auth_status, json={"id": self.caller})
@@ -399,7 +398,7 @@ class AdminWorld:
             submitters = {r["profiles"]["id"] for r in self.submissions.values()}
             if params.get("select") == "status" and asked in submitters and asked not in self.user_profiles:
                 return None
-            return self._profiles(params, counting="count=exact" in request.headers.get("prefer", ""))
+            return self._profiles(request)
         if path == "/rest/v1/universities" and method == "GET":
             wanted = params["region_group"].removeprefix("eq.")
             return httpx.Response(200, json=[{"id": u} for u, group in self.universities.items() if group == wanted])

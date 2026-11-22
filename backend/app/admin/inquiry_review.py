@@ -1,27 +1,25 @@
 """관리자 문의 관리(화면: 문의함). 목록 · 상태 / 메모 바꾸기. 모든 경로는 get_admin_caller 뒤에 있다.
 
 답장은 이 서버가 보내지 않는다 — 운영자가 알림 메일의 '답장'(Reply-To = 사용자가 적은 메일)으로 회신하고, 여기서는 상태와 메모만 관리한다.
-쪽 나누기는 (created_at, id) 커서: 다음 쪽은 마지막 줄의 created_at · id 를 before · before_id 로 보낸다.
+쪽 나누기는 번호 쪽(app/admin/paging.py) — 최근 순(created_at, id).
 """
 from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, StringConstraints, model_validator
 
-from app.admin import cursor
 from app.admin.caller import AdminCaller, get_admin_caller
+from app.admin.paging import Page, page_query
 from app.admin.repository import NOT_FOUND, AdminRepository
 from app.admin.request_ip import request_ip
 from app.core.deps import get_now
 from app.core.text import SAFE_TEXT
 from app.inquiries.reasons import MEMO_MAX, Status
-from app.inquiries.repository import InquiryRepository
+from app.inquiries.repository import SELECT, InquiryRepository
 
 router = APIRouter(prefix="/inquiries")
-
-DEFAULT_LIMIT = 50  # 설계 §12 의 기본 쪽 크기
 
 
 class InquiryPatch(BaseModel):
@@ -53,18 +51,16 @@ def _item(row: dict) -> dict:
 @router.get("")
 async def list_inquiries(
     status: Status | None = None,
-    before: str | None = None,
-    before_id: UUID | None = None,
-    limit: int = Query(DEFAULT_LIMIT, ge=1, le=100),
+    page: Page = Depends(page_query),
     caller: AdminCaller = Depends(get_admin_caller),
 ) -> dict:
-    """최근 순. has_more 는 한 줄 더 달라고 해서 정확히 안다(limit 줄이 딱 맞으면 false)."""
-    if (before is None) != (before_id is None):
-        raise cursor.bad()
-    cursor_pair = None if before is None else cursor.parse(f"{before}|{before_id}")
-    repo = InquiryRepository(caller.settings.postgrest_url, caller.settings.supabase_service_role_key, caller.client)
-    rows = await repo.list_page(status, cursor_pair, limit + 1)
-    return {"items": [_item(row) for row in rows[:limit]], "has_more": len(rows) > limit}
+    """최근 순 한 쪽과 전체 건수. 같은 시각에 들어온 줄이 쪽 사이에서 겹치거나 빠지지 않게 id 로도 정렬한다."""
+    params = {"select": SELECT, "order": "created_at.desc,id.desc"}
+    if status:
+        params["status"] = f"eq.{status}"
+    repo = AdminRepository(caller.settings.postgrest_url, caller.settings.supabase_service_role_key, caller.client)
+    rows, total = await repo.read_page("inquiries", params, page)
+    return page.body([_item(row) for row in rows], total)
 
 
 @router.patch("/{inquiry_id}")

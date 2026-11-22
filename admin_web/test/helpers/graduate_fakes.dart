@@ -5,6 +5,8 @@ import 'package:campus_mate_admin/api/admin_api.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'fakes.dart' show pageJson;
+
 /// 목록 한 줄(서버 `_summary` 모양 — 사진 · 글자 인식 · 이메일 없음, 닉네임 · 학교 이름은 탈퇴 계정이면 null). 기본 제출 시각은 2026-10-19 11:20(한국) = 02:20 UTC.
 Map<String, Object?> graduateRow(
   String id, {
@@ -97,7 +99,7 @@ class FakeGraduateServer {
       await holdList?.future;
       final failure = _fail(listFailure);
       if (failure != null) return failure;
-      return _json(200, {'items': pending});
+      return _json(200, pageJson(pending, request.url.queryParameters));
     }
     final id = path[2];
     if (path.length == 3) {

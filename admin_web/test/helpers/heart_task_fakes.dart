@@ -9,6 +9,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'fakes.dart' show pageJson;
+
 /// 시험 시계 — 2026-10-18 14:20 한국 시간(05:20 UTC).
 final DateTime testNow = DateTime.utc(2026, 10, 18, 5, 20);
 
@@ -103,9 +105,7 @@ class FakeHeartTaskServer {
       final failure = _fail(listFailure);
       if (failure != null) return failure;
       final task = request.url.queryParameters['task'];
-      return _json(200, {
-        'items': [for (final row in pending) if (task == null || row['task'] == task) row],
-      });
+      return _json(200, pageJson([for (final row in pending) if (task == null || row['task'] == task) row], request.url.queryParameters));
     }
     final id = path[2];
     if (path.length == 3) {

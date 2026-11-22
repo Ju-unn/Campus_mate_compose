@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:campus_mate_admin/api/admin_api.dart';
+import 'package:campus_mate_admin/api/list_page.dart';
 import 'package:campus_mate_admin/gate/gate_controller.dart';
 import 'package:campus_mate_admin/providers.dart';
 import 'package:campus_mate_admin/reports/report_item.dart';
+import 'package:campus_mate_admin/state/paged_controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 목록 필터(종류 · 상태). 상세에 갔다 "← 신고 목록" 으로 와도 남게 화면 밖(앱이 켜진 동안)에 둔다.
@@ -27,47 +29,22 @@ class ReportFilterController extends Notifier<ReportFilter> {
   void setStatus(ReportStatus status) => state = ReportFilter(type: state.type, status: status);
 }
 
-/// A4 목록. 화면에 들어올 때마다 새로 받는다(조치 · 409 뒤 목록 새로 받기는 이것으로 된다).
-/// Riverpod 의 자동 재시도를 쓰지 않으려고 실패를 상태로 들고 있다(W1 과 같은 방식).
-final reportListProvider = NotifierProvider.autoDispose<ReportListController, AsyncValue<List<ReportSummary>>>(
-  ReportListController.new,
-);
+/// A4 목록. 화면에 들어올 때마다 1쪽부터 새로 받는다(조치 · 409 뒤 목록 새로 받기는 이것으로 된다). 필터가 바뀌면 1쪽부터.
+final reportListProvider = NotifierProvider.autoDispose<ReportListController, PagedState<ReportSummary>>(ReportListController.new);
 
-class ReportListController extends Notifier<AsyncValue<List<ReportSummary>>> {
+class ReportListController extends PagedController<ReportSummary> {
   late AdminApi _api;
-
-  /// 늦게 온 응답(필터를 바꾼 뒤)을 버리려고 요청마다 올린다
-  int _request = 0;
+  late ReportFilter _filter;
 
   @override
-  AsyncValue<List<ReportSummary>> build() {
+  PagedState<ReportSummary> build() {
     _api = ref.watch(adminApiProvider);
-    ref.listen(reportFilterProvider, (_, _) => reload());
-    unawaited(_load());
-    return const AsyncLoading();
+    _filter = ref.watch(reportFilterProvider);
+    return super.build();
   }
 
-  void reload() {
-    state = const AsyncLoading();
-    unawaited(_load());
-  }
-
-  Future<void> _load() async {
-    final request = ++_request;
-    final filter = ref.read(reportFilterProvider);
-    final List<ReportSummary> items;
-    try {
-      items = await _api.listReports(status: filter.status, type: filter.type);
-    } on AdminApiFailure catch (failure) {
-      if (!_isLatest(request)) return;
-      state = AsyncError(failure, StackTrace.current);
-      if (failure.isGateProblem) ref.read(gateProvider.notifier).retry();
-      return;
-    }
-    if (_isLatest(request)) state = AsyncData(items);
-  }
-
-  bool _isLatest(int request) => ref.mounted && request == _request;
+  @override
+  Future<ListPage<ReportSummary>> fetch(int page) => _api.listReports(status: _filter.status, type: _filter.type, page: page);
 }
 
 /// 조치 한 번의 결과

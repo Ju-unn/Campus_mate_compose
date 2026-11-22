@@ -14,13 +14,14 @@ from typing import Literal
 from uuid import UUID
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.admin.caller import AdminCaller, get_admin_caller
 from app.admin.graduate_notice import result_notice
 from app.admin.graduate_repository import GraduateAdminRepository
 from app.admin.heart_task_notice import send_result_notice
+from app.admin.paging import Page, page_query
 from app.admin.repository import NOT_FOUND
 from app.admin.request_ip import request_ip
 from app.cards.push import FcmSender
@@ -180,11 +181,12 @@ async def _decide(
 @router.get("")
 async def list_graduate_requests(
     status: HistoryStatus = "pending",
-    limit: int = Query(50, ge=1, le=100),
+    page: Page = Depends(page_query),
     caller: AdminCaller = Depends(get_admin_caller),
 ) -> dict:
-    """PostgREST 한 번으로 끝난다 — 서명 · 중복 경고는 웹이 줄을 골라 한 건을 받을 때(GET /{id}). 사진 · 평문은 싣지 않는다."""
-    return {"items": [_summary(row) for row in await _repo(caller).list_requests(status, limit)]}
+    """PostgREST 한 번으로 끝난다(쪽 + 건수) — 서명 · 중복 경고는 웹이 줄을 골라 한 건을 받을 때(GET /{id}). 사진 · 평문은 싣지 않는다."""
+    rows, total = await _repo(caller).list_requests(status, page)
+    return page.body([_summary(row) for row in rows], total)
 
 
 @router.get("/{request_id}")

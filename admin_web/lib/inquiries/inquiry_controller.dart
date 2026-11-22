@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:campus_mate_admin/api/admin_api.dart';
-import 'package:campus_mate_admin/api/cursor_page.dart';
+import 'package:campus_mate_admin/api/list_page.dart';
 import 'package:campus_mate_admin/gate/gate_controller.dart';
 import 'package:campus_mate_admin/inquiries/inquiry_item.dart';
 import 'package:campus_mate_admin/providers.dart';
@@ -19,7 +19,7 @@ class InquiryFilterController extends Notifier<InquiryStatus?> {
   void set(InquiryStatus? status) => state = status;
 }
 
-/// 문의 목록 — 화면에 들어올 때마다 새로 받고(처리 뒤 돌아오면 새 상태), 필터가 바뀌면 처음부터, 더 보기는 같은 필터로 이어 받는다.
+/// 문의 목록 — 화면에 들어올 때마다 새로 받고(처리 뒤 돌아오면 새 상태), 필터가 바뀌면 1쪽부터, 쪽을 바꾸면 같은 필터로 그 쪽을 받는다.
 final inquiryListProvider = NotifierProvider.autoDispose<InquiryListController, PagedState<InquiryItem>>(InquiryListController.new);
 
 class InquiryListController extends PagedController<InquiryItem> {
@@ -34,7 +34,7 @@ class InquiryListController extends PagedController<InquiryItem> {
   }
 
   @override
-  Future<CursorPage<InquiryItem>> fetch(String? before) => _api.listInquiries(status: _status, before: before);
+  Future<ListPage<InquiryItem>> fetch(int page) => _api.listInquiries(status: _status, page: page);
 }
 
 /// 상세 한 건의 상태. [saving] 이 있으면 그 저장을 보내는 중, [failure] 는 마지막 저장 실패(다음 저장을 시작하면 지운다).
