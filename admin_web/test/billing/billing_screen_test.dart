@@ -123,16 +123,17 @@ void main() {
       expect((tester.widget<Container>(key('chart-legend-swatch')).decoration! as BoxDecoration).color, AdminColors.chartRevenue);
     });
 
-    testWidgets('조회 전에는 주문 결과 카드가 없고, 못 거둔 표 제목은 그래프 아래 20(y598), 표는 그 아래 20 y640', (tester) async {
+    testWidgets('조회 전에는 주문 결과 카드가 없고, 못 거둔 표 제목은 최근 결제 쪽 줄 아래 20, 표는 그 아래 20', (tester) async {
       await openBilling(tester);
 
       expect(key('order-result'), findsNothing);
       final title = find.text('환불됐는데 하트를 다 못 거둔 목록');
-      expect(tester.getTopLeft(title), const Offset(272, 598));
+      final top = tester.getBottomLeft(key('recent-pager')).dy + 20;
+      expect(tester.getTopLeft(title), Offset(272, top));
       expect((styleOf(tester, title).fontSize, styleOf(tester, title).fontWeight), (16, FontWeight.w700));
-      expect(tester.getRect(key('shortfall-table')), const Rect.fromLTWH(272, 640, 1136, 44 + 52 * 2));
+      expect(tester.getRect(key('shortfall-table')), Rect.fromLTWH(272, top + 42, 1136, 44 + 52 * 2));
       final note = find.text('이미 써서 다 거두지 못한 구매예요. 손으로 줄지 판단할 때 참고해요.');
-      expect(tester.getTopLeft(note).dy, 640 + 148 + 20 + 36 + 20); // 표 → 20 → 쪽 줄 36 → 20 → 안내
+      expect(tester.getTopLeft(note).dy, top + 42 + 148 + 20 + 36 + 20); // 표 → 20 → 쪽 줄 36 → 20 → 안내
       expect((styleOf(tester, note).fontSize, styleOf(tester, note).color), (12, AdminColors.muted));
     });
 
@@ -154,9 +155,96 @@ void main() {
 
       expect(key('shortfall-table'), findsNothing);
       final none = find.text('다 거두지 못한 구매가 없어요');
-      expect(tester.getTopLeft(none).dy, closeTo(598 + 22 + 20, 1));
+      expect(tester.getTopLeft(none).dy, closeTo(tester.getBottomLeft(find.text('환불됐는데 하트를 다 못 거둔 목록')).dy + 20, 1));
       expect((styleOf(tester, none).fontSize, styleOf(tester, none).color), (14, AdminColors.muted));
       expect(find.textContaining('이미 써서 다 거두지 못한'), findsNothing);
+    });
+  });
+
+  group('최근 결제(사용자 요청 11-23 — pen 시안 없음, 못 거둔 표와 같은 모양)', () {
+    const uuid = '22222222-2222-4222-8222-222222222222';
+
+    testWidgets('그래프 아래 20(y598)에 제목 16/700, 그 아래 20 에 표 — 열 7개(시각 · 닉네임 · UUID · 상품 · 스토어 · 금액 · 상태)', (tester) async {
+      await openBilling(tester);
+
+      final title = find.text('최근 결제 (시험 결제 제외)');
+      expect(tester.getTopLeft(title), const Offset(272, 598));
+      expect((styleOf(tester, title).fontSize, styleOf(tester, title).fontWeight, styleOf(tester, title).color), (16, FontWeight.w700, AdminColors.ink));
+      final table = key('recent-table');
+      expect(tester.getRect(table), const Rect.fromLTWH(272, 640, 1136, 44 + 52 * 2));
+      for (final head in ['시각', '닉네임', 'UUID', '상품', '스토어', '금액', '상태']) {
+        expect(find.descendant(of: table, matching: find.text(head)), findsOneWidget, reason: head);
+      }
+      expect(tester.getTopLeft(key('recent-pager')).dy, 640 + 148 + 20);
+    });
+
+    testWidgets('한 줄: 한국 시각 · 닉네임 · UUID 전체 · 상품 · 스토어 · 금액 · 상태 배지(서버 순서 그대로)', (tester) async {
+      await openBilling(tester);
+
+      final first = key('recent-row-pr1');
+      for (final text in ['2026-11-23 09:34', '공대생', uuid, '하트 800개', '구글 플레이', '₩38,400']) {
+        expect(find.descendant(of: first, matching: find.text(text, findRichText: true)), findsOneWidget, reason: text);
+      }
+      final badge = tester.widget<StatusBadge>(find.descendant(of: first, matching: find.byType(StatusBadge)));
+      expect((badge.label, badge.tone), ('완료', StatusTone.success));
+      final second = key('recent-row-pr2');
+      expect(tester.getTopLeft(second).dy, greaterThan(tester.getTopLeft(first).dy));
+      expect(tester.widget<StatusBadge>(find.descendant(of: second, matching: find.byType(StatusBadge))).label, '환불됨');
+    });
+
+    testWidgets('UUID 는 복사할 수 있게 고를 수 있는 글자', (tester) async {
+      await openBilling(tester);
+
+      final selectable = find.descendant(of: key('recent-row-pr1'), matching: find.byType(SelectableText));
+      expect(tester.widget<SelectableText>(selectable).data, uuid);
+    });
+
+    testWidgets('지워진 계정은 닉네임 · UUID 모두 "—", 닉네임만 없으면 UUID 는 보인다', (tester) async {
+      await openBilling(tester, server: FakeUserServer()..recent = [recentRow(id: 'pr2', profileId: null), recentRow(id: 'pr3', nickname: null)]);
+
+      expect(find.descendant(of: key('recent-row-pr2'), matching: find.text('—')), findsNWidgets(2));
+      final pending = key('recent-row-pr3');
+      expect(find.descendant(of: pending, matching: find.text('—')), findsOneWidget);
+      expect(find.descendant(of: pending, matching: find.text(uuid, findRichText: true)), findsOneWidget);
+    });
+
+    testWidgets('결제가 없으면 표 대신 "아직 결제가 없어요" 14 web-muted(제목 아래 20)', (tester) async {
+      await openBilling(tester, server: FakeUserServer()..recent = []);
+
+      expect(key('recent-table'), findsNothing);
+      final none = find.text('아직 결제가 없어요');
+      expect(tester.getTopLeft(none).dy, tester.getBottomLeft(find.text('최근 결제 (시험 결제 제외)')).dy + 20);
+      expect((styleOf(tester, none).fontSize, styleOf(tester, none).color), (14, AdminColors.muted));
+      expect(tester.getTopLeft(find.text('환불됐는데 하트를 다 못 거둔 목록')).dy, tester.getBottomLeft(none).dy + 20);
+    });
+
+    testWidgets('이 목록을 못 받으면 결제 화면 전체가 오류 한 가지로 — 다시 시도로 함께 받는다', (tester) async {
+      final server = FakeUserServer()..recentFailure = 500;
+      await openBilling(tester, server: server);
+
+      expect(find.text('결제 정보를 불러오지 못했어요'), findsOneWidget);
+      server.recentFailure = null;
+      await tester.tap(button('다시 시도'));
+      await tester.pumpAndSettle();
+      expect(key('recent-table'), findsOneWidget);
+    });
+
+    testWidgets('쪽은 따로 넘긴다 — 2쪽은 recent 만 page=2 로 다시 받는다', (tester) async {
+      final server = FakeUserServer()..recent = [for (var i = 1; i <= 21; i++) recentRow(id: 'r$i')];
+      await openBilling(tester, server: server);
+      expect(find.descendant(of: key('recent-pager'), matching: find.text('전체 21건')), findsOneWidget);
+      final shortfallReads = server.requests.where((r) => r.url.path == '/admin/billing/shortfall').length;
+
+      final page2 = find.descendant(of: key('recent-pager'), matching: key('pager-page-2'));
+      await tester.ensureVisible(page2);
+      await tester.tap(page2);
+      await tester.pumpAndSettle();
+
+      expect(server.requests.last.url.path, '/admin/billing/recent');
+      expect(server.requests.last.url.queryParameters, {'page': '2', 'size': '20'});
+      expect(server.requests.where((r) => r.url.path == '/admin/billing/shortfall'), hasLength(shortfallReads));
+      expect(key('recent-row-r21'), findsOneWidget);
+      expect(key('recent-row-r1'), findsNothing);
     });
   });
 
@@ -257,13 +345,14 @@ void main() {
   });
 
   group('주문 · 거래 번호 조회(KF9lR)', () {
-    testWidgets('환불된 구매: 카드 (272,598) 높이 96 · 안쪽 24 · 칸 6개 가로 32 — 이름 12/600 web-muted → 6 → 값 16/700, 상태 "환불됨" danger 배지', (tester) async {
+    testWidgets('환불된 구매: 카드 (272,598) · 안쪽 24 · 칸 6개 가로 32 — 이름 12/600 web-muted → 6 → 값 16/700, 상태 "환불됨" danger 배지', (tester) async {
       await openBilling(tester);
 
       await search(tester, orderNo);
 
       final card = key('order-result');
-      expect(tester.getRect(card), const Rect.fromLTWH(272, 598, 1136, 96));
+      // 높이 96(pen) + 구매자 줄(16 + 44) — 누가 결제했는지(사용자 요청 11-23)
+      expect(tester.getRect(card), const Rect.fromLTWH(272, 598, 1136, 96 + 16 + 44));
       final names = ['상품', '스토어', '상태', '지급 하트', '회수한 하트', '시각'];
       var previousRight = 0.0;
       for (final name in names) {
@@ -285,9 +374,25 @@ void main() {
       // 칸 사이 가로 32
       final cell1Right = tester.getRect(find.descendant(of: card, matching: find.text('하트 100개'))).right;
       expect(tester.getRect(find.descendant(of: card, matching: find.text('스토어'))).left - cell1Right, closeTo(32, 6));
-      // 못 거둔 표 제목은 결과 카드 아래 20 → y714
-      expect(tester.getTopLeft(find.text('환불됐는데 하트를 다 못 거둔 목록')).dy, 714);
-      expect(tester.getTopLeft(key('shortfall-table')).dy, 756);
+      // 최근 결제 제목은 결과 카드 아래 20
+      expect(tester.getTopLeft(find.text('최근 결제 (시험 결제 제외)')).dy, 598 + 156 + 20);
+    });
+
+    testWidgets('결과 카드 둘째 줄: 구매자 닉네임 · UUID(고를 수 있는 글자), 지워진 계정이면 둘 다 "—"', (tester) async {
+      final server = FakeUserServer()..orders = [{...orderRow(), 'profile': {'id': '33333333-3333-4333-8333-333333333333', 'nickname': '순대국'}}];
+      await openBilling(tester, server: server);
+
+      await search(tester, orderNo);
+
+      final card = key('order-result');
+      final buyer = find.descendant(of: card, matching: find.text('구매자'));
+      expect(tester.getTopLeft(buyer), const Offset(296, 622 + 48 + 16)); // 첫 줄(배지 칸 48) → 16 → 둘째 줄
+      expect(find.descendant(of: card, matching: find.text('순대국')), findsOneWidget);
+      expect(tester.widget<SelectableText>(find.descendant(of: card, matching: find.byType(SelectableText))).data, '33333333-3333-4333-8333-333333333333');
+
+      server.orders = [{...orderRow(), 'profile': null}];
+      await search(tester, orderNo);
+      expect(find.descendant(of: card, matching: find.text('—')), findsNWidgets(2));
     });
 
     testWidgets('완료된 구매(A8_결제_조회_상태_완료): 배지 "완료" success, 회수한 하트 0', (tester) async {
@@ -313,7 +418,7 @@ void main() {
       expect((badge.label, badge.tone), ('pending', StatusTone.neutral));
     });
 
-    testWidgets('못 찾음(A8_결제_조회_주문_못_찾음): 같은 카드 높이 67 안에 14 web-muted "그 번호로 찾은 구매가 없어요", 못 거둔 제목 y685', (tester) async {
+    testWidgets('못 찾음(A8_결제_조회_주문_못_찾음): 같은 카드 높이 67 안에 14 web-muted "그 번호로 찾은 구매가 없어요", 최근 결제 제목 y685', (tester) async {
       await openBilling(tester);
 
       await search(tester, 'GPA.0000');
@@ -323,7 +428,7 @@ void main() {
       final text = find.text('그 번호로 찾은 구매가 없어요');
       expect(tester.getTopLeft(text), const Offset(296, 622));
       expect((styleOf(tester, text).fontSize, styleOf(tester, text).color), (14, AdminColors.muted));
-      expect(tester.getTopLeft(find.text('환불됐는데 하트를 다 못 거둔 목록')).dy, 685);
+      expect(tester.getTopLeft(find.text('최근 결제 (시험 결제 제외)')).dy, 685);
     });
 
     testWidgets('번호 모양이 틀리면(422) 오류 줄, 서버 오류면 일반 오류 줄 — 같은 카드 안', (tester) async {

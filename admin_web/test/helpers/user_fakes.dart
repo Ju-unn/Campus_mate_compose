@@ -130,6 +130,31 @@ Map<String, Object?> orderRow({
   };
 }
 
+/// 최근 결제 한 줄(서버 `/admin/billing/recent` — `_order` 모양에서 주문 번호만 없다). [profileId] 가 null 이면 지워진 계정.
+Map<String, Object?> recentRow({
+  String id = 'pr1',
+  String? profileId = '22222222-2222-4222-8222-222222222222',
+  String? nickname = '공대생',
+  int heart = 800,
+  int price = 38400,
+  String status = 'granted',
+  String store = 'play_store',
+  String purchasedAt = '2026-11-23T00:34:00+00:00',
+}) {
+  final row = {
+    ...orderRow(status: status, clawedBack: 0, store: store),
+    'id': id,
+    'product_id': 'heart_$heart',
+    'heart_amount': heart,
+    'granted_hearts': heart,
+    'price_krw': price,
+    'purchased_at': purchasedAt,
+    'granted_at': purchasedAt,
+    'profile': profileId == null ? null : {'id': profileId, 'nickname': nickname},
+  }..remove('store_order_id');
+  return row;
+}
+
 Map<String, Object?> dayRow(String date, int revenue) => {'date': date, 'revenue_krw': revenue, 'order_count': revenue == 0 ? 0 : 1, 'refunded_krw': 0};
 
 Map<String, Object?> shortfallRow({
@@ -225,6 +250,10 @@ class FakeUserServer {
     returnedRow(id: 'u7', nickname: null, count: 1, krw: 3000, granted: 50, clawed: 0, lastAt: '2026-10-04T00:12:00+00:00'),
   ];
   List<Map<String, Object?>> orders = [orderRow()];
+  List<Map<String, Object?>> recent = [
+    recentRow(),
+    recentRow(id: 'pr2', profileId: null, heart: 100, price: 5700, status: 'refunded', store: 'app_store', purchasedAt: '2026-11-20T03:00:00+00:00'),
+  ];
   Map<String, Object?> totals = userTotalsJson();
 
   int? listFailure;
@@ -232,6 +261,7 @@ class FakeUserServer {
   int? detailFailure;
   int? billingFailure;
   int? returnedFailure;
+  int? recentFailure;
   int? searchFailure;
   int? actionFailure;
   String? actionReason;
@@ -319,6 +349,7 @@ class FakeUserServer {
     }
     if (failure != null) return failure;
     if (path == '/admin/billing/frequent-returns') return _fail(returnedFailure) ?? _json(200, pageJson(returned, request.url.queryParameters));
+    if (path == '/admin/billing/recent') return _fail(recentFailure) ?? _json(200, pageJson(recent, request.url.queryParameters));
     return switch (path) {
       '/admin/billing/summary' => _json(200, summary),
       '/admin/billing/daily' => _json(200, {'days': days}),

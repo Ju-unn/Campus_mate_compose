@@ -46,25 +46,35 @@ DateTime _time(Object? value) {
   return at;
 }
 
-/// 주문 번호로 찾은 구매 한 건
+/// 구매 한 건 — 주문 번호로 찾은 결과와 최근 결제 표가 같이 쓴다(서버 `_order` 모양)
 class BillingOrder {
   const BillingOrder({
+    required this.id,
     required this.store,
     required this.status,
     required this.productId,
     required this.grantedHearts,
     required this.clawedBackHearts,
+    required this.priceKrw,
     required this.purchasedAt,
     required this.refundedAt,
+    required this.profileId,
+    required this.nickname,
   });
 
+  final String id;
   final String store;
   final String status;
   final String productId;
   final int grantedHearts;
   final int clawedBackHearts;
+  final int priceKrw;
   final DateTime purchasedAt;
   final DateTime? refundedAt;
+
+  /// 결제한 사람. 계정이 지워졌으면 둘 다 null, 가입 중이라 닉네임이 없으면 [nickname] 만 null.
+  final String? profileId;
+  final String? nickname;
 
   String get productName => productDisplayName(productId);
 
@@ -73,21 +83,33 @@ class BillingOrder {
 
   static BillingOrder fromJson(Object? json) {
     if (json case {
+      'id': final String id,
       'store': final String store,
       'status': final String status,
       'product_id': final String productId,
       'granted_hearts': final int granted,
+      'price_krw': final int price,
     }) {
       final clawed = json['clawed_back_hearts'];
-      if (clawed is int?) {
+      // 지워진 계정 null · 가입 중이라 닉네임 없음 {id, nickname: null}
+      final buyer = switch (json['profile']) {
+        null => (id: null, nickname: null),
+        {'id': final String id, 'nickname': final String? nickname} => (id: id, nickname: nickname),
+        _ => null,
+      };
+      if (clawed is int? && buyer != null) {
         return BillingOrder(
+          id: id,
           store: store,
           status: status,
           productId: productId,
           grantedHearts: granted,
           clawedBackHearts: clawed ?? 0,
+          priceKrw: price,
           purchasedAt: _time(json['purchased_at']),
           refundedAt: json['refunded_at'] is String ? DateTime.tryParse(json['refunded_at'] as String) : null,
+          profileId: buyer.id,
+          nickname: buyer.nickname,
         );
       }
     }

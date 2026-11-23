@@ -230,6 +230,11 @@ class AdminApi {
     });
   }
 
+  /// 최근 결제(시험 결제 제외), 최근 순 · 쪽당 [pageSize] — 누가 결제했는지. 주문 번호는 오지 않는다.
+  Future<ListPage<BillingOrder>> billingRecent({int page = 1}) {
+    return _page('/admin/billing/recent', {}, page, BillingOrder.fromJson, '최근 결제 목록');
+  }
+
   Future<ListPage<ShortfallRow>> billingShortfall({int page = 1}) {
     return _page('/admin/billing/shortfall', {}, page, ShortfallRow.fromJson, '못 거둔 하트 목록');
   }
