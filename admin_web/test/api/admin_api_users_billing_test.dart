@@ -293,6 +293,37 @@ void main() {
       expect(rows.items.map((r) => (r.profileId, r.nickname, r.refundCount)), [('u1', '닉네임A', 3), ('u7', null, 1)]);
     });
 
+    test('최근 결제: GET /admin/billing/recent 쪽만 — 누가(닉네임 · 프로필 id) 얼마를, 지워진 계정은 둘 다 null', () async {
+      final api = apiWith((request) => json(200, {
+            'items': [recentRow(), recentRow(id: 'pr2', profileId: null, price: 5700), recentRow(id: 'pr3', nickname: null)],
+            'total': 3,
+            'page': 1,
+            'size': 20,
+          }));
+
+      final rows = await api.billingRecent();
+
+      expect(requests.single.method, 'GET');
+      expect(requests.single.url.path, '/admin/billing/recent');
+      expect(requests.single.url.queryParameters, {'page': '1', 'size': '20'});
+      expect(rows.total, 3);
+      expect(rows.items.map((r) => (r.id, r.nickname, r.profileId, r.priceKrw)), [
+        ('pr1', '공대생', '22222222-2222-4222-8222-222222222222', 38400),
+        ('pr2', null, null, 5700),
+        ('pr3', null, '22222222-2222-4222-8222-222222222222', 38400),
+      ]);
+      expect(rows.items.first.productName, '하트 800개');
+      expect(rows.items.first.purchasedAt, DateTime.utc(2026, 11, 23, 0, 34));
+    });
+
+    test('최근 결제 2쪽은 page=2', () async {
+      final api = apiWith((request) => json(200, {'items': [], 'total': 21, 'page': 2, 'size': 20}));
+
+      await api.billingRecent(page: 2);
+
+      expect(requests.single.url.queryParameters, {'page': '2', 'size': '20'});
+    });
+
     test('환불이 잦은 계정 응답 모양이 틀리면 실패로 다룬다', () async {
       final api = apiWith((request) => json(200, {'rows': []}));
 
