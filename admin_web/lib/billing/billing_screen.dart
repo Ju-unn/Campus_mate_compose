@@ -85,6 +85,7 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
       below,
       if (data != null) ...[
         if (orders != null) _OrderResult(orders: orders),
+        ..._recent(data),
         ..._shortfall(data),
         ..._returned(data),
       ] else if (orders != null)
@@ -101,6 +102,53 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
         ),
       ),
     );
+  }
+
+  /// 최근 결제(사용자 요청 2026-11-23 — 누가 결제했는지): 제목 → (표 → 번호 쪽 | "아직 결제가 없어요"). pen 시안이 없어 못 거둔 표와 같은 모양이다.
+  /// UUID 는 사용자 찾기에 붙여 넣을 수 있게 고를 수 있는 글자로 둔다. 주문 번호는 서버가 싣지 않는다.
+  List<Widget> _recent(BillingOverview data) {
+    final rows = data.recent.items;
+    return [
+      Semantics(
+        header: true,
+        child: Text('최근 결제 (시험 결제 제외)', style: AdminTypography.md.copyWith(fontWeight: FontWeight.w700, height: AdminTypography.mdBox, color: AdminColors.ink)),
+      ),
+      if (rows.isEmpty)
+        Text('아직 결제가 없어요', style: AdminTypography.sm.copyWith(height: AdminTypography.smBox, color: AdminColors.muted))
+      else ...[
+        AdminTable(
+          key: const ValueKey('recent-table'),
+          columns: const [150, 130, 320, 120, 110, 110, 90],
+          fillLast: true,
+          heads: const ['시각', '닉네임', 'UUID', '상품', '스토어', '금액', '상태'],
+          rows: [
+            for (final row in rows)
+              AdminTableRow(
+                rowKey: ValueKey('recent-row-${row.id}'),
+                cells: [
+                  AdminCellText(formatSubmittedAt(row.purchasedAt)),
+                  AdminCellText(row.nickname ?? missingValue),
+                  _ProfileIdText(row.profileId),
+                  AdminCellText(row.productName),
+                  AdminCellText(storeName(row.store)),
+                  AdminCellText(formatWon(row.priceKrw)),
+                  Builder(builder: (_) {
+                    final (label, tone) = purchaseStatusBadge(row.status);
+                    return Align(alignment: Alignment.centerLeft, child: StatusBadge(label, tone: tone));
+                  }),
+                ],
+              ),
+          ],
+        ),
+        AdminPager(
+          key: const ValueKey('recent-pager'),
+          total: data.recent.total,
+          page: data.recentPage,
+          size: AdminApi.pageSize,
+          onPage: ref.read(billingOverviewProvider.notifier).recentPage,
+        ),
+      ],
+    ];
   }
 
   /// 못 거둔 표 위젯들: 제목 → (표 → 번호 쪽 | "다 거두지 못한 구매가 없어요") → 안내(표가 있을 때). 사이는 화면 전체와 같은 20.
@@ -188,6 +236,22 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
         ),
       ],
     ];
+  }
+}
+
+/// 결제한 사람의 프로필 id — 복사할 수 있게 고를 수 있는 한 줄. 계정이 지워졌으면 "—".
+class _ProfileIdText extends StatelessWidget {
+  const _ProfileIdText(this.id, {this.style});
+
+  final String? id;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = style ?? AdminTypography.sm.copyWith(color: AdminColors.ink);
+    final value = id;
+    if (value == null) return Text(missingValue, style: shown);
+    return SelectableText(value, maxLines: 1, style: shown);
   }
 }
 
@@ -335,10 +399,19 @@ class _OrderRow extends StatelessWidget {
       cell('회수한 하트', value: '${order.clawedBackHearts}'),
       cell('시각', value: formatSubmittedAt(order.shownAt)),
     ];
-    return Wrap(
-      spacing: 32,
-      runSpacing: AdminSpacing.md,
-      children: cells,
+    final valueStyle = AdminTypography.md.copyWith(fontWeight: FontWeight.w700, height: AdminTypography.mdBox, color: AdminColors.ink);
+    // 둘째 줄: 누가 결제했는지(사용자 요청 2026-11-23) — 지워진 계정은 둘 다 "—"
+    final buyer = [
+      cell('구매자', value: order.nickname ?? missingValue),
+      cell('UUID', widget: _ProfileIdText(order.profileId, style: valueStyle)),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(spacing: 32, runSpacing: AdminSpacing.md, children: cells),
+        const SizedBox(height: AdminSpacing.md),
+        Wrap(spacing: 32, runSpacing: AdminSpacing.md, children: buyer),
+      ],
     );
   }
 }
