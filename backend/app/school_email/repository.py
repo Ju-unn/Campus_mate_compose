@@ -30,6 +30,20 @@ class SchoolEmailRepository(PostgrestRepository):
         raise_for_status(response)
         return response.json()
 
+    async def is_unfinished_signup(self, user_id: str) -> bool:
+        """그 계정이 가입을 끝내지 않았는가 — 프로필이 없거나, pending 이고 학교 메일 · 졸업생 인증이 둘 다 없다.
+        정지 · 탈퇴 · active 는 아니다. 읽기 실패는 예외로 올린다."""
+        response = await self._get("profiles", params={
+            "id": f"eq.{user_id}", "select": "status,school_email_verified_at,graduate_verified_at",
+        })
+        raise_for_status(response)
+        rows = response.json()
+        if not rows:
+            return True
+        row = rows[0]
+        return (row.get("status") == "pending" and row.get("school_email_verified_at") is None
+                and row.get("graduate_verified_at") is None)
+
     async def has_profile(self, user_id: str) -> bool:
         """그 auth 사용자에게 프로필 행이 있는지. 임시 이메일 계정에는 없다. 읽기 실패는 예외로 올린다."""
         response = await self._get("profiles", params={"id": f"eq.{user_id}", "select": "id"})

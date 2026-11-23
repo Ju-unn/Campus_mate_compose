@@ -249,11 +249,8 @@ async def verify(
     if temp_user is None:
         return _auth_unavailable()
     email = confirmed_temp_email(temp_user, caller_id, body.temp_access_token)
-    if email is None:  # 6 — 남의 계정일 수 있어 지우지 않는다
-        holder = existing_social_account_provider(temp_user, caller_id, body.temp_access_token)
-        if holder is not None:  # 6-d 다른 소셜 계정이 이미 쓰는 메일 — 다시 해도 같으니 409 로 바로 알린다
-            return _taken_response(holder)
-        return _error(403, errors.SCHOOL_EMAIL_NOT_CONFIRMED, errors.CODE_SCHOOL_EMAIL_NOT_CONFIRMED)
+    if email is None:  # 6 — 임시 계정이 아니다. 남의 계정 · 내 계정일 수 있어 지우지 않는다
+        return await _verify_by_existing_account(caller, temp_user, body.temp_access_token, provider)
     repo = SchoolEmailRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
     if not await _is_fresh_temp_account(repo, temp_user, now):  # 6-b — 실제 계정이다: RPC 도 삭제도 하지 않는다
         return _taken_response("email")
@@ -261,6 +258,45 @@ async def verify(
     outcome = await _decide(caller, email, provider)
     await delete_temp_account(settings, client, temp_user["id"], caller_id, now)
     return outcome
+
+
+def otp_account_email(temp_user: dict, temp_token: str) -> str | None:
+    """OTP 로 받은 토큰의 계정 메일(소문자 · 공백 제거). OTP 토큰이 아니거나 id · 메일이 없으면 None.
+    임시 계정이 아닌 **이미 있던 계정**에 쓴다 — OTP 를 맞혔으니 그 메일함의 주인이다."""
+    if not signed_in_by_otp(temp_token) or not temp_user.get("id"):
+        return None
+    return normalize_email(temp_user.get("email") or "") or None
+
+
+async def _holder_is_unfinished(caller: Caller, holder_id: str) -> bool:
+    """그 메일을 쥔 다른 계정이 가입을 끝내지 않았는가. 읽지 못하면 끝낸 것으로 본다(409 로 막는 쪽)."""
+    settings, client, _ = caller
+    repo = SchoolEmailRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
+    try:
+        return await repo.is_unfinished_signup(holder_id)
+    except Exception as exc:
+        logger.warning("메일을 쥔 계정의 가입 상태 확인 실패 — 막는다 %s", type(exc).__name__)
+        return False
+
+
+async def _verify_by_existing_account(caller: Caller, temp_user: dict, temp_token: str, provider: str):
+    """학교 메일 OTP 가 새 임시 계정을 만들지 않고 **이미 있던 계정**으로 로그인된 경우. 그 계정은 지우지도 바꾸지도 않는다.
+
+    6-f 그 계정이 호출한 사람 자신(학교 구글 계정으로 로그인해 로그인 메일이 곧 학교 메일) → 인증한다.
+    6-d 다른 소셜 계정이 가입을 끝냈다(학교 메일 · 졸업생 인증, active · 정지 · 탈퇴) → 409, 그 계정의 provider.
+    6-e 다른 소셜 계정이 가입을 끝내지 않았다(pending · 인증 없음 · 프로필 없음) → 인증한다(2026-11-23).
+        학교 구글로 로그인만 하고 카카오로 다시 온 사람이 영영 막혔다. 남은 계정은 정리 배치가 14일 뒤 지운다.
+    어느 갈래든 도메인 · + 별칭 · 재가입 제한 · DB 함수(claims)를 똑같이 거친다."""
+    caller_id = str(caller[2])
+    email = otp_account_email(temp_user, temp_token)
+    if email is not None and str(temp_user["id"]) == caller_id:  # 6-f
+        return await _decide(caller, email, provider)
+    holder = existing_social_account_provider(temp_user, caller_id, temp_token)
+    if holder is None or email is None:
+        return _error(403, errors.SCHOOL_EMAIL_NOT_CONFIRMED, errors.CODE_SCHOOL_EMAIL_NOT_CONFIRMED)
+    if not await _holder_is_unfinished(caller, str(temp_user["id"])):  # 6-d
+        return _taken_response(holder)
+    return await _decide(caller, email, provider)  # 6-e
 
 
 async def _decide(caller: Caller, email: str, provider: str):
