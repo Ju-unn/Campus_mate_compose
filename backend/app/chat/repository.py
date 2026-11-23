@@ -188,16 +188,21 @@ class ChatRepository(PostgrestRepository):
         await self._announce(match_id, "message", {"match_id": str(match_id), "message": message})
         return rows[0], True
 
-    async def _fetch_sent(self, match_id: UUID | str, sender_id: UUID | str, client_id: UUID) -> dict:
-        """겹친 재전송의 원래 줄. sender_id 조건이 있어야 상대 줄을 client_id 로 읽어 오는 길이 없다.
-        insert 가 겹쳤다는 건 그 줄이 있다는 뜻이라 빈 결과는 없다(메시지는 지우지 않는다) — 비면 이름 있는 오류로 500."""
+    async def find_sent(self, match_id: UUID | str, sender_id: UUID | str, client_id: UUID) -> dict | None:
+        """내가 이 client_id 로 이미 남긴 줄, 없으면 None. sender_id 조건이 있어야 상대 줄을 client_id 로 읽어 오는 길이 없다."""
         rows = await self._rows("messages", {
             "match_id": f"eq.{match_id}", "sender_id": f"eq.{sender_id}",
             "client_id": f"eq.{client_id}", "select": "*",
         })
-        if not rows:
+        return rows[0] if rows else None
+
+    async def _fetch_sent(self, match_id: UUID | str, sender_id: UUID | str, client_id: UUID) -> dict:
+        """겹친 재전송의 원래 줄. insert 가 겹쳤다는 건 그 줄이 있다는 뜻이라 빈 결과는 없다
+        (메시지는 지우지 않는다) — 비면 이름 있는 오류로 500."""
+        sent = await self.find_sent(match_id, sender_id, client_id)
+        if sent is None:
             raise RuntimeError(f"client_id 재전송 줄 없음 match={match_id} sender={sender_id}")
-        return rows[0]
+        return sent
 
     async def count_unread(self, match_id: UUID | str, profile_id: UUID | str,
                            last_read_at: str | None) -> int:

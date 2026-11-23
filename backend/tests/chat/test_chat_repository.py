@@ -392,3 +392,25 @@ async def test_without_a_client_id_the_insert_is_the_old_plain_one():
     assert "client_id" not in json.loads(seen[0].content)
     assert "on_conflict" not in seen[0].url.params
     assert seen[0].headers["Prefer"] == "return=representation"
+
+
+async def test_find_sent_is_none_when_no_line_has_my_client_id():
+    """닫힌 · 나간 방의 재전송 확인용 — 없으면 None(새 글이라 라우터가 409 로 거절한다)."""
+    reads: list[httpx.QueryParams] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        reads.append(request.url.params)
+        return httpx.Response(200, json=[])
+
+    assert await _repo(handler).find_sent(MATCH, ME, CLIENT_ID) is None
+    assert (reads[0]["match_id"], reads[0]["sender_id"], reads[0]["client_id"]) == (
+        f"eq.{MATCH}", f"eq.{ME}", f"eq.{CLIENT_ID}")
+
+
+async def test_a_conflicting_insert_whose_line_vanished_is_still_a_named_error():
+    """insert 가 겹쳤는데 되읽기가 비면 이름 있는 오류(500) — find_sent 를 나눠도 이 계약은 그대로다."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(201 if request.method == "POST" else 200, json=[])
+
+    with pytest.raises(RuntimeError, match="client_id 재전송 줄 없음"):
+        await _repo(handler).insert_message(MATCH, ME, "안녕", client_id=CLIENT_ID)
