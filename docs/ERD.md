@@ -438,14 +438,16 @@ erDiagram
     card_decisions {
         uuid card_id PK, FK "조각4"
         card_decision decision "accept reject"
-        timestamptz decided_at
+        timestamptz decided_at "다시 신청하면 그 시각으로 덮인다 1.0.7"
+        timestamptz rejected_at "다시 신청한 카드의 원래 거절 시각 · null 이면 다시 신청 아님 · 관리자 통계용 1.0.7"
     }
 
     acceptance_responses {
         uuid card_id PK, FK "조각4 제안 · A가 accept 한 카드"
         uuid responder_id FK "받은 수락함 주인 B"
         card_decision decision "B가 고른 값 · 거절 행도 신청자의 보낸 신청 목록에 쓰인다 2026-10-13"
-        timestamptz decided_at
+        timestamptz decided_at "거절을 되돌리면 그 시각으로 덮인다 1.0.7"
+        timestamptz rejected_at "거절을 되돌린 응답의 원래 거절 시각 · null 이면 되돌림 아님 · 관리자 통계용 1.0.7"
     }
 
     matches {
