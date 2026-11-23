@@ -10,6 +10,7 @@ from app.admin.heart_task_review import router as heart_task_review_router
 from app.admin.inquiry_review import router as inquiry_review_router
 from app.admin.matching import router as matching_router
 from app.admin.moderation import router as moderation_router
+from app.admin.notices import router as notices_router
 from app.admin.report_review import router as report_review_router
 from app.admin.server_status import router as server_status_router
 from app.admin.stats import router as stats_router
@@ -31,6 +32,7 @@ router.include_router(health_router)
 router.include_router(matching_router)
 router.include_router(inquiry_review_router)
 router.include_router(server_status_router)
+router.include_router(notices_router)
 
 
 @router.get("/me")
