@@ -44,7 +44,9 @@ def _order(row: dict) -> dict:
     granted = row["heart_amount"] + row["bonus_hearts"]
     refunded_with_owner = row["status"] == "refunded" and row["profiles"] is not None
     return {
-        "id": row["id"], "store": row["store"], "product_id": row["product_id"], "store_order_id": row["store_order_id"],
+        "id": row["id"], "store": row["store"], "product_id": row["product_id"],
+        # 주문 번호는 번호로 찾을 때만 고른다(최근 결제 목록에는 없다).
+        **({"store_order_id": row["store_order_id"]} if "store_order_id" in row else {}),
         "status": row["status"], "is_test": row["is_test"], "heart_amount": row["heart_amount"],
         "bonus_hearts": row["bonus_hearts"], "granted_hearts": granted, "clawed_back_hearts": row["clawed_back_hearts"],
         # 계정이 지워진 구매는 회수할 사람이 없어 모자람으로 세지 않는다(refund_store_purchase 와 같은 규칙).
@@ -66,6 +68,13 @@ async def search_orders(body: OrderSearchBody, caller: AdminCaller = Depends(get
     if not _ORDER.fullmatch(order):
         raise HTTPException(status_code=422, detail=errors.INVALID_INPUT)
     return {"items": [_order(row) for row in await _repo(caller).find_orders(order, ORDER_RESULTS)]}
+
+
+@router.get("/recent")
+async def get_recent(page: Page = Depends(page_query), caller: AdminCaller = Depends(get_admin_caller)) -> dict:
+    """최근 결제(시험 결제 제외) — 누가(닉네임 · 프로필 id) 무엇을 샀는지. 주문 번호는 싣지 않는다."""
+    rows, total = await _repo(caller).recent_orders(page)
+    return page.body([_order(row) for row in rows], total)
 
 
 @router.get("/shortfall")
