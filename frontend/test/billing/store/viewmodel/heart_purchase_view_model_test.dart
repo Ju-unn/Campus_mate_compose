@@ -373,6 +373,73 @@ void main() {
       });
     }
 
+    // 구글은 서버가 늦게라도 지급하면 서버가 소비로 끝낸다 — 그러면 복구(recover)가 그 결제를 다시 주지 않아 잔액이 낡은 채 남았다.
+    for (final fromStore in [false, true]) {
+      test('지연된 결제를 서버가 나중에 지급해 복구로 다시 오지 않아도, ${fromStore ? '상점 진입' : '복귀'} 때 다시 확인해 잔액을 읽는다',
+          () async {
+        container.listen(myProfileProvider, (_, _) {});
+        await pumpEventQueue();
+        repo.outcome = const FailureResult(NetworkFailure());
+        await emit([const StorePurchased('heart_100', 'tok')]);
+        expect(state().phase, HeartPurchasePhase.delayed);
+        final profileReads = me.calls;
+        repo.outcome = const Success(PurchaseGranted(hearts: 100, bonusHearts: 50, isNew: false));
+
+        await vm().refresh(fromStore: fromStore);
+        await pumpEventQueue();
+
+        expect(repo.verified, [('heart_100', 'tok'), ('heart_100', 'tok')]);
+        expect(me.calls, profileReads + 1, reason: '지급이 확인됐으니 하트 잔액을 다시 읽는다');
+        expect((state().phase, state().banner), (HeartPurchasePhase.idle, null));
+        expect(gateway.finished, ['tok']);
+
+        await vm().refresh();
+        await pumpEventQueue();
+        expect(repo.verified.length, 2, reason: '지급이 끝난 결제는 다음 복귀 때 다시 보내지 않는다');
+      });
+    }
+
+    test('지연된 결제가 복구로 먼저 다시 와 지급되면, 다음 복귀 때 또 보내지 않는다', () async {
+      repo.outcome = const FailureResult(NetworkFailure());
+      await emit([const StorePurchased('heart_100', 'tok')]);
+      repo.outcome = const Success(PurchaseGranted(hearts: 100, bonusHearts: 50, isNew: false));
+      await emit([const StorePurchased('heart_100', 'tok')]);
+
+      await vm().refresh();
+      await pumpEventQueue();
+
+      expect(repo.verified.length, 2);
+    });
+
+    test('지연된 결제가 아직도 지연이면 다음 복귀 때 또 확인하고, 잔액은 다시 읽지 않는다', () async {
+      container.listen(myProfileProvider, (_, _) {});
+      await pumpEventQueue();
+      repo.outcome = const FailureResult(ServerUnavailableFailure());
+      await emit([const StorePurchased('heart_100', 'tok')]);
+      final profileReads = me.calls;
+
+      await vm().refresh();
+      await pumpEventQueue();
+      await vm().refresh();
+      await pumpEventQueue();
+
+      expect(repo.verified.length, 3);
+      expect(me.calls, profileReads);
+      expect(state().phase, HeartPurchasePhase.delayed);
+    });
+
+    test('지연된 결제가 없으면 복귀해도 결제 확인 · 잔액을 다시 읽지 않는다', () async {
+      container.listen(myProfileProvider, (_, _) {});
+      await pumpEventQueue();
+      final profileReads = me.calls;
+
+      await vm().refresh();
+      await pumpEventQueue();
+
+      expect(repo.verified, isEmpty);
+      expect(me.calls, profileReads);
+    });
+
     test('409 다른 계정 → 배너, 같은 토큰은 다시 보내지 않는다', () async {
       repo.outcome = const FailureResult(ServerRejectedFailure('x', code: 'purchase_other_account'));
 
