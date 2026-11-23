@@ -663,6 +663,8 @@
   "matchingConversationsSentSection": "보낸 신청",
   "matchingConversationsSentToast": "신청을 보냈어요",
   "matchingConversationsTitle": "대화",
+  "matchingCountdownDays": "{days}일 {time}",
+  "@matchingCountdownDays": {"placeholders": {"days": {"type": "int"}, "time": {"type": "String"}}},
   "matchingFactHeight": "키",
   "matchingFactNonSmoker": "비흡연",
   "matchingFactReligion": "종교",
