@@ -1695,6 +1695,22 @@ INFO 를 켠 로거는 핸들러를 직접 달아서 같은 로거의 WARNING �
 - **0% 태그 점검(대장 전달 값)**: `00137-wiz` · `00139-lit` · `00141-wew` 모두 env 33개(직전 리비전과 이름 목록 같음), 태그 주소 `/health` 200 · `/app/version` 정상(`00139-lit` 부터 `1.0.6`) · `POST /batch/cleanup`(본문 0) 401 · ERROR 로그 0 을 본 뒤 100% 로 옮겼다. `00137-wiz` 전환 뒤 1.0.6 폰 시험(학과 "." → 3c 다시 뜸 · 규칙 밖 학과 422 · 저장 뒤 홈)을 했고 시험 계정 값은 되돌렸다.
 - 앱 쪽 미리 검사와 안내 문구는 앱 1.0.7 에 넣는다(추후 할 일). 그때까지 1.0.6 앱은 서버 문구를 그대로 칸 아래에 보인다.
 
+## 4-35. 커뮤니티 게시물 + 카테고리 (할 일 19, 브랜치 `feat/community-posts`) — **아직 merge 전 · DB 미적용 · 서버 미배포**
+
+설계 `docs/superpowers/specs/2026-11-24-community-posts-design.md`(A안: `polls` 한 표에 투표 · 게시물). 마이그레이션 `20261123155829_community_posts_category`, 시험 `supabase/tests/community_posts_test.sql` · `backend/tests/community/test_community_items.py`.
+
+**배포 순서: DB → 서버 → 1.0.7 앱.** 새 서버는 DB 함수 `create_community_item` · `community_feed` 를 부르므로 DB 보다 먼저 올리면 글 올리기(옛 `POST /community/polls` 포함)와 새 피드가 500 이다. DB 만 먼저 올라간 동안 옛 서버는 그대로 돈다(`poll_feed` · `cast_poll_vote` 는 인자 · 반환이 같고 게시물만 거르며, `create_poll` 은 인자 · 반환 그대로 `create_community_item` 에 넘긴다). 서버를 되돌려도 `poll_feed` 가 게시물을 걸러 1.0.6 화면에 게시물이 섞이지 않는다.
+
+| 길 | 계약 |
+| --- | --- |
+| `GET /community/feed?tab=&before=&before_id=` | `{items, has_more}`. 줄 = `{id, kind, category, text, created_at, is_mine, comment_count, poll}`, `poll` = `{option_a_label, option_b_label, a_count, b_count, my_choice}` 또는 게시물이면 null. **작성자 칸 없음.** 탭 `all` · `popular` · `mine` · `voted` · `free` · `career` · `love`(그 밖 422). 인기는 최근 7일 · 참여(표 + 보이는 댓글) 순 한 쪽이라 커서를 받지 않는다(422) |
+| `GET /community/items/{id}` | `{item}`. 없음 · 가려짐 · 떠난 글쓴이 404 "글을 찾을 수 없어요" |
+| `POST /community/posts` | `{category, body}` → 201 `{id}`. 본문 여러 줄 · 앞뒤 공백 자름 · 1~500자 · 보이는 글자 필수 · 널 · 제어 · 글 방향 문자 거절. 카테고리 세 값만(그 밖 · 없음 422). 하루 10개는 **투표 + 게시물 합산** — 넘으면 429 "오늘은 글을 더 올릴 수 없어요" |
+| `DELETE /community/items/{id}` · `GET` · `POST /community/items/{id}/comments` | 옛 `/community/polls/…` 와 같은 처리 함수. 없음 404 문구만 "글을 찾을 수 없어요", 댓글 푸시 제목은 투표 · 게시물 모두 "내 글에 새 댓글이 달렸어요" |
+| 옛 `GET /community/polls` · `/community/polls/{id}` | 투표만, 응답 모양 그대로(1.0.6) |
+| 옛 `POST /community/polls` | `category` **선택 칸**을 더했다 — 없으면 `free`, 세 값 밖이면 422. 하루 한도는 게시물과 합산되지만 문구는 그대로 "오늘은 질문을 더 올릴 수 없어요". 옛 `/community/polls/…` 의 404 · 푸시 제목도 그대로 |
+| 신고 `POST /reports` | `target_type` 은 게시물도 `poll`. 게시물이면 스냅샷에 `kind` · `category` 가 더해지고 선택지는 null(관리자 웹은 "—" 로 그린다) |
+
 ## 5. 현재 배포 상태 (아래 표는 2026-11-14 새벽 기준 — 2026-11-16 개정은 개정 5 바로 아래 네 문단(종전 서술: "첫 네 문단", 그 앞 "첫 세 문단"), 2026-11-17 개정 5 는 개정 6 바로 아래 문단, 2026-11-18 개정 6 은 개정 7 바로 아래 문단, 지금 운영은 2026-11-18 개정 7 — 맨 위 문단)
 
 **2026-11-18 개정 7(낮, 대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다): 운영 트래픽 100% 는 `campus-mate-backend-00141-wew`(태그 `l1118`, main `28b800cb` 기준)다. 바로 앞 운영은 `campus-mate-backend-00139-lit`(태그 `v1118`)이고 이것이 되돌림 대상이다(§2 (다)).** 오늘 올린 세 리비전(모두 asia-northeast3, §2 고정 3단계): `00137-wiz`(태그 `i1118`, 서버 PR #775 입력 검사, 되돌림 `00135-haz`) → `00139-lit`(태그 `v1118`, **`MIN_APP_VERSION` 을 `1.0.3` 에서 `1.0.6` 으로**, env 만 바꾼 배포 · env 33개 그대로, 되돌림 `00137-wiz`) → `00141-wew`(태그 `l1118`, 서버 PR #776 구글 모니터링 실패 로그에 상태 코드, 되돌림 `00139-lit`). 내용 · 되돌림 영향은 §4-34. 새 시크릿 · 마이그레이션 · job 은 없다. **개정 6 의 "운영 100% 는 `00135-haz`" 는 이 개정으로 대체됐다.** 아래 표 "설정" 줄과 열려 있는 것 6 · 12 의 `MIN_APP_VERSION=1.0.3` 은 종전 값이라 지우지 않는다 — 지금 운영 값은 `1.0.6` 이다(두 스토어 공개 확인, 사용자 요청). 개정 6 이하와 표는 종전 서술이다.
