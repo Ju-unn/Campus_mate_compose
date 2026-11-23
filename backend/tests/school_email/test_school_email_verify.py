@@ -395,6 +395,18 @@ def test_a_holder_that_is_not_an_unfinished_signup_still_blocks(client, world, h
     assert world.deleted_users == []
 
 
+def test_a_holder_with_a_graduate_request_under_review_still_blocks(client, world):
+    """정리 배치(is_still_unverified)와 같은 기준 — 심사 중 졸업생 신청이 있으면 가입 중인 계정이다."""
+    token = _existing_social_otp(world, "google")
+    world.profiles[OTHER] = {"status": "pending", "school_email_verified_at": None, "graduate_verified_at": None}
+    world.open_graduate_requests.add(OTHER)
+
+    response = _verify(client, token)
+
+    assert response.status_code == 409
+    assert world.rpc_bodies == []
+
+
 def test_an_unreadable_holder_profile_still_blocks(client, world):
     token = _existing_social_otp(world, "google")
     world.unreadable_profiles.add(OTHER)
@@ -448,7 +460,7 @@ def test_a_claim_already_held_by_the_unfinished_holder_is_still_409_from_the_db(
 # 6-f: 내 로그인 메일이 곧 학교 메일(학교 구글 계정으로 로그인) — OTP 로 메일 주인임을 보이면 인증한다(2026-11-23) ------
 
 def test_the_callers_own_login_mail_by_otp_verifies_the_caller(client, world):
-    token = _existing_social_otp(world, "google", user_id=ME)
+    token = _existing_social_otp(world, "kakao", user_id=ME)
 
     response = _verify(client, token)
 
@@ -468,11 +480,41 @@ def test_the_callers_own_login_mail_not_by_otp_stays_not_confirmed(client, world
 
 
 def test_the_callers_own_login_mail_on_an_unknown_domain_is_422_and_untouched(client, world):
-    token = _existing_social_otp(world, "google", user_id=ME)
+    token = _existing_social_otp(world, "kakao", user_id=ME)
     world.tokens[token]["email"] = "hong@gmail.com"
 
     assert _verify(client, token).status_code == 422
     assert world.deleted_users == []
+
+
+# 6-e · 6-f 의 OTP 신선도 — 번호를 맞힌 지 30분 안의 토큰만. 세션을 갱신해도 amr 의 otp 시각은 처음 그대로다 ------------
+
+TOKEN_TIME = 1791428280  # verify_world.NOW 2분 전
+STALE = [
+    [{"method": "otp", "timestamp": TOKEN_TIME - 29 * 60}],                  # NOW 31분 전
+    [{"method": "otp"}],                                                     # 시각 없음
+    [{"method": "otp", "timestamp": "1791428280"}],                          # 숫자가 아님
+]
+
+
+@pytest.mark.parametrize("amr", STALE, ids=["31-minutes-old", "no-timestamp", "not-a-number"])
+@pytest.mark.parametrize("user_id", [OTHER, ME], ids=["unfinished-holder", "own-login-mail"])
+def test_an_old_otp_on_an_existing_account_stays_not_confirmed(client, world, amr, user_id):
+    token = _existing_social_otp(world, "kakao", user_id=user_id)
+    stale = jwt({"sub": user_id, "amr": amr})
+    world.tokens[stale] = world.tokens.pop(token)
+
+    _expect(_verify(client, stale), 403, "학교 메일 인증이 끝나지 않았어요", "SCHOOL_EMAIL_NOT_CONFIRMED")
+    assert world.rpc_bodies == []
+    assert world.deleted_users == []
+
+
+def test_an_otp_29_minutes_old_still_verifies(client, world):
+    token = _existing_social_otp(world, "kakao", user_id=ME)
+    fresh = jwt({"sub": ME, "amr": [{"method": "otp", "timestamp": TOKEN_TIME - 27 * 60}]})
+    world.tokens[fresh] = world.tokens.pop(token)
+
+    assert _verify(client, fresh).status_code == 200
 
 
 # 6-c: 메일 앞부분의 + 별칭 — 한 메일함으로 계정을 여럿 만드는 길을 막는다 -------------------------------------
