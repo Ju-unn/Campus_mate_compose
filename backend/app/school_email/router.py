@@ -106,21 +106,35 @@ def _caller_provider(auth_user: dict) -> str | None:
 _JWT = re.compile(r"[A-Za-z0-9_-]+\.([A-Za-z0-9_-]+)\.[A-Za-z0-9_-]+")
 
 
-def signed_in_by_otp(token: str) -> bool:
-    """임시 토큰 페이로드의 amr 에 otp 가 있고 password 가 없는가. GoTrue POST /verify(앱의 verifyOTP)는 늘 models.OTP 를
-    적는다(supabase/auth internal/api/verify.go). 서명은 보지 않는다 — 같은 토큰을 바로 앞에서 /user 가 확인했다.
-    읽을 수 없으면 False — 막는 쪽으로 넘어진다."""
+def _amr_entries(token: str) -> list[dict]:
+    """토큰 페이로드의 amr 항목들. 읽을 수 없으면 빈 목록. 서명은 보지 않는다 — 같은 토큰을 바로 앞에서 /user 가 확인했다."""
     match = _JWT.fullmatch(token)
     if match is None:
-        return False
+        return []
     payload = match[1]
     try:
         claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
     except ValueError:  # binascii.Error · JSONDecodeError · UnicodeDecodeError 는 모두 ValueError 다.
-        return False
+        return []
     amr = claims.get("amr") if isinstance(claims, dict) else None
-    methods = {entry.get("method") for entry in amr if isinstance(entry, dict)} if isinstance(amr, list) else set()
+    return [entry for entry in amr if isinstance(entry, dict)] if isinstance(amr, list) else []
+
+
+def signed_in_by_otp(token: str) -> bool:
+    """임시 토큰 페이로드의 amr 에 otp 가 있고 password 가 없는가. GoTrue POST /verify(앱의 verifyOTP)는 늘 models.OTP 를
+    적는다(supabase/auth internal/api/verify.go). 읽을 수 없으면 False — 막는 쪽으로 넘어진다."""
+    methods = {entry.get("method") for entry in _amr_entries(token)}
     return "otp" in methods and "password" not in methods
+
+
+def otp_confirmed_just_now(token: str, now: datetime) -> bool:
+    """OTP 토큰이고 amr 의 otp 시각이 지금 − TEMP_ACCOUNT_MAX_AGE 안인가. 시각이 없거나 숫자가 아니면 False.
+    GoTrue 는 세션을 갱신해도 amr 시각을 처음 로그인 때 값으로 둔다 — 갱신을 이어 가 옛 OTP 로 들어오는 길을 막는다."""
+    if not signed_in_by_otp(token):
+        return False
+    stamps = [entry.get("timestamp") for entry in _amr_entries(token) if entry.get("method") == "otp"]
+    return any(isinstance(stamp, int) and not isinstance(stamp, bool)
+               and now - datetime.fromtimestamp(stamp, timezone.utc) <= TEMP_ACCOUNT_MAX_AGE for stamp in stamps)
 
 
 def confirmed_temp_email(temp_user: dict, caller_id: str, temp_token: str) -> str | None:
@@ -220,7 +234,8 @@ async def verify(
     authorization: str | None = Header(default=None),
     now: datetime = Depends(get_now),
 ) -> dict[str, bool]:
-    """정지 → 동의 → 이미 인증 → 소셜 계정만 → 임시 토큰 읽기 → 임시 계정 검사(로그인 방식 포함 · 다른 소셜 계정이 쓰는 메일이면 6-d 의 409) → 도메인 → + 별칭
+    """정지 → 동의 → 이미 인증 → 소셜 계정만 → 임시 토큰 읽기 → 임시 계정 검사(로그인 방식 포함. 임시 계정이 아니라
+    이미 있던 계정이면 `_verify_by_existing_account` 의 6-d 409 · 6-e · 6-f) → 도메인 → + 별칭
     → 재가입 제한 → DB 함수.
 
     앞에서 걸리면 거기서 끝이다. 도메인 검사까지 와서 결과가 정해지면 임시 계정을 지운다(422 · 409 포함).
@@ -250,7 +265,7 @@ async def verify(
         return _auth_unavailable()
     email = confirmed_temp_email(temp_user, caller_id, body.temp_access_token)
     if email is None:  # 6 — 임시 계정이 아니다. 남의 계정 · 내 계정일 수 있어 지우지 않는다
-        return await _verify_by_existing_account(caller, temp_user, body.temp_access_token, provider)
+        return await _verify_by_existing_account(caller, temp_user, body.temp_access_token, provider, now)
     repo = SchoolEmailRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
     if not await _is_fresh_temp_account(repo, temp_user, now):  # 6-b — 실제 계정이다: RPC 도 삭제도 하지 않는다
         return _taken_response("email")
@@ -260,10 +275,10 @@ async def verify(
     return outcome
 
 
-def otp_account_email(temp_user: dict, temp_token: str) -> str | None:
-    """OTP 로 받은 토큰의 계정 메일(소문자 · 공백 제거). OTP 토큰이 아니거나 id · 메일이 없으면 None.
-    임시 계정이 아닌 **이미 있던 계정**에 쓴다 — OTP 를 맞혔으니 그 메일함의 주인이다."""
-    if not signed_in_by_otp(temp_token) or not temp_user.get("id"):
+def otp_account_email(temp_user: dict, temp_token: str, now: datetime) -> str | None:
+    """방금(30분 안) OTP 로 받은 토큰의 계정 메일(소문자 · 공백 제거). 아니거나 id · 메일이 없으면 None.
+    임시 계정이 아닌 **이미 있던 계정**에 쓴다 — 방금 번호를 맞혔으니 지금 그 메일함의 주인이다."""
+    if not otp_confirmed_just_now(temp_token, now) or not temp_user.get("id"):
         return None
     return normalize_email(temp_user.get("email") or "") or None
 
@@ -279,7 +294,8 @@ async def _holder_is_unfinished(caller: Caller, holder_id: str) -> bool:
         return False
 
 
-async def _verify_by_existing_account(caller: Caller, temp_user: dict, temp_token: str, provider: str):
+async def _verify_by_existing_account(caller: Caller, temp_user: dict, temp_token: str, provider: str,
+                                      now: datetime):
     """학교 메일 OTP 가 새 임시 계정을 만들지 않고 **이미 있던 계정**으로 로그인된 경우. 그 계정은 지우지도 바꾸지도 않는다.
 
     6-f 그 계정이 호출한 사람 자신(학교 구글 계정으로 로그인해 로그인 메일이 곧 학교 메일) → 인증한다.
@@ -288,7 +304,7 @@ async def _verify_by_existing_account(caller: Caller, temp_user: dict, temp_toke
         학교 구글로 로그인만 하고 카카오로 다시 온 사람이 영영 막혔다. 남은 계정은 정리 배치가 14일 뒤 지운다.
     어느 갈래든 도메인 · + 별칭 · 재가입 제한 · DB 함수(claims)를 똑같이 거친다."""
     caller_id = str(caller[2])
-    email = otp_account_email(temp_user, temp_token)
+    email = otp_account_email(temp_user, temp_token, now)
     if email is not None and str(temp_user["id"]) == caller_id:  # 6-f
         return await _decide(caller, email, provider)
     holder = existing_social_account_provider(temp_user, caller_id, temp_token)
