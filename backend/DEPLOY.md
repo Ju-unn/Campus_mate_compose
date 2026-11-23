@@ -1711,7 +1711,7 @@ INFO 를 켠 로거는 핸들러를 직접 달아서 같은 로거의 WARNING �
 | 옛 `POST /community/polls` | `category` **선택 칸**을 더했다 — 없으면 `free`, 세 값 밖이면 422. 하루 한도는 게시물과 합산되지만 문구는 그대로 "오늘은 질문을 더 올릴 수 없어요". 옛 `/community/polls/…` 의 404 · 푸시 제목도 그대로 |
 | 신고 `POST /reports` | `target_type` 은 게시물도 `poll`. 게시물이면 스냅샷에 `kind` · `category` 가 더해지고 선택지는 null(관리자 웹은 "—" 로 그린다) |
 
-## 커뮤니티 공지사항 (할 일 21, 브랜치 `feat/community-notices` — 19 브랜치 위) — **아직 merge 전 · DB 미적용 · 서버 미배포** (PR #미정)
+## 커뮤니티 공지사항 (할 일 21, 브랜치 `feat/community-notices` — 19 브랜치 위) — **아직 merge 전 · DB 미적용 · 서버 미배포** (PR #801)
 
 설계 `docs/superpowers/specs/2026-11-24-community-notices-design.md`(19 의 `polls` 에 `kind='notice'` 로 얹음). 마이그레이션 `20261124090000_community_notices`(공개 버킷 `community-notices` 포함), 시험 `supabase/tests/community_notices_test.sql` · `backend/tests/community/test_community_notices.py` · `test_notice_image.py` · `backend/tests/admin/test_admin_notices.py` · `backend/tests/safety/test_report_poll.py` · `test_report_poll_comment.py`.
 
