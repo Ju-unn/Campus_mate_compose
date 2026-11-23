@@ -29,7 +29,6 @@ void main() {
     (const CodeNotSentFailure(), '인증번호를 보내지 못했어요. 잠시 후 다시 시도해 주세요'),
     (const SchoolEmailIncompleteFailure(), '학교 메일 인증을 마치지 못했어요. 잠시 후 다시 시도해 주세요'),
     (const SchoolEmailNotConfirmedFailure(), '학교 메일 인증을 마치지 못했어요. 잠시 후 다시 시도해 주세요'),
-    (const SchoolEmailSameAsLoginFailure(), '로그인에 쓰는 구글·카카오 계정과 같은 메일은 쓸 수 없어요. 다른 학교 메일을 입력해 주세요'),
     (const SchoolEmailRejectedFailure('등록되지 않은 학교 메일이에요'), '등록되지 않은 학교 메일이에요'),
     (const SchoolEmailTakenFailure('서버 문구', 'kakao'), '이미 카카오로 가입된 학교 메일이에요'),
     (const SchoolEmailTakenFailure('서버 문구', 'google', myProvider: 'kakao'), '이미 구글로 가입된 학교 메일이에요'),

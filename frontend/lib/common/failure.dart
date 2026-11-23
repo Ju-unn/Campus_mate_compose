@@ -111,13 +111,6 @@ final class SchoolEmailNotConfirmedFailure extends Failure {
   const SchoolEmailNotConfirmedFailure();
 }
 
-/// 입력한 학교 메일이 지금 로그인한 소셜 계정의 메일과 같다(02, 보내기 전에 앱이 막는다). 그대로 보내면 GoTrue 가
-/// 임시 계정을 만들지 않고 그 소셜 계정으로 로그인시켜 서버가 403 SCHOOL_EMAIL_NOT_CONFIRMED 로 거절한다.
-/// 문구는 임시, 디자인 확정 대기.
-final class SchoolEmailSameAsLoginFailure extends Failure {
-  const SchoolEmailSameAsLoginFailure();
-}
-
 /// 등록되지 않은 학교 메일 · 재가입 제한(POST /school-email/verify 422). 문구는 서버가 내려 준 것을 그대로 쓴다.
 final class SchoolEmailRejectedFailure extends Failure {
   const SchoolEmailRejectedFailure(this.serverMessage);

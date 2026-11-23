@@ -442,7 +442,6 @@
   "errorSchoolEmailIncomplete": "학교 메일 인증을 마치지 못했어요. 잠시 후 다시 시도해 주세요",
   "errorSchoolEmailReloginNotice": "이 학교 메일은 {provider, select, kakao{카카오} google{구글} apple{애플} other{소셜}}로 가입돼 있어요. {provider, select, kakao{카카오} google{구글} apple{애플} other{소셜}}로 로그인해 주세요",
   "@errorSchoolEmailReloginNotice": {"placeholders": {"provider": {"type": "String"}}},
-  "errorSchoolEmailSameAsLogin": "로그인에 쓰는 구글·카카오 계정과 같은 메일은 쓸 수 없어요. 다른 학교 메일을 입력해 주세요",
   "errorSchoolEmailTaken": "이미 가입된 학교 메일이에요",
   "errorSchoolEmailTakenBy": "이미 {provider, select, kakao{카카오} google{구글} apple{애플} other{소셜}}로 가입된 학교 메일이에요",
   "@errorSchoolEmailTakenBy": {"placeholders": {"provider": {"type": "String"}}},

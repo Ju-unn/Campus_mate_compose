@@ -123,25 +123,20 @@ void main() {
       }
     });
 
-    // 로그인한 소셜 계정과 같은 메일이면 GoTrue 가 임시 계정 대신 그 계정으로 로그인시켜 서버가 403 NOT_CONFIRMED 로
-    // 거절한다 — 보내기 전에 막는다.
-    group('로그인한 소셜 계정의 메일과 견준다', () {
+    // 학교 구글 계정으로 로그인해 로그인 메일이 곧 학교 메일이어도 보낸다 — GoTrue 가 그 계정으로 OTP 로그인시키고
+    // 서버가 OTP 를 메일 주인 증거로 받아 인증한다(서버 6-f, 2026-11-23). 예전엔 보내기 전에 막아 인증할 길이 없었다.
+    group('로그인한 소셜 계정의 메일과 상관없이 보낸다', () {
       setUp(() {
         when(
           () => temporary.signInWithOtp(email: any(named: 'email'), shouldCreateUser: any(named: 'shouldCreateUser')),
         ).thenAnswer((_) async {});
       });
 
-      test('같으면(대소문자 · 앞뒤 공백 무시) 인증번호를 보내지 않고 SchoolEmailSameAsLoginFailure', () async {
+      test('로그인 메일과 같아도(대소문자 · 앞뒤 공백 무시) 그대로 보낸다', () async {
         signedInAs(' Hong@SNU.ac.kr ');
 
-        final failure = failureOf(await buildRepository().requestCode(email));
-
-        expect(failure, isA<SchoolEmailSameAsLoginFailure>());
-        expect(failureText(AppLocalizationsKo(), failure!), '로그인에 쓰는 구글·카카오 계정과 같은 메일은 쓸 수 없어요. 다른 학교 메일을 입력해 주세요');
-        verifyNever(
-          () => temporary.signInWithOtp(email: any(named: 'email'), shouldCreateUser: any(named: 'shouldCreateUser')),
-        );
+        expect(failureOf(await buildRepository().requestCode(email)), isNull);
+        verify(() => temporary.signInWithOtp(email: 'hong@snu.ac.kr', shouldCreateUser: true)).called(1);
       });
 
       test('다르면 그대로 보낸다', () async {
