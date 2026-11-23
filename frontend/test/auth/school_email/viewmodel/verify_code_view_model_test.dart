@@ -278,6 +278,105 @@ void main() {
 
     expect(repository.requestedEmails, isEmpty);
   });
+
+  // 11-24 보안 점검 A2: 다시 보내기가 실패하면(네트워크 · 503 · 429) "보냈다" 처럼 보이면 안 된다.
+  group('다시 보내기가 실패하면', () {
+    // 서버가 받고 거절했다(429 한도 · 422 가입 거절) — 바로 다시 눌러도 같은 답이라 60초 잠금을 그대로 둔다.
+    test('서버가 거절했으면 오류를 보이고 다시 받기 버튼은 잠긴 채', () async {
+      for (final failure in [const RateLimitedFailure(), const SignUpRejectedFailure('서버 문구')]) {
+        final repository = FakeSchoolEmailRepository()..nextRequestCodeResult = FailureResult(failure);
+        final opened = DateTime(2026, 1, 1, 12);
+        var now = opened;
+        final container = buildContainer(repository, now: () => now);
+        final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
+        now = now.add(const Duration(seconds: 60));
+
+        await viewModel.resend();
+
+        final state = container.read(verifyCodeViewModelProvider(email));
+        expect(state.error, same(failure), reason: '$failure');
+        expect(state.canResend(now), isFalse, reason: '$failure');
+        expect(state.codeExpiresAt, opened.add(codeLifetime), reason: '$failure');
+      }
+    });
+
+    // 요청이 서버에 안 닿았거나 서버 문제 — 새 코드도 한도 소모도 없으니 바로 다시 누를 수 있게 둘 다 되돌린다.
+    test('안 닿았거나 서버 문제면 오류를 보이고 남은 시간 · 다시 받기를 되돌린다', () async {
+      for (final failure in [
+        const NetworkFailure(),
+        const CodeNotSentFailure(),
+        const ServerUnavailableFailure(),
+        const UnknownFailure(),
+      ]) {
+        final repository = FakeSchoolEmailRepository()..nextRequestCodeResult = FailureResult(failure);
+        final opened = DateTime(2026, 1, 1, 12);
+        var now = opened;
+        final container = buildContainer(repository, now: () => now);
+        final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
+        now = now.add(const Duration(seconds: 60));
+
+        await viewModel.resend();
+
+        final state = container.read(verifyCodeViewModelProvider(email));
+        expect(state.error, same(failure), reason: '$failure');
+        expect(state.canResend(now), isTrue, reason: '$failure');
+        expect(state.codeExpiresAt, opened.add(codeLifetime), reason: '$failure');
+      }
+    });
+
+    test('옛 코드가 살아 있으니 저장한 임시 토큰으로 complete 만 다시 부른다', () async {
+      final repository = FakeSchoolEmailRepository()
+        ..nextCompleteResult = const FailureResult(SchoolEmailIncompleteFailure())
+        ..nextRequestCodeResult = const FailureResult(NetworkFailure());
+      var now = DateTime(2026, 1, 1, 12);
+      final container = buildContainer(repository, now: () => now);
+      final viewModel = container.read(verifyCodeViewModelProvider(email).notifier)..changeCode('123456');
+      await viewModel.submit();
+      now = now.add(const Duration(seconds: 60));
+      await viewModel.resend();
+      repository.nextCompleteResult = const Success(null);
+      viewModel.changeCode('123456');
+
+      await viewModel.submit();
+
+      expect(repository.calls, ['verifyCode', 'complete', 'requestCode', 'complete']);
+      expect(container.read(verifyCodeViewModelProvider(email)).verified, isTrue);
+    });
+
+    // 검토 권고: 응답을 기다리는 사이 옛 코드를 넣고 "확인" 을 누르면 늦은 실패가 확인 중 상태를 지우면 안 된다.
+    test('기다리는 사이 확인을 눌렀으면 늦은 실패는 확인 중 상태를 덮지 않는다', () async {
+      final repository = FakeSchoolEmailRepository()..nextRequestCodeResult = const FailureResult(CodeNotSentFailure());
+      var now = DateTime(2026, 1, 1, 12);
+      final container = buildContainer(repository, now: () => now);
+      final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
+      now = now.add(const Duration(seconds: 60));
+      final resending = viewModel.resend();
+      viewModel.changeCode('123456');
+      final submitting = viewModel.submit();
+
+      await resending;
+
+      final state = container.read(verifyCodeViewModelProvider(email));
+      expect((state.isSubmitting, state.codeInput, state.error), (true, '123456', null));
+      await submitting;
+    });
+
+    test('기다리는 사이 적은 코드는 늦은 실패 뒤에도 남는다', () async {
+      final repository = FakeSchoolEmailRepository()..nextRequestCodeResult = const FailureResult(CodeNotSentFailure());
+      var now = DateTime(2026, 1, 1, 12);
+      final container = buildContainer(repository, now: () => now);
+      final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
+      now = now.add(const Duration(seconds: 60));
+      final resending = viewModel.resend();
+      viewModel.changeCode('12');
+
+      await resending;
+
+      final state = container.read(verifyCodeViewModelProvider(email));
+      expect(state.codeInput, '12');
+      expect(state.error, isA<CodeNotSentFailure>());
+    });
+  });
   // 지시문 13 A-5: complete 가 실패해도(네트워크 · 503 · 미확인) 같은 03 에서 "확인" 을 다시 누르면 complete 만 다시 부른다.
   group('complete 실패 뒤 다시 시도', () {
     test('verifyCode 는 다시 부르지 않고 저장한 임시 토큰으로 complete 만 부른다', () async {
@@ -437,6 +536,20 @@ void main() {
       container.dispose();
 
       await expectLater(submitting, completes);
+    });
+
+    test('메일을 다시 보내는 중(실패로 풀림)', () async {
+      final repository = FakeSchoolEmailRepository()..nextRequestCodeResult = const FailureResult(NetworkFailure());
+      var now = DateTime(2026, 1, 1, 12);
+      final container = buildContainer(repository, now: () => now);
+      final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
+      now = now.add(const Duration(seconds: 60));
+      final resending = viewModel.resend();
+
+      container.dispose();
+
+      await expectLater(resending, completes);
+      expect(repository.calls, ['requestCode']);
     });
 
     test('처음으로 돌리는 중', () async {
