@@ -25,7 +25,9 @@ alter table public.polls
   add constraint polls_question_length check (
     question = btrim(question)
     and char_length(question) between 1 and case kind when 'poll' then 80 else 500 end),
-  add constraint polls_kind_options check ((kind = 'poll') = (option_a_label is not null and option_b_label is not null));
+  add constraint polls_kind_options check (case kind
+    when 'poll' then option_a_label is not null and option_b_label is not null
+    else option_a_label is null and option_b_label is null end);
 
 comment on table public.polls is
   '커뮤니티 익명 글(투표 · 게시물). FastAPI 전용. author_id 는 어떤 응답에도 담지 않는다(poll_feed · community_feed 가 칸을 주지 않는다)';

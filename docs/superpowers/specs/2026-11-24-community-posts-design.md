@@ -16,7 +16,7 @@
 - `kind text not null default 'poll' check (kind in ('poll','post'))`
 - `category text not null default 'free' check (category in ('free','career','love'))` — 기존 행 · 옛 앱 투표는 기본값으로 자유
 - 게시물 본문은 `question` 칸(투표의 질문 = 글 본문). 길이 check: 투표 1~80, 게시물 1~500, 앞뒤 공백 깎인 모양
-- `option_a_label` · `option_b_label` not null 풀기 + check `(kind = 'poll') = (option_a_label is not null and option_b_label is not null)`
+- `option_a_label` · `option_b_label` not null 풀기 + check `polls_kind_options`: `case kind when 'poll' then option_a_label is not null and option_b_label is not null else option_a_label is null and option_b_label is null end` (투표면 둘 다 있고, 그 밖의 kind 는 둘 다 null)
 - `poll_feed`: create or replace, where 에 `p.kind = 'poll'` 만 더함. 인자 · 반환 칸 그대로
 - `cast_poll_vote`: create or replace, 있는지 확인에 `p.kind = 'poll'` → 게시물이면 CM404
 - `create_poll`: 손대지 않음(옛 서버 · 되돌리기용)

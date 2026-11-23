@@ -7,7 +7,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(64);
+select plan(66);
 
 -- 준비 --------------------------------------------------------------------
 -- AU = ...b0(글쓴이) · C1 = ...b1 · C2 = ...b2 · LIM = ...b3(합산 한도) · VW = ...b4(구경꾼) · SUS = ...b5(정지될 글쓴이)
@@ -102,6 +102,16 @@ select throws_ok(
 select throws_ok(
   $$insert into public.polls (author_id, kind, question) values ('00000000-0000-0000-0000-0000000000b0', 'post', '선택지 기본값')$$,
   '23514', null, '게시물에 선택지(기본값 찬성 · 반대)가 붙으면 들어가지 않는다'
+);
+select throws_ok(
+  $$insert into public.polls (author_id, kind, question, option_a_label, option_b_label)
+    values ('00000000-0000-0000-0000-0000000000b0', 'post', '선택지 a 만', '찬성', null)$$,
+  '23514', null, '게시물에 선택지 a 만 있어도 들어가지 않는다'
+);
+select throws_ok(
+  $$insert into public.polls (author_id, kind, question, option_a_label, option_b_label)
+    values ('00000000-0000-0000-0000-0000000000b0', 'post', '선택지 b 만', null, '반대')$$,
+  '23514', null, '게시물에 선택지 b 만 있어도 들어가지 않는다'
 );
 select throws_ok(
   $$insert into public.polls (author_id, kind, question, option_b_label)
