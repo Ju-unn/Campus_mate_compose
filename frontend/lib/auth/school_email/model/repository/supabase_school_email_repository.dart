@@ -55,16 +55,23 @@ class SupabaseSchoolEmailRepository implements SchoolEmailRepository {
   ///
   /// GoTrue 호출은 앱 쓰기 상한([writeTimeout])에서 끊는다 — 망이 끊겨 답이 안 오면 버튼이 "진행 중" 에 묶였다.
   /// 시간 초과(TimeoutException)도 Exception 이라 다른 네트워크 실패와 같은 Failure 가 된다.
+  ///
+  /// 새 코드가 나간 뒤에는 임시 연결에 남은 세션(앞 코드가 늦게 성공한 것)을 비운다 — 남겨 두면 [verifyCode] 가
+  /// 새 코드를 보지 않고 그 세션을 쓴다. 보내기가 실패하면 그 세션이 유일한 길이라 남긴다.
   @override
   Future<Result<void>> requestCode(UniversityEmail email) async {
     try {
       await _connection.open().signInWithOtp(email: email.toRequestValue(), shouldCreateUser: true).timeout(writeTimeout);
-      return const Success(null);
     } on AuthException catch (error) {
       return FailureResult(_toRequestFailure(error));
     } on Exception {
       return const FailureResult(CodeNotSentFailure());
     }
+    // 연결째 닫아도 된다 — 임시 연결은 implicit 흐름이라 verifyOTP 는 보낸 연결의 상태(PKCE)를 쓰지 않는다.
+    if (_connection.open().currentSession != null) {
+      await _close();
+    }
+    return const Success(null);
   }
 
   /// 시간 초과 뒤 앞선 확인이 늦게 성공했으면 임시 연결에 이 메일의 세션이 이미 있다 — 코드는 이미 쓰였으니

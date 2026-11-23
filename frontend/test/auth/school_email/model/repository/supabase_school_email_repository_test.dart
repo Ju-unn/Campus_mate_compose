@@ -249,6 +249,44 @@ void main() {
         expect(result.when(onSuccess: (token) => token, onFailure: (_) => null), 'temp-token');
         verify(() => temporary.verifyOTP(email: 'hong@snu.ac.kr', token: '123456', type: OtpType.email)).called(1);
       });
+
+      // "다시 받기" 로 새 코드가 나갔으면 남은 세션은 옛 코드의 것이다 — 비워야 새 코드를 서버가 확인한다
+      // (남겨 두면 아무 6자리나 통과하고, 30분이 지난 세션은 서버가 거절해 다시 받기로도 못 푼다).
+      test('새 코드를 보내는 데 성공하면 남은 세션을 비워 다음 확인은 verifyOTP 로 한다', () async {
+        temporaryHasSessionFor('hong@snu.ac.kr');
+        // gotrue 의 로그아웃처럼 메모리 세션을 지운다.
+        when(() => temporary.signOut(scope: any(named: 'scope'))).thenAnswer((_) async {
+          when(() => temporary.currentSession).thenReturn(null);
+        });
+        when(() => temporary.signInWithOtp(email: any(named: 'email'), shouldCreateUser: any(named: 'shouldCreateUser')))
+            .thenAnswer((_) async {});
+        final fresh = MockSession();
+        when(() => fresh.accessToken).thenReturn('temp-token');
+        verifyAnswers(fresh);
+        final repository = buildRepository();
+
+        await repository.requestCode(email);
+        final result = await repository.verifyCode(email, code);
+
+        expect(result.when(onSuccess: (token) => token, onFailure: (_) => null), 'temp-token');
+        verify(() => temporary.verifyOTP(email: 'hong@snu.ac.kr', token: '123456', type: OtpType.email)).called(1);
+      });
+
+      test('새 코드 보내기가 실패하면 세션을 남겨 다음 확인은 그 세션을 쓴다', () async {
+        temporaryHasSessionFor('hong@snu.ac.kr');
+        when(() => temporary.signInWithOtp(email: any(named: 'email'), shouldCreateUser: any(named: 'shouldCreateUser')))
+            .thenThrow(const AuthException('email rate limit', statusCode: '429'));
+        final repository = buildRepository();
+
+        await repository.requestCode(email);
+        final result = await repository.verifyCode(email, code);
+
+        expect(result.when(onSuccess: (token) => token, onFailure: (_) => null), 'late-token');
+        verifyNever(() => temporary.signOut(scope: any(named: 'scope')));
+        verifyNever(
+          () => temporary.verifyOTP(email: any(named: 'email'), token: any(named: 'token'), type: any(named: 'type')),
+        );
+      });
     });
   });
 
