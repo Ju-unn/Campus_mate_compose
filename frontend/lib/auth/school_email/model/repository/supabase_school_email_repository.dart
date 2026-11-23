@@ -67,8 +67,14 @@ class SupabaseSchoolEmailRepository implements SchoolEmailRepository {
     }
   }
 
+  /// 시간 초과 뒤 앞선 확인이 늦게 성공했으면 임시 연결에 이 메일의 세션이 이미 있다 — 코드는 이미 쓰였으니
+  /// 다시 확인하지 않고 그 토큰을 쓴다(다시 확인하면 "코드가 맞지 않아요" 가 된다).
   @override
   Future<Result<String>> verifyCode(UniversityEmail email, VerificationCode code) async {
+    final earlier = _connection.open().currentSession;
+    if (earlier != null && UniversityEmail.tryParse(earlier.user.email ?? '') == email) {
+      return Success(earlier.accessToken);
+    }
     try {
       final response = await _connection
           .open()

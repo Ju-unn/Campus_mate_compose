@@ -214,6 +214,42 @@ void main() {
       verifyAnswers(null);
       expect(failureOf(await buildRepository().verifyCode(email, code)), isA<SchoolEmailIncompleteFailure>());
     });
+
+    // 시간 초과 뒤 verifyOTP 가 늦게 성공하면 임시 연결에 세션이 남는다. 같은 코드로 다시 확인하면 이미 쓴 코드라
+    // "코드가 맞지 않아요" 가 됐다 — 같은 메일의 세션이 있으면 그것을 쓴다.
+    group('임시 연결에 이미 세션이 있으면(늦게 성공한 확인)', () {
+      void temporaryHasSessionFor(String? sessionEmail) {
+        final session = MockSession();
+        when(() => session.accessToken).thenReturn('late-token');
+        when(() => session.user).thenReturn(
+          User(id: 'temp-user', appMetadata: const {}, userMetadata: const {}, aud: 'authenticated', createdAt: '', email: sessionEmail),
+        );
+        when(() => temporary.currentSession).thenReturn(session);
+      }
+
+      test('같은 메일(대소문자 · 앞뒤 공백 무시)의 세션이면 verifyOTP 를 부르지 않고 그 토큰을 돌려준다', () async {
+        temporaryHasSessionFor(' Hong@SNU.ac.kr ');
+
+        final result = await buildRepository().verifyCode(email, code);
+
+        expect(result.when(onSuccess: (token) => token, onFailure: (_) => null), 'late-token');
+        verifyNever(
+          () => temporary.verifyOTP(email: any(named: 'email'), token: any(named: 'token'), type: any(named: 'type')),
+        );
+      });
+
+      test('다른 메일의 세션이면 지금처럼 verifyOTP 로 확인한다', () async {
+        temporaryHasSessionFor('other@snu.ac.kr');
+        final fresh = MockSession();
+        when(() => fresh.accessToken).thenReturn('temp-token');
+        verifyAnswers(fresh);
+
+        final result = await buildRepository().verifyCode(email, code);
+
+        expect(result.when(onSuccess: (token) => token, onFailure: (_) => null), 'temp-token');
+        verify(() => temporary.verifyOTP(email: 'hong@snu.ac.kr', token: '123456', type: OtpType.email)).called(1);
+      });
+    });
   });
 
   group('complete', () {
