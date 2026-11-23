@@ -1711,6 +1711,27 @@ INFO 를 켠 로거는 핸들러를 직접 달아서 같은 로거의 WARNING �
 | 옛 `POST /community/polls` | `category` **선택 칸**을 더했다 — 없으면 `free`, 세 값 밖이면 422. 하루 한도는 게시물과 합산되지만 문구는 그대로 "오늘은 질문을 더 올릴 수 없어요". 옛 `/community/polls/…` 의 404 · 푸시 제목도 그대로 |
 | 신고 `POST /reports` | `target_type` 은 게시물도 `poll`. 게시물이면 스냅샷에 `kind` · `category` 가 더해지고 선택지는 null(관리자 웹은 "—" 로 그린다) |
 
+## 커뮤니티 공지사항 (할 일 21, 브랜치 `feat/community-notices` — 19 브랜치 위) — **아직 merge 전 · DB 미적용 · 서버 미배포** (PR #미정)
+
+설계 `docs/superpowers/specs/2026-11-24-community-notices-design.md`(19 의 `polls` 에 `kind='notice'` 로 얹음). 마이그레이션 `20261124090000_community_notices`(공개 버킷 `community-notices` 포함), 시험 `supabase/tests/community_notices_test.sql` · `backend/tests/community/test_community_notices.py` · `test_notice_image.py` · `backend/tests/admin/test_admin_notices.py` · `backend/tests/safety/test_report_poll.py` · `test_report_poll_comment.py`.
+
+**배포 순서: (19) → DB → 서버 → 관리자 웹 → 1.0.7 앱.** 새 서버는 `notice_list` · `admin_create_notice` · `admin_delete_notice` 와 버킷을 쓰므로 DB 보다 먼저 올리면 공지 길이 500 이다(그 밖의 길은 그대로). DB 만 먼저 올라간 동안 옛 서버는 그대로 돈다 — `poll_feed` · `community_feed` 는 작성자 active 조인이라 작성자가 없는 공지를 싣지 않고, `add_poll_comment` · `poll_comments_page` 는 인자 · 반환이 같다. 옛 서버가 공지 댓글을 받는 길은 없다(공지 id 를 아는 앱이 아직 없다).
+
+| 길 | 계약 |
+| --- | --- |
+| `GET /community/notices?before=&before_id=` | `{items, has_more}`. 줄 = `{id, title, text, image_url, created_at, is_new, comment_count}` — **작성자 칸 없음**(앱은 "CampusMate 운영자"). 가리지 않은 공지 최신순 20개, `(created_at, id)` 커서(한쪽만 오면 422). `is_new` = 서버 시계로 7일 안(딱 7일이면 false). `image_url` 은 서버가 `polls.image_path` 로 만든 우리 공개 버킷 주소뿐, 그림이 없으면 null. 피드 맨 위 띠는 첫 줄을 쓴다 |
+| `GET /community/items/{id}` | 투표 · 게시물 · 공지 모두. 칸 `title` · `image_url` 이 더해졌다(투표 · 게시물은 null). 공지면 `kind` `notice` · `category` null · `is_mine` false · `poll` null. 가린 공지는 404 "공지를 찾을 수 없어요", 없는 글은 그대로 404 "글을 찾을 수 없어요" |
+| `GET` · `POST /community/items/{id}/comments` · `DELETE /community/comments/{id}` | 공지 댓글도 같은 길 · 같은 한도(하루 50 · 1분 5 · 같은 본문 연달아) · 익명 번호. 공지 댓글은 글쓴이 표시가 없고 지우기는 내 댓글만, **푸시가 없다**(글쓴이 null) |
+| `DELETE /community/items/{공지 id}` | 404 — 공지는 주인이 없다 |
+| `POST /community/posts` · `POST /community/polls` | 요청 모델이 `extra="forbid"` — `kind` · `title` · `image` 같은 칸을 넣어 보내면 422. 1.0.6 이 보내는 세 칸(`question` · `option_a_label` · `option_b_label`)은 그대로 통과 |
+| 신고 `POST /reports` | `target_type` 은 공지도 `poll`. 공지면 `target_profile_id` null(차단 · 자동 가림 · 신고자 세기 없음), 스냅샷에 `kind` `notice` · `title` 이 더해진다(본문은 `question`). 공지 댓글 신고는 댓글 작성자가 대상이다 |
+| `GET /admin/notices?before=&before_id=` | 관리자 관문. `{items: [{id, title, text, image_url, status, created_at}], has_more}`, 가린 것 포함 최신순 20개 · 같은 커서 |
+| `POST /admin/notices` | 관리자 관문. multipart `title`(한 줄 · 1~40자) · `body`(1~2000자) · `image`(선택, 빈 파일은 보내지 않는다) → 201 `{id}`. 그림은 jpeg · png · webp(내용의 매직 바이트로 판정)만 · 10MB 까지, 서버가 열어 회전 반영 · 투명은 흰 바탕 · 긴 변 1600 · JPEG 품질 80 으로 **다시 저장**(EXIF · 위치 없음)해 `{id}.jpg` · `image/jpeg` 로 올린다. 그림 오류는 422 detail `image_type`(형식 · 깨짐 · 너무 큰 화소) · `image_too_large`(10MB 넘음) — 글자는 관리자 웹이 정한다. DB 가 실패하면 올린 그림을 지운다 |
+| `DELETE /admin/notices/{id}` | 관리자 관문. 본문 `{reason}`(필수) → 200 `{id}`. 댓글은 DB 에서 같이 지워지고, 그림은 그 뒤에 지운다(실패는 로그만 — 공지 id 로 대시보드에서 찾는다). 공지가 아닌 글 · 없는 공지는 404 `not_found` |
+| 가림 · 해제 | 기존 `POST /admin/content/polls/{id}/{blind,unblind}` 그대로(공지 댓글은 `poll-comments`) |
+
+작업 기록: `admin_actions` 의 `notice_create`(after = 제목 · 그림 경로) · `notice_delete`(before = 제목 · 그림 경로, reason), `target_type` `notice`. 그림 파일 고아 정리는 따로 없다 — 위 로그가 남으면 운영자가 지운다.
+
 ## 5. 현재 배포 상태 (아래 표는 2026-11-14 새벽 기준 — 2026-11-16 개정은 개정 5 바로 아래 네 문단(종전 서술: "첫 네 문단", 그 앞 "첫 세 문단"), 2026-11-17 개정 5 는 개정 6 바로 아래 문단, 2026-11-18 개정 6 은 개정 7 바로 아래 문단, 지금 운영은 2026-11-18 개정 7 — 맨 위 문단)
 
 **2026-11-18 개정 7(낮, 대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다): 운영 트래픽 100% 는 `campus-mate-backend-00141-wew`(태그 `l1118`, main `28b800cb` 기준)다. 바로 앞 운영은 `campus-mate-backend-00139-lit`(태그 `v1118`)이고 이것이 되돌림 대상이다(§2 (다)).** 오늘 올린 세 리비전(모두 asia-northeast3, §2 고정 3단계): `00137-wiz`(태그 `i1118`, 서버 PR #775 입력 검사, 되돌림 `00135-haz`) → `00139-lit`(태그 `v1118`, **`MIN_APP_VERSION` 을 `1.0.3` 에서 `1.0.6` 으로**, env 만 바꾼 배포 · env 33개 그대로, 되돌림 `00137-wiz`) → `00141-wew`(태그 `l1118`, 서버 PR #776 구글 모니터링 실패 로그에 상태 코드, 되돌림 `00139-lit`). 내용 · 되돌림 영향은 §4-34. 새 시크릿 · 마이그레이션 · job 은 없다. **개정 6 의 "운영 100% 는 `00135-haz`" 는 이 개정으로 대체됐다.** 아래 표 "설정" 줄과 열려 있는 것 6 · 12 의 `MIN_APP_VERSION=1.0.3` 은 종전 값이라 지우지 않는다 — 지금 운영 값은 `1.0.6` 이다(두 스토어 공개 확인, 사용자 요청). 개정 6 이하와 표는 종전 서술이다.
