@@ -6,6 +6,7 @@ import 'package:campus_mate/auth/school_email/model/repository/temporary_auth_co
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/core/http/http_send.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// 코드 자체가 틀렸거나 기한이 지났을 때 GoTrue 가 주는 오류 코드(gotrue 2.27.2).
@@ -51,10 +52,13 @@ class SupabaseSchoolEmailRepository implements SchoolEmailRepository {
 
   /// 로그인한 소셜 계정과 같은 메일(학교 구글 계정으로 로그인)이어도 보낸다 — GoTrue 가 그 계정으로 OTP 로그인시키고
   /// 서버가 OTP 를 메일 주인 증거로 받아 인증한다(서버 6-f, 2026-11-23).
+  ///
+  /// GoTrue 호출은 앱 쓰기 상한([writeTimeout])에서 끊는다 — 망이 끊겨 답이 안 오면 버튼이 "진행 중" 에 묶였다.
+  /// 시간 초과(TimeoutException)도 Exception 이라 다른 네트워크 실패와 같은 Failure 가 된다.
   @override
   Future<Result<void>> requestCode(UniversityEmail email) async {
     try {
-      await _connection.open().signInWithOtp(email: email.toRequestValue(), shouldCreateUser: true);
+      await _connection.open().signInWithOtp(email: email.toRequestValue(), shouldCreateUser: true).timeout(writeTimeout);
       return const Success(null);
     } on AuthException catch (error) {
       return FailureResult(_toRequestFailure(error));
@@ -66,11 +70,10 @@ class SupabaseSchoolEmailRepository implements SchoolEmailRepository {
   @override
   Future<Result<String>> verifyCode(UniversityEmail email, VerificationCode code) async {
     try {
-      final response = await _connection.open().verifyOTP(
-        email: email.toRequestValue(),
-        token: code.toRequestValue(),
-        type: OtpType.email,
-      );
+      final response = await _connection
+          .open()
+          .verifyOTP(email: email.toRequestValue(), token: code.toRequestValue(), type: OtpType.email)
+          .timeout(writeTimeout);
       return _toTemporaryToken(response.session);
     } on AuthException catch (error) {
       return FailureResult(_toVerifyFailure(error));
@@ -90,13 +93,16 @@ class SupabaseSchoolEmailRepository implements SchoolEmailRepository {
     // null = 성공(이미 인증 포함).
     final failure = result.when<Failure?>(onSuccess: (_) => null, onFailure: _toCompleteFailure);
     if (failure == null || endsSchoolEmailAttempt(failure)) {
-      await _connection.close();
+      await _close();
     }
     return failure == null ? const Success(null) : FailureResult(failure);
   }
 
   @override
-  Future<void> discard() => _connection.close();
+  Future<void> discard() => _close();
+
+  /// 임시 연결 로그아웃은 메모리 세션을 먼저 비우고 서버에 알린다 — 그 알림이 안 끝나도 상한에서 기다리기를 멈춘다.
+  Future<void> _close() => _connection.close().timeout(writeTimeout, onTimeout: () {});
 
   /// 지금 로그인한 소셜(`account_repository.dart` 와 같은 방식). 모르면 null — 다른 소셜로 보고 다시 로그인 길을 연다.
   String? _myProvider() {
