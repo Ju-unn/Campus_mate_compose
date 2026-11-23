@@ -459,15 +459,18 @@ CLIENT_ID = "55555555-5555-5555-5555-555555555555"
 OLD_MESSAGE_KEYS = {"id", "match_id", "sender_id", "kind", "body", "created_at"}
 
 
-def _already_stored(calls: _Calls, stored: dict):
-    """같은 client_id 가 이미 있는 방 — insert 는 겹쳐서 빈 응답, 되읽기는 그 줄."""
-    handler = _handler(calls, _match())
+def _already_stored(calls: _Calls, stored: dict, match: dict | None = None,
+                    reads: list[httpx.QueryParams] | None = None):
+    """같은 client_id 가 이미 있는 방 — insert 는 겹쳐서 빈 응답, 되읽기는 그 줄. reads 에 되읽기 조건을 모은다."""
+    handler = _handler(calls, match or _match())
 
     def wrapped(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/rest/v1/messages" and request.method == "POST":
             calls.messages.append(json.loads(request.content))
             return httpx.Response(201, json=[])
         if request.url.path == "/rest/v1/messages" and request.url.params.get("client_id"):
+            if reads is not None:
+                reads.append(request.url.params)
             return httpx.Response(200, json=[stored])
         return handler(request)
 
@@ -552,8 +555,8 @@ def test_a_client_id_that_is_not_a_uuid_is_refused_before_anything_is_stored():
     assert calls.messages == []
 
 
-def test_a_client_id_does_not_skip_the_closed_room_check():
-    """기존 검사(닫힌 방 · 나감 · 404)는 client_id 보다 먼저다."""
+def test_a_new_client_id_in_a_closed_room_is_still_refused():
+    """저장된 줄이 없는 client_id 는 새 글이다 — 닫힌 방의 새 글은 지금처럼 409."""
     calls = _Calls()
     closed = _match(chat_closed_at="2126-09-24T10:00:00+09:00")
     response = _wire(_handler(calls, closed)).post(
@@ -561,7 +564,83 @@ def test_a_client_id_does_not_skip_the_closed_room_check():
         headers=AUTH_HEADERS)
 
     assert response.status_code == 409
-    assert calls.messages == []
+    assert response.json()["detail"] == "종료된 대화예요"
+    assert (calls.messages, calls.pushes, calls.broadcasts) == ([], [], [])
+
+
+# 대장 A안(2026-11-24): 첫 전송은 저장됐는데 응답을 못 받았고, 그 사이 방이 닫히거나 내가 나갔다.
+# 같은 client_id 의 재전송은 같은 결과(201 + 처음 줄)다. 참여자 확인(404)은 여전히 맨 먼저다.
+
+def _left(who: str) -> dict:
+    return _match(participants=[
+        {"profile_id": pid, "trust_response": None, "last_read_at": None,
+         "left_at": "2126-09-22T11:00:00+09:00" if pid == who else None}
+        for pid in (PROFILE_ID, PARTNER_ID)
+    ])
+
+
+@pytest.mark.parametrize("room", [
+    _match(chat_closed_at="2126-09-24T10:00:00+09:00"),
+    _left(PROFILE_ID),
+    _left(PARTNER_ID),
+], ids=["closed", "i_left", "partner_left"])
+def test_a_resent_client_id_after_the_room_shut_returns_the_first_line(room):
+    calls = _Calls()
+    reads: list[httpx.QueryParams] = []
+    stored = _stored_line("안녕하세요")
+    response = _wire(_already_stored(calls, stored, room, reads)).post(
+        f"/chat/matches/{MATCH_ID}/messages", json={"body": "안녕하세요", "client_id": CLIENT_ID},
+        headers=AUTH_HEADERS)
+
+    assert response.status_code == 201
+    assert response.json() == {"message": stored}
+    assert (calls.messages, calls.pushes, calls.broadcasts, calls.kept) == ([], [], [], [])
+    # 되읽기는 내 줄만 — 상대가 같은 client_id 로 쓴 줄을 돌려받는 길이 없다.
+    assert [(r["match_id"], r["sender_id"], r["client_id"]) for r in reads] == [
+        (f"eq.{MATCH_ID}", f"eq.{PROFILE_ID}", f"eq.{CLIENT_ID}")]
+
+
+def test_a_resent_client_id_in_someone_elses_room_is_404_without_reading_any_line():
+    calls = _Calls()
+    reads: list[httpx.QueryParams] = []
+    stranger = _match(participants=[
+        {"profile_id": "other-a", "trust_response": None, "left_at": None, "last_read_at": None},
+        {"profile_id": "other-b", "trust_response": None, "left_at": None, "last_read_at": None},
+    ])
+    response = _wire(_already_stored(calls, _stored_line("남의 글"), stranger, reads)).post(
+        f"/chat/matches/{MATCH_ID}/messages", json={"body": "남의 글", "client_id": CLIENT_ID},
+        headers=AUTH_HEADERS)
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "대화를 찾을 수 없어요"}
+    assert reads == []
+    assert (calls.messages, calls.pushes, calls.broadcasts, calls.kept) == ([], [], [], [])
+
+
+def test_an_open_room_send_does_not_look_the_client_id_up_first():
+    """열린 방은 on_conflict 가 이미 같은 결과를 낸다 — 미리 조회해 호출을 늘리지 않는다."""
+    calls = _Calls()
+    reads: list[httpx.QueryParams] = []
+    response = _wire(_already_stored(calls, _stored_line("안녕하세요"), reads=reads)).post(
+        f"/chat/matches/{MATCH_ID}/messages", json={"body": "안녕하세요", "client_id": CLIENT_ID},
+        headers=AUTH_HEADERS)
+
+    assert response.status_code == 201
+    assert len(calls.messages) == 1  # insert 가 먼저, 되읽기는 겹친 뒤 한 번뿐
+    assert len(reads) == 1
+
+
+def test_an_old_app_send_to_a_closed_room_is_refused_without_a_lookup():
+    """client_id 가 없는 옛 앱 길은 지금 그대로 409 — 되읽기 조회도 없다."""
+    calls = _Calls()
+    reads: list[httpx.QueryParams] = []
+    closed = _match(chat_closed_at="2126-09-24T10:00:00+09:00")
+    response = _wire(_already_stored(calls, _stored_line("늦었나요"), closed, reads)).post(
+        f"/chat/matches/{MATCH_ID}/messages", json={"body": "늦었나요"}, headers=AUTH_HEADERS)
+
+    assert response.status_code == 409
+    assert reads == []
+    assert (calls.messages, calls.pushes, calls.broadcasts) == ([], [], [])
 
 
 # 나가기 ----------------------------------------------------------------------

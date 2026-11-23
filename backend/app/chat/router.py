@@ -270,7 +270,18 @@ async def send_message(match_id: str, body: MessageRequest,
     if match is None:
         raise HTTPException(status_code=404, detail=errors.CHAT_NOT_FOUND)
     mine, partner = _sides(match, wiring.profile_id)
-    _guard_writable(match, mine, partner)
+    try:
+        _guard_writable(match, mine, partner)
+    except HTTPException as exc:
+        # 대장 A안: 첫 전송은 저장됐는데 응답을 못 받은 사이 방이 닫혔거나 나갔다 — 같은 client_id 면 같은 201 + 처음 줄.
+        # 방송 · 푸시는 첫 요청이 이미 했다. 열린 방은 아래 on_conflict 가 같은 일을 해 미리 조회하지 않는다.
+        # 409(닫힘 · 나감)만 — 나중에 다른 거절(403 등)이 더해져도 재전송이 그것을 넘지 않게.
+        if exc.status_code != 409:
+            raise
+        sent = body.client_id and await wiring.repo.find_sent(match_id, wiring.profile_id, body.client_id)
+        if sent:
+            return {"message": sent}
+        raise
 
     # 푸시 제목에 쓸 내 닉네임은 저장 **앞에서** 읽는다 — 저장 뒤에 읽다 실패하면 메시지는 남았는데 500 이 나가 앱이 다시 보내 두 줄이 된다.
     nickname = await wiring.repo.fetch_nickname(wiring.profile_id)
