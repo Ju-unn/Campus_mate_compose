@@ -8,7 +8,7 @@
 import unicodedata
 from typing import Annotated
 
-from pydantic import AfterValidator
+from pydantic import AfterValidator, StringConstraints
 
 ZERO_WIDTH = frozenset(map(chr, (0x200B, 0x200C, 0x200D, 0x2060, 0xFEFF)))
 _BIDI = frozenset(map(chr, (*range(0x202A, 0x202F), *range(0x2066, 0x206A))))
@@ -49,3 +49,10 @@ SAFE_TEXT = AfterValidator(_safe_text)
 SAFE_LINE = AfterValidator(_safe_line)
 SafeText = Annotated[str, SAFE_TEXT]
 SafeLine = Annotated[str, SAFE_LINE]
+
+
+def body_text(max_length: int):
+    """사람이 쓰는 여러 줄 본문 칸 하나의 검사 — 투표 질문 · 게시물 본문 · 댓글이 길이만 달리해 같이 쓴다.
+    앞뒤 공백을 깎은 뒤 1~max_length 자, 널 · 제어 · 글 방향 문자 거절, 0폭 문자 · 공백만이면 빈 글."""
+    return Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=max_length), SAFE_TEXT,
+                     AfterValidator(require_visible)]
