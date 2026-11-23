@@ -181,10 +181,13 @@ Future<Result<http.Response>> sendAuthorizedRequest(
   }
   // 들고 있던 토큰이 만료만 됐을 수 있다(잠든 사이 · 시계 차이, E-EDGE-09) — 새로 받아 한 번만 다시 보낸다.
   // 새로 받지 못하면 계정이 없어졌거나 세션이 끊긴 것이다(A11). 네트워크 실패는 로그아웃 이유가 아니다.
+  // 갱신 응답이 끝내 안 오면 이 길의 모든 API 호출이 멈추므로 쓰기 상한에서 끊는다 — 시간 초과도 네트워크 실패다.
   final String? refreshed;
   try {
-    refreshed = (await auth.refreshSession()).session?.accessToken;
+    refreshed = (await auth.refreshSession().timeout(writeTimeout)).session?.accessToken;
   } on AuthRetryableFetchException {
+    return const FailureResult(NetworkFailure());
+  } on TimeoutException {
     return const FailureResult(NetworkFailure());
   } on AuthException {
     return const FailureResult(SessionRejectedFailure());
