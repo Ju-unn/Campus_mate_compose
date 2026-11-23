@@ -318,3 +318,64 @@ def test_log_has_changed_field_names_and_profile_id_but_never_the_values(caplog)
     assert PROFILE_ID in text
     for value in ("INTJ", "buddhist", "True"):
         assert value not in text
+
+
+# ---- 학번 (1.0.7 할 일 #1 · #9 확장, 사용자 결정 「기본정보수정에 학번칸 넣자」) ----
+# 3c(POST /school-info)는 옛 앱 호환으로 1~3자리를 받는다. 여기는 새 칸이라 처음부터 반각 숫자 정확히 2자리다.
+
+@pytest.mark.parametrize("student_number", ["21", "05"])
+def test_two_digit_student_number_is_saved(student_number):
+    seen = []
+    assert _patch({"student_number": student_number}, seen=seen).status_code == 200
+    assert _profile_patches(seen) == [{"student_number": student_number}]
+    # 학번은 문장 재료가 아니다 — 벡터를 다시 만들지 않는다.
+    assert _vector_saves(seen) == []
+
+
+@pytest.mark.parametrize("student_number", ["1", "123", "２１", "2a", "", " 21", "21\n"])
+def test_bad_student_number_is_422_with_a_string_detail_and_writes_nothing(student_number):
+    """detail 이 목록이면 앱이 "알 수 없는 오류" 를 띄운다 — 3c 와 같은 문자열 문구로 거절한다."""
+    seen = []
+    response = _patch({"student_number": student_number, "height_cm": 180}, seen=seen)
+    assert response.status_code == 422
+    assert response.json() == {"detail": "숫자를 입력해 주세요"}
+    assert _profile_patches(seen) == []
+
+
+def test_save_without_student_number_does_not_touch_it():
+    seen = []
+    assert _patch({"height_cm": 175}, seen=seen).status_code == 200
+    assert _profile_patches(seen) == [{"height_cm": 175}]
+
+
+@pytest.mark.parametrize("old", ["2021", "2021123", "20211234", None])
+def test_an_old_student_number_of_any_length_does_not_block_other_saves(old):
+    """3c 가 예전에 받은 4 · 7 · 8자리나 빈 학번을 가진 사람도 학번을 안 보내면 다른 칸을 고칠 수 있다 —
+    학번은 보냈을 때만 본다(DB 의 옛 값을 읽지도 않는다)."""
+    seen = []
+    current = {**CURRENT, "student_number": old}
+    assert _patch({"nickname": "하늘", "height_cm": 180}, current=current, seen=seen).status_code == 200
+    assert _profile_patches(seen) == [{"height_cm": 180}]
+
+
+def test_null_student_number_is_422():
+    # 비우는 화면이 없다 — 다른 칸과 같이 null 은 막는다.
+    seen = []
+    assert _patch({"student_number": None}, seen=seen).status_code == 422
+    assert _profile_patches(seen) == []
+
+
+def test_junk_nickname_still_blocks_a_save_that_also_carries_a_good_student_number():
+    seen = []
+    response = _patch({"student_number": "21", "nickname": "aaa"}, seen=seen)
+    assert response.status_code == 422
+    assert response.json() == {"detail": "이미 있는 닉네임이에요"}
+    assert _profile_patches(seen) == []
+
+
+def test_log_names_the_student_number_field_but_never_its_value(caplog):
+    with caplog.at_level(logging.INFO, logger="app.me.router"):
+        assert _patch({"student_number": "21"}).status_code == 200
+    messages = " ".join(record.getMessage() for record in caplog.records)
+    assert "student_number" in messages
+    assert "21" not in messages
