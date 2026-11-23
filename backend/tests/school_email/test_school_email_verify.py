@@ -282,9 +282,16 @@ def _existing_social_otp(world, provider: str = "google", user_id: str = OTHER, 
     return token
 
 
+def _finished_holder(world) -> None:
+    """그 메일을 쥔 다른 계정이 학교 메일 인증까지 끝낸 실제 가입자다."""
+    world.profiles[OTHER] = {"status": "active", "school_email_verified_at": "2026-10-01T00:00:00+00:00",
+                             "graduate_verified_at": None}
+
+
 @pytest.mark.parametrize("provider, label", [("kakao", "카카오"), ("google", "구글"), ("apple", "애플")])
 def test_an_otp_token_of_an_existing_social_account_is_409_taken_with_its_provider(client, world, provider, label):
     token = _existing_social_otp(world, provider)
+    _finished_holder(world)
 
     response = _verify(client, token)
 
@@ -300,6 +307,7 @@ def test_an_otp_token_of_an_existing_social_account_is_409_taken_with_its_provid
 
 def test_an_existing_account_with_an_email_and_a_social_identity_reports_the_social_one(client, world):
     token = _existing_social_otp(world, "google", providers=("email", "google"))
+    _finished_holder(world)
 
     response = _verify(client, token)
 
@@ -310,6 +318,7 @@ def test_an_existing_account_with_an_email_and_a_social_identity_reports_the_soc
 
 def test_the_409_for_an_existing_social_account_tells_nothing_but_the_provider(client, world):
     token = _existing_social_otp(world, "google")
+    _finished_holder(world)
 
     body = _verify(client, token).json()
 
@@ -331,20 +340,181 @@ def test_a_social_account_token_not_signed_in_by_otp_stays_not_confirmed(client,
     assert world.deleted_users == []
 
 
-def test_the_callers_own_social_account_by_otp_stays_not_confirmed(client, world):
-    """앱이 막아 둔 '내 로그인 메일을 그대로 넣음' — 같은 id 라 새 갈래가 아니다."""
-    token = _existing_social_otp(world, "kakao", user_id=ME)
-
-    _expect(_verify(client, token), 403, "학교 메일 인증이 끝나지 않았어요", "SCHOOL_EMAIL_NOT_CONFIRMED")
-    assert world.deleted_users == []
-    assert world.rpc_bodies == []
-
-
 def test_an_otp_token_with_no_account_id_stays_not_confirmed(client, world):
     token = _existing_social_otp(world, "google")
     world.tokens[token]["id"] = ""
 
     _expect(_verify(client, token), 403, "학교 메일 인증이 끝나지 않았어요", "SCHOOL_EMAIL_NOT_CONFIRMED")
+
+
+# 6-e: 그 메일을 쥔 다른 소셜 계정이 **가입을 끝내지 않았으면** 막지 않는다(2026-11-23) ------------------------------
+#
+# 학교 구글 계정으로 로그인만 하고 멈춘 사람이 카카오로 다시 들어와 같은 학교 메일로 인증하면 409 로 영영 막혔다.
+# OTP 를 맞혔으니 메일 주인이다. 쥔 계정은 지우지도 바꾸지도 않는다(가입 전 계정은 정리 배치가 14일 뒤 지운다).
+
+def test_an_unfinished_holder_does_not_block_the_mail_owner(client, world):
+    token = _existing_social_otp(world, "google")
+    world.profiles[OTHER] = {"status": "pending", "school_email_verified_at": None, "graduate_verified_at": None}
+
+    response = _verify(client, token)
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+    # 인증되는 건 호출한 사람(카카오)이고, 쥔 계정은 그대로 둔다.
+    assert world.rpc_bodies == [{"p_profile": ME, "p_email_hmac": HMAC, "p_university": SNU, "p_provider": "kakao"}]
+    assert world.deleted_users == []
+    assert world.calls("DELETE", f"/auth/v1/admin/users/{OTHER}") == []
+
+
+def test_a_holder_without_a_profile_does_not_block_the_mail_owner(client, world):
+    token = _existing_social_otp(world, "google")
+
+    assert _verify(client, token).status_code == 200
+    assert world.deleted_users == []
+
+
+@pytest.mark.parametrize("holder", [
+    {"status": "active", "school_email_verified_at": "2026-10-01T00:00:00+00:00", "graduate_verified_at": None},
+    {"status": "pending", "school_email_verified_at": "2026-10-01T00:00:00+00:00", "graduate_verified_at": None},
+    {"status": "active", "school_email_verified_at": None, "graduate_verified_at": "2026-10-01T00:00:00+00:00"},
+    {"status": "pending", "school_email_verified_at": None, "graduate_verified_at": "2026-10-01T00:00:00+00:00"},
+    {"status": "active", "school_email_verified_at": None, "graduate_verified_at": None},
+    {"status": "suspended", "school_email_verified_at": None, "graduate_verified_at": None},
+    {"status": "withdrawn", "school_email_verified_at": None, "graduate_verified_at": None},
+], ids=["school-verified", "school-verified-pending", "graduate", "graduate-pending", "active", "suspended",
+        "withdrawn"])
+def test_a_holder_that_is_not_an_unfinished_signup_still_blocks(client, world, holder):
+    token = _existing_social_otp(world, "google")
+    world.profiles[OTHER] = holder
+
+    response = _verify(client, token)
+
+    assert response.status_code == 409
+    assert response.json()["provider"] == "google"
+    assert world.rpc_bodies == []
+    assert world.deleted_users == []
+
+
+def test_a_holder_with_a_graduate_request_under_review_still_blocks(client, world):
+    """정리 배치(is_still_unverified)와 같은 기준 — 심사 중 졸업생 신청이 있으면 가입 중인 계정이다."""
+    token = _existing_social_otp(world, "google")
+    world.profiles[OTHER] = {"status": "pending", "school_email_verified_at": None, "graduate_verified_at": None}
+    world.open_graduate_requests.add(OTHER)
+
+    response = _verify(client, token)
+
+    assert response.status_code == 409
+    assert world.rpc_bodies == []
+
+
+def test_an_unreadable_holder_profile_still_blocks(client, world):
+    token = _existing_social_otp(world, "google")
+    world.unreadable_profiles.add(OTHER)
+
+    response = _verify(client, token)
+
+    assert response.status_code == 409
+    assert world.rpc_bodies == []
+    assert world.deleted_users == []
+
+
+@pytest.mark.parametrize("email", ["", None])
+def test_an_unfinished_holder_without_an_email_stays_not_confirmed(client, world, email):
+    token = _existing_social_otp(world, "google")
+    world.tokens[token]["email"] = email
+
+    _expect(_verify(client, token), 403, "학교 메일 인증이 끝나지 않았어요", "SCHOOL_EMAIL_NOT_CONFIRMED")
+    assert world.rpc_bodies == []
+
+
+def test_an_unfinished_holder_still_goes_through_the_domain_and_block_checks(client, world):
+    token = _existing_social_otp(world, "google")
+    world.blocked_hmacs.add(HMAC)
+
+    response = _verify(client, token)
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "SCHOOL_EMAIL_REJOIN_BLOCKED"
+    assert world.rpc_bodies == []
+    assert world.deleted_users == []
+
+
+def test_an_unfinished_holder_with_an_unknown_domain_is_422_and_untouched(client, world):
+    token = _existing_social_otp(world, "google")
+    world.tokens[token]["email"] = "hong@gmail.com"
+
+    response = _verify(client, token)
+
+    assert response.status_code == 422
+    assert world.deleted_users == []
+
+
+def test_a_claim_already_held_by_the_unfinished_holder_is_still_409_from_the_db(client, world):
+    token = _existing_social_otp(world, "google")
+    world.claims[HMAC] = (OTHER, "google")
+
+    assert _verify(client, token).status_code == 409
+    assert world.deleted_users == []
+
+
+# 6-f: 내 로그인 메일이 곧 학교 메일(학교 구글 계정으로 로그인) — OTP 로 메일 주인임을 보이면 인증한다(2026-11-23) ------
+
+def test_the_callers_own_login_mail_by_otp_verifies_the_caller(client, world):
+    token = _existing_social_otp(world, "kakao", user_id=ME)
+
+    response = _verify(client, token)
+
+    assert response.status_code == 200
+    assert world.rpc_bodies == [{"p_profile": ME, "p_email_hmac": HMAC, "p_university": SNU, "p_provider": "kakao"}]
+    # 토큰 주인이 호출한 사람 자신이다 — 절대 지우지 않는다.
+    assert world.deleted_users == []
+    assert world.calls("DELETE", f"/auth/v1/admin/users/{ME}") == []
+
+
+def test_the_callers_own_login_mail_not_by_otp_stays_not_confirmed(client, world):
+    token = jwt({"sub": ME, "amr": [{"method": "oauth", "timestamp": 1791428280}]})
+    world.tokens[token] = dict(social_user(ME), email="hong@snu.ac.kr")
+
+    _expect(_verify(client, token), 403, "학교 메일 인증이 끝나지 않았어요", "SCHOOL_EMAIL_NOT_CONFIRMED")
+    assert world.rpc_bodies == []
+
+
+def test_the_callers_own_login_mail_on_an_unknown_domain_is_422_and_untouched(client, world):
+    token = _existing_social_otp(world, "kakao", user_id=ME)
+    world.tokens[token]["email"] = "hong@gmail.com"
+
+    assert _verify(client, token).status_code == 422
+    assert world.deleted_users == []
+
+
+# 6-e · 6-f 의 OTP 신선도 — 번호를 맞힌 지 30분 안의 토큰만. 세션을 갱신해도 amr 의 otp 시각은 처음 그대로다 ------------
+
+TOKEN_TIME = 1791428280  # verify_world.NOW 2분 전
+STALE = [
+    [{"method": "otp", "timestamp": TOKEN_TIME - 29 * 60}],                  # NOW 31분 전
+    [{"method": "otp"}],                                                     # 시각 없음
+    [{"method": "otp", "timestamp": "1791428280"}],                          # 숫자가 아님
+]
+
+
+@pytest.mark.parametrize("amr", STALE, ids=["31-minutes-old", "no-timestamp", "not-a-number"])
+@pytest.mark.parametrize("user_id", [OTHER, ME], ids=["unfinished-holder", "own-login-mail"])
+def test_an_old_otp_on_an_existing_account_stays_not_confirmed(client, world, amr, user_id):
+    token = _existing_social_otp(world, "kakao", user_id=user_id)
+    stale = jwt({"sub": user_id, "amr": amr})
+    world.tokens[stale] = world.tokens.pop(token)
+
+    _expect(_verify(client, stale), 403, "학교 메일 인증이 끝나지 않았어요", "SCHOOL_EMAIL_NOT_CONFIRMED")
+    assert world.rpc_bodies == []
+    assert world.deleted_users == []
+
+
+def test_an_otp_29_minutes_old_still_verifies(client, world):
+    token = _existing_social_otp(world, "kakao", user_id=ME)
+    fresh = jwt({"sub": ME, "amr": [{"method": "otp", "timestamp": TOKEN_TIME - 27 * 60}]})
+    world.tokens[fresh] = world.tokens.pop(token)
+
+    assert _verify(client, fresh).status_code == 200
 
 
 # 6-c: 메일 앞부분의 + 별칭 — 한 메일함으로 계정을 여럿 만드는 길을 막는다 -------------------------------------

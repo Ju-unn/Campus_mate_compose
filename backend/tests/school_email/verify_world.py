@@ -94,6 +94,8 @@ class VerifyWorld:
         # 미등록 도메인 기록 함수에 온 본문, 그리고 그 함수가 돌려줄 상태 코드 또는 던질 httpx 예외
         self.record_bodies: list[dict] = []
         self.record_trouble: int | type[Exception] | None = None
+        # 심사 중인 졸업생 신청이 있는 profile id
+        self.open_graduate_requests: set[str] = set()
 
     # ------------------------------------------------------------------
     def handle(self, request: httpx.Request) -> httpx.Response:
@@ -124,6 +126,10 @@ class VerifyWorld:
             if row is None:
                 return httpx.Response(200, json=[])
             return httpx.Response(200, json=[{c: row.get(c) for c in params["select"].split(",")}])
+        if path == "/rest/v1/graduate_verification_requests":
+            assert params["status"] == "eq.pending"
+            open_request = params["profile_id"].removeprefix("eq.") in self.open_graduate_requests
+            return httpx.Response(200, json=[{"id": "g1"}] if open_request else [])
         if path == "/rest/v1/user_consents":
             rows = [{"kind": k, "version": CONSENT_VERSION} for k in sorted(REQUIRED_KINDS)] if self.consented else []
             return httpx.Response(200, json=rows)
