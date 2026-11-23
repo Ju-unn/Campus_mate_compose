@@ -334,3 +334,61 @@ async def test_fetch_kakao_id_without_a_key_refuses_to_read():
     with pytest.raises(RuntimeError):
         await repo.fetch_kakao_id(ME)
     assert seen == []
+
+
+# 재전송 두 줄 막기(1.0.7 #8, client_id) ------------------------------------------
+CLIENT_ID = "55555555-5555-5555-5555-555555555555"
+
+
+async def test_a_client_id_send_lets_the_unique_constraint_drop_a_repeat():
+    """같은 (방, 보낸이, client_id) 는 한 번만 들어가야 한다 — on conflict do nothing 으로 보낸다."""
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(201, json=[{"id": "msg-1", **json.loads(request.content)}])
+
+    message, created = await _repo(handler).insert_message(MATCH, ME, "안녕", client_id=CLIENT_ID)
+
+    assert created is True
+    assert message["id"] == "msg-1"
+    assert json.loads(seen[0].content)["client_id"] == CLIENT_ID
+    assert seen[0].url.params["on_conflict"] == "match_id,sender_id,client_id"
+    assert seen[0].headers["Prefer"] == "resolution=ignore-duplicates,return=representation"
+
+
+async def test_a_repeated_client_id_reads_back_only_my_own_line():
+    """겹쳐서 빈 응답이 오면 그 줄을 되읽는다. 조건에 sender_id = 나 가 꼭 있어야 한다 —
+    없으면 상대가 같은 client_id 로 보낸 줄을 내 응답으로 읽어 올 수 있다."""
+    reads: list[httpx.QueryParams] = []
+    stored = {"id": "msg-1", "match_id": MATCH, "sender_id": ME, "kind": "text", "body": "안녕",
+              "client_id": CLIENT_ID, "created_at": "2026-11-24T10:00:00+09:00"}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            return httpx.Response(201, json=[])
+        reads.append(request.url.params)
+        return httpx.Response(200, json=[stored])
+
+    message, created = await _repo(handler).insert_message(MATCH, ME, "안녕", client_id=CLIENT_ID)
+
+    assert (message, created) == (stored, False)
+    assert reads[0]["match_id"] == f"eq.{MATCH}"
+    assert reads[0]["sender_id"] == f"eq.{ME}"
+    assert reads[0]["client_id"] == f"eq.{CLIENT_ID}"
+
+
+async def test_without_a_client_id_the_insert_is_the_old_plain_one():
+    """옛 앱(1.0.6)·시스템 줄은 client_id 를 싣지 않고 on_conflict 도 걸지 않는다 — 지금과 같은 요청이다."""
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(201, json=[{"id": "msg-1"}])
+
+    _, created = await _repo(handler).insert_message(MATCH, ME, "안녕")
+
+    assert created is True
+    assert "client_id" not in json.loads(seen[0].content)
+    assert "on_conflict" not in seen[0].url.params
+    assert seen[0].headers["Prefer"] == "return=representation"

@@ -453,6 +453,117 @@ def test_too_long_and_blank_messages_are_refused():
                        json={"body": "   "}, headers=AUTH_HEADERS).status_code == 422
 
 
+# 재전송 두 줄 막기(1.0.7 #8, client_id) ------------------------------------------
+CLIENT_ID = "55555555-5555-5555-5555-555555555555"
+# 옛 앱(1.0.6)이 읽는 응답 칸. 칸 추가는 괜찮지만 이 중 하나라도 빠지면 옛 앱이 깨진다.
+OLD_MESSAGE_KEYS = {"id", "match_id", "sender_id", "kind", "body", "created_at"}
+
+
+def _already_stored(calls: _Calls, stored: dict):
+    """같은 client_id 가 이미 있는 방 — insert 는 겹쳐서 빈 응답, 되읽기는 그 줄."""
+    handler = _handler(calls, _match())
+
+    def wrapped(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/rest/v1/messages" and request.method == "POST":
+            calls.messages.append(json.loads(request.content))
+            return httpx.Response(201, json=[])
+        if request.url.path == "/rest/v1/messages" and request.url.params.get("client_id"):
+            return httpx.Response(200, json=[stored])
+        return handler(request)
+
+    return wrapped
+
+
+def _stored_line(body: str) -> dict:
+    return {"id": "msg-1", "match_id": MATCH_ID, "sender_id": PROFILE_ID, "kind": "text",
+            "body": body, "client_id": CLIENT_ID, "created_at": "2026-09-22T13:59:58+09:00"}
+
+
+def test_a_first_send_with_a_client_id_stores_pushes_and_broadcasts_once():
+    calls = _Calls()
+    response = _wire(_handler(calls, _match())).post(
+        f"/chat/matches/{MATCH_ID}/messages", json={"body": "안녕하세요", "client_id": CLIENT_ID},
+        headers=AUTH_HEADERS)
+
+    assert response.status_code == 201
+    assert calls.messages[0]["client_id"] == CLIENT_ID
+    assert len(calls.pushes) == 1
+    assert [b["event"] for b in calls.broadcasts] == ["message", "message"]
+
+
+def test_a_resent_client_id_returns_the_stored_line_without_a_second_push_or_broadcast():
+    """응답을 못 받은 앱이 같은 id 로 다시 보낸다 — 같은 201 · 같은 줄, 상대 화면 · 알림은 한 번뿐이다."""
+    calls = _Calls()
+    stored = _stored_line("안녕하세요")
+    response = _wire(_already_stored(calls, stored)).post(
+        f"/chat/matches/{MATCH_ID}/messages", json={"body": "안녕하세요", "client_id": CLIENT_ID},
+        headers=AUTH_HEADERS)
+
+    assert response.status_code == 201
+    assert response.json() == {"message": stored}
+    assert (calls.pushes, calls.broadcasts) == ([], [])
+
+
+def test_a_resent_client_id_with_other_text_still_returns_the_first_line():
+    """대장 판정(409 아님): 글이 바뀌면 앱이 새 id 를 쓴다. 같은 id 면 처음 저장된 줄이 답이다."""
+    calls = _Calls()
+    stored = _stored_line("안녕하세요")
+    response = _wire(_already_stored(calls, stored)).post(
+        f"/chat/matches/{MATCH_ID}/messages", json={"body": "다른 글", "client_id": CLIENT_ID},
+        headers=AUTH_HEADERS)
+
+    assert response.status_code == 201
+    assert response.json()["message"]["body"] == "안녕하세요"
+    assert (calls.pushes, calls.broadcasts) == ([], [])
+
+
+def test_an_old_app_send_without_a_client_id_keeps_its_response_shape():
+    """1.0.6 은 client_id 없이 보낸다. 요청은 지금 그대로, 응답은 {"message": 행 전체} 에 옛 칸이 다 있다."""
+    calls = _Calls()
+    handler = _handler(calls, _match())
+
+    def full_row(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/rest/v1/messages" and request.method == "POST":
+            posted = json.loads(request.content)
+            calls.messages.append(posted)
+            assert "on_conflict" not in request.url.params
+            return httpx.Response(201, json=[{"id": "msg-1", **posted, "client_id": None,
+                                              "created_at": "2026-09-22T14:00:00+09:00"}])
+        return handler(request)
+
+    response = _wire(full_row).post(
+        f"/chat/matches/{MATCH_ID}/messages", json={"body": "안녕하세요"}, headers=AUTH_HEADERS)
+
+    assert response.status_code == 201
+    assert set(response.json()) == {"message"}
+    assert OLD_MESSAGE_KEYS <= set(response.json()["message"])
+    assert "client_id" not in calls.messages[0]
+    assert len(calls.pushes) == 1
+
+
+def test_a_client_id_that_is_not_a_uuid_is_refused_before_anything_is_stored():
+    """이 값은 PostgREST 필터(eq.)에 들어간다 — uuid 모양이 아니면 저장 전에 422."""
+    calls = _Calls()
+    response = _wire(_handler(calls, _match())).post(
+        f"/chat/matches/{MATCH_ID}/messages", json={"body": "안녕하세요", "client_id": "x,or(id.eq.y)"},
+        headers=AUTH_HEADERS)
+
+    assert response.status_code == 422
+    assert calls.messages == []
+
+
+def test_a_client_id_does_not_skip_the_closed_room_check():
+    """기존 검사(닫힌 방 · 나감 · 404)는 client_id 보다 먼저다."""
+    calls = _Calls()
+    closed = _match(chat_closed_at="2126-09-24T10:00:00+09:00")
+    response = _wire(_handler(calls, closed)).post(
+        f"/chat/matches/{MATCH_ID}/messages", json={"body": "늦었나요", "client_id": CLIENT_ID},
+        headers=AUTH_HEADERS)
+
+    assert response.status_code == 409
+    assert calls.messages == []
+
+
 # 나가기 ----------------------------------------------------------------------
 
 def test_leaving_writes_the_system_line_the_partner_will_see():
