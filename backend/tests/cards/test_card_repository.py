@@ -396,3 +396,97 @@ async def test_issue_owners_asks_for_a_stable_order_on_every_page():
 
     assert [p.get("order") for p in seen] == ["profile_id.asc"] * 3  # 1000 · 500 · 0
     assert all(int(p["limit"]) <= SERVER_MAX_ROWS for p in seen)
+
+
+# 거절 되돌리기(1.0.7 #20) ---------------------------------------------------------------------------
+
+def _patch_server(changed: list[dict]):
+    """조건부 PATCH 를 받아 두고, 바뀐 행으로 changed 를 돌려주는 가짜."""
+    import json
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        request.read()
+        return httpx.Response(200, json=changed)
+
+    return seen, handler, json
+
+
+@pytest.mark.parametrize(("method", "args", "table", "row"), [
+    ("reapply_rejected", ("card-1",), "card_decisions", {"card_id": "eq.card-1"}),
+    ("reapply_rejected_answer", ("card-1", "me-1"), "acceptance_responses",
+     {"card_id": "eq.card-1", "responder_id": "eq.me-1"}),
+])
+async def test_undo_rejection_patches_only_a_row_still_rejected_inside_the_window(method, args, table, row):
+    """연타 · 동시 요청이 두 건이 되지 않게 "아직 거절 · 기한 안" 을 PATCH 조건으로 건다. 원래 거절 시각은 rejected_at 에."""
+    seen, handler, json = _patch_server([{"card_id": "card-1"}])
+    repo, _ = _repo(handler)
+    cutoff = NOW - timedelta(days=7)
+
+    changed = await getattr(repo, method)(*args, cutoff, "2026-09-20T03:00:00+00:00", NOW)
+
+    assert changed is True
+    [request] = seen
+    assert request.method == "PATCH"
+    assert request.url.path == f"/rest/v1/{table}"
+    assert dict(request.url.params) == {
+        **row, "decision": "eq.reject", "decided_at": f"gt.{cutoff.astimezone(timezone.utc).isoformat()}",
+        "select": "card_id",
+    }
+    assert request.headers["Prefer"] == "return=representation"
+    assert json.loads(request.content) == {
+        "decision": "accept", "rejected_at": "2026-09-20T03:00:00+00:00",
+        "decided_at": NOW.astimezone(timezone.utc).isoformat(),
+    }
+
+
+@pytest.mark.parametrize("method", ["reapply_rejected", "reapply_rejected_answer"])
+async def test_undo_rejection_says_false_when_no_row_changed(method):
+    """0행 = 연타 · 동시 요청의 두 번째(또는 그사이 기한 지남). 부르는 쪽이 409 로 바꾼다."""
+    _, handler, _ = _patch_server([])
+    repo, _ = _repo(handler)
+    args = ("card-1",) if method == "reapply_rejected" else ("card-1", "me-1")
+
+    assert await getattr(repo, method)(*args, NOW - timedelta(days=7), "2026-09-20T03:00:00+00:00", NOW) is False
+
+
+async def test_recent_rejections_read_my_card_rejections_newest_first():
+    seen: list[httpx.QueryParams] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.params)
+        return httpx.Response(200, json=[])
+
+    repo, _ = _repo(handler)
+    since = NOW - timedelta(days=7)
+    await repo.fetch_recent_rejections("me-1", since, 50)
+
+    [params] = seen
+    assert params["decision"] == "eq.reject"
+    assert params["daily_cards.owner_id"] == "eq.me-1"
+    assert "daily_cards!inner(" in params["select"]  # 임베드 필터가 위 행을 거르려면 inner 여야 한다
+    assert params["decided_at"] == f"gt.{since.astimezone(timezone.utc).isoformat()}"
+    assert (params["order"], params["limit"]) == ("decided_at.desc", "50")
+    assert "rejected_at" not in params["select"]
+
+
+async def test_recent_answer_rejections_read_my_rejected_requests_with_their_request_time():
+    seen: list[httpx.QueryParams] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.params)
+        return httpx.Response(200, json=[])
+
+    repo, _ = _repo(handler)
+    since = NOW - timedelta(days=7)
+    await repo.fetch_recent_answer_rejections("me-1", since, 50)
+
+    [params] = seen
+    assert params["decision"] == "eq.reject"
+    assert params["responder_id"] == "eq.me-1"
+    # 신청한 사람과 그 사람이 수락한 시각(원래 응답 기한의 재료).
+    assert "daily_cards(owner_id,card_decisions(decided_at))" in params["select"]
+    assert params["decided_at"] == f"gt.{since.astimezone(timezone.utc).isoformat()}"
+    assert (params["order"], params["limit"]) == ("decided_at.desc", "50")
+    assert "rejected_at" not in params["select"]
