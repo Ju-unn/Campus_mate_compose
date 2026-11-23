@@ -56,6 +56,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../chat/model/repository/fake_chat_repository.dart';
+import '../../billing/store/view/pretendard.dart';
 import '../../matching/model/repository/fake_card_repository.dart';
 import '../../me/model/repository/fake_me_repository.dart';
 import '../model/repository/fake_home_repository.dart';
@@ -1687,6 +1688,30 @@ void main() {
       expect(find.descendant(of: target(TourTargetId.homeHero), matching: find.text('지금 확인하기')), findsOneWidget);
       expect(find.descendant(of: target(TourTargetId.homeProfileNudge), matching: find.text('프로필 완성도 40%')), findsOneWidget);
     });
+  });
+
+  // 시험 기본 글꼴은 글자마다 1em 네모라 폭을 잴 수 없어 실제 글꼴(Pretendard)을 부른다. 부른 글꼴은 파일 안 뒤 시험에도 남으니 맨 끝에 둔다.
+  testWidgets('320 폭 — hero 확인 완료의 "6일 07:20:05"(32/700)가 줄지 않고 틀 안에 들어간다(1.0.7 #14)', (tester) async {
+    penFrame(tester, 320);
+    await tester.runAsync(loadPretendard);
+    await pump(
+      tester,
+      today: Success(TodayCards(cards: const [], nextIssueAt: DateTime.now().add(
+        const Duration(hours: 151, minutes: 20, seconds: 5, milliseconds: 500),
+      ))),
+    );
+
+    final hero = heroOf('오늘 카드는');
+    final digits = find.descendant(of: find.byType(CountdownText), matching: find.byType(Text));
+    expect(tester.widget<Text>(digits).data, matches(RegExp(r'^6일 07:\d\d:\d\d$')));
+    final drawn = tester.getRect(digits);
+    // FittedBox(scaleDown) 가 줄였다면 그려진 폭이 글자 상자 폭보다 작다 — 32 그대로여야 한다.
+    expect(drawn.width, closeTo(tester.getSize(digits).width, 0.5));
+    // 틀 좌우 안쪽 20(pen `xq5wi`) 안.
+    final box = tester.getRect(hero);
+    expect(drawn.left, greaterThanOrEqualTo(box.left + 20));
+    expect(drawn.right, lessThanOrEqualTo(box.right - 20));
+    expect(tester.takeException(), isNull);
   });
 }
 
