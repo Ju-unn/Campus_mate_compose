@@ -16,6 +16,7 @@ ROUTES = [
     ("get", "/admin/billing/frequent-returns", None),
     ("get", "/admin/billing/summary", None),
     ("get", "/admin/billing/daily", None),
+    ("get", "/admin/billing/recent", None),
 ]
 
 
@@ -96,6 +97,46 @@ def test_order_search_rejects_bad_input_without_touching_the_db_or_echoing_it(cl
     assert response.status_code == 422
     if order.strip():
         assert order not in response.text
+    assert world.calls("GET", "/rest/v1/purchases") == []
+
+
+# 최근 결제 -----------------------------------------------------------------------
+
+def test_recent_lists_real_purchases_newest_first_with_who_paid(client, world):
+    world.purchases = [
+        _purchase(id="old", purchased_at="2026-11-13T00:00:00+00:00"),
+        _purchase(id="test", is_test=True, purchased_at="2026-11-23T01:00:00+00:00"),
+        _purchase(id="new", purchased_at="2026-11-23T00:30:00+00:00", profiles={"id": "22222222-0000-0000-0000-000000000002", "nickname": "공대생"}),
+        _purchase(id="gone", purchased_at="2026-11-20T00:00:00+00:00", profiles=None),
+    ]
+
+    response = client.get("/admin/billing/recent", headers=ADMIN_HEADERS)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [item["id"] for item in body["items"]] == ["new", "gone", "old"]  # 시험 결제는 빠진다
+    assert body["total"] == 3 and body["page"] == 1 and body["size"] == 20
+    assert body["items"][0]["profile"] == {"id": "22222222-0000-0000-0000-000000000002", "nickname": "공대생"}
+    assert body["items"][1]["profile"] is None  # 지워진 계정
+    assert body["items"][0]["price_krw"] == 5700 and body["items"][0]["granted_hearts"] == 150
+    # 목록에는 주문 번호 · 토큰 해시를 고르지도 싣지도 않는다(번호는 정확히 찾을 때만)
+    query = world.calls("GET", "/rest/v1/purchases")[0].url.params
+    assert query["is_test"] == "eq.false" and query["order"] == "purchased_at.desc,id.desc"
+    assert "store_order_id" not in query["select"] and "token_hash" not in query["select"]
+    assert ORDER not in response.text and "store_order_id" not in body["items"][0]
+
+
+def test_recent_is_cut_into_numbered_pages(client, world):
+    world.purchases = [_purchase(id=f"p{n}", purchased_at=f"2026-11-2{n}T00:00:00+00:00") for n in range(3)]
+
+    body = client.get("/admin/billing/recent?page=2&size=2", headers=ADMIN_HEADERS).json()
+
+    assert [item["id"] for item in body["items"]] == ["p0"] and body["total"] == 3 and body["page"] == 2
+
+
+@pytest.mark.parametrize("query", ["page=0", "size=0", "size=101"])
+def test_recent_paging_is_bounded(client, world, query):
+    assert client.get(f"/admin/billing/recent?{query}", headers=ADMIN_HEADERS).status_code == 422
     assert world.calls("GET", "/rest/v1/purchases") == []
 
 
