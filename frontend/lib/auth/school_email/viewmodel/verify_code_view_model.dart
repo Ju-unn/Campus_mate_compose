@@ -162,17 +162,47 @@ class VerifyCodeViewModel extends Notifier<VerifyCodeUiState> {
     );
   }
 
+  /// 다시 보내기를 바로 다시 해 볼 만한 실패 — 서버에 안 닿았거나 서버 문제거나, 429 · 422 말고 GoTrue 가 돌려준 실패.
+  /// CodeNotSentFailure 는 저장소가 429 · 422 를 뺀 나머지(5xx · 네트워크 · 시간 초과 · 400 · 401 · 403 등)를 묶은 것이다.
+  static bool _canResendAtOnce(Failure failure) => switch (failure) {
+    NetworkFailure() || CodeNotSentFailure() || ServerUnavailableFailure() || UnknownFailure() => true,
+    _ => false,
+  };
+
   /// 쿨다운 중이면 아무 일도 하지 않는다(spec §13-38, 60초 재전송 제한).
   Future<void> resend() async {
     if (!state.canResend(now())) {
       return;
     }
-    // 새 코드가 오므로 입력칸을 비운다 — 안 비우면 예전 코드가 남아 그대로 제출된다. 저장한 임시 토큰도 버린다.
-    _temporaryToken = null;
+    final previousExpiresAt = state.codeExpiresAt;
+    final previousResendAt = state.resendAvailableAt;
+    // 새 코드가 오므로 입력칸을 비운다 — 안 비우면 예전 코드가 남아 그대로 제출된다.
     state = VerifyCodeUiState(
       resendAvailableAt: now().add(_resendCooldown),
       codeExpiresAt: now().add(codeLifetime),
     );
-    await ref.read(schoolEmailRepositoryProvider).requestCode(_email);
+    final result = await ref.read(schoolEmailRepositoryProvider).requestCode(_email);
+    // 기다리는 사이 버려졌으면 늦게 온 답은 버린다 — 상태를 건드리면 던진다.
+    if (!ref.mounted) return;
+    final failure = result.when(onSuccess: (_) => null, onFailure: (failure) => failure);
+    if (failure == null) {
+      // 새 코드가 왔다 — 옛 코드로 받은 임시 토큰은 버린다.
+      _temporaryToken = null;
+      return;
+    }
+    _resendFailed(failure, previousResendAt, previousExpiresAt);
+  }
+
+  /// 새 코드가 안 왔다 — 옛 코드와 그 임시 토큰은 살아 있다. 만료 시각을 되돌리고 입력칸 아래에 실패를 보인다.
+  /// 쿨다운은 [_canResendAtOnce] 일 때만 되돌린다 — 서버가 한도 · 가입 거절(429 · 422)로 답했으면 바로 눌러도 같은 답이다.
+  /// 기다리는 사이 확인을 눌렀으면(확인 중 · 끝남) 그 흐름이 상태를 맡는다 — 덮으면 확인을 두 번 부를 수 있다.
+  void _resendFailed(Failure failure, DateTime? previousResendAt, DateTime? previousExpiresAt) {
+    if (state.isSubmitting || state.verified) return;
+    state = VerifyCodeUiState(
+      codeInput: state.codeInput,
+      resendAvailableAt: _canResendAtOnce(failure) ? previousResendAt : state.resendAvailableAt,
+      codeExpiresAt: previousExpiresAt,
+    );
+    state = _failed(failure);
   }
 }
