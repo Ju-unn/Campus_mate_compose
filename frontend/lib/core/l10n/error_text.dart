@@ -23,7 +23,6 @@ String failureText(AppLocalizations l10n, Failure failure) => switch (failure) {
       WithdrawnFailure() => l10n.errorWithdrawn,
       CodeNotSentFailure() => l10n.errorCodeNotSent,
       SchoolEmailIncompleteFailure() || SchoolEmailNotConfirmedFailure() => l10n.errorSchoolEmailIncomplete,
-      SchoolEmailSameAsLoginFailure() => l10n.errorSchoolEmailSameAsLogin,
       SchoolEmailRejectedFailure(:final serverMessage) => serverMessage,
       final SchoolEmailTakenFailure taken => _takenText(l10n, taken),
       LoginCancelledFailure() => l10n.errorLoginCancelled,
