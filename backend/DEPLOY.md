@@ -1704,6 +1704,7 @@ DB 칸 · 제약은 1/3 DB PR(#789, `messages.client_id` + `messages_client_id_u
 | 요청 | `POST /chat/matches/{match_id}/messages` 몸통에 `client_id` **선택** 칸. 있으면 UUID 여야 한다(아니면 422) |
 | 겹칠 때 | 같은 (방, 보낸이, `client_id`) 로 다시 오면 새 줄을 만들지 않고 **201 + 처음 줄**을 돌려준다(insert `on_conflict` + `resolution=ignore-duplicates` 가 빈 배열을 주면 `sender_id` = 나 조건으로 되읽는다). 응답 모양 `{"message": …}` 은 그대로 |
 | 방송 · 푸시 | 겹친 재전송은 Realtime 방송 · 상대 푸시를 **다시 하지 않는다**(첫 요청이 이미 했다) |
+| 겹침 확인 순서 | 겹침 확인은 닫힘 · 나감 검사보다 먼저(참여자 확인 뒤). 남의 방은 줄을 읽기 전에 404, 닫힌 · 나간 방(상대 나감 포함)에서 같은 `client_id` 줄이 있으면 201 + 처음 줄, 없으면(새 글 · `client_id` 없는 옛 앱) 지금처럼 409. 열린 방은 미리 조회하지 않고 위 `on_conflict` 로 같은 결과를 낸다(정상 전송 호출 수 그대로) |
 | 순서 | **DB → 서버 → 앱.** DB 보다 서버가 먼저 나가면 `client_id` 가 실린 요청이 500 이다(칸 · 제약 없음) — 앱 1.0.7 전에는 보내는 앱이 없다 |
 | 옛 앱 | 1.0.6 이하는 `client_id` 없이 보내고 지금과 똑같이 저장 · 방송 · 푸시된다. compat 표식 `backend/app/chat/router.py`(`MessageRequest.client_id`) · `backend/app/chat/repository.py`(`insert_message`): `# compat(1.0.6): client_id 없는 채팅 전송 — MIN_APP_VERSION 1.0.7 뒤 삭제` |
 | 시험 | `backend/tests/chat/test_chat_repository.py` · `test_chat_router.py` (겹침 · 되읽기 · 방송 · 푸시 한 번 · 1.0.6 응답 모양) |
