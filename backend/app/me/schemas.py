@@ -18,7 +18,7 @@ def is_valid_student_number(student_number: str) -> bool:
     """15-6 학번 칸: 반각 숫자 정확히 2자리(예: 21). pattern 으로 걸지 않는 까닭은 3c 와 같다 —
     422 detail 이 목록이면 앱이 "알 수 없는 오류" 를 띄운다."""
     # [0-9] 로 쓴다 — \d 는 전각 숫자(２１)도 받는다.
-    # 3c(student_verification/schemas.py has_valid_student_number)는 옛 앱 호환으로 1~3자리다. 그쪽도 2자리로 조이면 이 함수 하나로 합친다.
+    # 3c(student_verification/schemas.py has_valid_student_number)는 옛 앱 호환으로 1~3자리다(compat(1.0.6)). MIN_APP_VERSION 1.0.7 뒤 그쪽을 지우고 이 함수 하나로 합친다.
     return re.fullmatch(r"[0-9]{2}", student_number) is not None
 
 
