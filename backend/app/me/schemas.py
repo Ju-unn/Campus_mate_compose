@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timedelta
 
 from pydantic import BaseModel, Field, StrictBool, field_validator, model_validator
@@ -13,6 +14,14 @@ MBTI_PATTERN = r"^[EI][NS][TF][JP]$"
 NICKNAME_CHANGE_INTERVAL = timedelta(days=30)
 
 
+def is_valid_student_number(student_number: str) -> bool:
+    """15-6 학번 칸: 반각 숫자 정확히 2자리(예: 21). pattern 으로 걸지 않는 까닭은 3c 와 같다 —
+    422 detail 이 목록이면 앱이 "알 수 없는 오류" 를 띄운다."""
+    # [0-9] 로 쓴다 — \d 는 전각 숫자(２１)도 받는다.
+    # 3c(student_verification/schemas.py has_valid_student_number)는 옛 앱 호환으로 1~3자리다. 그쪽도 2자리로 조이면 이 함수 하나로 합친다.
+    return re.fullmatch(r"[0-9]{2}", student_number) is not None
+
+
 def nickname_changeable_at(changed_at: datetime | None, now: datetime) -> datetime | None:
     """닉네임 잠금이 풀리는 때. 지금 바꿀 수 있으면 None."""
     if changed_at is None:
@@ -22,7 +31,7 @@ def nickname_changeable_at(changed_at: datetime | None, now: datetime) -> dateti
 
 
 class ProfileUpdateRequest(BaseModel):
-    """15c(자기소개) · 15-6(닉네임 · 키 · MBTI · 종교 · 흡연 · 얼굴상 · 인상) 저장. **보낸 칸만** 고친다(model_fields_set) — 화면마다 따로 저장한다(U4)."""
+    """15c(자기소개) · 15-6(닉네임 · 키 · MBTI · 종교 · 흡연 · 얼굴상 · 인상 · 학번) 저장. **보낸 칸만** 고친다(model_fields_set) — 화면마다 따로 저장한다(U4)."""
 
     bio: FreeText | None = None   # 온보딩 /bio 와 같은 1000자 · 40줄 · 줄 끝 \n 통일
     nickname: str | None = Field(default=None, pattern=NICKNAME_PATTERN)
@@ -33,6 +42,8 @@ class ProfileUpdateRequest(BaseModel):
     is_smoker: StrictBool | None = None   # "yes" · 1 같은 값이 True 로 둔갑하지 않게 JSON bool 만 받는다
     animal_type: str | None = None
     impression_type: str | None = None
+    # 형식(2자리)은 라우터가 문자열 detail 로 거절한다(is_valid_student_number). 상한은 3c SchoolInfoRequest 와 같은 20자 안전판.
+    student_number: str | None = Field(default=None, max_length=20)
 
     @field_validator("religion")
     @classmethod

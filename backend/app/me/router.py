@@ -17,7 +17,7 @@ from app.matching.repository import MatchingRepository
 from app.matching.vectors import refresh_vectors
 from app.me.photo_layout import parse_layout
 from app.me.repository import MeRepository
-from app.me.schemas import ProfileUpdateRequest, nickname_changeable_at
+from app.me.schemas import ProfileUpdateRequest, is_valid_student_number, nickname_changeable_at
 from app.profile_onboarding.avatars import STALE_PENDING_AFTER, avatar_regen_cost
 from app.profile_onboarding.photos import PHOTO_CHECKS, REJECTION_BODIES, PhotoVerdict, check_photo
 from app.profile_onboarding.repository import ProfileOnboardingRepository
@@ -237,6 +237,10 @@ async def update_my_profile(
     settings, client, profile_id = caller
     repo = MeRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
     fields = body.model_dump(include=body.model_fields_set)
+
+    # 학번은 보냈을 때만 본다 — 3c 가 예전에 받은 4 · 8자리 값을 가진 사람이 다른 칸만 고치는 저장은 막지 않는다.
+    if "student_number" in fields and not is_valid_student_number(fields["student_number"]):
+        raise HTTPException(status_code=422, detail=errors.STUDENT_NUMBER_INVALID)
 
     if "nickname" in fields:
         current = await repo.fetch_nickname_state(profile_id)
