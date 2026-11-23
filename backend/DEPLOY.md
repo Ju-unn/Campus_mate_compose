@@ -1695,7 +1695,7 @@ INFO 를 켠 로거는 핸들러를 직접 달아서 같은 로거의 WARNING �
 - **0% 태그 점검(대장 전달 값)**: `00137-wiz` · `00139-lit` · `00141-wew` 모두 env 33개(직전 리비전과 이름 목록 같음), 태그 주소 `/health` 200 · `/app/version` 정상(`00139-lit` 부터 `1.0.6`) · `POST /batch/cleanup`(본문 0) 401 · ERROR 로그 0 을 본 뒤 100% 로 옮겼다. `00137-wiz` 전환 뒤 1.0.6 폰 시험(학과 "." → 3c 다시 뜸 · 규칙 밖 학과 422 · 저장 뒤 홈)을 했고 시험 계정 값은 되돌렸다.
 - 앱 쪽 미리 검사와 안내 문구는 앱 1.0.7 에 넣는다(추후 할 일). 그때까지 1.0.6 앱은 서버 문구를 그대로 칸 아래에 보인다.
 
-## 4-36. 1.0.7 거절 되돌리기 — 거절한 카드 다시 신청 · 받은 신청 거절 되돌리기 (할 일 #20, 브랜치 `feat/card-reapply`) — **아직 merge 전 · 운영 DB 미적용 · 서버 미배포**
+## 1.0.7 거절 되돌리기 — 거절한 카드 다시 신청 · 받은 신청 거절 되돌리기 (할 일 #20, 브랜치 `feat/card-reapply`) — **아직 merge 전 · 운영 DB 미적용 · 서버 미배포** (PR #796)
 
 DB 마이그레이션 1개(`20261123161541_card_decisions_rejected_at` — `card_decisions` · `acceptance_responses` 에 `rejected_at timestamptz null`, RLS · grant 변경 없음)와 서버 코드. 새 env · 시크릿 · job 은 없다. 규칙은 `backend/app/cards/reapply.py` 한 곳에 있다: 기한은 **내가 거절한 시각부터 7일(`REAPPLY_WINDOW_DAYS`), 서버 시계**, 카드 `expires_at` 은 보지 않고 하트도 쓰지 않는다. **한 장에 한 번만**(2026-11-24 사용자 확정) — 되돌리면 그 행의 `decision` 이 `accept` 가 되어 "아직 거절" 조건에 다시 걸리지 않는다. 저장은 "아직 거절 · 7일 안" 을 조건으로 건 PATCH 하나라 연타 · 동시 요청의 두 번째는 0행 → 409 이고 알림 · 매칭이 없다(받은 신청 되돌리기는 매칭이 생긴 뒤 다시 누르면 숨김 관문에서 404). 되돌린 행의 `decided_at` 이 되돌린 시각으로 바뀌어 `match_candidates` 의 90일 쉬기 기준도 그 시각으로 밀린다.
 
@@ -1711,7 +1711,7 @@ DB 마이그레이션 1개(`20261123161541_card_decisions_rejected_at` — `card
 - **상대에게 거절 흔적 0**: 상대 쪽 읽기(받은 신청 목록 · 상세 · 보낸 신청 · 카드 읽기)는 `rejected_at` 을 select 하지 않고, 응답 · 알림 본문 · 알림 data 가 처음 수락과 같다(시험으로 비교). `rejected_at` 은 관리자 집계용이다.
 - **관리자 통계 주의**: 다시 신청 · 되돌리기는 그 행의 `decided_at` 을 되돌린 시각으로 덮는다. 그래서 관리자 통계에서 **거절한 날의 거절 1건이 사라지고 되돌린 날의 수락 1건으로 옮겨 간다(과거 일자 숫자가 바뀔 수 있음)**. 원래 거절 시각은 `rejected_at` 에 남는다.
 - **배포 순서**: DB 먼저 → 서버 → 앱. 칸이 없는 DB 에 새 서버의 되돌리기 PATCH 가 가면 실패한다(옛 서버는 새 칸을 모르므로 DB 를 먼저 올려도 안전하다). 되돌림은 서버 리비전만 내리면 되고 칸은 남겨 둬도 된다.
-- **남은 확인**: `fetch_recent_rejections` · `fetch_recent_answer_rejections` 가 인덱스 경로를 타는지 `EXPLAIN` 으로 본 적이 없다(보낸 신청과 같은 상태). pgTAP `supabase/tests/rejected_at_test.sql` 은 아직 로컬에서 돌리지 않았다.
+- **남은 확인**: `fetch_recent_rejections` · `fetch_recent_answer_rejections` 가 인덱스 경로를 타는지 `EXPLAIN` 으로 본 적이 없다(보낸 신청과 같은 상태). pgTAP `supabase/tests/rejected_at_test.sql` 은 로컬 Docker 에서 돌렸다 — 마이그레이션을 빼면 `column "rejected_at" of relation "card_decisions" does not exist` 로 실패, 넣으면 전체 Tests=1623 PASS.
 
 ## 5. 현재 배포 상태 (아래 표는 2026-11-14 새벽 기준 — 2026-11-16 개정은 개정 5 바로 아래 네 문단(종전 서술: "첫 네 문단", 그 앞 "첫 세 문단"), 2026-11-17 개정 5 는 개정 6 바로 아래 문단, 2026-11-18 개정 6 은 개정 7 바로 아래 문단, 지금 운영은 2026-11-18 개정 7 — 맨 위 문단)
 
