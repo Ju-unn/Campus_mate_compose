@@ -439,6 +439,10 @@ class AdminWorld:
         if path == "/rest/v1/contact_blocks" and method == "GET":
             count = self.contact_blocks.get(params["owner_id"].removeprefix("eq."), 0)
             return httpx.Response(200, json=[], headers={"Content-Range": f"*/{count}"})
+        if path == "/rest/v1/purchases" and method == "GET" and "is_test" in params:  # 최근 결제 목록(쪽 · 건수)
+            rows = [r for r in self.purchases if str(r["is_test"]).lower() == params["is_test"].removeprefix("eq.")]
+            rows = _ordered_by(rows, params["order"])
+            return page_response(request, [_project(r, params["select"]) for r in rows])
         if path == "/rest/v1/purchases" and method == "GET":
             key = "profile_id" if "profile_id" in params else "store_order_id"
             rows = [r for r in self.purchases if r[key] == params[key].removeprefix("eq.")]
