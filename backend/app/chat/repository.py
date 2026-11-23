@@ -58,8 +58,9 @@ class ChatRepository(PostgrestRepository):
         raise_for_status(response)
         return response.json()
 
-    async def _rows_post(self, path: str, json: dict | list) -> list[dict]:
-        response = await self._post(path, json=json, prefer="return=representation")
+    async def _rows_post(self, path: str, json: dict | list, prefer: str = "return=representation",
+                         params: dict | None = None) -> list[dict]:
+        response = await self._post(path, json=json, params=params, prefer=prefer)
         raise_for_status(response)
         return response.json() if response.content else []
 
