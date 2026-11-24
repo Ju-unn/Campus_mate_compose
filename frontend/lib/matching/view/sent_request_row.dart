@@ -7,6 +7,7 @@ import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
+import 'package:campus_mate/matching/model/data/card_profile.dart';
 import 'package:campus_mate/matching/model/data/sent_request.dart';
 import 'package:campus_mate/matching/view/acceptance_row.dart';
 import 'package:campus_mate/matching/view/row_with_actions.dart';
@@ -64,32 +65,13 @@ class SentRequestRow extends StatelessWidget {
 
   /// pen d6otzp 한 줄(72).
   Widget _row() {
-    final content = ConstrainedBox(
-      // pen 높이 72 는 배율 1.0 의 값이다 — 글자를 키우면(§11.2) 줄이 따라 커지게 최솟값으로 둔다(대화 중 행과 같다).
-      constraints: const BoxConstraints(minHeight: 72),
-      child: Row(
-        children: [
-          RowAvatar(url: request.profile.avatarUrl),
-          // 아바타–정보 12 · 정보–상태 12 (pen d6otzp 의 gap, 정보 칸은 fill).
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(child: _Info(request: request)),
-          const SizedBox(width: AppSpacing.sm),
-          _Status(request: request),
-        ],
-      ),
-    );
-    final onTap = _onTap();
-    if (onTap == null) {
-      return content;
-    }
-    // 눌림 효과를 행 안의 투명 Material 이 그려야 목록과 함께 움직인다(COMMON §4-2). 투명도는 낮추지 않는다.
-    // InkWell 만으로는 낭독기가 버튼으로 읽지 않아 button 을 단다.
-    return Semantics(
-      button: true,
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(onTap: onTap, child: content),
-      ),
+    final status = request.status;
+    return RequestRowFrame(
+      profile: request.profile,
+      // 끝난 신청(거절 · 만료)은 이름이 muted — pen override qLy1a/k2zdE6(거절됨) · b6lP9v/k2zdE6(만료됨). 기다림 · 매칭됨은 ink.
+      nameMuted: status == SentRequestStatus.rejected || status == SentRequestStatus.expired,
+      status: _Status(request: request),
+      onTap: _onTap(),
     );
   }
 
@@ -102,17 +84,61 @@ class SentRequestRow extends StatelessWidget {
   }
 }
 
-/// 이름 · 학교 줄. 둘 다 한 줄 말줄임이다 — 상태 칸이 폭을 가져가도 줄이 늘지 않는다.
-class _Info extends StatelessWidget {
-  const _Info({required this.request});
+/// pen d6otzp 한 줄(72) 틀 — 아바타 44 · 12 · 이름/학교(fill) · 12 · 오른쪽 상태 칸, 세로 가운데. 보낸 신청 줄과
+/// 거절한 카드 줄(pen pdOvf 위 줄)이 같이 쓴다. [onTap] 이 있을 때만 눌린다.
+class RequestRowFrame extends StatelessWidget {
+  const RequestRowFrame({required this.profile, required this.status, this.nameMuted = false, this.onTap, super.key});
 
-  final SentRequest request;
+  final CardProfile profile;
+
+  /// 오른쪽 상태 칸(칩 등).
+  final Widget status;
+
+  /// 이름을 muted 로(끝난 신청). 기본은 ink.
+  final bool nameMuted;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final profile = request.profile;
-    // 끝난 신청(거절 · 만료)은 이름이 muted — pen override qLy1a/k2zdE6(거절됨) · b6lP9v/k2zdE6(만료됨). 기다림 · 매칭됨은 ink.
-    final finished = request.status == SentRequestStatus.rejected || request.status == SentRequestStatus.expired;
+    final content = ConstrainedBox(
+      // pen 높이 72 는 배율 1.0 의 값이다 — 글자를 키우면(§11.2) 줄이 따라 커지게 최솟값으로 둔다(대화 중 행과 같다).
+      constraints: const BoxConstraints(minHeight: 72),
+      child: Row(
+        children: [
+          RowAvatar(url: profile.avatarUrl),
+          // 아바타–정보 12 · 정보–상태 12 (pen d6otzp 의 gap, 정보 칸은 fill).
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(child: _Info(profile: profile, muted: nameMuted)),
+          const SizedBox(width: AppSpacing.sm),
+          status,
+        ],
+      ),
+    );
+    final tap = onTap;
+    if (tap == null) {
+      return content;
+    }
+    // 눌림 효과를 행 안의 투명 Material 이 그려야 목록과 함께 움직인다(COMMON §4-2). 투명도는 낮추지 않는다.
+    // InkWell 만으로는 낭독기가 버튼으로 읽지 않아 button 을 단다.
+    return Semantics(
+      button: true,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(onTap: tap, child: content),
+      ),
+    );
+  }
+}
+
+/// 이름 · 학교 줄. 둘 다 한 줄 말줄임이다 — 상태 칸이 폭을 가져가도 줄이 늘지 않는다.
+class _Info extends StatelessWidget {
+  const _Info({required this.profile, required this.muted});
+
+  final CardProfile profile;
+  final bool muted;
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -121,7 +147,7 @@ class _Info extends StatelessWidget {
           profile.nameWithAge,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: AppTypography.bodyStrong.copyWith(color: finished ? AppColors.muted : AppColors.ink),
+          style: AppTypography.bodyStrong.copyWith(color: muted ? AppColors.muted : AppColors.ink),
         ),
         // 이름 · 학교 줄 세로 gap 3 은 간격 토큰에 없는 pen 값이다.
         const SizedBox(height: 3),
@@ -174,7 +200,7 @@ class _Status extends StatelessWidget {
   }
 }
 
-/// 상태 칩. 폭은 글자에 맞춘다 — 배지(Badge · Status)의 폭 72 고정을 쓰지 않는다.
+/// 보낸 신청의 상태 칩: 상태마다 아이콘 · 글자, 매칭됨만 강조색.
 class _StatusChip extends StatelessWidget {
   const _StatusChip({required this.request});
 
@@ -182,22 +208,43 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final matched = request.status == SentRequestStatus.matched;
-    final foreground = matched ? AppColors.primaryText : AppColors.muted;
     final l10n = context.l10n;
     final (icon, label) = switch (request.status) {
-      SentRequestStatus.waiting => (AppIcons.timer, _waitingLabel(l10n, request.daysLeft)),
+      SentRequestStatus.waiting => (AppIcons.timer, daysLeftLabel(l10n, request.daysLeft)),
       SentRequestStatus.matched => (AppIcons.messageCircle, l10n.matchingSentStatusMatched),
       SentRequestStatus.rejected => (AppIcons.x, l10n.matchingSentStatusRejected),
       SentRequestStatus.expired => (AppIcons.timerOff, l10n.matchingSentStatusExpired),
     };
+    return RequestStatusChip(icon: icon, label: label, highlighted: request.status == SentRequestStatus.matched);
+  }
+}
+
+/// 서버 days_left 는 남은 시간의 올림(최소 1)이라 1 이면 24시간 이하다 — "1일 남음" 대신 "오늘 마감".
+/// 앱이 기기 시계로 다시 재지 않는다(대장 정정 10-13). 값이 빠졌으면 최솟값 1 로 본다. 거절한 카드 줄도 같은 규칙이다.
+String daysLeftLabel(AppLocalizations l10n, int? daysLeft) {
+  final days = daysLeft ?? 1;
+  return days <= 1 ? l10n.matchingSentDueToday : l10n.matchingSentDaysLeft(days: days);
+}
+
+/// 상태 칩(pen Badge · Status `SaMDZ`, 글자 12 override). 폭은 글자에 맞춘다 — 배지(Badge · Status)의 폭 72 고정을 쓰지 않는다.
+/// [highlighted] 면 primary-wash 바탕 · primary-text(보낸 신청 매칭됨 · 거절한 카드 "오늘 마감" pen wqlyd), 아니면 surface-strong · muted.
+class RequestStatusChip extends StatelessWidget {
+  const RequestStatusChip({required this.icon, required this.label, this.highlighted = false, super.key});
+
+  final IconData icon;
+  final String label;
+  final bool highlighted;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = highlighted ? AppColors.primaryText : AppColors.muted;
     return Container(
       // pen 높이 28 은 배율 1.0 의 값이다(글자 12 × 1.25 = 15 + 위아래 6 = 27 이라 28 로 채우고 가운데 둔다) — 글자를 키우면 칩이 따라 커진다.
       // 좌우 10 · 위아래 6 은 간격 토큰에 없는 pen 값이다.
       constraints: const BoxConstraints(minHeight: 28),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: matched ? AppColors.primaryWash : AppColors.surfaceStrong,
+        color: highlighted ? AppColors.primaryWash : AppColors.surfaceStrong,
         borderRadius: BorderRadius.circular(AppRadius.pill),
       ),
       child: Center(
@@ -217,12 +264,5 @@ class _StatusChip extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  /// 서버 days_left 는 남은 시간의 올림(최소 1)이라 1 이면 24시간 이하다 — "1일 남음" 대신 "오늘 마감".
-  /// 앱이 기기 시계로 다시 재지 않는다(대장 정정 10-13). 기다리는 중인데 값이 빠졌으면 최솟값 1 로 본다.
-  static String _waitingLabel(AppLocalizations l10n, int? daysLeft) {
-    final days = daysLeft ?? 1;
-    return days <= 1 ? l10n.matchingSentDueToday : l10n.matchingSentDaysLeft(days: days);
   }
 }
