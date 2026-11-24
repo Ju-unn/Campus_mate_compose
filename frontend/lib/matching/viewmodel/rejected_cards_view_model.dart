@@ -9,6 +9,7 @@ import 'package:campus_mate/matching/model/repository/card_repository_provider.d
 import 'package:campus_mate/matching/viewmodel/rejected_cards_ui_state.dart';
 import 'package:campus_mate/matching/viewmodel/sent_requests_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show ProviderBase, ProviderListenable;
 
 final rejectedCardsViewModelProvider =
     NotifierProvider<RejectedCardsViewModel, RejectedCardsUiState>(RejectedCardsViewModel.new);
@@ -18,6 +19,17 @@ final rejectedCardsViewModelProvider =
 final hasRejectedCardsProvider = Provider<bool>(
   (ref) => !ref.watch(rejectedCardsViewModelProvider.select((state) => state.cards.isEmpty)),
 );
+
+/// 이미 만들어진 목록만 조용히 다시 읽는다 — 카드 · 받은 신청을 거절한 직후와 앱 복귀 때 카드 대기 입구가 낡지 않게.
+/// 안 만들어졌으면 처음 볼 때 읽으니 서버 호출이 늘지 않는다. `ref` 와 `ProviderContainer` 를 둘 다 받는다.
+void refreshRejectedCardsIfRead(
+  T Function<T>(ProviderListenable<T>) read,
+  bool Function(ProviderBase<Object?>) exists,
+) {
+  if (exists(rejectedCardsViewModelProvider)) {
+    unawaited(read(rejectedCardsViewModelProvider.notifier).refresh(quiet: true));
+  }
+}
 
 /// 거절한 카드(1.0.7 #20). 줄마다 [다시 신청하기] — 내 카드 거절은 [reapply](→ 보낸 신청), 받은 신청 거절은 [undo](→ 바로 매칭).
 /// 읽는 방식은 받은 신청([AcceptancesViewModel])과 같다 — 만들어지면 읽고, 조용한 읽기 · 읽는 중 합치기.

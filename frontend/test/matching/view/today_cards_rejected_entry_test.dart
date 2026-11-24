@@ -11,6 +11,7 @@ import 'package:campus_mate/matching/model/data/rejected_card.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/matching/view/countdown_text.dart';
 import 'package:campus_mate/matching/view/today_cards_screen.dart';
+import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -32,7 +33,7 @@ const _rejected = Success(RejectedCards([
 /// 카드 대기 화면 [거절한 카드 다시 보기](pen 25-G i2gRJO `GyA9i`, UI값표 CT5Lq 20-1) — 7일 안 거절이 있을 때만,
 /// 카운트다운 → 24 → 버튼 44(surface-strong · ink 16/700 · 모서리 14) → 14 → 마스코트. 누르면 대화 탭 [거절한 카드].
 void main() {
-  Future<void> pump(WidgetTester tester, FakeCardRepository repository) async {
+  Future<ProviderContainer> pump(WidgetTester tester, FakeCardRepository repository) async {
     repository.today = Success(TodayCards(cards: const [], nextIssueAt: DateTime.now().add(const Duration(hours: 3))));
     final container = ProviderContainer(overrides: [
       cardRepositoryProvider.overrideWithValue(repository),
@@ -58,6 +59,7 @@ void main() {
     ));
     await tester.pump();
     await tester.pump();
+    return container;
   }
 
   Finder button() => find.ancestor(of: find.text('거절한 카드 다시 보기'), matching: find.byType(AppButton));
@@ -65,6 +67,19 @@ void main() {
   Finder mascot() => find.byWidgetPredicate(
         (widget) => widget is Image && widget.image is AssetImage && (widget.image as AssetImage).assetName == 'assets/images/mascot-male-waiting.webp',
       );
+
+  testWidgets('빈 목록을 본 뒤 카드를 거절하고 돌아오면(markDecided) 버튼이 뜬다', (tester) async {
+    final repository = FakeCardRepository();
+    final container = await pump(tester, repository);
+    expect(button(), findsNothing);
+
+    repository.rejected = _rejected;
+    await container.read(todayCardsViewModelProvider.notifier).markDecided();
+    await tester.pump();
+    await tester.pump();
+
+    expect(button(), findsOneWidget);
+  });
 
   testWidgets('거절한 카드가 없으면 버튼이 없고 카운트다운 → 24 → 마스코트 그대로', (tester) async {
     await pump(tester, FakeCardRepository());
