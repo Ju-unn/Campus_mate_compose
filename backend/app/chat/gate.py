@@ -1,6 +1,6 @@
 """신뢰 확인 게이트의 시각 판정(설계 §2.5).
 
-시계는 `matches.created_at + 48시간` 하나뿐이다. "리마인드를 보냈다" 같은 상태 컬럼을 두지 않고
+시계는 `matches.created_at + 72시간` 하나뿐이다(24시간 뒤 리마인드 창이 뜨고 그 뒤로 48시간 더, 사용자 11-24). "리마인드를 보냈다" 같은 상태 컬럼을 두지 않고
 시각만 보고 판정한다 — 조각 4 의 카드 만료와 같은 방식이다. 전부 순수 함수라 테스트가 시계를
 직접 넘긴다.
 """
@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 
 from app.core.time import SEOUL
 
-GATE_DEADLINE = timedelta(hours=48)
+GATE_DEADLINE = timedelta(hours=72)
 GATE_REMINDER_AFTER = timedelta(hours=24)
 # 마감 전 마지막 알림(last_call_at) — 마감 몇 시간 전에 한 번 더 알리는가.
 LAST_CALL_BEFORE = timedelta(hours=3)
@@ -58,7 +58,7 @@ def reminder_at(created_at: datetime) -> datetime:
     미루지 않으면 그 리마인드가 notify() 의 조용한 시간 검사에 걸려 조용히 버려지는데, 창이 한 번뿐이라 영영 다시 오지 않는다.
     채팅 푸시와 달리 게이트 리마인드는 조용한 시간을 지킨다(결정 5 의 예외는 채팅 푸시뿐).
 
-    밀어도 기본 시각에서 최대 11시간(21:00:01 → 다음 아침 08:00)이라 마감(매칭 48시간 뒤 = 기본 시각 + 24시간)보다 늘 이르다."""
+    밀어도 기본 시각에서 최대 11시간(21:00:01 → 다음 아침 08:00)이라 마감(매칭 72시간 뒤 = 기본 시각 + 48시간)보다 늘 이르다."""
     base = (created_at + GATE_REMINDER_AFTER).astimezone(SEOUL)
     hour_start = base.replace(minute=0, second=0, microsecond=0)
     fires_at = hour_start if base == hour_start else hour_start + timedelta(hours=1)
