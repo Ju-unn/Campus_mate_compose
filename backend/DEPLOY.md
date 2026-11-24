@@ -1767,6 +1767,19 @@ DB 칸 · 제약은 1/3 DB PR(#789, `messages.client_id` + `messages_client_id_u
 | 옛 앱 | 1.0.6 이하는 `client_id` 없이 보내고 지금과 똑같이 저장 · 방송 · 푸시된다. compat 표식 `backend/app/chat/router.py`(`MessageRequest.client_id`) · `backend/app/chat/repository.py`(`insert_message`): `# compat(1.0.6): client_id 없는 채팅 전송 — MIN_APP_VERSION 1.0.7 뒤 삭제` |
 | 시험 | `backend/tests/chat/test_chat_repository.py` · `test_chat_router.py` (겹침 · 되읽기 · 방송 · 푸시 한 번 · 1.0.6 응답 모양) |
 
+## 3c 학번 2자리 — `POST /school-info` 를 `/me/profile` 학번 칸과 같은 규칙으로 (할 일 #9 A-2, 브랜치 `feat/school-info-student-number-two-digits`) (PR #806) — **draft · 1.0.7 두 스토어 공개 + `MIN_APP_VERSION=1.0.7` 뒤에만 merge · 배포**
+
+마이그레이션 · env · 시크릿 · job 없음. §4-35 의 "3c 는 그대로 1~3자리" 를 끝낸다.
+
+| 항목 | 값 |
+| --- | --- |
+| `POST /school-info` 학번 | 반각 숫자 **정확히 2자리**(`[0-9]{2}`). 규칙은 `app/me/schemas.py` `is_valid_student_number` 한 곳이고 3c 와 `PATCH /me/profile` 이 같이 쓴다(옛 `SchoolInfoRequest.has_valid_student_number` 1~3자리는 지웠다). 1자리 · 3자리 이상 · 전각(`２１`) · 글자 · 앞뒤 공백 · 줄바꿈 · **빈 값**은 422 와 문자열 `detail` `STUDENT_NUMBER_INVALID`("숫자를 입력해 주세요", 문구 그대로). 빈 값은 예전엔 pydantic `min_length` 의 목록 `detail` 이었는데 이제 같은 문자열 문구다(`min_length` 를 뺐다, 상한 20자는 그대로). 순서는 그대로 정지 → 학교 메일 → 학번 → 학과 → 저장 |
+| 이미 저장된 값 | 그대로 둔다(고치는 마이그레이션 없음). `GET /me/verification-status` 의 `has_school_info` 는 학과만 본다 — 1 · 3 · 4 · 7 · 8자리 · null 학번을 가진 사람도 3c 로 돌아가지 않는다. `PATCH /me/profile` 은 학번을 **보냈을 때만** 보므로 그런 사람도 다른 칸만 고치는 저장은 200 |
+| 시험 | `backend/tests/student_verification/test_router.py`(학번 통과 · 거절 표 · `has_school_info` 옛 학번) · `backend/tests/me/test_me_profile_update.py`(같은 표 · 옛 학번 다른 칸 저장) |
+
+- **배포 순서(꼭 지킨다)**: 앱 1.0.7 두 스토어 공개 → `MIN_APP_VERSION=1.0.7`(env 만) → 그 뒤 이 서버. 1.0.6 앱의 3c 는 1~3자리를 보낼 수 있어서, 서버를 먼저 올리면 1.0.6 으로 가입하며 학번 3자리(또는 1자리)를 적은 사람이 422 에 막혀 가입을 못 끝낸다. 1.0.7 앱의 3c 값 객체도 2자리여야 한다(앱 쪽 할 일, 이 PR 밖).
+- **되돌림**: 서버 리비전만 내리면 1~3자리로 돌아간다. DB · 앱 영향 없음.
+
 ## 5. 현재 배포 상태 (아래 표는 2026-11-14 새벽 기준 — 2026-11-16 개정은 개정 5 바로 아래 네 문단(종전 서술: "첫 네 문단", 그 앞 "첫 세 문단"), 2026-11-17 개정 5 는 개정 6 바로 아래 문단, 2026-11-18 개정 6 은 개정 7 바로 아래 문단, 지금 운영은 2026-11-18 개정 7 — 맨 위 문단)
 
 **2026-11-18 개정 7(낮, 대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다): 운영 트래픽 100% 는 `campus-mate-backend-00141-wew`(태그 `l1118`, main `28b800cb` 기준)다. 바로 앞 운영은 `campus-mate-backend-00139-lit`(태그 `v1118`)이고 이것이 되돌림 대상이다(§2 (다)).** 오늘 올린 세 리비전(모두 asia-northeast3, §2 고정 3단계): `00137-wiz`(태그 `i1118`, 서버 PR #775 입력 검사, 되돌림 `00135-haz`) → `00139-lit`(태그 `v1118`, **`MIN_APP_VERSION` 을 `1.0.3` 에서 `1.0.6` 으로**, env 만 바꾼 배포 · env 33개 그대로, 되돌림 `00137-wiz`) → `00141-wew`(태그 `l1118`, 서버 PR #776 구글 모니터링 실패 로그에 상태 코드, 되돌림 `00139-lit`). 내용 · 되돌림 영향은 §4-34. 새 시크릿 · 마이그레이션 · job 은 없다. **개정 6 의 "운영 100% 는 `00135-haz`" 는 이 개정으로 대체됐다.** 아래 표 "설정" 줄과 열려 있는 것 6 · 12 의 `MIN_APP_VERSION=1.0.3` 은 종전 값이라 지우지 않는다 — 지금 운영 값은 `1.0.6` 이다(두 스토어 공개 확인, 사용자 요청). 개정 6 이하와 표는 종전 서술이다.

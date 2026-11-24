@@ -321,7 +321,7 @@ def test_log_has_changed_field_names_and_profile_id_but_never_the_values(caplog)
 
 
 # ---- 학번 (1.0.7 할 일 #1 · #9 확장, 사용자 결정 「기본정보수정에 학번칸 넣자」) ----
-# 3c(POST /school-info)는 옛 앱 호환으로 1~3자리를 받는다. 여기는 새 칸이라 처음부터 반각 숫자 정확히 2자리다.
+# 반각 숫자 정확히 2자리. 3c(POST /school-info)도 같은 규칙 · 같은 표다(tests/student_verification/test_router.py).
 
 @pytest.mark.parametrize("student_number", ["21", "05"])
 def test_two_digit_student_number_is_saved(student_number):
@@ -332,7 +332,7 @@ def test_two_digit_student_number_is_saved(student_number):
     assert _vector_saves(seen) == []
 
 
-@pytest.mark.parametrize("student_number", ["1", "123", "２１", "2a", "", " 21", "21\n"])
+@pytest.mark.parametrize("student_number", ["1", "2", "123", "210", "1234", "ab", "2 1", "２１", "a1", "2a", "", " 21", "21\n"])
 def test_bad_student_number_is_422_with_a_string_detail_and_writes_nothing(student_number):
     """detail 이 목록이면 앱이 "알 수 없는 오류" 를 띄운다 — 3c 와 같은 문자열 문구로 거절한다."""
     seen = []
@@ -348,9 +348,9 @@ def test_save_without_student_number_does_not_touch_it():
     assert _profile_patches(seen) == [{"height_cm": 175}]
 
 
-@pytest.mark.parametrize("old", ["2021", "2021123", "20211234", None])
+@pytest.mark.parametrize("old", ["7", "123", "2021", "2021123", "20211234", None])
 def test_an_old_student_number_of_any_length_does_not_block_other_saves(old):
-    """3c 가 예전에 받은 4 · 7 · 8자리나 빈 학번을 가진 사람도 학번을 안 보내면 다른 칸을 고칠 수 있다 —
+    """3c 가 예전에 받은 1 · 3 · 4 · 7 · 8자리나 빈 학번을 가진 사람도 학번을 안 보내면 다른 칸을 고칠 수 있다 —
     학번은 보냈을 때만 본다(DB 의 옛 값을 읽지도 않는다)."""
     seen = []
     current = {**CURRENT, "student_number": old}
