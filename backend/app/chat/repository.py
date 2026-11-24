@@ -58,8 +58,9 @@ class ChatRepository(PostgrestRepository):
         raise_for_status(response)
         return response.json()
 
-    async def _rows_post(self, path: str, json: dict | list) -> list[dict]:
-        response = await self._post(path, json=json, prefer="return=representation")
+    async def _rows_post(self, path: str, json: dict | list, prefer: str = "return=representation",
+                         params: dict | None = None) -> list[dict]:
+        response = await self._post(path, json=json, params=params, prefer=prefer)
         raise_for_status(response)
         return response.json() if response.content else []
 
@@ -161,16 +162,47 @@ class ChatRepository(PostgrestRepository):
         return rows[0] if rows else None
 
     async def insert_message(self, match_id: UUID | str, sender_id: UUID | str,
-                             body: str, kind: str = "text") -> dict:
-        """kind 는 'text'(사람이 쓴 말풍선) · 'left' · 'trust_accept'. 시스템 줄도 같은 문으로 들어간다 —
-        그래서 목록의 마지막 줄 · 안 읽은 수 · Realtime 구독 · 푸시가 전부 그대로 따라온다."""
-        rows = await self._rows_post("messages", {
-            "match_id": str(match_id), "sender_id": str(sender_id), "kind": kind, "body": body,
-        })
+                             body: str, kind: str = "text",
+                             client_id: UUID | None = None) -> tuple[dict, bool]:
+        """`(저장된 줄, 이번에 새로 들어갔나)`. kind 는 'text'(사람이 쓴 말풍선) · 'left' · 'trust_accept'.
+        시스템 줄도 같은 문으로 들어간다 — 그래서 목록의 마지막 줄 · 안 읽은 수 · Realtime 구독 · 푸시가 전부 그대로 따라온다.
+
+        client_id(1.0.7 #8)는 앱이 말풍선마다 붙이는 id 다. 있으면 on conflict do nothing 으로 넣어
+        재전송이 두 줄이 되지 않는다 — 빈 응답이 곧 "이미 있었다" 라 그 줄을 되읽고 실시간 이벤트는 다시 쏘지 않는다.
+        없으면(옛 앱 · 시스템 줄) 지금과 같은 요청이다."""
+        row = {"match_id": str(match_id), "sender_id": str(sender_id), "kind": kind, "body": body}
+        # compat(1.0.6): client_id 없는 채팅 전송 — MIN_APP_VERSION 1.0.7 뒤 삭제
+        # (시스템 줄 left · trust_accept 도 이 갈래를 쓴다 — 지울 때 kind='text' 만 client_id 필수로)
+        if client_id is None:
+            rows = await self._rows_post("messages", row)
+        else:
+            rows = await self._rows_post(
+                "messages", {**row, "client_id": str(client_id)},
+                prefer="resolution=ignore-duplicates,return=representation",
+                params={"on_conflict": "match_id,sender_id,client_id"},
+            )
+            if not rows:
+                return await self._fetch_sent(match_id, sender_id, client_id), False
         # 보낸 사람도 받는다(다른 기기 목록). 행 전체가 아니라 목록 · 안 읽은 수에 쓰는 칸만 싣는다.
         message = {column: rows[0].get(column) for column in _MESSAGE_COLUMNS.split(",")}
         await self._announce(match_id, "message", {"match_id": str(match_id), "message": message})
-        return rows[0]
+        return rows[0], True
+
+    async def find_sent(self, match_id: UUID | str, sender_id: UUID | str, client_id: UUID) -> dict | None:
+        """내가 이 client_id 로 이미 남긴 줄, 없으면 None. sender_id 조건이 있어야 상대 줄을 client_id 로 읽어 오는 길이 없다."""
+        rows = await self._rows("messages", {
+            "match_id": f"eq.{match_id}", "sender_id": f"eq.{sender_id}",
+            "client_id": f"eq.{client_id}", "select": "*",
+        })
+        return rows[0] if rows else None
+
+    async def _fetch_sent(self, match_id: UUID | str, sender_id: UUID | str, client_id: UUID) -> dict:
+        """겹친 재전송의 원래 줄. insert 가 겹쳤다는 건 그 줄이 있다는 뜻이라 빈 결과는 없다
+        (메시지는 지우지 않는다) — 비면 이름 있는 오류로 500."""
+        sent = await self.find_sent(match_id, sender_id, client_id)
+        if sent is None:
+            raise RuntimeError(f"client_id 재전송 줄 없음 match={match_id} sender={sender_id}")
+        return sent
 
     async def count_unread(self, match_id: UUID | str, profile_id: UUID | str,
                            last_read_at: str | None) -> int:

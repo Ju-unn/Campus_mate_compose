@@ -1,3 +1,4 @@
+import 'package:campus_mate/auth/school_info/model/data/student_number.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/matching/model/data/card_detail.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
@@ -12,7 +13,8 @@ abstract interface class MeRepository {
   Future<Result<CardDetail>> fetchCardPreview();
 
   /// 보낸 칸만 고친다 — null 인 칸은 본문에서 뺀다(서버 `PATCH /me/profile` 은 받은 칸만 쓴다).
-  /// 15c 는 [bio], 15-6 은 [nickname] · [heightCm] · [mbti] · [religion] · [isSmoker] · [appearance] 를 보낸다.
+  /// 15c 는 [bio], 15-6 은 [nickname] · [heightCm] · [mbti] · [religion] · [isSmoker] · [appearance] · [studentNumber] 를 보낸다.
+  /// [studentNumber] 는 학번 칸을 고친 때만 싣는다 — 안 보내면 서버가 옛 값(2자리가 아닐 수 있다)을 그대로 둔다.
   ///
   /// MBTI 만 "선택 안 함" 이 있다 — 안 건드리면 둘 다 비우고, 글자로 바꾸면 [mbti], 비우려면 [clearMbti] 를 켠다
   /// (본문 `"mbti": null`). 얼굴상과 인상은 한 쌍이라 [appearance] 레코드로만 받는다(서버는 한쪽만 오면 422).
@@ -25,6 +27,7 @@ abstract interface class MeRepository {
     Religion? religion,
     bool? isSmoker,
     ({AnimalType animalType, ImpressionType impressionType})? appearance,
+    StudentNumber? studentNumber,
   });
 
   /// 15-7 사진 수정 — 칸 [slots] 순서 그대로 한 번에 저장한다(U2). [avatarSource] 는 아바타 원본이 될 칸 번호(0부터).

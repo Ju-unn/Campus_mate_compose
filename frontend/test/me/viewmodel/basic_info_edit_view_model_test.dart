@@ -14,11 +14,13 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../profile/basic/model/repository/fake_basic_info_repository.dart';
 import '../model/repository/fake_me_repository.dart';
+import '../../common/input_rules_cases.dart';
 
 /// 서버 `errors.py` 의 문구 — 앱은 상태코드를 못 보고 문구만 받는다.
 const _nicknameTaken = '이미 있는 닉네임이에요';
 const _nicknameTooSoon = '닉네임은 30일에 한 번 바꿀 수 있어요';
 const _invalidInput = '입력한 값을 다시 확인해 주세요';
+const _studentNumberInvalid = '숫자를 입력해 주세요';
 
 Matcher _kind(AppError error) => isA<AppErrorFailure>().having((failure) => failure.error, 'error', error);
 
@@ -36,6 +38,7 @@ MyProfile _profile({
   bool? isSmoker = false,
   AnimalType? animalType = AnimalType.dog,
   ImpressionType? impressionType = ImpressionType.arab,
+  String? studentNumber = '21',
 }) =>
     MyProfile(
       nickname: nickname,
@@ -50,6 +53,7 @@ MyProfile _profile({
       impressionType: impressionType,
       birthYear: 2001,
       gender: 'male',
+      studentNumber: studentNumber,
       avatarUrl: null,
       preferredAgeMin: null,
       preferredAgeMax: null,
@@ -197,6 +201,34 @@ void main() {
       viewModel().changeNickname('호랑이');
       await tester.pump(const Duration(milliseconds: 350));
       expect(edit(), onboarding(NicknameCheck.taken));
+
+      viewModel().changeNickname('가가가');
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(edit(), onboarding(NicknameCheck.notAllowed));
+    });
+
+    // 서버 `has_letter_run` 과 같은 표 — 서버는 바꾸는 닉네임이 연속 글자면 422 "이미 있는 닉네임이에요" 를 준다.
+    for (final nickname in inputRuleCases('nickname', 'letter_run')) {
+      testWidgets('$nickname 으로 바꾸면 서버에 묻지 않고 "쓸 수 없는 닉네임" 을 알리고 저장을 끈다', (tester) async {
+        await open(_profile());
+
+        viewModel().changeNickname(nickname);
+        expect(state().canSave, isFalse, reason: '디바운스 전에도 꺼져 있어야 한다');
+        await tester.pump(const Duration(milliseconds: 350));
+
+        expect(state().nicknameError, _kind(AppError.nicknameNotAllowed));
+        expect(state().canSave, isFalse);
+        expect(nicknames.checkedNicknames, isEmpty);
+      });
+    }
+
+    test('예전에 들어온 연속 글자 닉네임은 그대로 두고 다른 칸만 고쳐 저장할 수 있다(서버도 바꾸는 닉네임만 본다)', () async {
+      await open(_profile(nickname: 'aaa'));
+
+      viewModel().changeHeight('180');
+
+      expect(state().nicknameError, isNull);
+      expect(state().canSave, isTrue);
     });
   });
 
@@ -224,6 +256,130 @@ void main() {
       viewModel().changeHeight('178');
 
       expect(state().canSave, isFalse);
+    });
+  });
+
+  // 학부 입학 학번(사용자 결정 「기본정보수정에 학번칸 넣자」, 할 일 #1 · #9). 서버는 보낸 때만 2자리를 검사한다 —
+  // 건드리지 않으면 싣지 않아, 옛 값이 2자리가 아니어도(4 · 7 · 8자리) 다른 칸 저장은 막히지 않는다.
+  group('학번', () {
+    test('열 때 서버 값으로 채워지고 바뀐 것이 없어 저장이 꺼져 있다 — 서버 null 이면 빈 글자', () async {
+      await open(_profile());
+      expect(state().studentNumberInput, '21');
+      expect(state().studentNumberError, isNull);
+      expect(state().canSave, isFalse);
+
+      await open(_profile(studentNumber: null));
+      expect(state().studentNumberInput, '');
+      expect(state().studentNumberError, isNull);
+    });
+
+    // 사용자 결정(11-24): 안 고친 학번 칸에는 옛 값이 2자리가 아니어도 안내를 띄우지 않는다 — 고친 때만 검사한다.
+    test('옛 값이 2자리가 아니어도 안 고쳤으면 칸에 그대로 두고 안내를 띄우지 않는다', () async {
+      await open(_profile(studentNumber: '20211234'));
+
+      expect(state().studentNumberInput, '20211234');
+      expect(state().studentNumberError, isNull);
+    });
+
+    test('옛 8자리 값에서 한 글자만 지워도(7자리) 안내가 뜨고 저장이 꺼진다', () async {
+      await open(_profile(studentNumber: '20231234'));
+      viewModel().changeStudentNumber('2023123');
+
+      expect(state().studentNumberError, _kind(AppError.studentNumberInvalid));
+      expect(state().canSave, isFalse);
+      await viewModel().save();
+      expect(me.updates, isEmpty);
+    });
+
+    test('옛 값이 2자리가 아니어도 학번을 안 건드리면 다른 칸 저장은 막히지 않고 student_number 를 싣지 않는다', () async {
+      await open(_profile(studentNumber: '20211234'));
+      viewModel().changeHeight('180');
+
+      expect(state().canSave, isTrue);
+      await viewModel().save();
+
+      expect(me.updates, [
+        {'height_cm': 180},
+      ]);
+      expect(state().completed, isTrue);
+    });
+
+    test('학번만 2자리로 바꾸면 {"student_number"} 만 보낸다', () async {
+      await open(_profile());
+      viewModel().changeStudentNumber('22');
+
+      expect(state().canSave, isTrue);
+      await viewModel().save();
+
+      expect(me.updates, [
+        {'student_number': '22'},
+      ]);
+    });
+
+    test('건드렸는데 2자리가 아니면 저장이 꺼지고 칸 아래 같은 안내 — 다른 칸이 바뀌었어도 못 보낸다', () async {
+      await open(_profile());
+      viewModel().changeHeight('180');
+
+      for (final input in ['2', '']) {
+        viewModel().changeStudentNumber(input);
+        expect(state().studentNumberError, _kind(AppError.studentNumberInvalid), reason: input);
+        expect(state().canSave, isFalse, reason: input);
+      }
+      await viewModel().save();
+      expect(me.updates, isEmpty);
+    });
+
+    test('원래 값으로 되돌리면 보내지 않는다', () async {
+      await open(_profile());
+      viewModel().changeStudentNumber('22');
+      viewModel().changeStudentNumber('21');
+
+      expect(state().canSave, isFalse);
+      viewModel().changeHeight('180');
+      await viewModel().save();
+
+      expect(me.updates, [
+        {'height_cm': 180},
+      ]);
+    });
+
+    test('옛 8자리 값을 2자리로 고치면 안내가 사라지고 보낸다', () async {
+      await open(_profile(studentNumber: '20211234'));
+      viewModel().changeStudentNumber('21');
+
+      expect(state().studentNumberError, isNull);
+      await viewModel().save();
+
+      expect(me.updates, [
+        {'student_number': '21'},
+      ]);
+    });
+
+    test('학번을 보냈는데 서버 422 "숫자를 입력해 주세요" 면 학번 칸 아래 — 학번을 고치면 지운다', () async {
+      await open(_profile());
+      viewModel().changeStudentNumber('22');
+      me.updateResult = const FailureResult(ServerRejectedFailure(_studentNumberInvalid));
+
+      await viewModel().save();
+
+      expect(state().studentNumberError, _serverSaid(_studentNumberInvalid));
+      expect(state().error, isNull);
+      expect(state().canSave, isFalse);
+
+      viewModel().changeStudentNumber('23');
+      expect(state().studentNumberError, isNull);
+      expect(state().canSave, isTrue);
+    });
+
+    test('학번을 안 보냈는데 같은 422 가 오면 칸 탓이 아니라 저장 실패 문구다', () async {
+      await open(_profile());
+      viewModel().changeHeight('180');
+      me.updateResult = const FailureResult(ServerRejectedFailure(_studentNumberInvalid));
+
+      await viewModel().save();
+
+      expect(state().studentNumberError, isNull);
+      expect(state().error, _kind(AppError.saveFailed));
     });
   });
 

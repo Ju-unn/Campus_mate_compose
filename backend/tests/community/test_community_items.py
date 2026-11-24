@@ -97,6 +97,9 @@ def _routes(**responses: httpx.Response) -> Callable[[httpx.Request], httpx.Resp
             return responses["delete"]
         if request.method == "GET" and request.url.path.endswith("/notifications"):
             return httpx.Response(200, json=[])
+        # 상세가 피드에서 못 찾으면 공지인지 본다(할 일 21) — 이 시험들의 글은 공지가 아니다(없는 글).
+        if request.method == "GET" and request.url.path.endswith("/polls"):
+            return httpx.Response(200, json=[])
         name = request.url.path.rsplit("/rpc/", 1)[-1]
         if request.method == "POST" and name in responses:
             return responses[name]
@@ -287,7 +290,9 @@ def test_item_detail_returns_one_item_from_community_feed():
         f"/community/items/{ITEM_ID}", headers=AUTH_HEADERS)
     assert response.status_code == 200
     assert set(response.json()) == {"item"}
-    assert set(response.json()["item"]) == ITEM_KEYS
+    # 할 일 21: 상세는 공지와 같은 모양이 되게 title · image_url 이 붙는다(투표 · 게시물은 null).
+    assert set(response.json()["item"]) == ITEM_KEYS | {"title", "image_url"}
+    assert (response.json()["item"]["title"], response.json()["item"]["image_url"]) == (None, None)
     assert response.json()["item"]["is_mine"] is True
     body = json.loads(seen[0].content)
     assert body["p_item_id"] == ITEM_ID

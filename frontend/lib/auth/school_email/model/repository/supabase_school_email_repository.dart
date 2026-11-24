@@ -25,12 +25,9 @@ const _codeAuthUnavailable = 'AUTH_UNAVAILABLE';
 const _alreadyVerified = '이미 학교 메일 인증이 끝났어요'; // SCHOOL_EMAIL_ALREADY_VERIFIED
 const _notConfirmed = '학교 메일 인증이 끝나지 않았어요'; // SCHOOL_EMAIL_NOT_CONFIRMED
 
-/// 등록되지 않은 학교 메일. 가입 직전 훅(02)과 서버(03)가 이제 같은 문구다.
-const unknownSchoolEmailMessage = '등록되지 않은 학교 메일이에요';
-
 /// 422 거절 문구(옛 서버 호환). 재가입 제한은 훅("…이메일이에요")과 서버("…메일이에요") 글자가 달라 둘 다 둔다.
 const _rejectedMessages = {
-  unknownSchoolEmailMessage,
+  unknownSchoolEmailMessage, // 인터페이스(school_email_repository.dart)에 둔다 — 02 화면 상태도 쓴다
   '허용되지 않은 학교 이메일이에요', // 옛 훅 문구, 호환용
   '재가입이 제한된 메일이에요', // 서버 SCHOOL_EMAIL_BLOCKED
   '재가입이 제한된 이메일이에요', // 훅 HOOK_BLOCKED

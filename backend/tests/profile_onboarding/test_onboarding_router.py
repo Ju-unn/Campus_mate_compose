@@ -22,6 +22,7 @@ from app.main import app
 from app.settings import Settings
 from app.signup_policy import bytea_literal, hash_phone
 from app.student_verification.image_validation import MAX_IMAGE_BYTES
+from input_rules_cases import CASES
 from private_columns import plaintext_gone
 
 PROFILE_ID = UUID("11111111-1111-1111-1111-111111111111")
@@ -475,8 +476,9 @@ def test_basic_info_rejects_under_nineteen_with_422():
     assert f"{this_year - 19}년생부터 가입할 수 있어요" in json.dumps(too_young.json(), ensure_ascii=False)
 
 
-# 금지어(운영진 사칭 · 비속어, 11-20 사용자)도 같은 답을 받는다.
-JUNK_NICKNAMES = ["aaa", "AAa", "가가가", "abbb", "abc", "Abcd", "cba", "ADMIN", "Staff", "관리자", "개발자", "시발"]
+# 연속 글자 예시는 앱 시험과 같이 쓰는 표(tests/fixtures/input_rules_cases.json)에 있다 — 앱 04-1 · 15-6 이 같은 값을 서버에 묻기 전에 막는다.
+# 금지어(운영진 사칭 · 비속어, 11-20 사용자)는 서버만 보고 같은 답을 준다.
+JUNK_NICKNAMES = [*CASES["nickname"]["letter_run"], "ADMIN", "Staff", "관리자", "개발자", "시발"]
 
 
 @pytest.mark.parametrize("nickname", JUNK_NICKNAMES)
@@ -496,13 +498,23 @@ def test_nickname_availability_says_a_junk_nickname_is_not_available(nickname):
     assert [r for r in lookups if r.url.path == "/rest/v1/profiles" and "nickname" in r.url.params] == []
 
 
-@pytest.mark.parametrize("nickname", ["진진", "땅땅이", "hy", "양아아"])
-def test_nickname_availability_lets_a_double_letter_nickname_through(nickname):
+@pytest.mark.parametrize("nickname", CASES["nickname"]["accept"])
+def test_nickname_availability_lets_an_ordinary_nickname_through(nickname):
     response = _wire(lambda request: httpx.Response(200, json=[])).get(
         "/profile-onboarding/nickname-availability", headers=AUTH_HEADERS, params={"nickname": nickname}
     )
 
     assert response.json() == {"available": True}
+
+
+@pytest.mark.parametrize("nickname", CASES["nickname"]["pattern_invalid"])
+def test_nickname_availability_turns_away_a_nickname_outside_the_pattern(nickname):
+    """한글 완성 · 영문 2~5자 밖이면 422 — 앱(04-1 · 15-6)은 같은 패턴으로 먼저 막아 보내지 않는다."""
+    response = _wire(lambda request: httpx.Response(200, json=[])).get(
+        "/profile-onboarding/nickname-availability", headers=AUTH_HEADERS, params={"nickname": nickname}
+    )
+
+    assert response.status_code == 422
 
 
 @pytest.mark.parametrize("nickname", JUNK_NICKNAMES)
@@ -543,8 +555,7 @@ def _send_kakao_id(kakao_id: str) -> tuple[httpx.Response, list[dict]]:
     return response, saved
 
 
-@pytest.mark.parametrize("kakao_id", ["a", "my id", "fox\nrain", "fox\x00rain", "ㅋㅋfox", "  ", "a" * 65,
-                                      "fox\u200b", "\ufefffox_rain", "fox\u202erain"])
+@pytest.mark.parametrize("kakao_id", CASES["kakao_id"]["reject"])
 def test_kakao_id_turns_away_junk_with_a_string_detail(kakao_id):
     """널 문자는 저장에서 500 이었다. 문자열 detail 이라야 앱(05)이 칸 아래에 문구를 그대로 띄운다."""
     response, saved = _send_kakao_id(kakao_id)
@@ -554,7 +565,7 @@ def test_kakao_id_turns_away_junk_with_a_string_detail(kakao_id):
     assert saved == []
 
 
-@pytest.mark.parametrize("kakao_id", ["fox_rain", "aaa.bbb", "ab", "a" * 64])
+@pytest.mark.parametrize("kakao_id", CASES["kakao_id"]["accept"])
 def test_kakao_id_takes_a_real_id_and_saves_it_trimmed(kakao_id):
     response, saved = _send_kakao_id(f" {kakao_id} ")
 

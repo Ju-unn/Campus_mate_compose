@@ -40,6 +40,7 @@ MyProfile _profile({
   String? mbti = 'ENFP',
   int? birthYear = 2001,
   String? gender = 'male',
+  String? studentNumber = '21',
 }) =>
     MyProfile(
       nickname: '늑대',
@@ -54,6 +55,7 @@ MyProfile _profile({
       impressionType: ImpressionType.arab,
       birthYear: birthYear,
       gender: gender,
+      studentNumber: studentNumber,
       avatarUrl: null,
       preferredAgeMin: null,
       preferredAgeMax: null,
@@ -73,6 +75,17 @@ const _heightLabel = '키 (cm) · 필수';
 
 final _nicknameField = find.byType(TextField).at(0);
 final _heightField = find.byType(TextField).at(1);
+final _studentNumberField = find.byType(TextField).at(2);
+
+/// 학번 칸(pen 시안 `x1mvAB`, 대장 전달 자리 — 키 칸 아래 16). 15-6 은 "· 필수" 를 붙이지 않는다.
+const _studentNumberLabel = '학부 입학 학번';
+const _studentNumberHelper = '대학원생은 학부 입학 학번을 적어 주세요';
+
+/// 앱이 학번 칸 아래에 띄우는 안내(3c 와 같은 키). 서버 422 문구("숫자를 입력해 주세요")와는 다르다.
+const _studentNumberInvalid = '두 자리 숫자로 입력해 주세요';
+
+/// 키 칸 아래에 학번 덩어리(16 + 라벨 20 + 8 + 상자 52 + 6 + 안내 17 = 119, pen NzQNa gap 6)가 들어와 그 아래 구역이 모두 이만큼 내려갔다.
+const double _studentShift = 119;
 
 Finder _valueOf(Finder field) => find.descendant(of: field, matching: find.byType(EditableText));
 
@@ -225,14 +238,14 @@ void main() {
       usePenFrame(tester);
       await pump(tester);
 
-      final icon = tester.widget<Icon>(find.byIcon(AppIcons.info));
+      final icon = tester.widget<Icon>(find.byIcon(AppIcons.info).first);
       expect((icon.size, icon.color), (14, AppColors.muted));
       final text = find.text('30일에 한 번 바꿀 수 있어요');
       final style = tester.widget<Text>(text).style!;
       expect((style.fontSize, style.fontWeight, style.color), (12, FontWeight.w400, AppColors.muted));
-      expect(tester.getTopLeft(find.byIcon(AppIcons.info)).dx, 24);
+      expect(tester.getTopLeft(find.byIcon(AppIcons.info).first).dx, 24);
       expect(tester.getTopLeft(text).dx, 24 + 14 + 4);
-      expect(tester.getCenter(find.byIcon(AppIcons.info)).dy, closeTo(tester.getCenter(text).dy, 0.5));
+      expect(tester.getCenter(find.byIcon(AppIcons.info).first).dy, closeTo(tester.getCenter(text).dy, 0.5));
     });
 
     testWidgets('키 칸은 helper 가 없다 — 오류 때만', (tester) async {
@@ -240,7 +253,35 @@ void main() {
       await pump(tester);
 
       expect(find.byIcon(AppIcons.circleAlert), findsNothing);
+      // info 는 닉네임 안내 하나뿐이다 — 키 칸 아래에도, 학번 안내(pen H37ivG 글자만)에도 없다.
       expect(find.byIcon(AppIcons.info), findsOneWidget);
+    });
+
+    testWidgets('학번 칸 — 키 칸 끝(y289) 16 아래 "학부 입학 학번"(305) → 8 → 상자 52(333) → 6 → 글자만 안내(391, pen H37ivG)', (tester) async {
+      usePenFrame(tester);
+      await pump(tester);
+
+      expect(tester.getTopLeft(find.text(_studentNumberLabel)), const Offset(24, 305));
+      final style = tester.widget<Text>(find.text(_studentNumberLabel)).style!;
+      expect((style.fontSize, style.fontWeight, style.color), (14, FontWeight.w600, AppColors.body));
+      expect(tester.getRect(_studentNumberField), const Rect.fromLTWH(24, 333, 312, 52));
+      final helper = find.text(_studentNumberHelper);
+      expect(tester.getTopLeft(helper), const Offset(24, 391));
+      final helperStyle = tester.widget<Text>(helper).style!;
+      expect((helperStyle.fontSize, helperStyle.fontWeight, helperStyle.color), (12, FontWeight.w400, AppColors.muted));
+      expect(tester.widget<EditableText>(_valueOf(_studentNumberField)).controller.text, '21');
+      expect(tester.widget<TextField>(_studentNumberField).keyboardType, TextInputType.number);
+    });
+
+    testWidgets('학번이 비어 있으면(서버 null) 자리표시 "예: 21" 이 muted 로 보인다', (tester) async {
+      usePenFrame(tester);
+      await pump(tester, profile: _profile(studentNumber: null));
+
+      expect(tester.widget<EditableText>(_valueOf(_studentNumberField)).controller.text, '');
+      final decoration = tester.widget<TextField>(_studentNumberField).decoration!;
+      expect(decoration.hintText, '예: 21');
+      expect(decoration.hintStyle!.color, AppColors.muted);
+      expect(find.text(_studentNumberInvalid), findsNothing);
     });
 
     testWidgets('"저장" `fx0HX` — 312×52 · 좌우 24 · 화면 아래 8(바닥 고정, Bottom Bar CTA `A8INC6` [8,24,8,24])', (tester) async {
@@ -291,7 +332,7 @@ void main() {
       final style = tester.widget<Text>(find.text('10월 27일부터 바꿀 수 있어요')).style!;
       expect((style.fontSize, style.color), (12, AppColors.muted));
       expect(tester.getTopLeft(find.text('10월 27일부터 바꿀 수 있어요')).dy, 176);
-      expect(find.byIcon(AppIcons.info), findsNothing);
+      expect(find.byIcon(AppIcons.info), findsNothing, reason: '학번 안내는 글자만(pen H37ivG)이라 info 표식이 없다');
       expect(find.text('30일에 한 번 바꿀 수 있어요'), findsNothing);
     });
 
@@ -437,6 +478,19 @@ void main() {
   });
 
   group('입력 규칙(04-1 과 같다)', () {
+    // 사용자 결정(11-24): 학번 칸은 잘라 내거나 걸러 내지 않는다 — 2자리 숫자가 아니면 안내가 막는다(조용히 고쳐 쓰지 않는다).
+    testWidgets('학번 칸은 친 그대로 남는다 — 123 · ab 를 2자리로 자르거나 지우지 않고 안내가 뜬다', (tester) async {
+      await pump(tester, profile: _profile(studentNumber: null));
+
+      for (final input in ['123', 'ab', '21학번']) {
+        await tester.enterText(_studentNumberField, input);
+        await tester.pump();
+        expect(tester.widget<EditableText>(_valueOf(_studentNumberField)).controller.text, input);
+        expect(find.text(_studentNumberInvalid), findsOneWidget, reason: input);
+        expect(saveButton(tester).onPressed, isNull, reason: input);
+      }
+    });
+
     testWidgets('키는 숫자만 3자리까지', (tester) async {
       await pump(tester);
       // 이미 3자리면 04-1 포매터는 더 친 것을 버리고 옛 값을 지킨다 — 비운 뒤 친다.
@@ -496,7 +550,7 @@ void main() {
       expectErrorHelper(tester, '이미 있는 닉네임이에요', under: _nicknameField, above: find.text(_heightLabel));
       final outline = border(tester, _nicknameField);
       expect((outline.borderSide.color, outline.borderSide.width), (AppColors.error, 2));
-      expect(find.byIcon(AppIcons.info), findsNothing);
+      expect(find.byIcon(AppIcons.info), findsNothing, reason: '학번 안내는 글자만(pen H37ivG)이라 info 표식이 없다');
       expect(saveButton(tester).onPressed, isNull);
     });
 
@@ -552,6 +606,91 @@ void main() {
       await tester.pumpAndSettle();
 
       expectErrorHelper(tester, '입력한 값을 다시 확인해 주세요', under: _heightField, above: find.byType(AppButton));
+    });
+
+    testWidgets('학번 1자리 — 학번 칸 아래 "두 자리 숫자로 입력해 주세요", 테두리 error 2, 저장 꺼짐', (tester) async {
+      usePenFrame(tester);
+      await pump(tester);
+
+      await tester.enterText(_studentNumberField, '2');
+      await tester.pump();
+
+      expectErrorHelper(tester, _studentNumberInvalid, under: _studentNumberField, above: find.byType(AppButton));
+      final outline = border(tester, _studentNumberField);
+      expect((outline.borderSide.color, outline.borderSide.width), (AppColors.error, 2));
+      expect(find.text(_studentNumberHelper), findsNothing);
+      expect(saveButton(tester).onPressed, isNull);
+    });
+
+    // 사용자 결정(11-24): 안 고친 학번 칸은 옛 값(4 · 7 · 8자리)이어도 안내 없이 평소 도움말만 둔다.
+    testWidgets('옛 학번이 2자리가 아니어도(8자리) 안 고쳤으면 안내 없음 — 키만 고쳐 저장하면 학번은 싣지 않는다', (tester) async {
+      usePenFrame(tester);
+      await pump(tester, profile: _profile(studentNumber: '20211234'));
+
+      expect(tester.widget<EditableText>(_valueOf(_studentNumberField)).controller.text, '20211234');
+      expect(find.text(_studentNumberInvalid), findsNothing);
+      expect(find.byIcon(AppIcons.circleAlert), findsNothing);
+      expect(find.text(_studentNumberHelper), findsOneWidget);
+
+      await tester.enterText(_heightField, '180');
+      await tester.pump();
+      expect(saveButton(tester).onPressed, isNotNull);
+      await tapSave(tester);
+      await tester.pumpAndSettle();
+
+      expect(me.updates, [
+        {'height_cm': 180},
+      ]);
+      expect(popped, isTrue);
+    });
+
+    // 진짜 TextField · 포매터를 거쳐 친다 — 2자리로 잘라 내는 포매터가 돌아오면 여기서 "20" 이 되어 깨진다.
+    testWidgets('옛 8자리 "20231234" 에서 한 글자 지우면 "2023123" 이 그대로 남고 안내 · 저장 꺼짐 · 안 보낸다', (tester) async {
+      usePenFrame(tester);
+      await pump(tester, profile: _profile(studentNumber: '20231234'));
+
+      await tester.enterText(_studentNumberField, '2023123');
+      await tester.pump();
+
+      expect(tester.widget<EditableText>(_valueOf(_studentNumberField)).controller.text, '2023123');
+      expectErrorHelper(tester, _studentNumberInvalid, under: _studentNumberField, above: find.byType(AppButton));
+      expect(saveButton(tester).onPressed, isNull);
+      await tester.tap(find.byType(AppButton));
+      await tester.pumpAndSettle();
+      expect(me.updates, isEmpty);
+    });
+
+    testWidgets('옛 8자리 값을 2자리 "21" 로 고치면 안내 없이 {"student_number": "21"} 을 보낸다', (tester) async {
+      usePenFrame(tester);
+      await pump(tester, profile: _profile(studentNumber: '20231234'));
+
+      await tester.enterText(_studentNumberField, '21');
+      await tester.pump();
+      expect(find.text(_studentNumberInvalid), findsNothing);
+      await tapSave(tester);
+      await tester.pumpAndSettle();
+
+      expect(me.updates, [
+        {'student_number': '21'},
+      ]);
+      expect(popped, isTrue);
+    });
+
+    testWidgets('저장 때 서버 422 "숫자를 입력해 주세요" — 학번 칸 아래', (tester) async {
+      usePenFrame(tester);
+      await pump(tester);
+      await tester.enterText(_studentNumberField, '22');
+      await tester.pump();
+      me.updateResult = const FailureResult(ServerRejectedFailure('숫자를 입력해 주세요'));
+
+      await tapSave(tester);
+      await tester.pumpAndSettle();
+
+      expect(me.updates, [
+        {'student_number': '22'},
+      ]);
+      expectErrorHelper(tester, '숫자를 입력해 주세요', under: _studentNumberField, above: find.byType(AppButton));
+      expect(find.byType(BasicInfoEditScreen), findsOneWidget);
     });
 
     testWidgets('그 밖의 저장 실패(네트워크)는 04-1 처럼 버튼 위 오류 글(caption · error), 칸은 그대로', (tester) async {
@@ -615,11 +754,11 @@ void main() {
       await pump(tester);
 
       for (final (label, top, color) in [
-        ('내 MBTI', 313.0, AppColors.body),
-        ('종교', 486.0, AppColors.body),
-        ('흡연', 662.0, AppColors.body),
-        ('내 동물상', 770.0, AppColors.ink),
-        ('내 인상', 1054.0, AppColors.ink),
+        ('내 MBTI', 313.0 + _studentShift, AppColors.body),
+        ('종교', 486.0 + _studentShift, AppColors.body),
+        ('흡연', 662.0 + _studentShift, AppColors.body),
+        ('내 동물상', 770.0 + _studentShift, AppColors.ink),
+        ('내 인상', 1054.0 + _studentShift, AppColors.ink),
       ]) {
         expect(tester.getTopLeft(find.text(label)), Offset(24, top), reason: label);
         expect(tester.getSize(find.text(label)).height, 20, reason: label);
@@ -632,12 +771,12 @@ void main() {
       useTallFrame(tester);
       await pump(tester);
 
-      expect(_rectOf(tester, 'E'), const Rect.fromLTWH(24, 341, 48, 35));
-      expect(_rectOf(tester, 'S'), const Rect.fromLTWH(80, 341, 48, 35));
-      expect(_rectOf(tester, 'P'), const Rect.fromLTWH(192, 341, 48, 35));
-      expect(_rectOf(tester, 'I'), const Rect.fromLTWH(24, 384, 48, 35));
-      expect(_rectOf(tester, 'J'), const Rect.fromLTWH(192, 384, 48, 35));
-      expect(_rectOf(tester, '모름'), const Rect.fromLTWH(24, 427, 56, 35));
+      expect(_rectOf(tester, 'E'), const Rect.fromLTWH(24, 341 + _studentShift, 48, 35));
+      expect(_rectOf(tester, 'S'), const Rect.fromLTWH(80, 341 + _studentShift, 48, 35));
+      expect(_rectOf(tester, 'P'), const Rect.fromLTWH(192, 341 + _studentShift, 48, 35));
+      expect(_rectOf(tester, 'I'), const Rect.fromLTWH(24, 384 + _studentShift, 48, 35));
+      expect(_rectOf(tester, 'J'), const Rect.fromLTWH(192, 384 + _studentShift, 48, 35));
+      expect(_rectOf(tester, '모름'), const Rect.fromLTWH(24, 427 + _studentShift, 56, 35));
     });
 
     testWidgets('내 MBTI — 서버 ENFP 면 E N F P 만 분홍 워시, 나머지는 surface-soft', (tester) async {
@@ -664,10 +803,10 @@ void main() {
       useTallFrame(tester);
       await pump(tester);
 
-      expect(cellRect(tester, '무교'), const Rect.fromLTWH(24, 514, 150, 56));
-      expect(cellRect(tester, '기독교'), const Rect.fromLTWH(186, 514, 150, 56));
-      expect(cellRect(tester, '천주교'), const Rect.fromLTWH(24, 582, 150, 56));
-      expect(cellRect(tester, '불교'), const Rect.fromLTWH(186, 582, 150, 56));
+      expect(cellRect(tester, '무교'), const Rect.fromLTWH(24, 514 + _studentShift, 150, 56));
+      expect(cellRect(tester, '기독교'), const Rect.fromLTWH(186, 514 + _studentShift, 150, 56));
+      expect(cellRect(tester, '천주교'), const Rect.fromLTWH(24, 582 + _studentShift, 150, 56));
+      expect(cellRect(tester, '불교'), const Rect.fromLTWH(186, 582 + _studentShift, 150, 56));
       expect(fillOf(tester, '무교'), AppColors.primaryWash);
       expect(fillOf(tester, '불교'), AppColors.surfaceSoft);
     });
@@ -676,8 +815,8 @@ void main() {
       useTallFrame(tester);
       await pump(tester);
 
-      expect(cellRect(tester, '한다'), const Rect.fromLTWH(24, 690, 150, 56));
-      expect(cellRect(tester, '안 한다'), const Rect.fromLTWH(186, 690, 150, 56));
+      expect(cellRect(tester, '한다'), const Rect.fromLTWH(24, 690 + _studentShift, 150, 56));
+      expect(cellRect(tester, '안 한다'), const Rect.fromLTWH(186, 690 + _studentShift, 150, 56));
       expect(fillOf(tester, '안 한다'), AppColors.primaryWash);
       expect(fillOf(tester, '한다'), AppColors.surfaceSoft);
     });
@@ -687,10 +826,10 @@ void main() {
       await pump(tester);
 
       final animals = tester.getRect(find.byType(AnimalTypePicker));
-      expect((animals.left, animals.top, animals.width), (24, 798, 312));
+      expect((animals.left, animals.top, animals.width), (24, 798 + _studentShift, 312));
       expect(animals.height, closeTo(232, 0.01));
       final impressions = tester.getRect(find.byType(ImpressionTypePicker));
-      expect(impressions, const Rect.fromLTWH(24, 1082, 312, 96));
+      expect(impressions, const Rect.fromLTWH(24, 1082 + _studentShift, 312, 96));
       final dog = tester.widget<Ink>(find.ancestor(of: find.text('강아지상'), matching: find.byType(Ink)).first);
       expect((dog.decoration! as BoxDecoration).color, AppColors.primaryWash);
       expect(fillOf(tester, '아랍상'), AppColors.primaryWash);
@@ -709,11 +848,11 @@ void main() {
       useTallFrame(tester);
       await pump(tester);
 
-      expect(tester.getTopLeft(find.text('바꿀 수 없는 정보')), const Offset(24, 1210));
+      expect(tester.getTopLeft(find.text('바꿀 수 없는 정보')), const Offset(24, 1210 + _studentShift));
       final style = tester.widget<Text>(find.text('바꿀 수 없는 정보')).style!;
       expect((style.fontSize, style.fontWeight, style.color), (14, FontWeight.w600, AppColors.body));
       final box = find.ancestor(of: find.byType(LockedFactRow).first, matching: find.byType(Container)).first;
-      expect(tester.getRect(box), const Rect.fromLTWH(24, 1238, 312, 154 - 2));
+      expect(tester.getRect(box), const Rect.fromLTWH(24, 1238 + _studentShift, 312, 154 - 2));
       final decoration = tester.widget<Container>(box).decoration! as BoxDecoration;
       expect(decoration.color, AppColors.surfaceSoft);
       expect(decoration.borderRadius, BorderRadius.circular(12));
@@ -727,7 +866,7 @@ void main() {
       final rows = find.byType(LockedFactRow);
       expect(rows, findsNWidgets(3));
       for (var i = 0; i < 3; i++) {
-        expect(tester.getRect(rows.at(i)), Rect.fromLTWH(40, 1242.0 + 48 * i, 280, 48), reason: '행 $i');
+        expect(tester.getRect(rows.at(i)), Rect.fromLTWH(40, 1242.0 + _studentShift + 48 * i, 280, 48), reason: '행 $i');
       }
       for (final text in ['출생연도', '2001', '성별', '남성', '학과', '경영학과']) {
         expect(find.text(text), findsOneWidget, reason: text);
@@ -752,7 +891,7 @@ void main() {
       final style = tester.widget<Text>(find.text(text)).style!;
       expect((style.fontSize, style.fontWeight, style.color), (12, FontWeight.w400, AppColors.muted));
       final icon = tester.getRect(find.byType(Icon3d));
-      expect(icon, const Rect.fromLTWH(24, 1398, 18, 18));
+      expect(icon, const Rect.fromLTWH(24, 1398 + _studentShift, 18, 18));
       expect(tester.getTopLeft(find.text(text)).dx, 24 + 18 + 4);
     });
 
@@ -768,12 +907,13 @@ void main() {
       expect(me.updates, isEmpty);
     });
 
-    testWidgets('전화번호 · 학번 · 실명 줄은 없다(서버가 내려 주지 않는다) — 입력 칸은 닉네임 · 키 둘뿐', (tester) async {
+    testWidgets('전화번호 · 실명 줄은 없다(서버가 내려 주지 않는다) — 입력 칸은 닉네임 · 키 · 학번 셋, 학번은 잠금 행이 아니다', (tester) async {
       useTallFrame(tester);
       await pump(tester);
 
-      expect(find.byType(TextField), findsNWidgets(2));
-      for (final absent in ['전화번호', '학번', '실명', '이름']) {
+      expect(find.byType(TextField), findsNWidgets(3));
+      expect(find.descendant(of: find.byType(LockedFactRow), matching: find.textContaining('학번')), findsNothing);
+      for (final absent in ['전화번호', '실명', '이름']) {
         expect(find.textContaining(absent), findsNothing, reason: absent);
       }
     });
@@ -1001,7 +1141,7 @@ void main() {
 
         expect(tester.takeException(), isNull);
         expect(clipped, isEmpty);
-        for (final field in [_nicknameField, _heightField]) {
+        for (final field in [_nicknameField, _heightField, _studentNumberField]) {
           expect(tester.getSize(field).height, greaterThanOrEqualTo(52));
           final box = tester.getRect(field);
           final value = tester.getRect(_valueOf(field));

@@ -41,6 +41,7 @@ import 'package:campus_mate/matching/view/card_detail_screen.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/matching/view/match_made_screen.dart';
 import 'package:campus_mate/matching/view/notification_settings_screen.dart';
+import 'package:campus_mate/matching/view/read_only_profile_screen.dart';
 import 'package:campus_mate/matching/view/settings_screen.dart';
 import 'package:campus_mate/matching/view/today_cards_screen.dart';
 import 'package:campus_mate/me/view/basic_info_edit_screen.dart';
@@ -59,6 +60,7 @@ import 'package:campus_mate/profile/avatar/view/avatar_source_screen.dart';
 import 'package:campus_mate/profile/basic/view/basic_info_screen.dart';
 import 'package:campus_mate/profile/bio/view/bio_draft_loading_screen.dart';
 import 'package:campus_mate/profile/ideal/view/ideal_conditions_screen.dart';
+import 'package:campus_mate/profile/ideal/view/ideal_intro_screen.dart';
 import 'package:campus_mate/profile/ideal/view/ideal_note_screen.dart';
 import 'package:campus_mate/profile/onboarding/view/kakao_id_screen.dart';
 import 'package:campus_mate/profile/onboarding/view/onboarding_contact_block_screen.dart';
@@ -276,6 +278,15 @@ abstract final class AppRouter {
         redirect: _uuidOr('cardId', AppRoutes.conversations),
         builder: (context, state) => AcceptanceDetailScreen(cardId: state.pathParameters['cardId']!),
       ),
+      // 보낸 신청 · 프로필 보기(읽기 전용, pen ig7i2) — 대화 탭 보낸 신청 줄의 [프로필 보기] 가 push 로 연다.
+      _PlatformRoute(
+        path: '${AppRoutes.sentRequestProfile}/:cardId',
+        redirect: _uuidOr('cardId', AppRoutes.conversations),
+        builder: (context, state) => ReadOnlyProfileScreen(
+          cardId: state.pathParameters['cardId']!,
+          title: context.l10n.matchingConversationsSentSection,
+        ),
+      ),
       _PlatformRoute(
         path: AppRoutes.matchMade,
         builder: (context, state) {
@@ -342,7 +353,8 @@ abstract final class AppRouter {
       _PlatformRoute(path: AppRoutes.onboardingSurvey, builder: (context, state) => const SurveyScreen()),
       _PlatformRoute(
         path: AppRoutes.onboardingIdealConditions,
-        builder: (context, state) => const IdealConditionsScreen(),
+        // 가입 길에서만 이상형 들어가기(pen 25-B)를 먼저 보인다 — 편집 경로 `myIdealConditions` 에는 두르지 않는다.
+        builder: (context, state) => const IdealIntroGate(child: IdealConditionsScreen()),
       ),
       _PlatformRoute(
         path: AppRoutes.onboardingIdealTraits,

@@ -1,6 +1,7 @@
 """관리자 명단(admin_users)과 작업 기록(admin_actions). 둘 다 RLS 정책 0개 · service_role 전용 표다(설계 10-18 §7).
 인증샷 검수(§8-1)도 여기서 읽고 DB 함수 admin_review_heart_task 로 바꾼다. 신고 검수(§8-2)도 여기서 읽는다."""
 import asyncio
+from datetime import datetime
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -209,6 +210,31 @@ class AdminRepository(PostgrestRepository):
             "p_admin": str(admin_user_id), "p_target": target_type, "p_content": str(content_id), "p_status": status,
             "p_reason": reason, "p_ip": ip,
         })
+
+    async def create_notice(self, admin_user_id: UUID, notice_id: UUID, title: str, body: str,
+                            image_path: str | None, ip: str | None) -> dict:
+        """공지 한 줄 + 작업 기록(notice_create)을 DB 함수 한 번에(할 일 21). 제목 · 본문 길이 위반(23514)은 422."""
+        return await self._rpc("admin_create_notice", {
+            "p_admin": str(admin_user_id), "p_id": str(notice_id), "p_title": title, "p_body": body,
+            "p_image_path": image_path, "p_ip": ip,
+        })
+
+    async def delete_notice(self, admin_user_id: UUID, notice_id: UUID, reason: str, ip: str | None) -> dict:
+        """공지 지우기 + 작업 기록(notice_delete). 지운 그림 경로(없으면 null)를 돌려준다 — 부른 쪽이 Storage 에서 지운다."""
+        return await self._rpc("admin_delete_notice", {
+            "p_admin": str(admin_user_id), "p_id": str(notice_id), "p_reason": reason, "p_ip": ip,
+        })
+
+    async def list_notices(self, *, before: datetime | None, before_id: UUID | None, limit: int) -> list[dict]:
+        """공지(가린 것 포함) 최신순 한 쪽. 작성자 칸은 없다(공지는 작성자가 없다). 커서는 채팅 메시지와 같은 (시각, id)."""
+        params = {"kind": "eq.notice", "select": "id,title,question,image_path,status,created_at",
+                  "order": "created_at.desc,id.desc", "limit": str(limit)}
+        if before is not None:
+            cursor = before.isoformat()
+            params["or"] = f"(created_at.lt.{cursor},and(created_at.eq.{cursor},id.lt.{before_id}))"
+        response = await self._get("polls", params)
+        raise_for_status(response)
+        return response.json()
 
     async def _rpc(self, name: str, body: dict, already: str = ALREADY_DONE, conflicts: dict[str, str] | None = None) -> dict:
         """조치 DB 함수들의 오류 약속(42501 · CM404 · CM409 · 22023)을 HTTP 로 바꾼다. 그 밖의 check 위반(기록 사유 500자 등)은 422.

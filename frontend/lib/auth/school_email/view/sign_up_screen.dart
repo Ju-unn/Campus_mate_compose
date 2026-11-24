@@ -7,6 +7,9 @@ import 'package:campus_mate/auth/school_email/viewmodel/verify_code_view_model.d
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/field_error_line.dart';
+import 'package:campus_mate/common/widgets/text_action_button.dart';
+import 'package:campus_mate/common/widgets/wash_notice.dart';
 import 'package:campus_mate/core/auth/logout_text_button.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
@@ -113,10 +116,24 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     const SizedBox(height: AppSpacing.xl),
                     Text(context.l10n.authSignUpEmailLabel, style: AppTypography.labelSmall.copyWith(color: AppColors.body)),
                     const SizedBox(height: AppSpacing.xs),
-                    _EmailField(controller: _emailController, onChanged: viewModel.changeEmail),
+                    _EmailField(
+                      controller: _emailController,
+                      onChanged: viewModel.changeEmail,
+                      hasError: state.isUnknownSchool,
+                    ),
+                    // 미등록 학교(pen RrfFX): 칸 오류(V1uDE4 ErrorRow) → 힌트 → Notice(RxIqA) → "학교 추가 요청하기"(eshx0).
+                    // 메일을 고치면 changeEmail 이 오류를 비워 셋 다 사라진다. 다른 실패는 예전처럼 힌트 아래 글자 한 줄이다.
+                    if (state.isUnknownSchool) FieldErrorLine(context.errorText(state.error!)),
                     const SizedBox(height: AppSpacing.xs),
                     const _DomainHint(),
-                    if (state.error != null) ...[
+                    if (state.isUnknownSchool) ...[
+                      const SizedBox(height: AppSpacing.sm), // 대장 판정 11-24(값표에 없는 간격)
+                      SizedBox(width: double.infinity, child: WashNotice(text: context.l10n.authSignUpUnknownSchoolNotice)),
+                      TextActionButton(
+                        label: context.l10n.authSignUpRequestSchool,
+                        onPressed: () => unawaited(context.push(AppRoutes.inquiry)),
+                      ),
+                    ] else if (state.error != null) ...[
                       const SizedBox(height: AppSpacing.sm),
                       Text(context.errorText(state.error!), style: AppTypography.caption.copyWith(color: AppColors.error)),
                     ],
@@ -160,10 +177,13 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 }
 
 class _EmailField extends StatelessWidget {
-  const _EmailField({required this.controller, required this.onChanged});
+  const _EmailField({required this.controller, required this.onChanged, required this.hasError});
 
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
+
+  /// 오류 상태(pen Email Field · 오류 V1uDE4): 테두리 error 2 — `LabeledField` 오류 테두리와 같다.
+  final bool hasError;
 
   @override
   Widget build(BuildContext context) {
@@ -171,7 +191,7 @@ class _EmailField extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 52), // pen TDM1r. 글자 확대 때는 늘어난다
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md), // pen TDM1r padding [0,16]
       decoration: BoxDecoration(
-        border: Border.all(color: AppColors.hairline),
+        border: hasError ? Border.all(color: AppColors.error, width: 2) : Border.all(color: AppColors.hairline),
         borderRadius: BorderRadius.circular(AppRadius.input),
       ),
       child: Row(
