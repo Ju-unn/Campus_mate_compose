@@ -98,9 +98,7 @@ final Map<String, Area1Case> _pushA4Cases = {
     await arrive(tester, '3c', timeout: const Duration(seconds: 30));
     final took = watch.elapsed;
     await step('waiting');
-    await type(tester, input('예: 컴퓨터공학과'), '컴퓨터공학과');
-    await type(tester, input('예: 21 (2자리)'), '21');
-    await tap(tester, button('다음'));
+    await passSchoolInfo(tester);
     await arrive(tester, '04-1', timeout: const Duration(seconds: 10));
     await step('gate_open');
     return {'note': '켜서 3c 까지 ${took.inMilliseconds}ms'};
