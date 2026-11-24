@@ -49,12 +49,12 @@ class HttpChatRepository implements ChatRepository {
       );
 
   @override
-  Future<Result<Message?>> sendMessage(String matchId, String body) => _api.send(
+  Future<Result<Message?>> sendMessage(String matchId, String body, {required String clientId}) => _api.send(
         'POST',
         '/chat/matches/$matchId/messages',
         (response) =>
             Message.fromJson((response as Map<String, dynamic>)['message'] as Map<String, dynamic>),
-        body: {'body': body},
+        body: {'body': body, 'client_id': clientId},
       );
 
   /// 쓰기 가운데 이것만 조회와 같은 [readTimeout] 에 끊는다(대장 결정 10-13) — 다시 찍어도 해가 없고, 방에 들어올 때

@@ -16,7 +16,8 @@ abstract interface class ChatRepository {
   Future<Result<MessagePage>> fetchMessages(String matchId, {DateTime? before, String? beforeId});
 
   /// 보낸 줄을 돌려준다. 모르는 종류였다면 null 이고, 그때는 구독이 붙여 준다.
-  Future<Result<Message?>> sendMessage(String matchId, String body);
+  /// [clientId] 가 같으면 서버는 새로 저장하지 않고 처음 줄을 돌려준다 — 응답을 못 받아 다시 보낸 글이 두 줄이 되지 않는다.
+  Future<Result<Message?>> sendMessage(String matchId, String body, {required String clientId});
 
   /// 방에 들어올 때 · 나갈 때, 그리고 방을 보는 동안 받은 상대 줄을 몇 초에 한 번으로 묶어서.
   /// 상대 화면의 내 줄 '1' 이 이 시각으로 사라진다(사용자 결정 2026-10-13).
