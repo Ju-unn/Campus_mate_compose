@@ -27,8 +27,9 @@ final TextStyle _bodyStyle =
 /// 맨 아래에 로그아웃 글자 링크를 더했다(대장 결정 10-19, pen 에는 없음 — pen 수정 대기).
 ///
 /// 닫는 동작은 시스템 뒤로이고 종료 안내다(이 화면이 맨 아래 한 장이라 [BackExitScope] 가 한 번 더 누르면 앱을 닫는다).
-/// 승인 · 반려는 푸시가 알리지만 푸시만 믿지 않는다 — 30초마다, 그리고 앱이 다시 앞으로 올 때 관문을 직접 다시 묻는다
-/// (푸시 갱신 · 앱 재개 갱신은 관문이 `complete` 일 때만 돈다). 값이 바뀌면 라우터가 화면을 옮긴다.
+/// 승인 · 반려는 푸시가 알리지만 푸시만 믿지 않는다 — 30초마다 관문을 직접 다시 묻는다(푸시 갱신은 관문이 `complete` 일 때만 돈다).
+/// 앱이 다시 앞으로 올 때는 앱 루트가 관문을 묻는다(`main.dart` 복귀 처리) — 여기서도 물으면 같은 순간 2번이다(1.0.7 #6).
+/// 값이 바뀌면 라우터가 화면을 옮긴다.
 class GraduateWaitingScreen extends ConsumerStatefulWidget {
   const GraduateWaitingScreen({super.key});
 
@@ -36,26 +37,19 @@ class GraduateWaitingScreen extends ConsumerStatefulWidget {
   ConsumerState<GraduateWaitingScreen> createState() => _GraduateWaitingScreenState();
 }
 
-class _GraduateWaitingScreenState extends ConsumerState<GraduateWaitingScreen> with WidgetsBindingObserver {
+class _GraduateWaitingScreenState extends ConsumerState<GraduateWaitingScreen> {
   Timer? _poll;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _poll = Timer.periodic(graduateWaitingPollInterval, (_) => _refreshGate());
   }
 
   @override
   void dispose() {
     _poll?.cancel();
-    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _refreshGate();
   }
 
   void _refreshGate() => unawaited(ref.read(verificationGateListenableProvider).refresh());
