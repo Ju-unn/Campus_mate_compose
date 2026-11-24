@@ -49,6 +49,7 @@
   "accountWithdrawSuspendedWarning": "정지 중에 탈퇴하면 다시 가입할 수 없어요",
   "authSchoolEmailRelogin": "{provider, select, kakao{카카오} google{구글} apple{애플} other{소셜}}로 다시 로그인",
   "@authSchoolEmailRelogin": {"placeholders": {"provider": {"type": "String"}}},
+  "authSchoolInfoAcademicStatusLabel": "신분 · 필수",
   "authSchoolInfoConfirmed": "확인됨",
   "authSchoolInfoDepartmentLabel": "학과 · 필수",
   "authSchoolInfoDepartmentPlaceholder": "예: 컴퓨터공학과",
