@@ -561,7 +561,7 @@ void main() {
   // pen jj8YS "[할 일 12] 03 인증코드 · 다시 보내기 실패": 만료 줄 vKylH 바로 아래 Resend Error hAIDd(Type · body-small CsB9a,
   // 폭 꽉 · 14/normal lh1.55 · colors.error · 아이콘 없음) → 위 2 → 메일 다시 받기 kxg76. 확인 실패 문구(입력칸 아래)와 따로 보인다.
   group('다시 보내기 실패(pen jj8YS)', () {
-    const resendFailed = '인증번호를 다시 보내지 못했어요. 잠시 뒤 다시 눌러 주세요';
+    const resendFailed = '인증번호를 다시 보내지 못했어요. 잠시 후 다시 눌러 주세요';
 
     Future<void> failResend(WidgetTester tester, Failure failure) async {
       tester.view.physicalSize = const Size(360, 740);
