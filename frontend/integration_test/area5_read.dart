@@ -62,7 +62,7 @@ String? _entryNote(WidgetTester tester, String title) {
   return _has(rows) ? tester.widget<ProfileEntryRow>(rows.first).note : null;
 }
 
-/// 15-5 → 기본 정보 "수정 ›" → 15-6 에서 닉네임 · 키 칸이 켜져 있는지와 풀리는 날 문구를 읽는다(E-ME-28 · 29 · 30).
+/// 15-5 → "내 정보 수정" 구역 [내 프로필 수정] 줄 → 15-6 에서 닉네임 · 키 칸이 켜져 있는지와 풀리는 날 문구를 읽는다(E-ME-28 · 29 · 30).
 Future<Map<String, Object?>> _readBasicInfo(WidgetTester tester) async {
   await _openManage(tester);
   await _reveal(tester, find.text(_editLink));

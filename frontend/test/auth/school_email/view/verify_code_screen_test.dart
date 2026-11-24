@@ -557,6 +557,83 @@ void main() {
       expect(find.text('02 학교 메일 입력'), findsOneWidget);
     });
   });
+
+  // pen jj8YS "[할 일 12] 03 인증코드 · 다시 보내기 실패": 만료 줄 vKylH 바로 아래 Resend Error hAIDd(Type · body-small CsB9a,
+  // 폭 꽉 · 14/normal lh1.55 · colors.error · 아이콘 없음) → 위 2 → 메일 다시 받기 kxg76. 확인 실패 문구(입력칸 아래)와 따로 보인다.
+  group('다시 보내기 실패(pen jj8YS)', () {
+    const resendFailed = '인증번호를 다시 보내지 못했어요. 잠시 후 다시 눌러 주세요';
+
+    Future<void> failResend(WidgetTester tester, Failure failure) async {
+      tester.view.physicalSize = const Size(360, 740);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      // 코드를 2분 전에 받은 화면이라 첫 쿨다운은 이미 지났다 — 열린 뒤 시계를 지금으로 옮겨야 뷰모델도 누름을 받는다.
+      var now = DateTime.now().subtract(const Duration(minutes: 2));
+      await pumpScreen(
+        tester,
+        repository: FakeSchoolEmailRepository()..nextRequestCodeResult = FailureResult(failure),
+        now: () => now,
+      );
+      now = DateTime.now();
+      // 글자를 키우면 버튼이 화면 아래로 밀린다 — 보이게 굴려야 누름이 닿는다.
+      await tester.ensureVisible(find.text('메일 다시 받기'));
+      await tester.pump();
+      await tester.tap(find.text('메일 다시 받기'));
+      // 만료 타이머가 1초마다 다시 그려 pumpAndSettle 은 끝나지 않는다 — 가짜 저장소의 지연만큼만 민다.
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump();
+    }
+
+    testWidgets('만료 줄 바로 아래 · 메일 다시 받기 위 2 에 폭 꽉 14/normal 1.55 error 글만 보인다', (tester) async {
+      await failResend(tester, const NetworkFailure());
+
+      final text = find.text(resendFailed);
+      expect(text, findsOneWidget);
+      final expiry = find.ancestor(of: find.textContaining('뒤에 만료돼요'), matching: find.byType(Row)).first;
+      final resend = find.widgetWithText(TextButton, '메일 다시 받기');
+      expect(tester.getTopLeft(text), Offset(24, tester.getBottomLeft(expiry).dy));
+      expect(tester.getTopLeft(resend).dy, tester.getBottomLeft(text).dy + 2);
+      expect(tester.getSize(text).width, 360 - 24 * 2);
+      final style = tester.widget<Text>(text).style!;
+      expect((style.fontSize, style.fontWeight, style.height, style.color), (14, FontWeight.w400, 1.55, AppColors.error));
+      // 시안은 글만 있다(아이콘 없음) — 확인 실패 줄(circle-alert + 12 글)은 보이지 않는다.
+      expect(find.byIcon(AppIcons.circleAlert), findsNothing);
+      expect(find.text('네트워크 연결을 확인해 주세요'), findsNothing);
+    });
+
+    for (final failure in [const RateLimitedFailure('서버 문구'), const SignUpRejectedFailure('서버 문구')]) {
+      testWidgets('서버가 거절한 실패(${failure.runtimeType})도 같은 글이고 확인 실패 자리는 비어 있다', (tester) async {
+        await failResend(tester, failure);
+
+        expect(find.text(resendFailed), findsOneWidget);
+        expect(find.text('서버 문구'), findsNothing);
+        expect(find.text('다른 학교 메일 입력'), findsNothing);
+        expect(find.byIcon(AppIcons.circleAlert), findsNothing);
+      });
+    }
+
+    testWidgets('코드를 적으면 사라진다', (tester) async {
+      await failResend(tester, const NetworkFailure());
+      expect(find.text(resendFailed), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), '1');
+      await tester.pump();
+
+      expect(find.text(resendFailed), findsNothing);
+    });
+
+    testWidgets('글자 2배 · 320×568 에서도 넘치지 않는다', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await failResend(tester, const NetworkFailure());
+      tester.view.physicalSize = const Size(320, 568);
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      final paragraph = tester.renderObject<RenderParagraph>(find.text(resendFailed));
+      expect(paragraph.getMaxIntrinsicHeight(paragraph.size.width), lessThanOrEqualTo(paragraph.size.height + 0.5));
+    });
+  });
 }
 
 /// 코드 확인 답을 [answer] 가 끝날 때까지 붙잡는다 — "확인 중" 상태를 시험한다.
