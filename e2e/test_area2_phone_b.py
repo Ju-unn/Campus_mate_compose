@@ -106,7 +106,7 @@ class World(Fake):
         who, body = self.caller(sent), sent['body']
         question = body['question']
         a, b = body.get('option_a_label', '찬성'), body.get('option_b_label', '반대')
-        if (not 1 <= len(question) <= 80 or not question.strip() or not 1 <= len(a) <= 6 or not 1 <= len(b) <= 6
+        if (not 1 <= len(question) <= 400 or not question.strip() or not 1 <= len(a) <= 6 or not 1 <= len(b) <= 6
                 or not a.strip() or not b.strip() or a == b):
             return Reply(422, {'detail': '입력한 값을 다시 확인해 주세요'})
         if len([p for p in self.rows('polls') if p['author_id'] == who]) >= 10:
@@ -408,30 +408,30 @@ class PollPostTest(PhoneBase):
         bodies = [s['body'] for s in self.world.sent if s['method'] == 'POST' and s['path'] == '/community/polls']
         self.assertEqual(len(bodies), 4)
         lengths = sorted(len(b['question']) for b in bodies)
-        self.assertIn(81, lengths)
+        self.assertIn(401, lengths)
         self.assertTrue(any(len(b.get('option_a_label', '')) == 7 for b in bodies))
         self.assertTrue(any(not b['question'].strip() for b in bodies))
         self.assertTrue(any(b.get('option_a_label') and b.get('option_a_label') == b.get('option_b_label') for b in bodies))
 
     def test_poll_18_a_server_that_accepts_one_is_a_fail_with_its_name(self):
         def lenient(sent):
-            if len(sent['body']['question']) == 81:
+            if len(sent['body']['question']) == 401:
                 return Reply(201, {'id': self.world.add_poll(self.world.caller(sent), sent['body']['question'])['id']})
             return self.world.create_poll(sent)
         self.world.handlers.insert(0, ('POST', re.compile(r'/community/polls'), lenient))
         result, note = self.attempt('E-POLL-18')
         self.assertEqual(result, 'fail')
-        self.assertIn('질문 81자', note)
+        self.assertIn('질문 401자', note)
         self.assertIn('polls', note)
 
-    def test_poll_31_eighty_code_points_cut_at_the_thumb_pass(self):
+    def test_poll_31_four_hundred_code_points_cut_at_the_thumb_pass(self):
         app = self.app('E-POLL-31')
         self.assertEqual(self.attempt('E-POLL-31', app)[0], 'pass')
-        self.assertEqual(len(app.jobs[0]['base']), 79)
+        self.assertEqual(len(app.jobs[0]['base']), 399)
         self.assertTrue(app.jobs[0]['base'].startswith('[E2E] '))
 
-    def test_poll_31_a_stored_question_that_is_not_80_or_lost_its_thumb_fails(self):
-        for stored in ('a' * 81, 'a' * 79, 'a' * 79 + 'b'):
+    def test_poll_31_a_stored_question_that_is_not_400_or_lost_its_thumb_fails(self):
+        for stored in ('a' * 401, 'a' * 399, 'a' * 399 + 'b'):
             with self.subTest(stored[-2:] + str(len(stored))):
                 self.setUp()
                 result, note = self.attempt('E-POLL-31', App(self.world, lambda w, job, s=stored: w.add_poll('id-1', s)))
