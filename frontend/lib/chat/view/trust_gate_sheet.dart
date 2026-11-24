@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 class TrustGateSheet extends StatelessWidget {
   const TrustGateSheet({
     required this.deadlineAt,
+    required this.gateHours,
     required this.onAccept,
     required this.onLeave,
     this.myKakaoId,
@@ -22,6 +23,9 @@ class TrustGateSheet extends StatelessWidget {
   });
 
   final DateTime deadlineAt;
+
+  /// 매칭 → 응답 기한 길이(시간, `ChatRoom.gateHours`). 설명의 "N시간" 이 된다.
+  final int gateHours;
 
   /// 아이디 칸 오른쪽 "변경"(pen `dB7yu`) → 16e-1. 비우면 "변경"을 그리지 않는다.
   final VoidCallback? onChangeKakaoId;
@@ -69,7 +73,7 @@ class TrustGateSheet extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                context.l10n.chatGateBody,
+                context.l10n.chatGateBody(hours: gateHours),
                 style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
               ),
               // 설명 바로 아래 한 줄(대장 전달 2026-11-16, 14/700 ink — 14g 안내 카드와 같은 문구 키).
@@ -189,7 +193,7 @@ class _ChangeButton extends StatelessWidget {
   }
 }
 
-/// 응답 기한 카운트다운(pen `etT0Q`). 남은 시간은 `matches.created_at + 48시간` 에서 뺀다.
+/// 응답 기한 카운트다운(pen `etT0Q`). 남은 시간은 `matches.created_at + 응답 기한`(서버 `deadline_at`)에서 뺀다.
 class _Countdown extends StatelessWidget {
   const _Countdown({required this.deadlineAt});
 

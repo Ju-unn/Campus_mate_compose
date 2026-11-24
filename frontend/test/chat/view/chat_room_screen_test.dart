@@ -22,6 +22,7 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -691,6 +692,41 @@ void main() {
               createdAt: DateTime(2026, 10, 17, 9).add(Duration(minutes: index)),
             ),
         ];
+
+    // 기한 길이는 서버 두 시각에서 만든다(대장 판단 11-24) — 서버를 72 로 바꾸면 카드도 72 를 말한다.
+    for (final hours in [48, 72]) {
+      testWidgets('기한 $hours시간 방 — 카드 요약이 $hours시간', (tester) async {
+        repository.room = Success(roomFixture(gateDeadline: Duration(hours: hours)));
+        await pumpRoom(tester);
+
+        expect(
+          find.text('$hours시간 안에 두 분이 모두 수락해야 카카오톡 아이디·실사진이 공개되고 대화가 이어져요. '
+              "위쪽의 '수락하기'를 누르면 먼저 공개할 수 있어요."),
+          findsOneWidget,
+        );
+      });
+    }
+
+    // 미리 수락 배너 설명이 길어졌다(사용자 승인 11-24) — 가장 좁은 폭(360)에서 넘치거나 잘리지 않아야 한다.
+    // 배율 1 에서 두 줄(배너 125 → 143)은 사용자 승인 「A 로 하는데 매칭 후 72시간으로 수정하자」 — 세 줄이 되면 글자를 고치지 않고 대장에게 보고한다.
+    for (final scale in [1.0, 1.3, 2.0]) {
+      testWidgets('글자 배율 $scale · 360 폭 — 미리 수락 배너 설명(72시간)이 넘치거나 잘리지 않는다', (tester) async {
+        repository.room = Success(roomFixture(gateDeadline: const Duration(hours: 72)));
+        await pumpRoom(tester, scale: scale);
+
+        expect(tester.takeException(), isNull);
+        final caption = find.text('24시간 뒤에 물어봐요. 매칭 후 72시간 안에 둘 다 수락하지 않으면 대화가 종료돼요');
+        if (scale == 1.0) {
+          // 설명 12 · 줄높이 1.5 = 한 줄 18 — 두 줄(36)까지.
+          expect(tester.getSize(caption).height, 2 * 12 * 1.5);
+          expect(tester.getSize(find.byType(TrustBanner)).height, 143);
+        }
+        final paragraph = tester.renderObject<RenderParagraph>(find.descendant(of: caption, matching: find.byType(RichText)));
+        expect(paragraph.didExceedMaxLines, isFalse);
+        expect(paragraph.getMaxIntrinsicHeight(paragraph.size.width), lessThanOrEqualTo(paragraph.size.height + 0.5));
+        expect(tester.getRect(caption).right, lessThanOrEqualTo(360 - 16));
+      });
+    }
 
     testWidgets('빈 방 — 카드는 목록 안 배너 아래, 폭 328 · 왼쪽 16, 접힌 채로 시작한다', (tester) async {
       await pumpRoom(tester);

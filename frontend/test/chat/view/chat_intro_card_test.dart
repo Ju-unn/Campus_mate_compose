@@ -44,6 +44,7 @@ void main() {
     double scale = 1,
     bool disableAnimations = false,
     Size screen = const Size(360, 780),
+    int hours = 48,
   }) async {
     tester.view.physicalSize = screen;
     tester.view.devicePixelRatio = 1;
@@ -66,6 +67,7 @@ void main() {
             children: [
               StatefulBuilder(
                 builder: (context, setState) => ChatIntroCard(
+                  hours: hours,
                   expanded: isExpanded,
                   onToggle: () => setState(() => isExpanded = !isExpanded),
                 ),
@@ -128,6 +130,22 @@ void main() {
         expect(titleRect.height, lessThan(2 * 14 * 1.5), reason: '한 줄');
       });
     }
+  });
+
+  // 기한 길이는 서버 값에서 온다(대장 판단 11-24) — 글자에 숫자를 박으면 서버가 72 로 바뀔 때 앱이 48 을 약속한다.
+  testWidgets('기한이 72시간인 방은 요약 · 항목 1 · 4 가 72시간이고 그 구절이 굵다', (tester) async {
+    await pump(tester, hours: 72);
+    const summary72 = '72시간 안에 두 분이 모두 수락해야 카카오톡 아이디·실사진이 공개되고 대화가 이어져요. '
+        "위쪽의 '수락하기'를 누르면 먼저 공개할 수 있어요.";
+    expect([for (final run in runsOf(tester, summary72)) if (run.$2.fontWeight == FontWeight.w700) run.$1], ['72시간', '수락']);
+
+    await tester.tap(toggle());
+    await tester.pumpAndSettle();
+    const item1 = "지금부터 72시간이 '신뢰 확인' 시간이에요. 서로 카카오톡 아이디와 실제 사진을 공개해도 좋은지 정하는 시간이에요.";
+    const item4 = '72시간 안에 두 분이 모두 수락하지 않으면 이 대화는 종료돼요. 한쪽이 나가도 끝나요.';
+    expect([for (final run in runsOf(tester, item1)) if (run.$2.fontWeight == FontWeight.w700) run.$1], ['72시간', '카카오톡 아이디']);
+    expect([for (final run in runsOf(tester, item4)) if (run.$2.fontWeight == FontWeight.w700) run.$1], ['72시간', '종료']);
+    expect(find.textContaining('48시간'), findsNothing);
   });
 
   group('굵게(사용자 지시 10-17)', () {

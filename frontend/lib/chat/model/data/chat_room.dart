@@ -1,8 +1,5 @@
 import 'package:campus_mate/chat/model/data/conversation.dart';
 
-/// 매칭 성립부터 응답 기한까지의 길이. 서버 `gate.GATE_DEADLINE` 과 같은 값이다.
-const Duration trustGateDeadline = Duration(hours: 48);
-
 /// 리마인드가 오는 시점. **수락은 매칭 순간부터 할 수 있고**(결정 10) 이 시각은
 /// 14f 시트가 방에 들어올 때마다 뜨기 시작하는 경계일 뿐이다.
 const Duration trustGateReminderAfter = Duration(hours: 24);
@@ -27,7 +24,7 @@ class TrustGate {
   /// 상대가 나간 방. 게이트가 멈춘다 — 배너도 시트도 뜨지 않는다(결정 7).
   final bool partnerLeft;
 
-  /// 매칭 성립 + 48시간. 카운트다운은 이 값에서 **기기 시계로** 뺀다.
+  /// 매칭 성립 + 응답 기한(서버 `gate.GATE_DEADLINE`). 카운트다운은 이 값에서 **기기 시계로** 뺀다.
   final DateTime deadlineAt;
 
   /// `'accept'` 또는 null. 거절이라는 값은 없다 — 거절한 사람은 방을 떠난다(결정 11).
@@ -143,6 +140,10 @@ class ChatRoom {
 
   /// 리마인드 시점을 지났는가 — 14f 시트가 뜨는 조건 하나다.
   bool isReminderDue(DateTime now) => !now.isBefore(createdAt.add(trustGateReminderAfter));
+
+  /// 매칭 → 응답 기한 길이(시간). 안내 글의 "N시간" 은 앱에 박지 않고 서버 두 시각에서 만든다 —
+  /// 서버 기한이 바뀌어도 글자가 실제보다 길게 약속하지 않는다. 두 값의 초 아래 자릿수 차이로 71 이 되지 않게 분 단위로 반올림한다.
+  int get gateHours => (gate.deadlineAt.difference(createdAt).inMinutes / 60).round();
 
   /// 상대 얼굴로 보일 그림(제목 · 말풍선 옆 · 14c 맨 위가 같은 규칙, 사용자 결정 11-12).
   /// 둘 다 공유를 수락해 실사진이 왔으면 첫 장, 아니면 아바타. 서버는 신뢰 확인 뒤에만 실사진을 준다.

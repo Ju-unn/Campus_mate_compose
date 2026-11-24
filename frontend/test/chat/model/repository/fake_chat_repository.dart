@@ -142,6 +142,8 @@ ChatRoom roomFixture({
   // 실제 라우터로 14c 를 여는 시험은 UUID 상대가 필요하다(경로 id 검사).
   String partnerProfileId = partnerId,
   String? avatarUrl,
+  // 매칭 → 응답 기한 길이. 앱은 이 값을 갖지 않고 서버 두 시각에서 읽는다 — 시험만 방을 만들 때 고른다.
+  Duration gateDeadline = const Duration(hours: 48),
 }) {
   final created = createdAt ?? DateTime.now();
   return ChatRoom(
@@ -152,7 +154,7 @@ ChatRoom roomFixture({
       passed: passed,
       passedAt: passedAt,
       partnerLeft: partnerLeft,
-      deadlineAt: created.add(trustGateDeadline),
+      deadlineAt: created.add(gateDeadline),
       myResponse: myResponse,
     ),
     kakaoId: kakaoId,

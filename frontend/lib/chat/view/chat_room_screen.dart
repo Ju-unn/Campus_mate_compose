@@ -212,6 +212,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                 controller: _scroll,
                 intro: state.showsIntroCardAt(_now())
                     ? ChatIntroCard(
+                        hours: state.room!.gateHours,
                         expanded: _introExpanded,
                         onToggle: () => setState(() => _introExpanded = !_introExpanded),
                       )
@@ -255,6 +256,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
     }
     _sheetShown = true;
     final deadlineAt = state.room!.gate.deadlineAt;
+    final gateHours = state.room!.gateHours;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) {
         return;
@@ -266,6 +268,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         builder: (sheetContext) => Consumer(
           builder: (_, sheetRef, _) => TrustGateSheet(
             deadlineAt: deadlineAt,
+            gateHours: gateHours,
             myKakaoId: sheetRef.watch(chatRoomViewModelProvider(widget.matchId).select((s) => s.room?.myKakaoId)),
             onChangeKakaoId: _changeKakaoId,
             onAccept: () {
@@ -417,7 +420,7 @@ class _Banner extends StatelessWidget {
       case TrustGateStage.preAccept:
         return TrustBanner(
           title: context.l10n.chatBannerPreAcceptTitle,
-          caption: context.l10n.chatBannerPreAcceptCaption,
+          caption: context.l10n.chatBannerPreAcceptCaption(hours: room.gateHours),
           actionLabel: context.l10n.chatAccept,
           onAction: () => unawaited(onAccept()),
         );

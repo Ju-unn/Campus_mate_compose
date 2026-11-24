@@ -12,14 +12,15 @@ import 'package:flutter/material.dart';
 // 문구는 사용자 확정(10-17 "ok 문구 좋다") 그대로다(문구 파일 `chatIntro*`). 글자 하나도 바꾸지 않는다.
 // 문장마다 굵게 할 구절을 **문장에 나오는 순서대로** 적는다(사용자 지시 10-17, pen 은 rich text 를 못 담아 대장이 목록으로 전달).
 // 구절도 문구 파일에서 읽는다 — 문장이 바뀌면 구절도 같이 바뀌어야 하므로 한 곳에 둔다([_emphasized] 의 assert 가 지킨다).
-(String, List<String>) _summary(AppLocalizations l10n) =>
-    (l10n.chatIntroSummary, [l10n.chatIntroEmphasis48Hours, l10n.chatIntroEmphasisAccept]);
+// 기한 길이 [hours] 는 서버 값이다(대장 판단 11-24) — 글자에 숫자를 박지 않는다.
+(String, List<String>) _summary(AppLocalizations l10n, int hours) =>
+    (l10n.chatIntroSummary(hours: hours), [l10n.chatIntroEmphasisDeadlineHours(hours: hours), l10n.chatIntroEmphasisAccept]);
 
-List<(String, List<String>)> _items(AppLocalizations l10n) => [
-      (l10n.chatIntroItem1, [l10n.chatIntroEmphasis48Hours, l10n.commonKakaoId]),
+List<(String, List<String>)> _items(AppLocalizations l10n, int hours) => [
+      (l10n.chatIntroItem1(hours: hours), [l10n.chatIntroEmphasisDeadlineHours(hours: hours), l10n.commonKakaoId]),
       (l10n.chatIntroItem2, [l10n.chatIntroEmphasis24Hours, l10n.commonKakaoId]),
       (l10n.chatIntroItem3, [l10n.chatAccept, l10n.chatIntroEmphasisNoCancel]),
-      (l10n.chatIntroItem4, [l10n.chatIntroEmphasis48Hours, l10n.chatIntroEmphasisEnd]),
+      (l10n.chatIntroItem4(hours: hours), [l10n.chatIntroEmphasisDeadlineHours(hours: hours), l10n.chatIntroEmphasisEnd]),
       (l10n.chatIntroItem5, <String>[]),
     ];
 
@@ -52,8 +53,10 @@ Text _emphasized((String, List<String>) line) {
 /// 대화방 목록 맨 위에 메시지와 함께 스크롤된다. 접힘 상태는 부르는 쪽(채팅방 화면)이 들고 있다 —
 /// 목록 칸은 화면 밖으로 나가면 버려지므로 여기 두면 다시 접힌다.
 class ChatIntroCard extends StatelessWidget {
-  const ChatIntroCard({required this.expanded, required this.onToggle, super.key});
+  const ChatIntroCard({required this.hours, required this.expanded, required this.onToggle, super.key});
 
+  /// 매칭 → 응답 기한 길이(시간, `ChatRoom.gateHours`).
+  final int hours;
   final bool expanded;
   final VoidCallback onToggle;
 
@@ -81,7 +84,7 @@ class ChatIntroCard extends StatelessWidget {
                   Expanded(child: Text(context.l10n.chatIntroTitle, style: _titleStyle)),
                 ],
               ),
-              _Resize(child: expanded ? const _Items() : _emphasized(_summary(context.l10n))),
+              _Resize(child: expanded ? _Items(hours: hours) : _emphasized(_summary(context.l10n, hours))),
               // pen 토글 줄 296×48: 오른쪽 정렬 · 세로 가운데.
               Align(
                 alignment: AlignmentDirectional.centerEnd,
@@ -121,13 +124,15 @@ class _Resize extends StatelessWidget {
 
 /// 펼친 본문(pen `ChatIntroItem` `B3PzPm` × 5): 번호 칸 20 · 가로 6 · 본문, 항목 사이 8.
 class _Items extends StatelessWidget {
-  const _Items();
+  const _Items({required this.hours});
+
+  final int hours;
 
   @override
   Widget build(BuildContext context) {
     // 번호 칸 20 은 배율 1 의 값이다 — 글자를 키우면 칸도 같이 키워 "5." 가 두 줄로 쪼개지지 않게 한다.
     final numberWidth = MediaQuery.textScalerOf(context).scale(20);
-    final items = _items(context.l10n);
+    final items = _items(context.l10n, hours);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: AppSpacing.xs,

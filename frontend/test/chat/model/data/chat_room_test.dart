@@ -97,4 +97,25 @@ void main() {
       expect(ChatRoom.fromJson(roomJson()).partnerFaceUrl(), isNull);
     });
   });
+
+  // 안내 글의 "N시간" 은 글자에 박지 않고 서버 두 시각의 차이에서 만든다 — 서버 기한이 바뀌어도 글자가 늘 맞다.
+  group('응답 기한 길이(시간) — 서버 deadline_at − created_at', () {
+    Map<String, dynamic> gate(String deadlineAt) => {'passed': false, 'partner_left': false, 'deadline_at': deadlineAt};
+
+    test('48시간 방은 48', () {
+      expect(ChatRoom.fromJson(roomJson()).gateHours, 48);
+    });
+
+    test('72시간 방은 72', () {
+      expect(ChatRoom.fromJson(roomJson({'gate': gate('2026-10-16T05:00:00Z')})).gateHours, 72);
+    });
+
+    test('두 시각의 자릿수 차이로 1초 안쪽이 모자라도 71 이 아니라 72 다(분 단위 반올림)', () {
+      final room = ChatRoom.fromJson(roomJson({
+        'created_at': '2026-10-13T05:00:00.999999Z',
+        'gate': gate('2026-10-16T05:00:00Z'),
+      }));
+      expect(room.gateHours, 72);
+    });
+  });
 }
