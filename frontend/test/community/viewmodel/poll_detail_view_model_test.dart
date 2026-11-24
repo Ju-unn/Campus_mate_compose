@@ -8,6 +8,7 @@ import 'package:campus_mate/community/model/data/poll.dart';
 import 'package:campus_mate/community/model/data/poll_comment.dart';
 import 'package:campus_mate/community/model/repository/community_repository_provider.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
+import 'package:campus_mate/community/viewmodel/notice_list_view_model.dart';
 import 'package:campus_mate/community/viewmodel/poll_detail_view_model.dart';
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -235,6 +236,52 @@ void main() {
 
       expect(repository.votes, isEmpty);
       expect(container.read(pollDetailViewModelProvider('t1')).isVoting, isFalse);
+    });
+  });
+
+  group('공지 상세(할 일 21) — 댓글은 게시물과 같은 로직', () {
+    Future<ProviderContainer> openFromNoticeList() async {
+      final container = newContainer();
+      container.read(noticeListViewModelProvider);
+      await container.read(noticeListViewModelProvider.notifier).refresh();
+      container.listen(pollDetailViewModelProvider('n1'), (_, _) {});
+      return container;
+    }
+
+    test('공지 목록에 있는 공지면 처음부터 그 값으로 그린다(깜박임 없음)', () async {
+      repository
+        ..noticePage = Success(FeedPage(items: [noticeFixture(commentCount: 3)], hasMore: false))
+        ..item = Success(CommunityItem.ofNotice(noticeFixture(commentCount: 3)));
+
+      final container = await openFromNoticeList();
+      final initial = container.read(pollDetailViewModelProvider('n1'));
+
+      expect(initial.item?.notice?.title, '업데이트 안내');
+      expect(initial.isLoadingItem, isFalse);
+    });
+
+    test('공지에 댓글을 달면 상세 숫자와 공지 목록의 그 줄 숫자가 같이 오른다', () async {
+      repository
+        ..noticePage = Success(FeedPage(items: [noticeFixture(commentCount: 3)], hasMore: false))
+        ..item = Success(CommunityItem.ofNotice(noticeFixture(commentCount: 3)))
+        ..addCommentResult = Success(commentFixture(id: 'c9', isMine: true, canDelete: true));
+      final container = await openFromNoticeList();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(await container.read(pollDetailViewModelProvider('n1').notifier).send('확인했어요'), isNull);
+
+      expect(repository.addedComments.single, (itemId: 'n1', body: '확인했어요'));
+      expect(container.read(pollDetailViewModelProvider('n1')).item?.commentCount, 4);
+      expect(container.read(noticeListViewModelProvider).items.single.commentCount, 4);
+    });
+
+    test('없는 공지(404)면 글 오류를 둔다', () async {
+      repository.item = const FailureResult(ServerRejectedFailure('공지를 찾을 수 없어요'));
+
+      final container = await open(pollId: 'n1');
+
+      expect(container.read(pollDetailViewModelProvider('n1')).itemError, isA<ServerRejectedFailure>());
+      expect(container.read(pollDetailViewModelProvider('n1')).item, isNull);
     });
   });
 
