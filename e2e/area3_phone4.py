@@ -7,16 +7,16 @@
 시계는 건드리지 않는다.
 
 시나리오와 다르게 도는 것(보고의 "확인 필요"):
-  E-CHAT-45  "남은 시간 약 23:59:00(±1분)" 은 방을 여는 데 걸린 만큼 줄어든 값이라, 리터럴 23:59:00 이 아니라 PC 가 옮긴 created_at + 48시간 −
+  E-CHAT-45  "남은 시간 약 23:59:00(±1분)" 은 방을 여는 데 걸린 만큼 줄어든 값이라, 리터럴 23:59:00 이 아니라 PC 가 옮긴 created_at + 72시간 −
              앱이 말한 시트 표시 시각(앱 시계)을 기대로 삼고 ±1분을 그 값에 건다. 시계 오차가 있어도 앱 시계끼리 비교한다.
   E-CHAT-46  "시트 아래로 밀어 닫기" 는 제목 글자를 잡고 한 번 밀고, 안 닫히면 시트 맨 위(손잡이 줄)를 잡고 한 번 더 민다 — 둘째 밀기에서
              닫히면 메모에 남는다. "다시 방 열기" 는 대화 목록에서 그 줄을 다시 눌러서다.
   E-CHAT-47  "방 열고 90초 기다리기, 60초 ± 5초 뒤" — 앱이 로그인을 마치고 대화 목록에서 그 방 줄을 찾은 채 멈추면(step) 그때 PC 가 created_at 을
-             지금 − 23시간 59분으로 옮기고, 앱이 줄을 눌러 방을 연다. 그러니 경계(created_at + 24시간)는 방을 연 1~3초 뒤에서 60초 안쪽이다. 판정은
-             "시트가 방을 연 뒤 (created_at + 24시간 − 방 연 시각)초 ± 5초에 뜬다" — 리터럴 60초가 아니라 타이머가 맞춰야 하는 경계다. 방을 연 순간
+             지금 − 47시간 59분으로 옮기고, 앱이 줄을 눌러 방을 연다. 그러니 경계(created_at + 48시간)는 방을 연 1~3초 뒤에서 60초 안쪽이다. 판정은
+             "시트가 방을 연 뒤 (created_at + 48시간 − 방 연 시각)초 ± 5초에 뜬다" — 리터럴 60초가 아니라 타이머가 맞춰야 하는 경계다. 방을 연 순간
              이미 시트가 떠 있으면 실패(경계가 이미 지난 방).
   E-CHAT-49  시나리오는 "둘다"(B에뮬)인데 폰 한 대로 돈다 — 상대 쪽 "나감 줄" 은 DB messages 의 kind=left 한 줄로 본다.
-  E-CHAT-56  "수락" 은 배너가 아니라 시트의 "수락하고 공유하기" 다 — 48시간 지난 방은 24시간이 지난 방이라 시트 단계이고, 시트는 확인 창이 없다.
+  E-CHAT-56  "수락" 은 배너가 아니라 시트의 "수락하고 공유하기" 다 — 72시간 지난 방은 48시간이 지난 방이라 시트 단계이고, 시트는 확인 창이 없다.
              앱은 오류 줄이 처음 뜬 문구를 말한다(시트가 닫히며 dismissSheet 가 오류 줄을 지울 수 있다 — 끝 값이 달라지면 메모에 남는다).
 """
 
@@ -29,16 +29,16 @@ from e2e.area1 import Check, _app, _one
 from e2e.area3 import _patch
 from e2e.area3_phone import MISSING, _left_line, _permitted
 from e2e.area3_phone2 import _room, _sent
+from e2e.chat_clock import DEADLINE, PROMPT_AFTER
 from e2e.tools import Blocked
 
-DAY = timedelta(hours=24)
-SHEET_AGE = timedelta(hours=24, minutes=1)  # 시트 단계(24시간 지남)이고 48시간 안이라 아직 수락할 수 있다
-EDGE_AGE = timedelta(hours=23, minutes=59)  # 24시간 경계가 60초 앞
-DEAD_AGE = timedelta(hours=48, minutes=1)  # 응답 기한(48시간)이 지났는데 배치는 아직 안 돌았다
+SHEET_AGE = PROMPT_AFTER + timedelta(minutes=1)  # 시트 단계(48시간 지남)이고 72시간 안이라 아직 수락할 수 있다
+EDGE_AGE = PROMPT_AFTER - timedelta(minutes=1)  # 48시간 경계가 60초 앞
+DEAD_AGE = DEADLINE + timedelta(minutes=1)  # 응답 기한(72시간)이 지났는데 배치는 아직 안 돌았다
 COUNTDOWN_TOLERANCE = 60  # 시나리오 ±1분(초)
 BOUNDARY_TOLERANCE = 5  # 시나리오 ±5초
 BOUNDARY_WAIT = 90  # 앱이 시트를 기다리는 초(chat_room_screen.dart 타이머 + 여유)
-ENDING = '이 대화는 23시간 뒤 종료돼요'  # chat_room_screen.dart:404 · 방 나이 24시간 1분이면 남은 시간 23:5x → coarseRemainingLabel 23시간
+ENDING = '이 대화는 23시간 뒤 종료돼요'  # chat_room_screen.dart:404 · 방 나이 48시간 1분이면 남은 시간 23:5x → coarseRemainingLabel 23시간
 GATE_OVER = '응답 기한이 지나 이 대화는 종료됐어요'  # chat_errors.dart:11
 
 
@@ -103,7 +103,7 @@ def p_chat_45(run, phone):
     if shown is None or seconds is None:
         check.problems.append(f"남은 시간 {said.get('countdown', MISSING)!r} · 표시 시각 {said.get('shown_at', MISSING)!r} 를 못 읽음")
     else:
-        want = (created + 2 * DAY - shown).total_seconds()
+        want = (created + DEADLINE - shown).total_seconds()
         check.that(abs(seconds - want) <= COUNTDOWN_TOLERANCE,
                    f"남은 시간 {said['countdown']}(기대 {_label(want)} ±{COUNTDOWN_TOLERANCE}초 — 앱이 시트를 연 시각 기준)")
     return check.result()
@@ -142,7 +142,7 @@ def p_chat_47(run, phone):
     if opened is None:
         check.problems.append(f"방을 연 시각 {said.get('open_at', MISSING)!r} 를 못 읽음")
         return check.result()
-    after, want = ms / 1000, (moved[0] + DAY - opened).total_seconds()
+    after, want = ms / 1000, (moved[0] + PROMPT_AFTER - opened).total_seconds()
     check.that(abs(after - want) <= BOUNDARY_TOLERANCE,
                f'시트가 방을 연 뒤 {after:.1f}초에 뜸(기대 경계 {want:.1f}초 ±{BOUNDARY_TOLERANCE}초)')
     return check.result(f'방을 연 뒤 {after:.1f}초에 시트(시나리오 60초 ± 5초, 경계까지 {want:.1f}초)')

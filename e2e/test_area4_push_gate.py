@@ -16,7 +16,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from e2e import __main__ as cli
-from e2e import area1, area4_push_gate as gate, batch_gate, notify, tools
+from e2e import area1, area4_push_gate as gate, batch_gate, chat_clock, notify, tools
 from e2e.area1 import SEOUL
 from e2e.test_area2 import Base
 from e2e.test_area2_time_device import RESERVED, SETTINGS, AppPhone, World as DeviceWorld, select_names
@@ -45,9 +45,9 @@ WED = lambda h, m=0, s=0: seoul(7, h, m, s)  # noqa: E731
 
 
 def reminder_at(created):
-    """backend/app/chat/gate.py reminder_at 과 같다 — 24시간 뒤. 실제로 보내지는 정각(그 시각을 정각으로 올림)이 22시 이후면 다음 아침 8시,
+    """backend/app/chat/gate.py reminder_at 과 같다 — 48시간 뒤(chat_clock.PROMPT_AFTER). 실제로 보내지는 정각(그 시각을 정각으로 올림)이 22시 이후면 다음 아침 8시,
     그 시각의 '시'나 올림이 8시 전이면(스케줄러가 몇 초 늦게 부르는 07시대 포함) 그날 아침 8시."""
-    base = (created + timedelta(hours=24)).astimezone(SEOUL)
+    base = (created + chat_clock.PROMPT_AFTER).astimezone(SEOUL)
     hour_start = base.replace(minute=0, second=0, microsecond=0)
     fires_at = hour_start if base == hour_start else hour_start + timedelta(hours=1)
     if fires_at.hour >= 22:
@@ -145,7 +145,7 @@ class GateWorld(DeviceWorld):
                 match['trust_passed_at'] = at.isoformat()
                 continue
             created = datetime.fromisoformat(match['created_at'])
-            if created + timedelta(hours=48) <= at:
+            if created + chat_clock.DEADLINE <= at:
                 if 'no_close' not in self.bug:
                     match['chat_closed_at'] = at.isoformat()
                     if 'close_notice' in self.bug:
@@ -401,14 +401,14 @@ class ServerGridTest(unittest.TestCase):
             self.assertTrue(self.server.needs_reminder(created, top, False), now)
             self.assertLess(top.hour, 22)  # 정각 예약 실행이 조용한 시간이 아니다
 
-    def test_every_start_of_the_closing_case_is_past_the_48_hour_deadline(self):
-        """48 (49시간) — 어느 시각이든 기한을 넘겼다."""
+    def test_every_start_of_the_closing_case_is_past_the_72_hour_deadline(self):
+        """48 (73시간) — 어느 시각이든 기한을 넘겼다."""
         for now in self.starts(gate.gate_window_refusal):
             self.assertLessEqual(self.server.remaining(now - gate.CLOSED, now), timedelta(0), now)
 
     def test_44_the_7_oclock_hour_has_no_reminder_and_the_8_oclock_hour_has_one(self):
         for now in self.starts(gate.morning_refusal):
-            created = (now - timedelta(days=1)).replace(hour=2, minute=0, second=0)  # push_44 가 옮기는 어제 02:00
+            created = now.replace(hour=2, minute=0, second=0) - chat_clock.PROMPT_AFTER  # push_44 가 옮기는 그저께 02:00
             self.assertFalse(self.server.needs_reminder(created, now, False), now)
             for later in (TUE(8, 0), TUE(8, 3), TUE(8, 6), TUE(8, 48)):  # 08:00 예약 실행 · 08:03 까지 · 손 호출
                 self.assertTrue(self.server.needs_reminder(created, later, False), (now, later))
@@ -532,7 +532,7 @@ class Remind40Test(GateBase):
         self.go('E-PUSH-40')
         (patch,) = self.created_patches()
         self.assertLess(self.world.sent.index(patch), self.batch_at())
-        self.assertEqual(datetime.fromisoformat(patch['body']['created_at']), self.batches[0][1] - timedelta(hours=24, minutes=5))
+        self.assertEqual(datetime.fromisoformat(patch['body']['created_at']), self.batches[0][1] - timedelta(hours=48, minutes=5))
         self.assertEqual(self.world.sent[self.batch_at() - 1], patch)  # 사이에 아무것도 안 끼었다
         self.assertEqual(patch['query'], {'id': f"eq.{self.mine()['id']}"})
 
@@ -648,7 +648,7 @@ class Expired45Test(GateBase):
         self.assertEqual(self.reminders(), [])
         self.assertTrue(self.control_arrived())
         (patch,) = self.created_patches()
-        self.assertEqual(datetime.fromisoformat(patch['body']['created_at']), self.batches[0][1] - timedelta(hours=25, minutes=1))
+        self.assertEqual(datetime.fromisoformat(patch['body']['created_at']), self.batches[0][1] - timedelta(hours=49, minutes=1))
 
     def test_45_a_reminder_after_the_window_is_a_fail(self):
         self.world.bug.add('remind_all')
@@ -700,7 +700,7 @@ class Closed48Test(GateBase):
         self.assertEqual([n for n in self.world.shade if n.title != CTL], [])
         self.assertTrue(self.control_arrived())
         (patch,) = self.created_patches()
-        self.assertEqual(datetime.fromisoformat(patch['body']['created_at']), self.batches[0][1] - timedelta(hours=49))
+        self.assertEqual(datetime.fromisoformat(patch['body']['created_at']), self.batches[0][1] - timedelta(hours=73))
 
     def test_48_a_notification_when_closing_is_a_fail(self):
         self.world.bug.add('close_notice')
@@ -771,10 +771,11 @@ class Morning44Test(GateBase):
         self.assertIn(('none', 60), self.windows)
         self.assertTrue(self.control_arrived())  # 07시대 0개를 믿을 근거
 
-    def test_44_created_at_is_yesterday_0200_seoul_in_absolute_time(self):
+    def test_44_created_at_is_two_days_before_0200_seoul_in_absolute_time(self):
+        """리마인드가 매칭 48시간째라 오늘 02:00 에 걸리려면 그저께 02:00 매칭이다."""
         self.go('E-PUSH-44')
         (patch,) = self.created_patches()
-        self.assertEqual(datetime.fromisoformat(patch['body']['created_at']), seoul(5, 2, 0))
+        self.assertEqual(datetime.fromisoformat(patch['body']['created_at']), seoul(4, 2, 0))
         self.assertLess(self.world.sent.index(patch), self.batch_at())
 
     def test_44_the_7_oclock_anchor_is_checked_after_the_7_oclock_call_and_before_judging_zero(self):
@@ -798,7 +799,7 @@ class Morning44Test(GateBase):
         self.assertEqual((self.batches[0][1].hour, self.batches[1][1].hour), (7, 8))
         self.assertGreaterEqual(self.batches[1][1], TUE(8, 6))
         self.assertIn('손', result[1])
-        self.assertEqual(len(self.created_patches()), 1)  # 어제 02:00 은 그대로 — 다시 안 옮긴다
+        self.assertEqual(len(self.created_patches()), 1)  # 그저께 02:00 은 그대로 — 다시 안 옮긴다
 
     def test_44_a_hand_call_that_brings_nothing_either_is_a_fail(self):
         self.world.scheduler = False
@@ -856,10 +857,10 @@ class Twice46Test(GateBase):
         self.assertEqual(len(self.batches), 1)  # 손 호출은 한 번뿐 — 두 번째는 정각 예약 실행
         self.assertEqual(self.world.gate_runs[-1], (TUE(13, 0), 'scheduled'))
 
-    def test_46_created_at_is_24h2m_old_not_24h5m_so_the_next_scheduled_run_has_minutes_to_spare_inside_the_window(self):
+    def test_46_created_at_is_48h2m_old_not_48h5m_so_the_next_scheduled_run_has_minutes_to_spare_inside_the_window(self):
         self.go('E-PUSH-46')
         (patch,) = self.created_patches()
-        self.assertEqual(datetime.fromisoformat(patch['body']['created_at']), self.batches[0][1] - timedelta(hours=24, minutes=2))
+        self.assertEqual(datetime.fromisoformat(patch['body']['created_at']), self.batches[0][1] - timedelta(hours=48, minutes=2))
 
     def test_46_it_waits_until_three_minutes_after_the_next_hour_before_judging(self):
         self.go('E-PUSH-46')

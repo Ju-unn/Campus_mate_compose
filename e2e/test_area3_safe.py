@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
 
-from e2e import area2, area3_phone5, area3_safe, batch_gate, tools
+from e2e import area2, area3_phone5, area3_safe, batch_gate, chat_clock, tools
 from e2e.area1 import SEOUL
 from e2e.test_area3 import PERMISSION, Base, Fake, mismatched_keys
 from e2e.tools import ROOT, Reply
@@ -670,7 +670,7 @@ class BatchBase(SafeBase):
             gone = any(self.fake.profile(i)['status'] in ('suspended', 'withdrawn') for i in ids)
             if match.get('chat_closed_at') or (gone and self.fake.rules['gate_skips_gone']) or not match.get('created_at'):
                 continue
-            if now - datetime.fromisoformat(match['created_at']) >= timedelta(hours=48):
+            if now - datetime.fromisoformat(match['created_at']) >= chat_clock.DEADLINE:
                 match['chat_closed_at'] = now.isoformat()
 
     def sim_cleanup(self):

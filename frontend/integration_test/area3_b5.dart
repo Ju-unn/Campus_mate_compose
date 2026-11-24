@@ -26,7 +26,7 @@ Future<Map<String, Object?>> _batchListRows(WidgetTester tester, Map<String, dyn
   return {'waited': drawn, 'rows': rows};
 }
 
-/// E-CHAT-57 — 방을 열고(젊은 방 — PC 가 만든 그대로) 입력 줄이 뜨면 `step` 에서 멈춘다. PC 가 그사이 방을 48시간 5분 지난 것으로 옮기고 배치로 닫으면
+/// E-CHAT-57 — 방을 열고(젊은 방 — PC 가 만든 그대로) 입력 줄이 뜨면 `step` 에서 멈춘다. PC 가 그사이 방을 72시간 5분 지난 것으로 옮기고 배치로 닫으면
 /// (몇 분 걸려 step 기다림이 길다) 이어서 한 건 보내고, 방 뷰모델에 처음 뜬 오류 문구와 끝 값을 말한다. 오류 줄은 다음 동작이 시작되면 지워지므로
 /// (chat_room_ui_state.dart copyWith) 처음 값을 구독으로 잡는다.
 Future<Map<String, Object?>> _batchSendIntoClosed(WidgetTester tester, Map<String, dynamic> job) async {

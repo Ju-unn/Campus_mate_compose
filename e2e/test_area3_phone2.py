@@ -318,15 +318,15 @@ class AcceptTest(Phone2):
         self.assertEqual(result, 'pass')
         self.assertNotIn('True', note)
 
-    def test_43_sheet_room_is_older_than_24_hours_and_banner_room_is_not(self):
+    def test_43_sheet_room_is_older_than_48_hours_and_banner_room_is_not(self):
         self.case('E-CHAT-43', self.good)
         banner, sheet = self.fake.tables['matches']
         self.assertNotIn('created_at', banner)
         patch = [s['body'] for s in self.fake.by('PATCH', '/rest/v1/matches') if s['query']['id'] == f"eq.{sheet['id']}"]
         self.assertEqual(len(patch), 1)
         age = datetime.now(timezone.utc) - datetime.fromisoformat(patch[0]['created_at'])
-        self.assertGreater(age.total_seconds(), 24 * 3600)  # 24시간이 지나 시트가 뜨는 방
-        self.assertLess(age.total_seconds(), 48 * 3600)  # 48시간은 안 지나 아직 수락할 수 있다
+        self.assertGreater(age.total_seconds(), 48 * 3600)  # 48시간이 지나 시트가 뜨는 방
+        self.assertLess(age.total_seconds(), 72 * 3600)  # 72시간은 안 지나 아직 수락할 수 있다
 
     def test_43_fails_when_a_variant_has_two_lines_none_or_an_error(self):
         def second_accept(job):
