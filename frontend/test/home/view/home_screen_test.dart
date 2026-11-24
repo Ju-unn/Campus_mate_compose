@@ -56,6 +56,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../chat/model/repository/fake_chat_repository.dart';
+import '../../billing/store/view/pretendard.dart';
 import '../../matching/model/repository/fake_card_repository.dart';
 import '../../me/model/repository/fake_me_repository.dart';
 import '../model/repository/fake_home_repository.dart';
@@ -734,14 +735,14 @@ void main() {
     });
   });
 
-  testWidgets('mosaic-rail 은 사람 수만큼 칸 뒤에 빈 칸 하나를 붙인 한 벌을 되풀이한다', (tester) async {
+  testWidgets('mosaic-rail 은 사람 칸만으로 된 한 벌을 되풀이한다 — 빈 칸 없음(사용자 11-24 「사진으로만」)', (tester) async {
     await pump(tester);
 
     expect(find.text('지금 함께 있는 사람들'), findsOneWidget);
     final people = find.byType(MosaicPersonTile).evaluate().length;
-    final empties = find.byType(MosaicEmptyTile).evaluate().length;
-    expect(empties, greaterThanOrEqualTo(2));
-    expect(people, 2 * empties);
+    expect(people, greaterThanOrEqualTo(2 * twoPeople.map((image) => image).length));
+    expect(people % twoPeople.map((image) => image).length, 0);
+    expect(find.descendant(of: find.byType(MosaicRail), matching: find.byType(Text)), findsNothing);
   });
 
   group('mosaic-rail 사람 칸은 요약과 따로 받는다(`GET /home/people`)', () {
@@ -749,10 +750,10 @@ void main() {
           for (final element in find.byType(MosaicPersonTile).evaluate()) (element.widget as MosaicPersonTile).image,
         ];
 
-    testWidgets('서버가 준 그림을 사람 칸으로 그린다(한 벌 = 받은 그림 + 빈 칸)', (tester) async {
+    testWidgets('서버가 준 그림을 사람 칸으로 그린다(한 벌 = 받은 그림)', (tester) async {
       await pump(tester);
 
-      final copies = find.byType(MosaicEmptyTile).evaluate().length;
+      final copies = drawn(tester).length ~/ twoPeople.map((image) => image).length;
       expect(drawn(tester), [for (var i = 0; i < copies; i++) ...twoPeople.map((image) => image)]);
     });
 
@@ -764,7 +765,6 @@ void main() {
       expect(find.text('곧 더 많은 사람들이 모여요'), findsOneWidget);
       expect(find.text('지금 함께 있는 사람들'), findsNothing);
       expect(find.byType(MosaicPersonTile), findsNothing);
-      expect(find.byType(MosaicEmptyTile), findsNothing);
       expect(find.byType(MosaicMascotTile), findsWidgets);
       expect(find.descendant(of: find.byType(MosaicRail), matching: find.byType(ImageFiltered)), findsNothing);
       expect((tester.getRect(find.byType(MosaicRail)).top, tester.getRect(find.byType(MosaicRail)).bottom), (283, 423));
@@ -864,38 +864,6 @@ void main() {
     expect(find.byIcon(AppIcons.pause), findsNothing);
   });
 
-  testWidgets('빈 칸은 바탕이 비어 있어도 칸 전체가 눌린다 — 누르면 레일이 멈춰야 한다', (tester) async {
-    await pump(tester);
-
-    // 화면 안에 든 빈 칸의 글자 밖(왼쪽 위 모서리 안쪽)을 누른다.
-    final rail = tester.getRect(find.byType(MosaicRail));
-    final empties = find.byType(MosaicEmptyTile);
-    final visible = [
-      for (var i = 0; i < empties.evaluate().length; i++) empties.at(i),
-    ].firstWhere((tile) => tester.getRect(tile).left >= rail.left && tester.getRect(tile).right <= rail.right);
-    final tilePaint = tester.renderObject(find.descendant(of: visible, matching: find.byType(CustomPaint)).first);
-    final path = tester.hitTestOnBinding(tester.getRect(visible).topLeft + const Offset(4, 4)).path;
-    expect(path.map((entry) => entry.target), contains(same(tilePaint)));
-  });
-
-  testWidgets('빈 칸 `FqMYC` — 마스코트 없음 · 바탕 없음 · 1px 점선 테두리 · "아직 비어 있어요" 12 #6A6A6A 가운데(x8 y62 96×16)', (tester) async {
-    await pump(tester);
-
-    final tile = find.byType(MosaicEmptyTile).first;
-    expect(find.descendant(of: tile, matching: find.byType(Image)), findsNothing);
-    final paint = tester.widget<CustomPaint>(find.descendant(of: tile, matching: find.byType(CustomPaint)).first);
-    expect(paint.foregroundPainter, isNotNull);
-    final text = find.descendant(of: tile, matching: find.text('아직 비어 있어요'));
-    // 테스트 글꼴은 한글 한 자가 1em 이라 96 폭에서 두 줄로 접힌다(Pretendard 는 한 줄 y62 높이 16) — 가로 자리 · 세로 가운데만 본다.
-    final rect = tester.getRect(text).shift(-tester.getTopLeft(tile));
-    expect((rect.left, rect.width, rect.center.dy), (8, 96, 70));
-    expect(tester.widget<Text>(text).style!.height! * 12, 16);
-    expect(tester.getSize(tile), const Size(112, 140));
-    final style = tester.widget<Text>(text).style!;
-    expect((style.fontSize, style.color), (12, const Color(0xFF6A6A6A)));
-    expect(tester.widget<Text>(text).textAlign, TextAlign.center);
-  });
-
   group('mosaic-rail 자동 흐름', () {
     double railX(WidgetTester tester) => tester.getTopLeft(find.byType(MosaicPersonTile).first).dx;
 
@@ -961,16 +929,6 @@ void main() {
       );
       expect(boundary, findsOneWidget);
       expect(tester.widget<RepaintBoundary>(boundary).child, isA<IntrinsicHeight>());
-    });
-
-    testWidgets('화면 읽기는 되풀이한 칸을 한 벌만 읽는다', (tester) async {
-      final semantics = tester.ensureSemantics();
-      await pump(tester);
-
-      // 목록 칸 글자는 한 의미 노드로 합쳐진다 — 그 안에 빈 칸 글자가 한 번만 있어야 한다.
-      final label = tester.getSemantics(find.bySemanticsLabel(RegExp('아직 비어 있어요'))).label;
-      semantics.dispose();
-      expect('아직 비어 있어요'.allMatches(label).length, 1);
     });
 
     testWidgets('기기 "애니메이션 줄이기"가 켜져 있으면 흐르지 않는다', (tester) async {
@@ -1687,6 +1645,30 @@ void main() {
       expect(find.descendant(of: target(TourTargetId.homeHero), matching: find.text('지금 확인하기')), findsOneWidget);
       expect(find.descendant(of: target(TourTargetId.homeProfileNudge), matching: find.text('프로필 완성도 40%')), findsOneWidget);
     });
+  });
+
+  // 시험 기본 글꼴은 글자마다 1em 네모라 폭을 잴 수 없어 실제 글꼴(Pretendard)을 부른다. 부른 글꼴은 파일 안 뒤 시험에도 남으니 맨 끝에 둔다.
+  testWidgets('320 폭 — hero 확인 완료의 "6일 07:20:05"(32/700)가 줄지 않고 틀 안에 들어간다(1.0.7 #14)', (tester) async {
+    penFrame(tester, 320);
+    await tester.runAsync(loadPretendard);
+    await pump(
+      tester,
+      today: Success(TodayCards(cards: const [], nextIssueAt: DateTime.now().add(
+        const Duration(hours: 151, minutes: 20, seconds: 5, milliseconds: 500),
+      ))),
+    );
+
+    final hero = heroOf('오늘 카드는');
+    final digits = find.descendant(of: find.byType(CountdownText), matching: find.byType(Text));
+    expect(tester.widget<Text>(digits).data, matches(RegExp(r'^6일 07:\d\d:\d\d$')));
+    final drawn = tester.getRect(digits);
+    // FittedBox(scaleDown) 가 줄였다면 그려진 폭이 글자 상자 폭보다 작다 — 32 그대로여야 한다.
+    expect(drawn.width, closeTo(tester.getSize(digits).width, 0.5));
+    // 틀 좌우 안쪽 20(pen `xq5wi`) 안.
+    final box = tester.getRect(hero);
+    expect(drawn.left, greaterThanOrEqualTo(box.left + 20));
+    expect(drawn.right, lessThanOrEqualTo(box.right - 20));
+    expect(tester.takeException(), isNull);
   });
 }
 

@@ -25,6 +25,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../chat/model/repository/fake_chat_repository.dart';
+import '../../billing/store/view/pretendard.dart';
 import '../../home/model/repository/fake_home_repository.dart';
 import '../model/repository/fake_card_repository.dart';
 
@@ -437,5 +438,28 @@ void main() {
       expect(find.descendant(of: target(TourTargetId.todayHeader), matching: find.text('오늘의 카드')), findsOneWidget);
       expect(target(TourTargetId.todayArrival), findsNothing);
     });
+  });
+
+  // 시험 기본 글꼴은 글자마다 1em 네모라 폭을 잴 수 없어 실제 글꼴(Pretendard)을 부른다. 부른 글꼴은 파일 안 뒤 시험에도 남으니 맨 끝에 둔다.
+  testWidgets('320 폭 — 하루 넘게 남은 "6일 07:20:05"(48/700)가 한 줄로 좌우 16 안에 들어간다(1.0.7 #14)', (tester) async {
+    tester.view.physicalSize = const Size(320, 884);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.runAsync(loadPretendard);
+    final repository = FakeCardRepository()
+      ..today = Success(TodayCards(cards: const [], nextIssueAt: DateTime.now().add(
+        const Duration(hours: 151, minutes: 20, seconds: 5, milliseconds: 500),
+      )));
+
+    await pump(tester, repository);
+
+    final digits = find.descendant(of: find.byType(CountdownText), matching: find.byType(Text));
+    expect(tester.widget<Text>(digits).data, matches(RegExp(r'^6일 07:\d\d:\d\d$')));
+    final rect = tester.getRect(digits);
+    // 한 줄 = 48 × 1.1. 넘치면 "6일" 뒤 띄어쓰기에서 두 줄로 접혀 높이가 두 배가 된다.
+    expect(rect.height, closeTo(52.8, 0.5));
+    expect(rect.left, greaterThanOrEqualTo(16));
+    expect(rect.right, lessThanOrEqualTo(320 - 16));
+    expect(tester.takeException(), isNull);
   });
 }

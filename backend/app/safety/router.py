@@ -217,6 +217,9 @@ async def report(body: ReportRequest, wiring: _Wiring = Depends(_wire)) -> dict:
     elif poll is not None:
         snapshot = {"poll_id": poll["id"], "question": poll["question"], "option_a_label": poll["option_a_label"],
                     "option_b_label": poll["option_b_label"], "created_at": poll["created_at"]}
+        if poll["kind"] == "post":
+            # 게시물(할 일 19)은 선택지가 null 이다. 투표 스냅샷 모양은 그대로 두고 게시물만 두 칸을 더한다.
+            snapshot |= {"kind": poll["kind"], "category": poll["category"]}
     elif comment is not None:
         snapshot = {"comment_id": comment["id"], "poll_id": comment["poll_id"], "body": comment["body"],
                     "created_at": comment["created_at"]}

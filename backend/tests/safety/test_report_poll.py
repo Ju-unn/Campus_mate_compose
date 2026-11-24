@@ -25,15 +25,17 @@ def webhook(client):
 def polls(world) -> dict[str, dict]:
     """fake_supabase.py 는 그대로 두고 이 세상에만 polls 표를 끼운다(handle 이 `_<표>` 로 찾는다)."""
     rows = {POLL_ID: {
-        "id": POLL_ID, "author_id": AUTHOR, "question": "학식 vs 편의점", "option_a_label": "학식",
-        "option_b_label": "편의점", "status": "visible", "created_at": "2026-10-01T03:00:00+00:00",
-        "author": {"status": "active"},
+        "id": POLL_ID, "author_id": AUTHOR, "kind": "poll", "category": "free", "question": "학식 vs 편의점",
+        "option_a_label": "학식", "option_b_label": "편의점", "status": "visible",
+        "created_at": "2026-10-01T03:00:00+00:00", "author": {"status": "active"},
     }}
 
     def table(method, params, body):
         assert method == "GET"
         # poll_votes 를 거치는 다대다가 하나 더 있어 힌트 없는 `profiles(...)` 는 실서버에서 300(PGRST201)이다.
         assert "author:profiles!polls_author_id_fkey(status)" in params["select"]
+        # 이 가짜는 select 와 상관없이 줄 전체를 준다 — 게시물 스냅샷에 쓰는 두 칸을 실제로 읽는지 여기서 본다.
+        assert {"kind", "category"} <= set(params["select"].split(","))
         row = rows.get(params.get("id", "").removeprefix("eq."))
         return httpx.Response(200, json=[row] if row else [])
 
@@ -43,6 +45,21 @@ def polls(world) -> dict[str, dict]:
 
 def _body(**overrides) -> dict:
     return {"target_type": "poll", "target_id": POLL_ID, "reason": "abuse", **overrides}
+
+
+def test_post_report_snapshot_adds_kind_and_category_with_null_options(client, world, polls):
+    # 게시물(할 일 19)도 target_type 은 poll 그대로다. 투표 스냅샷 모양은 바뀌지 않고 게시물만 두 칸이 더 붙는다.
+    polls[POLL_ID].update(kind="post", category="love", question="오늘 고백했어요",
+                          option_a_label=None, option_b_label=None)
+
+    response = client.post("/reports", json=_body(), headers=AUTH)
+
+    assert response.status_code == 201
+    assert world.reports[0]["target_type"] == "poll"
+    assert world.reports[0]["target_snapshot"] == {
+        "poll_id": POLL_ID, "question": "오늘 고백했어요", "option_a_label": None, "option_b_label": None,
+        "created_at": "2026-10-01T03:00:00+00:00", "kind": "post", "category": "love",
+    }
 
 
 def test_poll_report_saves_snapshot_without_block(client, world, polls):
