@@ -6,30 +6,46 @@
 -- 작성자 active 조인이라 작성자가 없는 공지를 싣지 않는다 — 이 파일 뒤에도 옛 화면에 공지가 섞이지 않는다.
 -- 시험: supabase/tests/community_notices_test.sql.
 
--- 1. 칸 · check -------------------------------------------------------------
-alter table public.polls
-  add column title text,
-  add column image_path text;
+-- 1. 칸 · check · 인덱스 ------------------------------------------------------
+-- polls 를 잠그는 문장(alter table 셋 · create index)은 do 블록 하나(= 한 문장 = 한 트랜잭션)에 둔다(#789 20261123170000 과
+-- 같은 모양). 실행기가 파일을 트랜잭션으로 감싸든 문장마다 따로 돌리든(로컬 CLI 는 문장마다 따로 돌린다 — 블록 밖
+-- `set local` 은 효과가 없다) 잠금 시간 제한이 걸리고, 칸만 생기고 check 는 실패하는 반쪽 적용이 없다.
+-- 잠금은 오래 기다리지 않는다(lock_timeout 5초) — 긴 트랜잭션 뒤에 줄 서서 피드 · 댓글 읽기 · 쓰기를 같이 세우지 않게,
+-- 못 잡으면 아무것도 안 바뀐 채 실패하니 다시 적용하면 된다. check 를 더하면 기존 줄을 한 번 훑는다(19 글은 새 check 에 맞다).
+-- 아래 함수 · 버킷 행 · grant · comment 는 polls 의 읽기 · 쓰기를 막는 잠금을 잡지 않아 블록 밖에 둔다(#789 도 comment 는 밖).
+do $$
+begin
+  perform set_config('lock_timeout', '5s', true);
 
--- 공지는 작성자가 없다. 탈퇴 cascade(on delete cascade)는 그대로 — null 인 공지는 누구의 탈퇴에도 지워지지 않는다.
-alter table public.polls alter column author_id drop not null;
+  alter table public.polls
+    add column title text,
+    add column image_path text;
 
--- 본문 길이는 kind 별로: 투표 80 · 게시물 500 · 공지 2000. 나머지 19 check(선택지 유무 · 라벨 길이)는 공지(선택지 null)에 그대로 맞다.
-alter table public.polls
-  drop constraint polls_kind,
-  add constraint polls_kind check (kind in ('poll', 'post', 'notice')),
-  drop constraint polls_question_length,
-  add constraint polls_question_length check (
-    question = btrim(question)
-    and char_length(question) between 1 and case kind when 'poll' then 80 when 'post' then 500 else 2000 end),
-  -- 공지면 작성자가 없고, 공지가 아니면 작성자가 있다 — 앱 길(create_community_item)로는 작성자 없는 글이 생기지 않는다.
-  add constraint polls_notice_author check ((kind = 'notice') = (author_id is null)),
-  -- 제목은 공지만, 앞뒤 공백을 깎은 1~40자. 서버가 깎아 넣는다.
-  add constraint polls_notice_title check (
-    (kind = 'notice') = (title is not null)
-    and (title is null or (title = btrim(title) and char_length(title) between 1 and 40))),
-  -- 그림은 공지만, 선택. 경로는 서버가 정한 `{공지 id}.jpg` 하나뿐 — 임의 URL · 남의 경로를 넣을 수 없다(보안 기준 21-4).
-  add constraint polls_notice_image check (image_path is null or (kind = 'notice' and image_path = id::text || '.jpg'));
+  -- 공지는 작성자가 없다. 탈퇴 cascade(on delete cascade)는 그대로 — null 인 공지는 누구의 탈퇴에도 지워지지 않는다.
+  alter table public.polls alter column author_id drop not null;
+
+  -- 본문 길이는 kind 별로: 투표 80 · 게시물 500 · 공지 2000. 나머지 19 check(선택지 유무 · 라벨 길이)는 공지(선택지 null)에 그대로 맞다.
+  alter table public.polls
+    drop constraint polls_kind,
+    add constraint polls_kind check (kind in ('poll', 'post', 'notice')),
+    drop constraint polls_question_length,
+    add constraint polls_question_length check (
+      question = btrim(question)
+      and char_length(question) between 1 and case kind when 'poll' then 80 when 'post' then 500 else 2000 end),
+    -- 공지면 작성자가 없고, 공지가 아니면 작성자가 있다 — 앱 길(create_community_item)로는 작성자 없는 글이 생기지 않는다.
+    add constraint polls_notice_author check ((kind = 'notice') = (author_id is null)),
+    -- 제목은 공지만, 앞뒤 공백을 깎은 1~40자. 서버가 깎아 넣는다.
+    add constraint polls_notice_title check (
+      (kind = 'notice') = (title is not null)
+      and (title is null or (title = btrim(title) and char_length(title) between 1 and 40))),
+    -- 그림은 공지만, 선택. 경로는 서버가 정한 `{공지 id}.jpg` 하나뿐 — 임의 URL · 남의 경로를 넣을 수 없다(보안 기준 21-4).
+    add constraint polls_notice_image check (image_path is null or (kind = 'notice' and image_path = id::text || '.jpg'));
+
+  -- 공지 목록(notice_list)은 공지만 최신순 + 커서로 읽는다. 공지는 몇 개뿐이라 부분 인덱스가 작다 — 피드 인덱스를 거슬러 걸러 내지 않는다.
+  -- 만드는 동안 polls 쓰기가 잠깐 멈춘다(share 잠금) — 그래서 이것도 잠금 시간 제한 안에 둔다.
+  create index polls_notice_created_id_index on public.polls (created_at desc, id desc) where kind = 'notice';
+end;
+$$;
 
 comment on table public.polls is
   '커뮤니티 글(투표 · 게시물 · 공지). FastAPI 전용. author_id 는 어떤 응답에도 담지 않는다(poll_feed · community_feed · notice_list 가 칸을 주지 않는다)';
@@ -38,9 +54,6 @@ comment on column public.polls.author_id is '글쓴이. 공지면 null(누가 �
 comment on column public.polls.question is '투표의 질문(1~80자) · 게시물 본문(1~500자) · 공지 본문(1~2000자). 앞뒤 공백을 깎은 모양';
 comment on column public.polls.title is '공지 제목(1~40자). 공지가 아니면 null';
 comment on column public.polls.image_path is '공지 그림의 community-notices 버킷 경로 `{id}.jpg`(선택). 공지가 아니면 null';
-
--- 공지 목록(notice_list)은 공지만 최신순 + 커서로 읽는다. 공지는 몇 개뿐이라 부분 인덱스가 작다 — 피드 인덱스를 거슬러 걸러 내지 않는다.
-create index polls_notice_created_id_index on public.polls (created_at desc, id desc) where kind = 'notice';
 
 -- 2. 앱 글쓰기 함수가 공지를 만들지 않게 --------------------------------------------
 -- create_community_item: 20261123155829 의 정의 그대로 + 맨 앞 kind 검사. 공지는 작성자 check 로도 막히지만(23514)
