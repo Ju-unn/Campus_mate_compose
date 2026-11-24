@@ -1140,6 +1140,9 @@ void main() {
       final tabsBottom = tester.getRect(find.byType(PollFeedTabs)).bottom;
       final before = tester.getRect(find.byType(NoticeBanner));
       expect(before.top - tabsBottom, 12);
+      // 목록 밖이라 좌우 16 을 띠 자리가 혼자 맡는다.
+      final screenWidth = tester.getSize(find.byType(CommunityFeedScreen)).width;
+      expect((before.left, before.right), (16, screenWidth - 16));
       expect(find.descendant(of: find.byType(ListView), matching: find.byType(NoticeBanner)), findsNothing);
       expect(find.byKey(const ValueKey('p0')), findsOneWidget);
 
@@ -1190,6 +1193,8 @@ void main() {
       expect(find.byType(NoticeBanner), findsOneWidget);
       expect(find.text('첫 공지'), findsOneWidget);
       expect(find.text('아직 올라온 글이 없어요'), findsOneWidget);
+      final banner = tester.getRect(find.byType(NoticeBanner));
+      expect((banner.left, banner.right), (16, tester.getSize(find.byType(CommunityFeedScreen)).width - 16));
       expect(
         tester.getRect(find.byType(NoticeBanner)).bottom,
         lessThan(tester.getRect(find.text('아직 올라온 글이 없어요')).top),
