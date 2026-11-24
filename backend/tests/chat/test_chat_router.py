@@ -169,9 +169,23 @@ def test_room_before_the_gate_has_no_kakao_id_or_photos():
     assert body["partner"]["avatar_url"].endswith("/avatars/p2/a.png")
     assert body["gate"]["passed"] is False
     assert body["gate"]["passed_at"] is None
+    # 응답 기한은 매칭 72시간 뒤(사용자 11-24) — 화면 14f 카운트다운이 이 값을 쓴다.
+    assert body["gate"]["deadline_at"] == "2126-09-25T10:00:00+09:00"
+    # 시트가 뜨기 시작하는 시각 = 매칭 48시간 뒤(마감 24시간 전, 사용자 11-24).
+    assert body["gate"]["prompt_at"] == "2126-09-24T10:00:00+09:00"
     # 통과 전에는 키 자체가 없어야 한다 — null 로라도 내려가면 앱이 자리를 그린다.
     assert "kakao_id" not in body
     assert "photo_urls" not in body
+
+
+def test_prompt_at_is_not_moved_out_of_the_quiet_hours():
+    """prompt_at 은 앱 시트가 뜨는 시각이라 조용한 시간 보정이 없다 — 밤 23:30 매칭이면 이틀 뒤 23:30 이다.
+    푸시 리마인드(gate.reminder_at)는 다음 날 아침 8시로 밀리지만 시트까지 늦출 이유는 없다."""
+    response = _wire(_handler(_Calls(), _match(created_at="2126-09-22T23:30:00+09:00"))).get(
+        f"/chat/matches/{MATCH_ID}", headers=AUTH_HEADERS
+    )
+
+    assert response.json()["gate"]["prompt_at"] == "2126-09-24T23:30:00+09:00"
 
 
 def test_room_always_carries_my_own_kakao_id():
@@ -671,7 +685,7 @@ def test_leaving_twice_does_not_write_a_second_system_line():
 # 신뢰 확인 게이트 --------------------------------------------------------------
 
 def test_accepting_early_is_allowed_and_tells_the_partner():
-    """결정 10: 24시간을 기다리지 않는다. 수락은 시스템 줄로 상대에게 보인다."""
+    """결정 10: 시트가 뜨는 48시간을 기다리지 않는다. 수락은 시스템 줄로 상대에게 보인다."""
     calls = _Calls()
     response = _wire(_handler(calls, _match())).post(
         f"/chat/matches/{MATCH_ID}/trust", headers=AUTH_HEADERS

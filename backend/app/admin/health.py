@@ -1,22 +1,24 @@
 """관리자 운영 상태판(설계 10-18 §8-4 E, 화면 A2). 읽기만 한다 — DB 함수 admin_health 가 개수만 돌려주고, 정상 / 경고 / 위험 판단은 여기 상수가 한다.
 
 기준값을 바꿀 때는 이 파일 위쪽 상수만 고친다(마이그레이션 없음). 값은 대장 확정(10-18):
-  ① 카드: 지급 요일 + 지급 시각 + 60분 뒤에, 받을 사람이 있는 지역 중 한 곳도 오늘 카드를 못 받았으면 위험(일부 지역만 0장은 정상) / ② 안 닫힌 방: 48시간 + 배치 여유 2시간 = 50시간 /
+  ① 카드: 지급 요일 + 지급 시각 + 60분 뒤에, 받을 사람이 있는 지역 중 한 곳도 오늘 카드를 못 받았으면 위험(일부 지역만 0장은 정상) / ② 안 닫힌 방: 채팅 마감(chat/gate.py GATE_DEADLINE, 72시간) + 배치 여유 2시간 = 74시간 /
   ③ 탈퇴 31일 / ④ 아바타 실패 최근 24시간 / ⑤ 보류 푸시 12시간(정상 최대 10시간 + 2).
 환불 배치는 DB 흔적이 없어 여기서 볼 수 없다 — 응답의 unobservable 로 알린다.
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends
 
 from app.admin.caller import AdminCaller, get_admin_caller
 from app.admin.stats_repository import AdminStatsRepository
+from app.chat.gate import GATE_DEADLINE
 from app.core.deps import get_now
 
 router = APIRouter()
 
 CARDS_GRACE_MINUTES = 60
-ROOM_HOURS = 50
+# 마감이 바뀌면 따라간다 — 안 따라가면 마감 전 방을 "안 닫힌 방" 으로 거짓 경고한다.
+ROOM_HOURS = GATE_DEADLINE // timedelta(hours=1) + 2
 WITHDRAWN_DAYS = 31
 AVATAR_HOURS = 24
 PUSH_HOURS = 12
