@@ -1,5 +1,7 @@
 import 'package:campus_mate/common/widgets/icon_3d.dart';
-import 'package:campus_mate/community/model/data/poll_feed.dart';
+import 'package:campus_mate/community/model/data/community_category.dart';
+import 'package:campus_mate/community/model/data/community_feed_tab.dart';
+import 'package:campus_mate/community/view/community_category_look.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -10,55 +12,59 @@ import 'package:campus_mate/tour/view/app_tour_steps.dart';
 import 'package:campus_mate/tour/view/tour_target.dart';
 import 'package:flutter/material.dart';
 
-/// 15d 탭 줄(pen `VEZ2l` StoryStrip): 폭 꽉 · 안쪽 [4,16,12,16] · 탭 4개(`XfcKQ` 72×86) 양끝 맞춤(space_between) ·
+/// 15d 탭 줄(pen 17 `J0vMj5` > StoryStrip `qZ5qm`): 폭 꽉 · 안쪽 [4,16,12,16] · 탭 7개(`XfcKQ` 72×86) 사이 4 ·
 /// 바탕 투명(뒤 canvas 흰) · 아래 구분선 없음. 앱바 `bottom` 에 꽂아 목록과 같이 스크롤되지 않는다 — 높이는 [heightFor].
-/// 글자를 키워 화면보다 넓어지면 가로로 민다(사용자 결정, 조사 보고 추천안).
+/// 합 528 이 화면보다 넓어 가로로 민다 — 360 폭에서 5번째 탭이 반쯤 보이는 것이 pen 의도다.
 class PollFeedTabs extends StatelessWidget {
   const PollFeedTabs({required this.selected, required this.onSelected, super.key});
 
-  final PollFeedTab selected;
-  final ValueChanged<PollFeedTab> onSelected;
+  final CommunityFeedTab selected;
+  final ValueChanged<CommunityFeedTab> onSelected;
 
   /// 탭 하나의 누름 영역(72×86 전체). 시험이 자리 · 누름을 잰다.
-  static Key tabKey(PollFeedTab tab) => Key('poll-feed-tab-${tab.name}');
+  static Key tabKey(CommunityFeedTab tab) => Key('poll-feed-tab-${tab.name}');
 
   /// 탭의 고리(64). 시험이 선택 테두리를 본다.
-  static Key ringKey(PollFeedTab tab) => Key('poll-feed-tab-ring-${tab.name}');
+  static Key ringKey(CommunityFeedTab tab) => Key('poll-feed-tab-ring-${tab.name}');
 
   static const EdgeInsets _padding = EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xxs, AppSpacing.md, AppSpacing.sm);
 
-  /// 글자 2배처럼 탭이 넓어져 서로 붙을 때만 드러나는 최소 틈. **pen 에 없는 값** —
-  /// 1배 360 폭의 틈은 (328 − 72 × 4) / 3 ≈ 13.3 이라 이 값이 배치를 바꾸지 않는다.
-  static const double _minGap = AppSpacing.xs;
+  /// pen StoryStrip gap 4.
+  static const double _gap = AppSpacing.xxs;
 
   /// 앱바 `bottom` 높이 — 위 4 + 탭(고리 + 6 + 글자 한 줄) + 아래 12. 1배면 102(pen `VEZ2l`).
   static double heightFor(TextScaler textScaler) => _padding.vertical + PollRingTab.heightFor(textScaler);
 
-  static (String, AppIcon3d) _look(AppLocalizations l10n, PollFeedTab tab) => switch (tab) {
-        PollFeedTab.all => (l10n.communityTabAll, AppIcon3d.vote), // 3D 투표 `x5QLa`
-        PollFeedTab.popular => (l10n.communityTabPopular, AppIcon3d.sparkles), // 3D 반짝임 `ulHL7`
-        PollFeedTab.mine => (l10n.communityTabMine, AppIcon3d.userRound), // 3D 프로필 `PkqpC`
-        PollFeedTab.voted => (l10n.communityTabVoted, AppIcon3d.badgeCheck), // 3D 인증 `Trtii`
+  /// 탭 줄에 보이는 탭 — 7개 전부, enum 순서가 pen 순서(전체 · 인기 · 내 글 · 내 투표 · 자유 · 진로 · 연애)다.
+  static const List<CommunityFeedTab> shownTabs = CommunityFeedTab.values;
+
+  static (String, AppIcon3d) _look(AppLocalizations l10n, CommunityFeedTab tab) => switch (tab) {
+        CommunityFeedTab.all => (l10n.communityTabAll, AppIcon3d.vote), // 3D 투표 `x5QLa`
+        CommunityFeedTab.popular => (l10n.communityTabPopular, AppIcon3d.sparkles), // 3D 반짝임 `ulHL7`
+        CommunityFeedTab.mine => (l10n.communityTabMyPosts, AppIcon3d.userRound), // 3D 프로필 `PkqpC`
+        CommunityFeedTab.voted => (l10n.communityTabVoted, AppIcon3d.badgeCheck), // 3D 인증 `Trtii`
+        CommunityFeedTab.free => _category(l10n, CommunityCategory.free),
+        CommunityFeedTab.career => _category(l10n, CommunityCategory.career),
+        CommunityFeedTab.love => _category(l10n, CommunityCategory.love),
       };
+
+  /// 카테고리 탭 글자 · 그림은 칩 · 라벨과 같은 한 곳([CommunityCategoryLook])에서 온다.
+  static (String, AppIcon3d) _category(AppLocalizations l10n, CommunityCategory category) =>
+      (category.label(l10n), category.icon);
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return LayoutBuilder(
-      builder: (context, constraints) => SingleChildScrollView(
+    return SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: _padding,
-        child: ConstrainedBox(
-          // 넓으면 남는 폭을 탭 사이에 똑같이 나누고(space_between), 모자라면 그대로 이어 붙여 가로로 민다.
-          constraints: BoxConstraints(minWidth: constraints.maxWidth - _padding.horizontal),
-          // 앱 투어 3단계가 이 줄(탭 4개)을 가리킨다 — 표식은 자리 · 크기를 바꾸지 않는다.
-          child: TourTarget(
+        // 앱 투어 3단계가 이 줄을 가리킨다 — 표식은 자리 · 크기를 바꾸지 않는다.
+        child: TourTarget(
             id: TourTargetId.communityTabs,
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              spacing: _minGap,
+              spacing: _gap,
               children: [
-                for (final tab in PollFeedTab.values)
+                for (final tab in shownTabs)
                   PollRingTab(
                     tapKey: tabKey(tab),
                     ringKey: ringKey(tab),
@@ -69,9 +75,7 @@ class PollFeedTabs extends StatelessWidget {
                   ),
               ],
             ),
-          ),
         ),
-      ),
     );
   }
 }
