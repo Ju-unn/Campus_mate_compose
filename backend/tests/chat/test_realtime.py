@@ -260,7 +260,7 @@ async def test_a_failing_recipient_lookup_does_not_undo_the_message(caplog):
     world = _World(members_status=500)
 
     with caplog.at_level(logging.WARNING, logger="app.chat.repository"):
-        row = await world.repo().insert_message(MATCH, ME, "안녕")
+        row, _ = await world.repo().insert_message(MATCH, ME, "안녕")
 
     assert row["id"] == "msg-1"
     assert world.sent == []
