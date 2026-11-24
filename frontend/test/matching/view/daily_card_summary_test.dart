@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:campus_mate/auth/school_info/model/data/academic_status.dart';
 import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/pressable.dart';
@@ -132,6 +133,23 @@ void main() {
     final badgePill = find.ancestor(of: find.text('학교 인증'), matching: find.byType(Container)).first;
     expect(tester.getTopLeft(badgePill).dx - tester.getTopRight(clockPill).dx, 6);
     expect(tester.getSize(badgePill).height, 30);
+  });
+
+  // 1.0.7 1-1 — 같은 어두운 알약 `aRL8x` 의 글자만 신분으로 바뀐다. 안 고른 사람(null)은 지금처럼 "학교 인증".
+  testWidgets('신분을 고른 상대는 학교 인증 알약 자리에 신분 글자를 쓴다 — 크기 · 색 · 아이콘은 그대로', (tester) async {
+    const alumni = DailyCard(
+      cardId: 'c3',
+      source: CardSource.daily,
+      profile: CardProfile(profileId: 't3', nickname: '여우비', age: 23, academicStatus: AcademicStatus.alumni),
+    );
+    await _pump(tester, card: alumni);
+
+    expect(find.text('학교 인증'), findsNothing);
+    final pill = find.ancestor(of: find.text('졸업생'), matching: find.byType(Container)).first;
+    expect(tester.getSize(pill).height, 30);
+    expect((tester.widget<Container>(pill).decoration! as BoxDecoration).color, AppColors.surfaceInk);
+    expect(tester.widget<Text>(find.text('졸업생')).style!.color, AppColors.onInk);
+    expect(find.descendant(of: pill, matching: find.byType(Icon3d)), findsOneWidget);
   });
 
   testWidgets('만료 시각이 없는 카드(구매 카드)는 시계 배지가 없다', (tester) async {
