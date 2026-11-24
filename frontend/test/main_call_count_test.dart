@@ -222,6 +222,24 @@ void main() {
     });
   });
 
+  testWidgets('백그라운드에서 돌아온 뒤 잠깐 덮였다 걷히면 결제 복구만 한다 — 복귀 표시는 한 번 쓰고 지운다', (tester) async {
+    await pumpApp(tester);
+    await returnFromBackground(tester);
+    final before = counts();
+
+    await returnFromOverlay(tester);
+
+    expect(since(before), {
+      'version': 0,
+      'gate': 0,
+      'step': 0,
+      'conversations': 0,
+      'acceptances': 0,
+      'unread': 0,
+      'purchaseRecover': 1,
+    });
+  });
+
   testWidgets('잠깐 덮였다 걷힌 뒤 백그라운드에서 돌아오면 다시 복귀 일을 한다', (tester) async {
     await pumpApp(tester);
     await returnFromOverlay(tester);
