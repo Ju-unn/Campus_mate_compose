@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -8,6 +9,7 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/matching/model/data/sent_request.dart';
 import 'package:campus_mate/matching/view/acceptance_row.dart';
+import 'package:campus_mate/matching/view/row_with_actions.dart';
 import 'package:flutter/material.dart';
 
 /// 보낸 신청 한 줄(pen 마스터 `SentRequestRow` d6otzp, 화면 `ULllO` · `wOZst` — 값은 대장이 pen 에서 읽어 준 것).
@@ -15,8 +17,17 @@ import 'package:flutter/material.dart';
 /// 바탕 · 좌우 여백이 없다(본문 여백 16 은 목록이 준다). 행 사이 선도 목록이 긋는다.
 /// 누를 수 있는 것은 **매칭됐고 방이 있는 줄**(방을 연다)과 **기다리는 줄**(안내 토스트, 사용자 요청 11-12)뿐이다 —
 /// 거절 · 만료 줄에는 눌림 자체를 달지 않는다.
+///
+/// [onViewProfile] 을 주면 기다리는 줄 · 거절된 줄 아래에 [프로필 보기] 버튼이 붙는다(pen 25-C h41Epx — 기다림 INViw,
+/// 거절됨 H75rq). 버튼은 줄 눌림과 따로다 — 기다리는 줄 위쪽을 누르면 지금처럼 안내 토스트다.
 class SentRequestRow extends StatelessWidget {
-  const SentRequestRow({required this.request, required this.onOpenChat, required this.onWaitingTap, super.key});
+  const SentRequestRow({
+    required this.request,
+    required this.onOpenChat,
+    required this.onWaitingTap,
+    this.onViewProfile,
+    super.key,
+  });
 
   final SentRequest request;
 
@@ -26,8 +37,33 @@ class SentRequestRow extends StatelessWidget {
   /// 기다리는 줄을 눌렀다 — 대화 탭이 "상대가 수락하면 대화가 열려요" 를 띄운다.
   final VoidCallback onWaitingTap;
 
+  /// [프로필 보기] — 그 신청의 카드 id 로 읽기 전용 프로필(pen ig7i2)을 연다. null 이면 버튼이 없다.
+  final ValueChanged<String>? onViewProfile;
+
+  /// 버튼 아래 12(pen H75rq). 기다리는 줄(INViw)은 pen 에 아래 여백이 없지만 대장 판정 16-1 로 같게 둔다 —
+  /// 버튼 바로 밑에 다음 줄의 누르는 칸이 붙지 않게.
+  static const double _bottomSpace = AppSpacing.sm;
+
   @override
   Widget build(BuildContext context) {
+    final row = _row();
+    final viewProfile = onViewProfile;
+    if (viewProfile == null || !request.opensProfile) return row;
+    return RowWithActions(
+      row: row,
+      bottomPadding: _bottomSpace,
+      actions: [
+        AppButton(
+          label: context.l10n.matchingAcceptanceRowViewProfile,
+          size: AppButtonSize.small,
+          onPressed: () => viewProfile(request.cardId),
+        ),
+      ],
+    );
+  }
+
+  /// pen d6otzp 한 줄(72).
+  Widget _row() {
     final content = ConstrainedBox(
       // pen 높이 72 는 배율 1.0 의 값이다 — 글자를 키우면(§11.2) 줄이 따라 커지게 최솟값으로 둔다(대화 중 행과 같다).
       constraints: const BoxConstraints(minHeight: 72),

@@ -110,6 +110,17 @@ void main() {
     expect(popped, [true]);
   });
 
+  // 할 일 3: 04-1b 와 같은 규칙. 16e-1 은 안내 줄이 없다(pen bWrnD).
+  testWidgets('안쪽에 공백이 있으면 칸 아래 오류가 뜨고 저장이 꺼진다', (tester) async {
+    await pump(tester);
+
+    await tester.enterText(find.byType(TextField), 'new id');
+    await tester.pump();
+
+    expect(find.text('공백 없이 적어 주세요'), findsOneWidget);
+    expect(tester.widget<ElevatedButton>(find.byType(ElevatedButton)).enabled, isFalse);
+  });
+
   testWidgets('비우면 저장할 수 없다', (tester) async {
     await pump(tester);
 

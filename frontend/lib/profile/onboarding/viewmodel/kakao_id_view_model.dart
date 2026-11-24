@@ -21,8 +21,14 @@ const Object _keep = Object();
 
 /// 카카오톡 아이디 화면(DESIGN.md 화면 04-1b)의 흐름을 맡는다. 건너뛰기는 없다(§13-100).
 class KakaoIdViewModel extends Notifier<KakaoIdUiState> {
+  /// 공백 아닌 거절 이유를 손을 멈춘 뒤에 알리는 타이머(3c 학과 · 04-1 닉네임과 같은 300ms).
+  Timer? _debounce;
+
   @override
-  KakaoIdUiState build() => KakaoIdUiState(kakaoIdInput: _savedKakaoId() ?? '');
+  KakaoIdUiState build() {
+    ref.onDispose(() => _debounce?.cancel());
+    return KakaoIdUiState(kakaoIdInput: _savedKakaoId() ?? '');
+  }
 
   /// 04-2 에서 뒤로 돌아왔을 때만 저장해 둔 아이디로 채운다(뒤로가기가 [savedKakaoIdProvider] 를 미리 읽어 둔다).
   String? _savedKakaoId() {
@@ -34,7 +40,11 @@ class KakaoIdViewModel extends Notifier<KakaoIdUiState> {
   }
 
   void changeKakaoId(String value) {
-    state = _copyWith(kakaoIdInput: value, error: null);
+    state = _copyWith(kakaoIdInput: value, kakaoIdChecked: false, error: null);
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      if (ref.mounted) state = _copyWith(kakaoIdChecked: true);
+    });
   }
 
   Future<void> submit() async {
@@ -78,12 +88,14 @@ class KakaoIdViewModel extends Notifier<KakaoIdUiState> {
 
   KakaoIdUiState _copyWith({
     String? kakaoIdInput,
+    bool? kakaoIdChecked,
     bool? isSubmitting,
     Object? error = _keep,
     bool? completed,
   }) {
     return KakaoIdUiState(
       kakaoIdInput: kakaoIdInput ?? state.kakaoIdInput,
+      kakaoIdChecked: kakaoIdChecked ?? state.kakaoIdChecked,
       isSubmitting: isSubmitting ?? state.isSubmitting,
       error: identical(error, _keep) ? state.error : error as Failure?,
       completed: completed ?? state.completed,

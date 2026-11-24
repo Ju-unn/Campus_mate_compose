@@ -53,8 +53,12 @@ class AcceptanceRow extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.xs),
-          // 행 안쪽 폭 전체 × 44(§8.3 카드 안 인라인 버튼 "View Profile").
-          AppButton(label: context.l10n.matchingAcceptanceRowViewProfile, onPressed: onViewProfile, height: 44),
+          // 행 안쪽 폭 전체 × 44 · 모서리 8 · 18/700(pen SFzLW 손그림 버튼, 대장 판정 16-3 — AppButton 작은 크기).
+          AppButton(
+            label: context.l10n.matchingAcceptanceRowViewProfile,
+            onPressed: onViewProfile,
+            size: AppButtonSize.small,
+          ),
         ],
       ),
     );

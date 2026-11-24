@@ -160,4 +160,51 @@ void main() {
 
     await expectLater(pending, completes);
   });
+
+  // 대장 판정(11-24): 시안에 문구가 없어 서버와 같은 글("입력한 값을 다시 확인해 주세요")을 칸 아래에 띄운다.
+  // 한글 입력기는 조합 중에 자모("경ㅇ")를 먼저 넣어서, 쓰는 도중에는 띄우지 않고 손을 멈춘 뒤(닉네임과 같은 300ms) 띄운다.
+  group('학과 칸 아래 오류', () {
+    testWidgets('서버가 거절할 학과는 손을 멈춘 뒤에 오류를 띄우고, 그 전에도 제출할 수 없다', (tester) async {
+      final container = buildContainer();
+      container.read(schoolInfoViewModelProvider.notifier).changeDepartment('...');
+      expect(readState(container).departmentError, isNull, reason: '쓰는 도중에는 띄우지 않는다');
+      expect(readState(container).canSubmit, isFalse);
+
+      await tester.pump(const Duration(milliseconds: 350));
+
+      expect(readState(container).departmentError, const AppErrorFailure(AppError.invalidInput));
+    });
+
+    testWidgets('아직 쓰지 않은 빈 칸에는 오류를 띄우지 않는다', (tester) async {
+      final container = buildContainer();
+      container.read(schoolInfoViewModelProvider.notifier).changeDepartment('');
+
+      await tester.pump(const Duration(milliseconds: 350));
+
+      expect(readState(container).departmentError, isNull);
+    });
+
+    testWidgets('고쳐 쓰면 오류가 바로 지워진다', (tester) async {
+      final container = buildContainer();
+      final viewModel = container.read(schoolInfoViewModelProvider.notifier);
+      viewModel.changeDepartment('...');
+      await tester.pump(const Duration(milliseconds: 350));
+
+      viewModel.changeDepartment('컴공');
+      expect(readState(container).departmentError, isNull);
+      await tester.pump(const Duration(milliseconds: 350));
+
+      expect(readState(container).departmentError, isNull);
+    });
+
+    testWidgets('기다리는 사이 버려져도 던지지 않는다', (tester) async {
+      final container = ProviderContainer(
+        overrides: [schoolInfoRepositoryProvider.overrideWithValue(repository)],
+      );
+      container.read(schoolInfoViewModelProvider.notifier).changeDepartment('...');
+      container.dispose();
+
+      await tester.pump(const Duration(milliseconds: 350));
+    });
+  });
 }
