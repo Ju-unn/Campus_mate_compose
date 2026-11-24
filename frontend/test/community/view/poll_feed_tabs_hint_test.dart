@@ -61,6 +61,16 @@ void main() {
 
   const half = Duration(milliseconds: 2000);
 
+  /// 움직였다면 끝(200)에 가 있을 때(0.4초 + 2초)와 다 끝난 뒤 둘 다 처음 자리여야 한다 —
+  /// 끝난 뒤만 보면 왕복해 0 으로 돌아온 것과 구별되지 않는다.
+  Future<void> expectStill(WidgetTester tester) async {
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(half);
+    expect(offset(tester), 0);
+    await tester.pump(const Duration(seconds: 3));
+    expect(offset(tester), 0);
+  }
+
   testWidgets('진입: 0.4초 뒤 시작해 2초에 끝(200)까지 갔다가 다시 2초에 처음 자리로 — 왕복 4초', (tester) async {
     await pump(tester);
 
@@ -98,9 +108,7 @@ void main() {
     PollFeedTabs.hintEnabled = false;
     addTearDown(() => PollFeedTabs.hintEnabled = true);
     await pump(tester);
-    await tester.pump(const Duration(seconds: 5));
-
-    expect(offset(tester), 0);
+    await expectStill(tester);
   });
 
   testWidgets('들어올 때마다 움직인다 — 4번째 · 5번째 진입에도', (tester) async {
@@ -137,37 +145,27 @@ void main() {
     final finger = await tester.startGesture(tester.getCenter(find.byType(PollFeedTabs)));
     await tester.pump(const Duration(milliseconds: 100));
     await finger.up();
-    await tester.pump(const Duration(seconds: 5));
-
-    expect(offset(tester), 0);
+    await expectStill(tester);
   });
 
   testWidgets('동작 줄이기면 움직이지 않는다', (tester) async {
     await pump(tester, reduceMotion: true);
-    await tester.pump(const Duration(seconds: 5));
-
-    expect(offset(tester), 0);
+    await expectStill(tester);
   });
 
   testWidgets('탭이 화면에 다 들어가 밀 것이 없으면(넓은 화면) 움직이지 않는다', (tester) async {
     await pump(tester, width: 800);
-    await tester.pump(const Duration(seconds: 5));
-
-    expect(offset(tester), 0);
+    await expectStill(tester);
   });
 
   testWidgets('앱 투어가 떠 있는 동안(3단계가 탭 줄을 가리킴)엔 움직이지 않는다', (tester) async {
     await pump(tester, tourActive: true);
-    await tester.pump(const Duration(seconds: 5));
-
-    expect(offset(tester), 0);
+    await expectStill(tester);
   });
 
   testWidgets('계정을 모르면(로그인 전 · 시험) 움직이지 않는다', (tester) async {
     await pump(tester, account: null);
-    await tester.pump(const Duration(seconds: 5));
-
-    expect(offset(tester), 0);
+    await expectStill(tester);
   });
 
   testWidgets('시작 전 · 움직이는 중에 화면을 떠나도 타이머 · 움직임이 남지 않는다', (tester) async {
