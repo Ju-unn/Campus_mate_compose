@@ -6,6 +6,7 @@ class VerifyCodeUiState {
     this.codeInput = '',
     this.isSubmitting = false,
     this.error,
+    this.resendError,
     this.canChooseAnotherEmail = false,
     this.isTakenBySocial = false,
     this.resendAvailableAt,
@@ -20,6 +21,10 @@ class VerifyCodeUiState {
   /// 실패한 종류. 화면이 `context.errorText` 로 글자를 만든다. 소셜 계정이 쥔 메일([SchoolEmailTakenFailure])이면 화면이
   /// 둘째 줄 안내("카카오로 로그인해 주세요")와 "다시 로그인" 단추 글자도 이 값에서 만든다.
   final Failure? error;
+
+  /// "메일 다시 받기" 가 실패한 종류(pen jj8YS). 확인 실패([error] · 입력칸 아래)와 따로, 만료 줄 아래에 한 문구로 보인다.
+  /// 코드를 고치거나 · 다시 받기를 다시 누르거나 · 확인을 누르면 비운다(그 동작들이 상태를 새로 만든다).
+  final Failure? resendError;
 
   /// 이 메일로는 끝낼 수 없다(409 · 422 · 미확인) — 오류 문구 아래에 "다른 학교 메일 입력"(02 로)을 보인다.
   final bool canChooseAnotherEmail;

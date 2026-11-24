@@ -193,16 +193,17 @@ class VerifyCodeViewModel extends Notifier<VerifyCodeUiState> {
     _resendFailed(failure, previousResendAt, previousExpiresAt);
   }
 
-  /// 새 코드가 안 왔다 — 옛 코드와 그 임시 토큰은 살아 있다. 만료 시각을 되돌리고 입력칸 아래에 실패를 보인다.
+  /// 새 코드가 안 왔다 — 옛 코드와 그 임시 토큰은 살아 있다. 만료 시각을 되돌리고 만료 줄 아래에 실패를 보인다(pen jj8YS).
+  /// 확인 실패 칸([VerifyCodeUiState.error])은 비운 채 둔다 — 다시 받기를 누를 때 이미 비웠다.
   /// 쿨다운은 [_canResendAtOnce] 일 때만 되돌린다 — 서버가 한도 · 가입 거절(429 · 422)로 답했으면 바로 눌러도 같은 답이다.
   /// 기다리는 사이 확인을 눌렀으면(확인 중 · 끝남) 그 흐름이 상태를 맡는다 — 덮으면 확인을 두 번 부를 수 있다.
   void _resendFailed(Failure failure, DateTime? previousResendAt, DateTime? previousExpiresAt) {
     if (state.isSubmitting || state.verified) return;
     state = VerifyCodeUiState(
       codeInput: state.codeInput,
+      resendError: failure,
       resendAvailableAt: _canResendAtOnce(failure) ? previousResendAt : state.resendAvailableAt,
       codeExpiresAt: previousExpiresAt,
     );
-    state = _failed(failure);
   }
 }
