@@ -24,7 +24,7 @@ from e2e.tools import Blocked
 PREFIX = '[E2E] '  # area2._poll 이 붙이는 접두어와 같다 — 피드에서 시험 글을 알아보는 표시
 DAILY_LIMIT = '오늘은 글을 더 올릴 수 없어요'  # backend errors.POLL_DAILY_LIMIT
 MONTHLY_LIMIT = '이번 달에는 더 인증할 수 없어요'  # backend errors.HEART_TASK_MONTHLY_LIMIT
-THUMB = '\U0001F44D'  # 👍 — 앱이 79자 뒤에 붙이는 👍🏻 의 앞 코드 포인트(뒤 🏻 는 80 에서 잘린다)
+THUMB = '\U0001F44D'  # 👍 — 앱이 399자 뒤에 붙이는 👍🏻 의 앞 코드 포인트(뒤 🏻 는 400 에서 잘린다)
 NOTICE_SECONDS = 60  # E-HEART-09 "60초 알림 0"
 REASONS = ('date_missing', 'not_verified', 'reused')  # heart_task_reject_reason — 문구는 앱이 가진 것을 앱이 본다
 FEED_PAGE = 20
@@ -139,7 +139,7 @@ def p_poll_18(run, phone):
     check = Check()
     account, token = _signed_in(run, 'home')
     bad = {
-        '질문 81자': {'question': PREFIX + 'a' * 75},
+        '질문 401자': {'question': PREFIX + 'a' * 395},
         '선택지 7자': {'question': f'{PREFIX}선택지', 'option_a_label': 'abcdefg'},
         '공백만': {'question': '   '},
         '두 선택지 같음': {'question': f'{PREFIX}같음', 'option_a_label': '같음', 'option_b_label': '같음'},
@@ -212,17 +212,17 @@ def p_poll_27(run, phone):
 
 
 def p_poll_31(run, phone):
-    """질문 79자 + 👍🏻(코드 포인트 2개) → 앱이 80 에서 자르고 서버도 받는다(201). 저장된 글은 80자이고 끝이 👍 다."""
+    """질문 399자 + 👍🏻(코드 포인트 2개) → 앱이 400 에서 자르고 서버도 받는다(201). 저장된 글은 400자이고 끝이 👍 다(1.0.7)."""
     check = Check()
     account, token = _signed_in(run, 'home')
-    base = PREFIX + 'a' * 73  # 79자
+    base = PREFIX + 'a' * 393  # 399자
     with _cleaned(run, account):
         said = _app(check, phone(token_hash=token, base=base))
         if _passed(said):
             rows = _polls(run, account)
             check.that(len(rows) == 1, f'polls {len(rows)}행(기대 1 — 올리기 201)')
             question = rows[0]['question'] if rows else ''
-            check.that(len(question) == 80, f'저장된 글 {len(question)}자(기대 코드 포인트 80)')  # 파이썬 len 은 코드 포인트
+            check.that(len(question) == 400, f'저장된 글 {len(question)}자(기대 코드 포인트 400)')  # 파이썬 len 은 코드 포인트
             check.that(question == base + THUMB, f'저장된 글의 끝 {question[-3:]!r}(기대 👍)')
     return check.result()
 

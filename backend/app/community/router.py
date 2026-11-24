@@ -162,7 +162,8 @@ async def get_poll(poll_id: UUID, caller: Caller = Depends(get_verified_caller))
 
 
 # 앱 pollQuestionMaxLength · pollOptionMaxLength, DB polls_* check 와 같은 값이다.
-QUESTION_MAX_LENGTH = 80
+# 질문은 1.0.7 에서 80 → 400(사용자 「게시물 500 유지, 투표 400」). 1.0.6 은 앱이 80 에서 막아 보내지 않을 뿐 같은 길이다.
+QUESTION_MAX_LENGTH = 400
 OPTION_MAX_LENGTH = 6
 
 

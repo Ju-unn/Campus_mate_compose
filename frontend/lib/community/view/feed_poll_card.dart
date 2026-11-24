@@ -3,6 +3,7 @@ import 'package:campus_mate/community/model/data/poll.dart';
 import 'package:campus_mate/community/view/category_label.dart';
 import 'package:campus_mate/community/view/community_card_parts.dart';
 import 'package:campus_mate/community/view/poll_card.dart';
+import 'package:campus_mate/community/view/post_card.dart';
 import 'package:campus_mate/community/view/vote_option.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -29,6 +30,7 @@ const double _barGap = 4;
 /// 회색 피드 위 흰 큰 카드(모서리 24): 익명 아바타 머리줄 → 질문 18/700 → 투표 전 O/X 알약 + VS · 투표 뒤 큰 퍼센트 + 쪼개짐
 /// 막대 → 구분선 → 참여자 수 · 말풍선 "댓글 N" · "자세히 보기". **방금 이 카드에서 투표했을 때만** 결과가 0 에서 차오른다(220ms).
 /// 말풍선 · "댓글 N" 과 "자세히 보기"(pen 댓글 버튼 `G4zmKC` 자리) 모두 17c 상세로 간다(사용자 11-11).
+/// 카드 빈 곳을 눌러도 17c 다(1.0.7, 게시물 카드와 같다) — 투표 줄은 투표만 받는다.
 class FeedPollCard extends StatefulWidget {
   const FeedPollCard({
     required this.poll,
@@ -93,6 +95,8 @@ class _FeedPollCardState extends State<FeedPollCard> {
     return CommunityCardFrame(
       // pen 아래 줄 44 + 아래 안쪽 16 = 60 을 누름 48 + 안쪽 12 로 나눈다 — 카드 높이는 pen 그대로.
       padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.sm),
+      // 카드 빈 곳을 누르면 17c(게시물 카드와 같다, 1.0.7). 버튼 · "자세히 보기" · "댓글 N" 은 안쪽 누름이 먼저 받는다.
+      onTap: widget.onOpen,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -107,9 +111,9 @@ class _FeedPollCardState extends State<FeedPollCard> {
           const SizedBox(height: AppSpacing.sm),
           Text(
             poll.question,
-            // pen `UkAVk` 18/700 lh1.4 자간 -0.18 — 목록이라 2줄 말줄임(DESIGN §8.11).
+            // pen `UkAVk` 18/700 lh1.4 자간 -0.18 — 목록이라 게시물 카드와 같은 줄 수로 말줄임(1.0.7 사용자, 상세는 전부).
             style: AppTypography.label.copyWith(height: 1.4, color: AppColors.ink),
-            maxLines: 2,
+            maxLines: PostCard.feedMaxLines,
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -160,19 +164,26 @@ class _BeforeVote extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Stack(
-          alignment: Alignment.center,
-          children: [
-            Row(
-              children: [
-                Expanded(child: buttons[0]),
-                const SizedBox(width: AppSpacing.xs),
-                Expanded(child: buttons[1]),
-              ],
-            ),
-            // 꾸밈이라 누름 · 낭독을 가로채지 않는다(두 버튼이 이미 "찬성" · "반대" 로 읽힌다).
-            const IgnorePointer(child: ExcludeSemantics(child: _VsBadge())),
-          ],
+        // 투표 줄은 투표만 — 꺼진 버튼(응답 기다리는 중)이나 두 버튼 사이를 눌러도 카드(17c)로 새지 않는다.
+        // 켜진 버튼은 더 안쪽이라 누름을 먼저 받는다. 낭독에는 아무것도 더하지 않는다.
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          excludeFromSemantics: true,
+          onTap: () {},
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Row(
+                children: [
+                  Expanded(child: buttons[0]),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(child: buttons[1]),
+                ],
+              ),
+              // 꾸밈이라 누름 · 낭독을 가로채지 않는다(두 버튼이 이미 "찬성" · "반대" 로 읽힌다).
+              const IgnorePointer(child: ExcludeSemantics(child: _VsBadge())),
+            ],
+          ),
         ),
         // 투표 전에도 결과를 보인다(사용자 결정 4 · 4-1). pen `IFUWA` 에는 이 줄이 없다 — 보고에 "결정 필요".
         // 참여자 수는 아래 줄로 옮겨 여기서는 비율만. 아무도 안 눌렀으면 "0%" 두 개가 결과처럼 읽혀 줄을 뺀다.

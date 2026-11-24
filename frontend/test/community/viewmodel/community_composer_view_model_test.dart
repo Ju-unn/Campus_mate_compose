@@ -71,7 +71,7 @@ void main() {
       }
     });
 
-    test('게시물은 500자까지, 투표 질문은 80자까지(코드 포인트)', () {
+    test('게시물은 500자까지, 투표 질문은 400자까지(코드 포인트)', () {
       final container = start();
       viewModel(container)
         ..selectCategory(CommunityCategory.free)
@@ -84,9 +84,9 @@ void main() {
 
       viewModel(container)
         ..selectKind(CommunityKind.poll)
-        ..updateText('가' * 81);
+        ..updateText('가' * 401);
       expect(stateOf(container).canSubmit, isFalse);
-      viewModel(container).updateText('가' * 80);
+      viewModel(container).updateText('가' * 400);
       expect(stateOf(container).canSubmit, isTrue);
     });
 

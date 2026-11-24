@@ -7,7 +7,7 @@ const String defaultOptionB = '반대';
 // l10n-ignore-end
 
 /// 서버 `QUESTION_MAX_LENGTH` · `OPTION_MAX_LENGTH`, DB check 와 같은 값이다.
-const int pollQuestionMaxLength = 80;
+const int pollQuestionMaxLength = 400;
 const int pollOptionMaxLength = 6;
 
 /// 두 보기가 서버 `PollRequest` 를 통과할 모양인지 미리 본다 — 각각 빈칸이 아니고 6자 이하, 앞뒤 공백을 뗀 값이 서로 다르다.

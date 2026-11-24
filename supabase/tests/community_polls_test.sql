@@ -5,7 +5,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(68);
+select plan(69);
 
 -- 준비 --------------------------------------------------------------------
 -- AU = ...80(글쓴이), V1 = ...81 · V2 = ...82(투표자), GONE = ...83(탈퇴할 글쓴이),
@@ -72,10 +72,17 @@ select results_eq(
   $$values ('찬성', '반대', 'visible')$$,
   '라벨을 안 주면 찬성 · 반대, 상태는 visible 이다'
 );
+-- 1.0.7 상한 400(20261124190000). 경계 둘 다 본다 — 400 은 들어가고 401 은 막힌다.
+select lives_ok(
+  $$insert into public.polls (id, author_id, question)
+    values ('00000000-0000-0000-0000-0000000000d4', '00000000-0000-0000-0000-000000000080', repeat('가', 400))$$,
+  '질문은 400자까지 들어간다'
+);
+delete from public.polls where id = '00000000-0000-0000-0000-0000000000d4';
 select throws_ok(
   $$insert into public.polls (author_id, question)
-    values ('00000000-0000-0000-0000-000000000080', repeat('가', 81))$$,
-  '23514', null, '질문은 80자를 넘을 수 없다'
+    values ('00000000-0000-0000-0000-000000000080', repeat('가', 401))$$,
+  '23514', null, '질문은 400자를 넘을 수 없다'
 );
 select throws_ok(
   $$insert into public.polls (author_id, question) values ('00000000-0000-0000-0000-000000000080', '   ')$$,

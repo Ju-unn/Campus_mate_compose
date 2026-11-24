@@ -307,12 +307,12 @@ void main() {
     expect(tester.widget<TextField>(find.byKey(PollComposerScreen.optionAKey)).controller!.text, '짜장');
   });
 
-  testWidgets('카운터는 상자 안에서 "n / 80"', (tester) async {
+  testWidgets('카운터는 상자 안에서 "n / 400"', (tester) async {
     await pump(tester);
-    expect(find.text('0 / 80'), findsOneWidget);
+    expect(find.text('0 / 400'), findsOneWidget);
     await tester.enterText(find.byKey(PollComposerScreen.questionKey), '짜장');
     await tester.pump();
-    expect(find.text('2 / 80'), findsOneWidget);
+    expect(find.text('2 / 400'), findsOneWidget);
   });
 
   testWidgets('앞뒤 공백을 깎아 보내고 피드로 돌아가 새로 읽는다', (tester) async {
@@ -392,7 +392,7 @@ void main() {
     expect(button.height, 52); // HE8FZ 2026-10-01 개편
   });
 
-  testWidgets('pen 17b 올리기 실패 `u4UOb` — 적은 질문 · "22 / 80" 은 그대로, 안내 상자 328×40, 오류 글 14 error · 버튼 위 8, 버튼 328×52 켜짐', (tester) async {
+  testWidgets('pen 17b 올리기 실패 `u4UOb` — 적은 질문 · "22 / 400" 은 그대로, 안내 상자 328×40, 오류 글 14 error · 버튼 위 8, 버튼 328×52 켜짐', (tester) async {
     phone(tester);
     repository.createResult = const FailureResult(RateLimitedFailure(serverLimit));
     await pump(tester);
@@ -406,7 +406,7 @@ void main() {
 
     // 오류는 토스트가 아니라 버튼 위 한 줄(`ZbV4R`)이고, 적은 글은 지우지 않는다.
     expect(tester.widget<TextField>(find.byKey(PollComposerScreen.questionKey)).controller!.text, question);
-    expect(find.text('22 / 80'), findsOneWidget);
+    expect(find.text('22 / 400'), findsOneWidget);
     expect(find.byType(SnackBar), findsNothing);
     // 안내 `c9ch1w` 328×40 = 안쪽 12 + 자물쇠 16 + 12.
     final notice = tester.getRect(find.ancestor(of: find.byIcon(AppIcons.lock), matching: find.byType(Container)).first);
@@ -420,13 +420,13 @@ void main() {
     expect(submit(tester).onPressed, isNotNull);
   });
 
-  testWidgets('입력칸은 80자 · 6자에서 더 받지 않는다', (tester) async {
+  testWidgets('입력칸은 400자 · 6자에서 더 받지 않는다', (tester) async {
     await pump(tester);
     await openCustom(tester);
-    await tester.enterText(find.byKey(PollComposerScreen.questionKey), '가' * 90);
+    await tester.enterText(find.byKey(PollComposerScreen.questionKey), '가' * 450);
     await tester.enterText(find.byKey(PollComposerScreen.optionAKey), '가' * 15);
     await tester.pump();
-    expect(tester.widget<TextField>(find.byKey(PollComposerScreen.questionKey)).controller!.text.length, 80);
+    expect(tester.widget<TextField>(find.byKey(PollComposerScreen.questionKey)).controller!.text.length, 400);
     expect(tester.widget<TextField>(find.byKey(PollComposerScreen.optionAKey)).controller!.text.length, 6);
   });
 
@@ -438,15 +438,16 @@ void main() {
     expect(tester.widget<TextField>(find.byKey(PollComposerScreen.optionAKey)).controller!.text.runes.length, 6);
   });
 
-  testWidgets('폰 폭(360)에서 글자 2배 · 80자 질문에도 넘치거나 잘리지 않는다', (tester) async {
+  testWidgets('폰 폭(360)에서 글자 2배 · 400자 질문에도 넘치거나 잘리지 않는다', (tester) async {
     tester.view.physicalSize = const Size(360, 780);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     tester.platformDispatcher.textScaleFactorTestValue = 2.0;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await pump(tester);
-    await tester.enterText(find.byKey(PollComposerScreen.questionKey), '가' * 80);
+    await tester.enterText(find.byKey(PollComposerScreen.questionKey), '가' * 400);
     await tester.pump();
+    expect(find.text('400 / 400'), findsOneWidget);
 
     // 넘침 오류는 Flex 만 낸다 — 고정 상자에 갇힌 글자(라벨 · 카운터 · 안내 · 버튼)는 오류 없이 잘린다.
     List<String> clippedTexts() => [
@@ -458,12 +459,14 @@ void main() {
     ];
     expect(tester.takeException(), isNull);
     final clipped = clippedTexts();
-    await tester.drag(find.byType(ListView), const Offset(0, -2000));
+    // 400자 · 글자 2배면 질문 상자만 화면 두 배가 넘는다 — 끝까지 내린다.
+    await tester.drag(find.byType(ListView), const Offset(0, -6000));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     clipped.addAll(clippedTexts());
 
-    await tester.drag(find.byType(ListView), const Offset(0, 2000));
+    // 긴 질문 상자 아래의 투표 방식 탭은 맨 위로 올리면 목록이 아직 만들지 않는다 — 탭이 보이는 자리까지만 올린다.
+    await tester.dragUntilVisible(find.text('직접 적기'), find.byType(ListView), const Offset(0, 300));
     await tester.pumpAndSettle();
     await openCustom(tester);
     await tester.enterText(find.byKey(PollComposerScreen.optionAKey), '가나다라마바');
@@ -471,13 +474,29 @@ void main() {
     await tester.pump();
     expect(tester.takeException(), isNull);
     clipped.addAll(clippedTexts());
-    await tester.drag(find.byType(ListView), const Offset(0, -2000));
+    await tester.drag(find.byType(ListView), const Offset(0, -6000));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     clipped.addAll(clippedTexts());
     // 보기 안내 글("보기 1" · "보기 2")은 글자를 적으면 투명해진다. 테스트 글꼴(Ahem)은 글자가 모두 정사각형이라 실제보다 넓게 나온다.
     clipped.removeWhere((text) => text.startsWith('보기 '));
     expect(clipped, isEmpty);
+  });
+
+  testWidgets('키보드가 올라와도(아래 300 가림) 400자 질문 화면이 넘치지 않고, 끝까지 내려 올리기를 누를 수 있다', (tester) async {
+    phone(tester); // view.reset 이 viewInsets 도 되돌린다
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await pump(tester);
+    await tester.enterText(find.byKey(PollComposerScreen.questionKey), '가' * 400);
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -3000));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('400 / 400'), findsOneWidget);
+    final button = tester.getRect(find.widgetWithText(ElevatedButton, '익명으로 올리기'));
+    expect(button.bottom, lessThanOrEqualTo(780 - 300));
   });
 
   testWidgets('pen 앱바: 뒤로 arrow-left 22 · 제목 x60(jrUTh · g58njs · RKulj)', (tester) async {
@@ -495,7 +514,7 @@ void main() {
     final box = tester.getRect(
       find.ancestor(of: find.byKey(PollComposerScreen.questionKey), matching: find.byType(Container)).first,
     );
-    final counter = tester.getRect(find.text('0 / 80'));
+    final counter = tester.getRect(find.text('0 / 400'));
     final voteLabel = tester.getRect(find.text('투표 방식'));
     final tabs = tester.getRect(find.byKey(PollComposerScreen.modeTabsKey));
     final options = find.byType(VoteOption);

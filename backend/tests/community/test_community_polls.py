@@ -200,9 +200,18 @@ def test_create_trims_and_defaults_labels():
         "p_option_a": "찬성", "p_option_b": "반대"}
 
 
+def test_create_accepts_a_400_char_question():
+    # 1.0.7 사용자 「게시물 500 유지, 투표 400」 — 앱 pollQuestionMaxLength · DB polls_question_length(poll 400)와 같은 경계.
+    seen: list[httpx.Request] = []
+    response = _wire(_routes(create_community_item=httpx.Response(200, json=POLL_ID)), seen).post(
+        "/community/polls", json={"question": "가" * 400}, headers=AUTH_HEADERS)
+    assert response.status_code == 201
+    assert json.loads(seen[0].content)["p_text"] == "가" * 400
+
+
 @pytest.mark.parametrize("body", [
     {"question": "   "},
-    {"question": "가" * 81},
+    {"question": "가" * 401},
     {"question": "질문", "option_a_label": "가" * 7},
     {"question": "질문", "option_a_label": "좋아", "option_b_label": "좋아"},
     {"question": "질문", "option_b_label": "  "},
