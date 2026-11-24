@@ -9,6 +9,7 @@ import 'package:campus_mate_admin/inquiries/inquiry_detail_screen.dart';
 import 'package:campus_mate_admin/inquiries/inquiry_item.dart';
 import 'package:campus_mate_admin/inquiries/inquiry_list_screen.dart';
 import 'package:campus_mate_admin/matching/matching_screen.dart';
+import 'package:campus_mate_admin/notices/notice_screen.dart';
 import 'package:campus_mate_admin/reports/report_detail_screen.dart';
 import 'package:campus_mate_admin/reports/report_item.dart';
 import 'package:campus_mate_admin/reports/report_list_screen.dart';
@@ -191,6 +192,8 @@ Widget _sectionScreen(AdminSection section, String? id, Object? extra) {
     AdminSection.home => const HomeScreen(),
     // 매칭 · 미등록 학교 메일 · 작업 기록은 아래 주소가 따로 없다(검색어 · 필터를 주소에 싣지 않는다) — 어떤 주소로 와도 이 한 화면
     AdminSection.matching => const MatchingScreen(),
+    // 공지사항도 아래 주소가 따로 없다(쓰기 · 지우기는 대화상자) — 어떤 주소로 와도 이 한 화면
+    AdminSection.notices => const NoticeScreen(),
     AdminSection.unknownDomains => const UnknownDomainsScreen(),
     // 서버 상태도 아래 주소가 따로 없다 — 어떤 주소로 와도 이 한 화면
     AdminSection.serverStatus => const ServerStatusScreen(),
