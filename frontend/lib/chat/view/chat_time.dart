@@ -29,7 +29,7 @@ String listTimeLabel(AppLocalizations l10n, DateTime at, DateTime now) {
   return isToday ? timeLabel(l10n, at) : l10n.commonDateMonthDay(month: at.month, day: at.day);
 }
 
-/// 게이트 배너·시트의 "21:34:10". 하루가 넘어도 시 자리에 그대로 쌓는다(최대 48시간).
+/// 게이트 배너·시트의 "21:34:10". 하루가 넘어도 시 자리에 그대로 쌓는다(최대 응답 기한 길이).
 String countdownLabel(Duration remaining) {
   final total = remaining.isNegative ? Duration.zero : remaining;
   String two(int value) => value.toString().padLeft(2, '0');
