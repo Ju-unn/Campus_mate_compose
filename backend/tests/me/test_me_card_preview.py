@@ -57,6 +57,7 @@ def test_preview_is_the_card_detail_body_of_my_row():
             "profile_id": PROFILE_ID, "nickname": "하늘", "age": 24, "university": "서울대학교",
             "major": "컴퓨터공학과",
             "avatar_url": f"{SUPABASE_URL}/storage/v1/object/public/avatars/{PROFILE_ID}/new.png",
+            "academic_status": None,
         },
         "survey": [0.1, 0.2, 0.3, 0.4, 0.0, 0.6, 0.7, 0.8, 0.9],
         "animal_type": "fox", "impression_type": "kind", "religion": "none", "is_smoker": False,

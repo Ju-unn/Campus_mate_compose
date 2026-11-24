@@ -320,3 +320,41 @@ def test_unknown_decision_value_is_rejected():
         "/cards/card-1/decision", headers=AUTH_HEADERS, json={"decision": "maybe"}
     )
     assert response.status_code == 422
+
+
+@pytest.mark.parametrize("value", ["graduate_student", None])
+def test_card_profile_carries_the_partners_academic_status(value):
+    """오늘의 카드 배지 자리(1.0.7 1-1) — null 이면 앱이 지금처럼 "학교 인증" 을 그린다."""
+    selects: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "/rest/v1/daily_cards" in url:
+            return httpx.Response(200, json=[_live_card()])
+        if "/rest/v1/profiles" in url:
+            selects.append(request.url.params.get("select", ""))
+            return httpx.Response(200, json=[{**TARGET_PROFILE, "academic_status": value}])
+        if "/rest/v1/region_group_settings" in url:
+            return httpx.Response(200, json=REGION_SETTINGS)
+        return httpx.Response(200, json=[])
+
+    card = _wire(handler).get("/cards/today", headers=AUTH_HEADERS).json()["cards"][0]
+
+    assert card["profile"]["academic_status"] == value
+    # 상대 카드 프로필을 읽는 select(닉네임 · 학과 칸이 있는 것)가 새 칸을 묻는다.
+    assert any({"nickname", "academic_status"} <= set(select.split(",")) for select in selects)
+
+
+def test_card_detail_carries_the_partners_academic_status():
+    """10b 상세(`GET /cards/{card_id}`)도 같은 `_card_profile` 로 신분을 싣는다."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "/rest/v1/daily_cards" in url:
+            return httpx.Response(200, json=[_live_card()])
+        if "/rest/v1/profiles" in url:
+            return httpx.Response(200, json=[{**TARGET_PROFILE, "academic_status": "alumni"}])
+        return httpx.Response(200, json=[])
+
+    body = _wire(handler).get("/cards/card-1", headers=AUTH_HEADERS).json()
+
+    assert body["profile"]["academic_status"] == "alumni"

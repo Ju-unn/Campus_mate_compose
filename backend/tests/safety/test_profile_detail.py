@@ -21,6 +21,7 @@ def test_before_the_gate_there_is_no_contact(client, world):
         "profile_id": PARTNER, "nickname": "여우비", "age": 24, "university": "테스트대학교",
         "major": "컴퓨터공학과",
         "avatar_url": "https://x.supabase.co/storage/v1/object/public/avatars/p2/a.png",
+        "academic_status": None,  # 신분 배지 재료(1.0.7 1-1) — 카드 계열 프로필과 같은 _card_profile
     }
     assert body["interests"] == ["영화"]
     assert body["survey"][0] == 0.5
