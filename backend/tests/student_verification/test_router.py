@@ -136,6 +136,16 @@ def test_status_sends_a_junk_department_back_to_school_info(department, has_scho
     assert _fetch_status().json()["has_school_info"] is has_school_info
 
 
+@pytest.mark.parametrize("old_student_number", ["7", "123", "2021", "2021123", "20211234", None])
+def test_status_does_not_send_an_old_student_number_back_to_school_info(old_student_number):
+    """3c 가 예전에 받은 1 · 3 · 4 · 7 · 8자리 학번을 가진 사람도 학과가 맞으면 3c 로 돌아가지 않는다 —
+    has_school_info 는 학과만 본다(학번은 2자리로 조인 뒤에도 다시 묻지 않는다, 할 일 #9)."""
+    gate_row = {**_gate_row("verified", department="컴퓨터공학과"), "student_number": old_student_number}
+    _wire(gate_row)
+
+    assert _fetch_status().json()["has_school_info"] is True
+
+
 @pytest.mark.parametrize("student_id", ["none", "pending", "verified", "rejected"])
 def test_old_app_contract_five_fields_and_the_status_is_always_verified(student_id):
     """옛 앱(빌드 15 · TF 16 · vc8)은 이 응답의 다섯 칸을 읽고 status != verified 면 학생증 화면(3b)으로 보낸다
@@ -218,23 +228,28 @@ def test_school_info_saves_whatever_the_student_id_state(student_id):
     assert dict(patch.url.params) == {"id": f"eq.{PROFILE_ID}"}
 
 
-@pytest.mark.parametrize("student_number", ["7", "21", "123"])
-def test_school_info_takes_one_to_three_digits(student_number):
+# 통과 · 거절 표는 PATCH /me/profile 학번 칸(tests/me/test_me_profile_update.py)과 같다 — 규칙도 me/schemas.py 하나다.
+@pytest.mark.parametrize("student_number", ["21", "05"])
+def test_school_info_takes_two_digits(student_number):
     sent = _wire(_gate_row("verified"))
 
     assert _post_school_info(student_number=student_number).status_code == 200
     assert json.loads(_calls(sent, "PATCH", "/rest/v1/profiles")[0].content)["student_number"] == student_number
 
 
-@pytest.mark.parametrize("student_number", ["2021", "2021123456", "21a", "이십일", "２１", " 21", "-1"])
-def test_school_info_turns_away_anything_but_one_to_three_digits(student_number):
+@pytest.mark.parametrize("student_number", [
+    # 앱 StudentNumber 시험(student_number_test.dart)의 거절 값과 같은 표(21자 값은 pydantic 목록 detail 이라 뺀다)
+    "1", "2", "7", "210", "123", "1234", "ab", "2 1", "２１", "a1", "2a", "", " 21", "21\n",
+    "2021", "2021123456", "21a", "이십일", "-1",
+])
+def test_school_info_turns_away_anything_but_two_digits(student_number):
     """앱(vc18 · TF 25)은 글자 키패드에 20자까지 보낸다 — 서버가 막고, 앱은 문자열 detail 을 입력칸 아래에 그대로 띄운다."""
     sent = _wire(_gate_row("verified"))
 
     response = _post_school_info(student_number=student_number)
 
     assert response.status_code == 422
-    # 글자 · 4자리 이상 모두 한 문구(10-29 사용자 결정 — 학번은 보통 2자리, 3자리는 혹시 몰라 둔 상한)
+    # 글자 · 1자리 · 3자리 이상 · 빈 값 모두 한 문자열 문구(1.0.7 할 일 #9 — 학번은 2자리)
     assert response.json()["detail"] == errors.STUDENT_NUMBER_INVALID == "숫자를 입력해 주세요"
     assert _calls(sent, "PATCH", "/rest/v1/profiles") == []
 
