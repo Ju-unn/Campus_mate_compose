@@ -4,7 +4,7 @@ part of 'area3.dart';
 // 같은 번호(계정 · 매칭을 만들고 DB 의 matches.created_at 만 옮긴 뒤 앱을 켠다. 아이디 · 나가기 · 수락 줄은 DB 에서 센다). 앱은 방을 열어 화면에서 본
 // 것을 Map 으로 돌려주고 판정은 PC 가 한다. 시간은 PC 가 옮긴 DB 시각뿐이다 — 폰 시계는 건드리지 않는다.
 // 화면 글자 · 위젯은 시나리오가 아니라 지금 화면 코드(chat_room_screen · trust_gate_sheet · chat_dialogs · kakao_id_settings_screen · chat_errors)에서 옮겼다.
-// 시트는 방을 열 때마다(`_maybeShowSheet`) 방 상태가 바뀔 때 뜨고, 24시간 경계는 방을 읽은 순간 걸리는 Timer(`_scheduleReminder`)가 맞춘다.
+// 시트는 방을 열 때마다(`_maybeShowSheet`) 방 상태가 바뀔 때 뜨고, 시트 경계(매칭 48시간 뒤)는 방을 읽은 순간 걸리는 Timer(`_scheduleReminder`)가 맞춘다.
 
 const _gateLeave = '거절하고 나가기'; // trust_gate_sheet.dart:91
 const _gateChange = '변경'; // trust_gate_sheet.dart:181 — 아이디 칸 오른쪽 TextButton
@@ -81,7 +81,7 @@ Future<Map<String, Object?>> _sheetOnBoundary(WidgetTester tester, Map<String, d
   final nickname = job['nickname'] as String;
   await _toConversations(tester);
   await pumpUntil(tester, _row(nickname));
-  await step('move'); // PC 가 방의 created_at 을 지금 − 23시간 59분으로 옮긴다 — 방을 읽기 전이라야 앱이 새 값을 받는다
+  await step('move'); // PC 가 방의 created_at 을 지금 − 47시간 59분으로 옮긴다 — 방을 읽기 전이라야 앱이 새 값을 받는다
   await tap(tester, _row(nickname));
   await pumpUntil(tester, _roomTitle(nickname));
   final openAt = _utcNow();
@@ -140,7 +140,7 @@ Future<Map<String, Object?>> _rejectAndLeave(WidgetTester tester, Map<String, dy
   return {'sheet': true, 'confirm': true, 'row_gone': gone};
 }
 
-/// E-CHAT-56 — 응답 기한(48시간)이 지난 방(배치는 아직)을 열어 시트의 "수락하고 공유하기"(시트는 확인 창이 없다)를 누르고, 방 뷰모델에 처음 뜬 오류 문구.
+/// E-CHAT-56 — 응답 기한(72시간)이 지난 방(배치는 아직)을 열어 시트의 "수락하고 공유하기"(시트는 확인 창이 없다)를 누르고, 방 뷰모델에 처음 뜬 오류 문구.
 /// 시트가 닫히며 dismissSheet 의 copyWith 가 오류 줄을 지울 수 있어 처음 값을 구독으로 잡고, 끝 값도 같이 말한다.
 Future<Map<String, Object?>> _acceptAfterDeadline(WidgetTester tester, Map<String, dynamic> job) async {
   await _openRoom(tester, job['nickname'] as String);
