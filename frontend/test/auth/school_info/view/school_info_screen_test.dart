@@ -91,7 +91,8 @@ void main() {
   Future<void> enterSchoolInfo(WidgetTester tester, String department, String studentNumber) async {
     await tester.enterText(find.byType(TextField).at(0), department);
     await tester.enterText(find.byType(TextField).at(1), studentNumber);
-    await tester.pump();
+    // 학과 오류는 손을 멈춘 뒤(300ms 디바운스) 뜬다 — 기다리지 않으면 시험 끝에 타이머가 남는다.
+    await tester.pump(const Duration(milliseconds: 350));
   }
 
   group('SchoolInfoScreen', () {
@@ -255,7 +256,16 @@ void main() {
     testWidgets('학과 · 학번 입력 상자는 52 · 모서리 12 · 테두리 hairline, placeholder 는 muted 다', (tester) async {
       await pumpScreen(tester);
 
-      for (final field in [find.byType(TextField).at(0), find.byType(TextField).at(1)]) {
+      // 학과 칸은 공용 LabeledField(PccKZ)라 테두리가 InputDecoration 에 있다(할 일 3 — 오류 줄을 그리려고 바꿨다).
+      final department = find.byType(TextField).at(0);
+      final decoration = tester.widget<TextField>(department).decoration!;
+      final border = decoration.enabledBorder! as OutlineInputBorder;
+      expect(tester.getSize(find.descendant(of: department, matching: find.byType(InputDecorator))).height, 52);
+      expect(border.borderRadius, BorderRadius.circular(AppRadius.input));
+      expect(border.borderSide, const BorderSide(color: AppColors.hairline));
+      expect(decoration.hintStyle!.color, AppColors.muted);
+
+      for (final field in [find.byType(TextField).at(1)]) {
         final container = find.ancestor(of: field, matching: find.byType(Container)).first;
         final box = tester.widget<Container>(container).decoration! as BoxDecoration;
         // TDM1r 56 → 52. 글자 한 줄(16 × 1.6)이 상자 안에서 잘리지 않아야 한다.
@@ -284,6 +294,26 @@ void main() {
       }
     });
 
+    // 할 일 3 · 대장 판정(11-24): 서버가 거절할 학과는 칸 아래에 서버와 같은 글을 띄우고 "다음" 을 끈다.
+    group('학과 미리 검사', () {
+      testWidgets('서버가 거절할 학과는 손을 멈추면 칸 아래 오류가 뜨고 다음이 꺼진다', (tester) async {
+        await pumpScreen(tester);
+
+        await enterSchoolInfo(tester, '...', '21');
+
+        expect(find.text('입력한 값을 다시 확인해 주세요'), findsOneWidget);
+        expect(find.byIcon(AppIcons.circleAlert), findsOneWidget);
+        expect(findCallToAction(tester).enabled, isFalse);
+      });
+
+      testWidgets('손대지 않은 빈 칸에는 오류가 없다', (tester) async {
+        await pumpScreen(tester);
+        await tester.pump(const Duration(milliseconds: 350));
+
+        expect(find.text('입력한 값을 다시 확인해 주세요'), findsNothing);
+      });
+    });
+
     testWidgets('학과·학번이 모두 비어 있으면 CTA 가 비활성이다', (tester) async {
       await pumpScreen(tester);
 
@@ -294,7 +324,7 @@ void main() {
       await pumpScreen(tester);
 
       await tester.enterText(find.byType(TextField).at(0), '컴퓨터공학과');
-      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
 
       expect(findCallToAction(tester).enabled, isFalse);
     });
