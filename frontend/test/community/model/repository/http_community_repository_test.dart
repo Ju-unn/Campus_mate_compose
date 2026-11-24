@@ -283,4 +283,59 @@ void main() {
       expect(await repository.deleteComment('c1'), isA<Success<void>>());
     });
   });
+  group('공지(할 일 21)', () {
+    test('목록 첫 쪽은 GET /community/notices 쿼리 없이, 다음 쪽은 맨 아래 공지의 시각(UTC)과 id 로 부른다', () async {
+      final urls = <String>[];
+      final repository = buildRepository(MockClient((request) async {
+        urls.add(request.url.toString());
+        return jsonResponse({'items': [], 'has_more': false});
+      }));
+
+      await repository.fetchNotices();
+      await repository.fetchNotices(before: (createdAt: DateTime.utc(2026, 11, 20, 5), id: 'n9'));
+
+      expect(urls[0], 'https://api.test/community/notices');
+      expect(Uri.parse(urls[1]).path, '/community/notices');
+      expect(Uri.parse(urls[1]).queryParameters, {'before': '2026-11-20T05:00:00.000Z', 'before_id': 'n9'});
+    });
+
+    test('목록은 items 와 has_more 를 읽고, 그림 주소는 서버 값 그대로다', () async {
+      final repository = buildRepository(MockClient((request) async => jsonResponse({
+            'items': [
+              {
+                'id': 'n1', 'title': '공지', 'text': '본문', 'image_url': 'https://img.test/n1.webp',
+                'created_at': '2026-11-24T05:00:00+00:00', 'is_new': true, 'comment_count': 3,
+              },
+            ],
+            'has_more': true,
+          })));
+
+      final result = await repository.fetchNotices();
+
+      result.when(
+        onSuccess: (page) {
+          expect(page.hasMore, isTrue);
+          expect(page.items.single.imageUrl, 'https://img.test/n1.webp');
+          expect(page.items.single.isNew, isTrue);
+        },
+        onFailure: (failure) => fail('$failure'),
+      );
+    });
+
+    test('상세는 같은 /community/items/{id} 이고 kind notice 면 공지 줄이다', () async {
+      final repository = buildRepository(MockClient((request) async {
+        expect(request.url.path, '/community/items/n1');
+        return jsonResponse({
+          'item': {
+            'id': 'n1', 'kind': 'notice', 'category': null, 'text': '본문', 'created_at': '2026-11-24T05:00:00+00:00',
+            'is_mine': false, 'comment_count': 0, 'poll': null, 'title': '공지', 'image_url': null,
+          },
+        });
+      }));
+
+      final result = await repository.fetchItem('n1');
+
+      result.when(onSuccess: (item) => expect(item.notice!.title, '공지'), onFailure: (failure) => fail('$failure'));
+    });
+  });
 }

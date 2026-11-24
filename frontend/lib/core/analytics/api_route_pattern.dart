@@ -64,6 +64,7 @@ abstract final class ApiRoutePattern {
     'my-traits',
     'next-step',
     'nickname-availability',
+    'notices',
     'notification-settings',
     'notifications',
     'paid',
