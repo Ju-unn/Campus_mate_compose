@@ -131,6 +131,12 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   final List<StreamSubscription<Object>> _pushSubscriptions = [];
   /// 알림을 눌러 연 경로. 라우터가 그대로 받아 줄 때까지 붙잡아 둔다([_openPendingPushRoute]).
   String? _pendingPushPath;
+  /// 관문 · 단계를 마지막으로 물은 사용자. 로그아웃하면 비워 같은 사람이 다시 들어와도 다시 묻는다.
+  String? _askedUserId;
+  /// 마지막 관문 조회가 실패했다 — 같은 사용자라도 다음 세션 알림(토큰 갱신)에 다시 묻는다.
+  bool _gateAskFailed = false;
+  /// 날아가는 중인 관문 조회(이 위젯이 보낸 것). 복귀 때 하나 더 보내지 않게 본다([_refreshGateOnResume]).
+  Future<void>? _gateAsk;
 
   @override
   void initState() {
@@ -163,11 +169,12 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
 
   /// 백그라운드에서 돌아오면 ① 업데이트가 필요한지 다시 묻고(오래 켜 둔 앱이 그 사이 정해진 최소 버전에 걸릴 수 있다 —
   /// 로그인 여부와 상관없어 [refreshOnResume] 의 로그인·관문 가드 밖에서 부른다) ② 대화·수락 대기를 다시 읽고
-  /// ③ 실패했던 알림 토큰 등록을 다시 보낸다.
+  /// ③ 실패했던 알림 토큰 등록을 다시 보내고 ④ 관문을 한 번 다시 묻는다([_refreshGateOnResume]).
   void _onResume() {
     ref.invalidate(updateRequirementProvider);
     _refreshChatsOnResume();
     _retryPushOnResume();
+    _refreshGateOnResume();
   }
 
   /// 서버 · 시스템 문제로 실패한 알림 토큰 등록을 다시 보낸다(1.0.7 #10). [_startPush] 를 지난 세션만 — 그 전에는 registrar 를 만들지 않는다.
@@ -175,6 +182,15 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
     if (_pushSubscriptions.isNotEmpty) {
       unawaited(ref.read(pushRegistrarProvider).retry());
     }
+  }
+
+  /// 돌아오면 관문만 한 번 다시 묻는다 — 약관이 개정되면 재동의를 바로 띄운다(약관 재동의는 법적인 일이라 코드로 잡는다).
+  /// 같은 사용자의 토큰 갱신은 관문을 묻지 않아([_askGateAndStep]) 여기서 잡는다. 로그아웃 중이거나 이미 묻는 중이면 보내지 않는다.
+  void _refreshGateOnResume() {
+    if (!_authSession.isAuthenticated || _gateAsk != null) {
+      return;
+    }
+    _askGate(Supabase.instance.client.auth.currentUser?.id);
   }
 
   /// 어느 탭에 있든 돌아오면 대화 목록·수락 대기를 다시 읽는다. 로그아웃·관문 미완료 가드는 함수 안에 있다.
@@ -210,19 +226,43 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   /// 탈퇴(직접 16c 든 다른 기기에서든)면 시작 화면용 알림을 남기고 로그아웃한다 — 로그아웃은 여기 한 곳뿐이다.
   void _signOutWhenWithdrawn() => signOutWhenWithdrawn(_accountStatus.value, ref.read(signOutProvider));
 
-  /// 세션이 바뀔 때마다 게이트·온보딩 단계를 다시 조회한다.
+  /// 세션 알림마다 부른다 — 게이트·온보딩 단계 조회는 [_askGateAndStep] 이 거른다.
   /// 로그아웃하면 조회에 쓸 토큰이 없고, 앞 사용자의 통과 상태를
   /// 다음 사용자가 물려받으면 안 되므로 캐시를 비운다.
   void _refreshVerificationGate() {
     _syncUserChannel();
     _syncCollection();
     if (!_authSession.isAuthenticated) {
+      _askedUserId = null;
       _forgetSession();
       return;
     }
-    unawaited(_verificationGate.refresh());
-    unawaited(_onboardingStep.refresh());
+    _askGateAndStep();
     _startPush();
+  }
+
+  /// 로그인한 사용자가 바뀌었거나 앞 조회가 실패했을 때만 묻는다(1.0.7 #6 ①). gotrue 의 세션 알림은 지난 이벤트를
+  /// 다시 주는 스트림이라 켤 때 이미 받은 initialSession 이 한 박자 늦게 또 오고, 토큰 갱신도 한 시간쯤마다 온다.
+  void _askGateAndStep() {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == _askedUserId && !_gateAskFailed && !_onboardingStep.isUnreachable) {
+      return;
+    }
+    _askedUserId = userId;
+    _gateAskFailed = false;
+    _askGate(userId);
+    unawaited(_onboardingStep.refresh());
+  }
+
+  /// [userId] 의 관문을 묻고 실패 표시를 맞춘다. 그새 사용자가 바뀌었으면 앞 사용자의 늦은 답으로 새 사용자의 표시를 덮지 않는다.
+  void _askGate(String? userId) {
+    final ask = _verificationGate.refresh().then((answered) {
+      if (userId == _askedUserId) _gateAskFailed = !answered;
+    });
+    _gateAsk = ask;
+    unawaited(ask.whenComplete(() {
+      if (identical(_gateAsk, ask)) _gateAsk = null;
+    }));
   }
 
   /// 세션이 없어졌을 때(로그아웃 · 탈퇴 · gotrue 가 갱신 실패로 세션을 스스로 버린 경우 모두) 앞 사용자의 것을 비운다.
