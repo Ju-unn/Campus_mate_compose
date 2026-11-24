@@ -40,7 +40,6 @@ class OnboardingAppBar extends StatelessWidget implements PreferredSizeWidget {
       toolbarHeight: 56,
       backgroundColor: AppColors.canvas,
       elevation: 0,
-      scrolledUnderElevation: 0,
       automaticallyImplyLeading: false,
       centerTitle: true,
       titleSpacing: 0,

@@ -50,7 +50,6 @@ class SchoolInfoScreen extends ConsumerWidget {
       toolbarHeight: 56,
       backgroundColor: AppColors.canvas,
       elevation: 0,
-      scrolledUnderElevation: 0,
       automaticallyImplyLeading: false,
       title: Text(context.l10n.authSchoolInfoTitle, style: AppTypography.navTitle.copyWith(color: AppColors.ink)),
     );

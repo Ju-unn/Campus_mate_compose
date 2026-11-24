@@ -224,7 +224,6 @@ class _BackAppBar extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       toolbarHeight: 56,
       backgroundColor: AppColors.canvas,
-      scrolledUnderElevation: 0,
       automaticallyImplyLeading: false,
       leadingWidth: AppSpacing.sm + 48,
       leading: Padding(
