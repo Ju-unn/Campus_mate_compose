@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:campus_mate/auth/school_info/model/data/student_number.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
@@ -503,6 +504,14 @@ void main() {
       expect((await read({'accepts_smoker': false})).acceptsSmoker, isFalse);
     });
 
+    // 15-6 학번 칸을 채운다. 옛 값은 2자리가 아닐 수 있어(4 · 7 · 8자리) 글자 그대로 읽는다.
+    test('student_number 를 글자 그대로 읽는다 — null 이거나 키가 없으면(옛 서버) null', () async {
+      expect((await read({'student_number': '21'})).studentNumber, '21');
+      expect((await read({'student_number': '20211234'})).studentNumber, '20211234');
+      expect((await read({'student_number': null})).studentNumber, isNull);
+      expect((await read(const {})).studentNumber, isNull);
+    });
+
     test('accepts_smoker 가 null 이거나 키가 아예 없어도(옛 서버) null 로 읽는다', () async {
       expect((await read({'accepts_smoker': null})).acceptsSmoker, isNull);
       expect((await read(const {})).acceptsSmoker, isNull);
@@ -540,6 +549,18 @@ void main() {
       final body = await sent((repository) => repository.updateProfile(clearMbti: true));
 
       expect(body, {'mbti': null});
+    });
+
+    test('학번은 2자리 글자로 보낸다', () async {
+      final body = await sent((repository) => repository.updateProfile(studentNumber: StudentNumber.tryParse('05')));
+
+      expect(body, {'student_number': '05'});
+    });
+
+    test('학번을 안 건드리면 student_number 키가 아예 없다 — 서버는 옛 값을 그대로 둔다', () async {
+      final body = await sent((repository) => repository.updateProfile(heightCm: 180));
+
+      expect(body, {'height_cm': 180});
     });
 
     test('MBTI 를 안 건드리면 mbti 키가 아예 없다 — null 로 지우지 않는다', () async {

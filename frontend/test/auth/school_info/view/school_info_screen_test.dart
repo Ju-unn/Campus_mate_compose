@@ -206,15 +206,43 @@ void main() {
 
       expect(find.text('학과 · 필수'), findsOneWidget);
       expect(find.text('예: 컴퓨터공학과'), findsOneWidget);
-      expect(find.text('학번 · 필수'), findsOneWidget);
-      expect(find.text('예: 21'), findsOneWidget);
+      expect(find.text('학부 입학 학번 · 필수'), findsOneWidget);
+      expect(find.text('예: 21 (2자리)'), findsOneWidget);
     });
 
-    // 학번 칸(2026-11-02 앱 1.0.1): 숫자 키패드 · 숫자만 · 3자리에서 멈춘다 — 서버 규칙 `[0-9]{1,3}` 과 같다.
+    // 할 일 #1: 대학원생도 학부 입학 학번을 적게 칸 아래 도움말을 둔다 — LabeledField 도움말과 같은 caption · muted.
+    testWidgets('학번 칸 아래에 대학원생 안내 도움말을 보여준다', (tester) async {
+      await pumpScreen(tester);
+
+      final helper = find.text('대학원생은 학부 입학 학번을 적어 주세요');
+      expect(helper, findsOneWidget);
+      expect(tester.widget<Text>(helper).style, AppTypography.caption.copyWith(color: AppColors.muted));
+      // 학번 칸 바로 아래, 공개 범위 안내보다 위.
+      expect(tester.getTopLeft(helper).dy, greaterThan(tester.getBottomLeft(find.byType(TextField).at(1)).dy));
+      expect(tester.getTopLeft(helper).dy, lessThan(tester.getTopLeft(find.text('학교·학과·학번은 카드와 프로필에 공개돼요.')).dy));
+    });
+
+    // 학번 칸(할 일 #9 A안, 사용자 결정 11-24): 숫자 키패드. 잘라 내거나 걸러 내지 않는다 — 친 그대로 두고, 2자리 숫자가 아니면
+    // 칸 아래 "두 자리 숫자로 입력해 주세요"(15-6 과 같은 키)로 막는다. 서버는 옛 앱 호환으로 아직 1~3자리를 받는다.
     group('학번 칸 입력 제한', () {
+      const invalid = '두 자리 숫자로 입력해 주세요';
+      const helper = '대학원생은 학부 입학 학번을 적어 주세요';
       Finder numberField() => find.byType(TextField).at(1);
       String shownNumber(WidgetTester tester) =>
           tester.widget<EditableText>(find.descendant(of: numberField(), matching: find.byType(EditableText))).controller.text;
+
+      /// 칸 바로 아래 caption · error 한 줄로 안내가 뜨고(도움말 자리), 다음이 꺼져 눌러도 보내지 않는다.
+      Future<void> expectBlocked(WidgetTester tester) async {
+        final message = find.text(invalid);
+        expect(message, findsOneWidget);
+        expect(tester.widget<Text>(message).style, AppTypography.caption.copyWith(color: AppColors.error));
+        expect(tester.getTopLeft(message).dy, greaterThan(tester.getBottomLeft(numberField()).dy));
+        expect(find.text(helper), findsNothing);
+        expect(findCallToAction(tester).enabled, isFalse);
+        await tester.tap(find.text('다음'));
+        await tester.pumpAndSettle();
+        expect(repository.submittedStudentNumbers, isEmpty);
+      }
 
       testWidgets('숫자 키패드를 띄운다', (tester) async {
         await pumpScreen(tester);
@@ -223,32 +251,64 @@ void main() {
         expect(tester.widget<TextField>(find.byType(TextField).at(0)).keyboardType, isNot(TextInputType.number));
       });
 
-      testWidgets('4자리를 넣어도 3자리에서 멈추고 다음이 켜진다', (tester) async {
+      testWidgets('한 자씩 "123" 을 치면 2자리에서 멈추지 않고 그대로 남아 안내 · 다음 꺼짐', (tester) async {
         await pumpScreen(tester);
-
-        await enterSchoolInfo(tester, '컴퓨터공학과', '1234');
+        await tester.enterText(find.byType(TextField).at(0), '컴퓨터공학과');
+        for (final typed in ['1', '12', '123']) {
+          await tester.enterText(numberField(), typed);
+        }
+        await tester.pump();
 
         expect(shownNumber(tester), '123');
-        expect(findCallToAction(tester).enabled, isTrue);
+        await expectBlocked(tester);
       });
 
-      testWidgets('숫자가 아닌 글자는 들어가지 않아 다음이 꺼져 있다', (tester) async {
+      testWidgets('"123" 을 한 번에 붙여 넣어도 "12" 로 잘리지 않고 안내 · 다음 꺼짐', (tester) async {
+        await pumpScreen(tester);
+
+        await enterSchoolInfo(tester, '컴퓨터공학과', '123');
+
+        expect(shownNumber(tester), '123');
+        await expectBlocked(tester);
+      });
+
+      testWidgets('1자리면 안내가 뜨고 다음이 꺼져 있다', (tester) async {
+        await pumpScreen(tester);
+
+        await enterSchoolInfo(tester, '컴퓨터공학과', '1');
+
+        expect(shownNumber(tester), '1');
+        await expectBlocked(tester);
+      });
+
+      testWidgets('숫자가 아닌 글자(전각 숫자 포함)는 지우지 않고 그대로 두어 안내 · 다음 꺼짐', (tester) async {
         await pumpScreen(tester);
 
         await enterSchoolInfo(tester, '컴퓨터공학과', 'ab２');
 
-        expect(shownNumber(tester), '');
+        expect(shownNumber(tester), 'ab２');
+        await expectBlocked(tester);
+      });
+
+      testWidgets('비어 있으면 안내 없이 도움말만 두고 다음은 꺼져 있다', (tester) async {
+        await pumpScreen(tester);
+
+        await enterSchoolInfo(tester, '컴퓨터공학과', '');
+
+        expect(find.text(invalid), findsNothing);
+        expect(find.text(helper), findsOneWidget);
         expect(findCallToAction(tester).enabled, isFalse);
       });
 
-      testWidgets('3자리를 제출하면 그대로 보낸다', (tester) async {
+      testWidgets('2자리면 안내 없이 다음이 켜지고 그대로 보낸다', (tester) async {
         await pumpScreen(tester);
-        await enterSchoolInfo(tester, '컴퓨터공학과', '1234');
+        await enterSchoolInfo(tester, '컴퓨터공학과', '21');
 
+        expect(find.text(invalid), findsNothing);
         await tester.tap(find.text('다음'));
         await tester.pumpAndSettle();
 
-        expect(repository.submittedStudentNumbers.single.toRequestValue(), '123');
+        expect(repository.submittedStudentNumbers.single.toRequestValue(), '21');
       });
     });
 

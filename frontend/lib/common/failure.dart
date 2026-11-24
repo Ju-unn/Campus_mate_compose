@@ -191,6 +191,10 @@ enum AppError {
   heightRange,
   phoneInvalid,
 
+  /// 학번 칸 아래 한 줄(3c · 15-6 같은 키). 앱이 미리 막는 안내라 서버 422 STUDENT_NUMBER_INVALID 문구와는 글자가 다르다
+  /// (서버가 거절하면 그 문구를 그대로 보인다).
+  studentNumberInvalid,
+
   /// 학과(3c) · 카카오톡 아이디(04-1b · 16e-1, 공백 말고 다른 이유) 칸을 서버가 받지 않을 모양으로 썼다
   /// (`common/input_rules.dart`). 서버가 같은 값에 주는 422 글과 같다.
   invalidInput,
