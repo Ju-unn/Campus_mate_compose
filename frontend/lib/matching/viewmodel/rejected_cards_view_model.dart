@@ -100,12 +100,13 @@ class RejectedCardsViewModel extends Notifier<RejectedCardsUiState> {
 
   /// 받은 신청에 한 거절 → 되돌려 바로 매칭. 매칭됐으면 매칭 화면(12)으로 보낼 값이다.
   /// 대화 목록은 서버의 `room_changed` 신호와 대화 탭 진입이 다시 읽는다(받은 신청 수락과 같다).
-  Future<MatchMadeArgs?> undo(String cardId) async {
-    final nickname = state.cards.find(cardId)?.profile.nickname;
+  /// 목록에 그 줄이 없으면(프로필 화면을 바로 열었다) 화면이 읽은 [nickname] 을 쓴다 — 매칭됐는데 무반응이 되지 않게.
+  Future<MatchMadeArgs?> undo(String cardId, {String? nickname}) async {
+    final shownNickname = state.cards.find(cardId)?.profile.nickname ?? nickname;
     final result = await _submit(cardId, (repository) => repository.undoAcceptanceRejection(cardId));
     final outcome = result?.when(onSuccess: (outcome) => outcome, onFailure: (_) => null);
-    if (outcome == null || !outcome.matched || nickname == null) return null;
-    return (nickname: nickname, matchId: outcome.matchId);
+    if (outcome == null || !outcome.matched || shownNickname == null) return null;
+    return (nickname: shownNickname, matchId: outcome.matchId);
   }
 
   /// 보내는 중이면 null(연타). 버려졌으면 받은 결과만 돌려주고 상태는 건드리지 않는다.

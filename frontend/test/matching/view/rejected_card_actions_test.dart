@@ -5,10 +5,13 @@ import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/matching/model/data/acceptance.dart';
+import 'package:campus_mate/matching/model/data/card_detail.dart';
 import 'package:campus_mate/matching/model/data/card_profile.dart';
 import 'package:campus_mate/matching/model/data/rejected_card.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/matching/view/rejected_card_actions.dart';
+import 'package:campus_mate/matching/viewmodel/acceptance_detail_view_model.dart';
+import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,8 +27,13 @@ const _rows = Success(RejectedCards([
 /// 거절한 카드 · 프로필 보기 아래 버튼(pen hhlWE DJ46i: 폭 꽉 · 56 · primary · 모서리 8 · heart 20 + 18/700).
 /// 받은 신청 출처는 [수락하기](사용자 선택, 대장 확정 11-24) — 팝업 없이 바로 매칭 화면.
 void main() {
-  Future<FakeCardRepository> pump(WidgetTester tester, RejectedSource source, {FakeCardRepository? fake}) async {
-    final repository = (fake ?? FakeCardRepository())..rejected = _rows;
+  Future<FakeCardRepository> pump(
+    WidgetTester tester,
+    RejectedSource source, {
+    FakeCardRepository? fake,
+    Result<RejectedCards> rows = _rows,
+  }) async {
+    final repository = (fake ?? FakeCardRepository())..rejected = rows;
     final cardId = source == RejectedSource.card ? 'card-1' : 'card-2';
     final container = ProviderContainer(overrides: [cardRepositoryProvider.overrideWithValue(repository)]);
     addTearDown(container.dispose);
@@ -152,6 +160,37 @@ void main() {
 
     expect(repository.undoneCardIds, ['card-2']);
     expect(find.text('다시 대화를 신청할까요?'), findsNothing);
+    expect(find.text('매칭 봄비'), findsOneWidget);
+  });
+
+  testWidgets('목록에 그 줄이 없어도 프로필 화면이 읽은 닉네임으로 매칭 화면(12)에 간다', (tester) async {
+    final detail = CardDetail(
+      cardId: 'card-2',
+      profile: const CardProfile(nickname: '봄비', age: 22),
+      survey: List.filled(9, 0.5),
+      animalType: AnimalType.cat,
+      impressionType: ImpressionType.chic,
+      religion: Religion.none,
+      isSmoker: false,
+      interests: const [],
+      myTraits: const [],
+      idealTraits: const [],
+    );
+    await pump(
+      tester,
+      RejectedSource.acceptance,
+      fake: FakeCardRepository()..acceptanceDetail = Success(detail),
+      rows: const Success(RejectedCards.empty),
+    );
+    // 실제 화면(ReadOnlyProfileScreen)은 같은 키를 watch 한다 — 그 자리를 대신 붙잡는다.
+    final container = ProviderScope.containerOf(tester.element(find.byType(RejectedProfileAction)));
+    final keep = container.listen(acceptanceDetailViewModelProvider('card-2'), (_, _) {});
+    addTearDown(keep.close);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('수락하기'));
+    await tester.pumpAndSettle();
+
     expect(find.text('매칭 봄비'), findsOneWidget);
   });
 }

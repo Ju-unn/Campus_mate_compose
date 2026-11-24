@@ -322,6 +322,16 @@ void main() {
       expect(repository.fetchRejectedCount, 2);
     });
 
+    test('목록에 그 줄이 없어도(프로필 화면에서 바로) 화면이 준 닉네임으로 매칭 화면 값을 돌려준다', () async {
+      repository.rejected = const Success(RejectedCards([_mine]));
+      await loaded();
+      repository.undoResult = const Success(AcceptanceOutcome(matched: true, matchId: 'match-9'));
+
+      final matched = await viewModel().undo('card-2', nickname: '봄비');
+
+      expect(matched, (nickname: '봄비', matchId: 'match-9'));
+    });
+
     test('연타 두 번째의 409 는 서버 문구를 보이고 그 줄을 빼고 목록을 다시 읽는다', () async {
       await loaded();
       repository.undoResult = _answered;

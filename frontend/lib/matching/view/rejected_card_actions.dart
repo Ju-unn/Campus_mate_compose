@@ -9,6 +9,7 @@ import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/matching/model/data/acceptance.dart';
 import 'package:campus_mate/matching/model/data/rejected_card.dart';
+import 'package:campus_mate/matching/viewmodel/acceptance_detail_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/rejected_cards_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -35,8 +36,9 @@ Future<bool?> confirmAndReapply(BuildContext context, WidgetRef ref, String card
 
 /// [수락하기](받은 신청에 한 거절 되돌리기) — 매칭되면 매칭 화면(12)으로 보낼 값.
 /// 확인 팝업 없이 바로 보낸다(사용자 결정 「받은 신청 되돌리기 = 바로 매칭」, 대장 확정 11-24).
-Future<MatchMadeArgs?> undoRejection(BuildContext context, WidgetRef ref, String cardId) =>
-    ref.read(rejectedCardsViewModelProvider.notifier).undo(cardId);
+/// [nickname] 은 목록에 그 줄이 없을 때 매칭 화면에 쓸 이름이다(프로필 화면이 읽은 값).
+Future<MatchMadeArgs?> undoRejection(BuildContext context, WidgetRef ref, String cardId, {String? nickname}) =>
+    ref.read(rejectedCardsViewModelProvider.notifier).undo(cardId, nickname: nickname);
 
 /// 거절한 카드 · 프로필 보기의 아래 버튼(pen hhlWE DJ46i: 폭 꽉 · 56 · primary · 모서리 8 · heart 20 + 8 + 18/700).
 /// AppButton 작은 크기(모서리 8 · 18/700)에 높이만 56 이다(대장 판정 6).
@@ -73,7 +75,8 @@ class RejectedProfileAction extends ConsumerWidget {
   }
 
   Future<void> _undo(BuildContext context, WidgetRef ref) async {
-    final matched = await undoRejection(context, ref, cardId);
+    final nickname = ref.read(acceptanceDetailViewModelProvider(cardId)).detail?.profile.nickname;
+    final matched = await undoRejection(context, ref, cardId, nickname: nickname);
     if (!context.mounted) return;
     if (matched == null) {
       _showFailure(context, ref);
