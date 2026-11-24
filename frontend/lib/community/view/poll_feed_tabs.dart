@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/community/model/data/community_category.dart';
 import 'package:campus_mate/community/model/data/community_feed_tab.dart';
-import 'package:campus_mate/community/model/repository/community_tab_hint_store.dart';
 import 'package:campus_mate/community/view/community_category_look.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -21,20 +20,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// 15d 탭 줄(pen 17 `J0vMj5` > StoryStrip `qZ5qm`): 폭 꽉 · 안쪽 [4,16,12,16] · 탭 7개(`XfcKQ` 72×86) 사이 4 ·
 /// 바탕 투명(뒤 canvas 흰) · 아래 구분선 없음. 앱바 `bottom` 에 꽂아 목록과 같이 스크롤되지 않는다 — 높이는 [heightFor].
 /// 합 528 이 화면보다 넓어 가로로 민다 — 360 폭에서 5번째 탭이 반쯤 보이는 것이 pen 의도다.
-/// 밀 수 있다는 안내(19-3, pen 25-F1 `MUBW9` · `RXFHp`): 계정별 처음 [hintTimes] 번 들어올 때만 [hintDelay] 뒤
-/// 끝까지 갔다가 돌아온다(왕복 [hintRoundTrip]). 손이 닿으면 그 자리에 멈추고, 동작 줄이기 · 앱 투어 중 ·
-/// 밀 것이 없으면 움직이지 않는다. 실제로 움직였을 때만 센다(손이 닿아 멈춘 것도 1번).
+/// 밀 수 있다는 안내(19-3, pen 25-F1 `MUBW9` · `RXFHp`): 커뮤니티에 들어올 때마다 [hintDelay] 뒤 한 번
+/// 끝까지 갔다가 돌아온다(왕복 [hintRoundTrip], 사용자 결정 11-25). 손이 닿으면 그 자리에 멈추고, 동작 줄이기 ·
+/// 앱 투어 중 · 밀 것이 없으면 움직이지 않는다.
 class PollFeedTabs extends ConsumerStatefulWidget {
   const PollFeedTabs({required this.selected, required this.onSelected, super.key});
 
-  /// 안내 움직임 왕복 시간(가기 절반 · 오기 절반). 폰 시험에서 "더 느리게" 면 이 한 줄만 바꾼다.
-  static const Duration hintRoundTrip = Duration(milliseconds: 2500);
+  /// 안내 움직임 왕복 시간(가기 절반 · 오기 절반). 폰에서 보고 빠르기를 고치면 이 한 줄만 바꾼다.
+  static const Duration hintRoundTrip = Duration(seconds: 4);
 
   /// 화면이 뜨고 움직임이 시작되기까지(탭 전환이 끝난 뒤 보이게).
   static const Duration hintDelay = Duration(milliseconds: 400);
-
-  /// 계정별로 움직이는 횟수.
-  static const int hintTimes = 3;
 
   /// 안내 움직임을 켤지. E2E 진입점(`integration_test/e2e_test.dart`)이 `app.main()` 전에 끈다 —
   /// 하네스는 가설마다 새 계정이라 움직이는 줄을 누르면 중간에 멈춰 다음 탭 찾기가 빗나갈 수 있다.
@@ -100,26 +96,17 @@ class _PollFeedTabsState extends ConsumerState<PollFeedTabs> with SingleTickerPr
     super.dispose();
   }
 
-  Future<void> _play() async {
+  void _play() {
     if (!mounted || !PollFeedTabs.hintEnabled) return;
-    final profileId = ref.read(tourAccountIdProvider)();
     if (_touched ||
-        profileId == null ||
+        // 로그인 전(계정 모름)이면 커뮤니티가 아니다. 이 값을 덮지 않는 위젯 시험에서도 움직이지 않게 된다.
+        ref.read(tourAccountIdProvider)() == null ||
         MediaQuery.disableAnimationsOf(context) ||
         ref.read(appTourViewModelProvider).active ||
         !_scroll.hasClients ||
         _scroll.position.maxScrollExtent <= 0) {
       return;
     }
-    final store = ref.read(communityTabHintStoreProvider);
-    try {
-      if (await store.playedCount(profileId) >= PollFeedTabs.hintTimes || !mounted || _touched) return;
-      await store.markPlayed(profileId);
-    } on Object catch (error) {
-      debugPrint('탭 줄 안내 기록을 못 읽어 움직이지 않는다 (${error.runtimeType})');
-      return;
-    }
-    if (!mounted || _touched) return;
     final end = _scroll.position.maxScrollExtent;
     final there = CurveTween(curve: AppMotion.floatCurve);
     final path = TweenSequence<double>([
