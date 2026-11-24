@@ -810,6 +810,22 @@ def test_accepting_twice_is_refused_and_writes_one_system_line():
     assert calls.messages == []
 
 
+@pytest.mark.parametrize(("created_at", "status"), [
+    ("2026-09-20T13:00:00+09:00", 200),  # 49시간째 — 시트가 뜬 뒤(48시간)도 기한 안이다
+    ("2026-09-19T14:01:00+09:00", 200),  # 71시간 59분째 — 기한 1분 전
+    ("2026-09-19T14:00:00+09:00", 409),  # 딱 72시간 — 기한
+])
+def test_accepting_is_open_until_72_hours_after_the_match(created_at, status):
+    """기한은 매칭 72시간 뒤다(사용자 11-24). 옛 48시간에서 막거나 72시간을 넘겨 받으면 여기서 깨진다(NOW = 22일 14:00)."""
+    response = _wire(_handler(_Calls(), _match(created_at=created_at))).post(
+        f"/chat/matches/{MATCH_ID}/trust", headers=AUTH_HEADERS
+    )
+
+    assert response.status_code == status, response.json()
+    if status == 409:
+        assert response.json()["detail"] == "응답 기한이 지났어요"
+
+
 def test_accepting_after_the_deadline_is_refused():
     late = _match(created_at="2020-09-22T10:00:00+09:00")
     response = _wire(_handler(_Calls(), late)).post(
