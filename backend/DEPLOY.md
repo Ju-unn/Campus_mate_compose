@@ -1707,6 +1707,40 @@ INFO 를 켠 로거는 핸들러를 직접 달아서 같은 로거의 WARNING �
 | 옛 앱(1.0.6) 영향 | 없음 — 옛 앱은 `student_number` 를 보내지 않고 모르는 응답 키를 무시한다. 순서는 서버 먼저 → 앱 1.0.7 |
 | 시험 | `backend/tests/me/test_me_profile_update.py`(학번 절) · `test_me_profile.py` |
 
+## 커뮤니티 게시물 + 카테고리 (할 일 19, 브랜치 `feat/community-posts`) (PR #793) — **아직 merge 전 · DB 미적용 · 서버 미배포**
+
+설계 `docs/superpowers/specs/2026-11-24-community-posts-design.md`(A안: `polls` 한 표에 투표 · 게시물). 마이그레이션 `20261123155829_community_posts_category`, 시험 `supabase/tests/community_posts_test.sql` · `backend/tests/community/test_community_items.py`.
+
+**배포 순서: DB → 서버 → 1.0.7 앱.** 새 서버는 DB 함수 `create_community_item` · `community_feed` 를 부르므로 DB 보다 먼저 올리면 글 올리기(옛 `POST /community/polls` 포함)와 새 피드가 500 이다. DB 만 먼저 올라간 동안 옛 서버는 그대로 돈다(`poll_feed` · `cast_poll_vote` 는 인자 · 반환이 같고 게시물만 거르며, `create_poll` 은 인자 · 반환 그대로 `create_community_item` 에 넘긴다). 서버를 되돌려도 `poll_feed` 가 게시물을 걸러 1.0.6 화면에 게시물이 섞이지 않는다.
+
+| 길 | 계약 |
+| --- | --- |
+| `GET /community/feed?tab=&before=&before_id=` | `{items, has_more}`. 줄 = `{id, kind, category, text, created_at, is_mine, comment_count, poll}`, `poll` = `{option_a_label, option_b_label, a_count, b_count, my_choice}` 또는 게시물이면 null. **작성자 칸 없음.** 탭 `all` · `popular` · `mine` · `voted` · `free` · `career` · `love`(그 밖 422). 인기는 최근 7일 · 참여(표 + 보이는 댓글) 순 한 쪽이라 커서를 받지 않는다(422) |
+| `GET /community/items/{id}` | `{item}`. 없음 · 가려짐 · 떠난 글쓴이 404 "글을 찾을 수 없어요" |
+| `POST /community/posts` | `{category, body}` → 201 `{id}`. 본문 여러 줄 · 앞뒤 공백 자름 · 1~500자 · 보이는 글자 필수 · 널 · 제어 · 글 방향 문자 거절. 카테고리 세 값만(그 밖 · 없음 422). 하루 10개는 **투표 + 게시물 합산** — 넘으면 429 "오늘은 글을 더 올릴 수 없어요" |
+| `DELETE /community/items/{id}` · `GET` · `POST /community/items/{id}/comments` | 옛 `/community/polls/…` 와 같은 처리 함수. 없음 404 문구만 "글을 찾을 수 없어요", 댓글 푸시 제목은 투표 · 게시물 모두 "내 글에 새 댓글이 달렸어요" |
+| 옛 `GET /community/polls` · `/community/polls/{id}` | 투표만, 응답 모양 그대로(1.0.6) |
+| 옛 `POST /community/polls` | `category` **선택 칸**을 더했다 — 없으면 `free`, 세 값 밖이면 422. 하루 한도는 게시물과 합산되지만 문구는 그대로 "오늘은 질문을 더 올릴 수 없어요". 옛 `/community/polls/…` 의 404 · 푸시 제목도 그대로 |
+| 신고 `POST /reports` | `target_type` 은 게시물도 `poll`. 게시물이면 스냅샷에 `kind` · `category` 가 더해지고 선택지는 null(관리자 웹은 "—" 로 그린다) |
+
+## 1.0.7 거절 되돌리기 — 거절한 카드 다시 신청 · 받은 신청 거절 되돌리기 (할 일 #20, 브랜치 `feat/card-reapply`) — **아직 merge 전 · 운영 DB 미적용 · 서버 미배포** (PR #796)
+
+DB 마이그레이션 1개(`20261123161541_card_decisions_rejected_at` — `card_decisions` · `acceptance_responses` 에 `rejected_at timestamptz null`, RLS · grant 변경 없음)와 서버 코드. 새 env · 시크릿 · job 은 없다. 규칙은 `backend/app/cards/reapply.py` 한 곳에 있다: 기한은 **내가 거절한 시각부터 7일(`REAPPLY_WINDOW_DAYS`), 서버 시계**, 카드 `expires_at` 은 보지 않고 하트도 쓰지 않는다. **한 장에 한 번만**(2026-11-24 사용자 확정) — 되돌리면 그 행의 `decision` 이 `accept` 가 되어 "아직 거절" 조건에 다시 걸리지 않는다. 저장은 "아직 거절 · 7일 안" 을 조건으로 건 PATCH 하나라 연타 · 동시 요청의 두 번째는 0행 → 409 이고 알림 · 매칭이 없다(받은 신청 되돌리기는 매칭이 생긴 뒤 다시 누르면 숨김 관문에서 404). 되돌린 행의 `decided_at` 이 되돌린 시각으로 바뀌어 `match_candidates` 의 90일 쉬기 기준도 그 시각으로 밀린다.
+
+| 길 | 계약 |
+| --- | --- |
+| `POST /cards/{card_id}/reapply` (본문 없음) | (a) 내 카드 거절 → 다시 대화 신청. 200 `{"ok": true}`. 없는 카드 · 남의 카드(사지 않은 유료 제안 id 포함) · 숨김 상대(차단 양쪽 · 지인 차단 · 정지 · 탈퇴 · 가림 · 이미 매칭) · 결정 전 · 거절 7일 지남은 **모두 같은 404 `CARD_NOT_FOUND`**(본문까지 같다), 이미 수락한 카드 · 동시 요청의 두 번째는 409 `CARD_ALREADY_DECIDED`. 성공하면 `decided_at` = 다시 신청 시각, `rejected_at` = 원래 거절 시각이고, 상대에게 처음 수락과 **똑같은** "대화 신청이 왔어요" 알림(`acceptance_received`, data `{route: acceptances, card_id}`)이 간다. 보낸 신청 목록에는 `waiting`(보낸 시각 = 다시 신청 시각, 기한 = 그 뒤 7일)으로 보인다 |
+| `POST /cards/acceptances/{card_id}/reapply` (본문 없음) | (b) 받은 신청에 내가 한 거절 → 되돌려 **바로 매칭**(사용자 「바로 매칭」). 200 `{"matched": true, "match_id": …}`(수락 응답과 같은 모양). 없는 카드 · 받은 사람이 내가 아님 · 상대가 수락 안 함 · 숨김 · 이미 매칭 · 응답 없음 · 내 거절 7일 지남 · **상대 신청의 원래 기한(상대 수락 + 7일) 지남**은 모두 같은 404 `ACCEPTANCE_NOT_FOUND`, 수락으로 답했거나 동시 요청의 두 번째면 409 `ACCEPTANCE_ALREADY_ANSWERED`. 매칭은 평소 수락과 같은 `_make_match`(매칭 행 · 대화방 · `room_changed` · 양쪽 `match_made` 알림)라 카드 주인에게 되돌림 흔적이 없다. 매칭 쓰기가 끊기면 받은 신청 목록(`GET /cards/acceptances`)의 끊긴 매칭 이어 만들기가 accept 응답을 보고 잇는다. 카드 주인의 보낸 신청 줄은 `rejected` 에서 `matched` 로 바뀐다 |
+| `GET /cards/rejected` | `{"rejected": [{card_id, source, rejected_at, expires_at, days_left, profile}]}` — 아직 되돌릴 수 있는 내 거절, 두 종류를 최신 거절 순으로 합쳐 **상한 50**. `source` 는 `"card"`(내 카드 거절) 또는 `"acceptance"`(받은 신청 거절). `expires_at` = 거절 + 7일, 받은 신청이면 상대 신청 기한과 둘 중 먼저 오는 것(지난 줄은 뺀다), `days_left` 는 보낸 신청과 같은 올림. `profile` 은 카드 앞면 요약에서 **상대 `profile_id` 를 뺀 것**. 숨김은 보낸 신청과 같다(이유를 가르지 않고 빠진다) |
+| `GET /cards/{card_id}` 변경 | 내 결정이 거절이고 거절 뒤 7일이 지났으면 404 `CARD_NOT_FOUND`. 결정 전 · 수락한 카드는 그대로 |
+| `GET /cards/acceptances/{card_id}` 변경 | 내가 거절로 답했어도 아직 되돌릴 수 있으면(내 거절 7일 · 상대 신청 기한 안 · 숨김 아님) 409 대신 프로필을 연다(읽기 전용). 수락으로 답한 것과 되돌릴 수 없는 거절은 409 그대로 |
+
+- **옛 앱(1.0.6) 영향 없음**: 새 길만 늘었다. 옛 결정 길 `POST /cards/{card_id}/decision` 은 거절한 카드에 다시 부르면 409 `CARD_ALREADY_DECIDED` 그대로, `POST /cards/acceptances/{card_id}` 는 거절로 답한 신청에 다시 부르면 409 그대로다(시험). 1.0.6 은 7일 지난 거절 카드 상세 · 답한 받은 신청 상세를 여는 길이 없다.
+- **상대에게 거절 흔적 0**: 상대 쪽 읽기(받은 신청 목록 · 상세 · 보낸 신청 · 카드 읽기)는 `rejected_at` 을 select 하지 않고, 응답 · 알림 본문 · 알림 data 가 처음 수락과 같다(시험으로 비교). `rejected_at` 은 관리자 집계용이다.
+- **관리자 통계 주의**: 다시 신청 · 되돌리기는 그 행의 `decided_at` 을 되돌린 시각으로 덮는다. 그래서 관리자 통계에서 **거절한 날의 거절 1건이 사라지고 되돌린 날의 수락 1건으로 옮겨 간다(과거 일자 숫자가 바뀔 수 있음)**. 원래 거절 시각은 `rejected_at` 에 남는다.
+- **배포 순서**: DB 먼저 → 서버 → 앱. 칸이 없는 DB 에 새 서버의 되돌리기 PATCH 가 가면 실패한다(옛 서버는 새 칸을 모르므로 DB 를 먼저 올려도 안전하다). 되돌림은 서버 리비전만 내리면 되고 칸은 남겨 둬도 된다.
+- **남은 확인**: `fetch_recent_rejections` · `fetch_recent_answer_rejections` 가 인덱스 경로를 타는지 `EXPLAIN` 으로 본 적이 없다(보낸 신청과 같은 상태). pgTAP `supabase/tests/rejected_at_test.sql` 은 로컬 Docker 에서 돌렸다 — 마이그레이션을 빼면 `column "rejected_at" of relation "card_decisions" does not exist` 로 실패, 넣으면 전체 Tests=1623 PASS.
+
 ## 채팅 client_id 서버 처리 — 재전송 두 줄 막기 (1.0.7 #8, 2/3 서버) (PR #794) — **로컬만 · 운영 미배포**
 
 DB 칸 · 제약은 1/3 DB PR(#789, `messages.client_id` + `messages_client_id_unique`)이 만든다. 이 절은 서버 계약만 적는다.

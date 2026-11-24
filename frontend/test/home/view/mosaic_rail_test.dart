@@ -26,10 +26,9 @@ void main() {
 
   double railX(WidgetTester tester) => tester.getTopLeft(find.byType(MosaicPersonTile).first).dx;
 
-  /// 사람 칸 · 빈 칸 전부의 화면 자리(왼쪽부터).
+  /// 사람 칸 전부의 화면 자리(왼쪽부터).
   List<Rect> tiles(WidgetTester tester) => [
-        for (final type in [MosaicPersonTile, MosaicEmptyTile])
-          for (var i = 0; i < find.byType(type).evaluate().length; i++) tester.getRect(find.byType(type).at(i)),
+        for (var i = 0; i < find.byType(MosaicPersonTile).evaluate().length; i++) tester.getRect(find.byType(MosaicPersonTile).at(i)),
       ]..sort((a, b) => a.left.compareTo(b.left));
 
   group('사람 칸 `O5FCD9`(Home Rail Tile · Blur Avatar) — 서버가 줄인 실제 가입자 아바타(블러 없음, 10-17)', () {
@@ -43,6 +42,19 @@ void main() {
       expect((image.fit, image.gaplessPlayback), (BoxFit.cover, true));
       expect(find.descendant(of: find.byType(MosaicRail), matching: find.byType(ImageFiltered)), findsNothing);
       expect(find.descendant(of: find.byType(MosaicRail), matching: find.byType(BackdropFilter)), findsNothing);
+    });
+
+    testWidgets('사진이 있으면 사진 칸만 칸 사이 10 으로 잇는다 — "아직 비어 있어요" 칸 · 글자 없음(사용자 11-24 「사진으로만」)', (tester) async {
+      await pumpRail(tester, people(2));
+
+      final photos = tiles(tester);
+      expect(find.descendant(of: find.byType(MosaicRail), matching: find.byType(Text)), findsNothing);
+      for (var i = 1; i < photos.length; i++) {
+        expect(photos[i].left - photos[i - 1].right, 10, reason: '$i');
+      }
+      // 화면 폭(800)을 덮고도 한 벌이 남는다 — 칸이 줄어도 흐름에 구멍이 없다.
+      expect(photos.last.right - photos.first.left, greaterThanOrEqualTo(800 + 2 * (mosaicTileWidth + 10)));
+      expect(tester.getSize(find.byType(MosaicRail)).height, 140);
     });
 
     testWidgets('112×140 · 모서리 14 · 칸 사이 10 · 이름 · 학교 · 배지 글자 없음', (tester) async {
@@ -62,13 +74,14 @@ void main() {
       final shown = people(3);
       await pumpRail(tester, shown);
 
-      final copies = find.byType(MosaicEmptyTile).evaluate().length;
+      // 왼쪽부터 받은 순서 그대로 한 벌씩 이어진다 — 한 벌 안에 같은 그림이 두 번 오지 않는다.
       final drawn = [
         for (final element in find.byType(MosaicPersonTile).evaluate()) (element.widget as MosaicPersonTile).image,
       ];
-      expect(drawn.length, 3 * copies);
-      for (final bytes in shown.map((bytes) => bytes)) {
-        expect(drawn.where((image) => identical(image, bytes)).length, copies);
+      final order = shown.map((bytes) => bytes).toList();
+      expect(drawn.length % order.length, 0);
+      for (var i = 0; i < drawn.length; i++) {
+        expect(identical(drawn[i], order[i % order.length]), isTrue, reason: '$i');
       }
     });
 
@@ -89,11 +102,11 @@ void main() {
       ];
       expect(assets.where((asset) => asset.contains('example-illust')), isEmpty);
     });
-    testWidgets('화면 읽기는 그림 칸을 읽지 않고 끝 빈 칸 문구만 한 번 읽는다', (tester) async {
+    testWidgets('사람 칸은 장식이다 — 화면 읽기에 그림도 문구도 읽히지 않는다', (tester) async {
       final semantics = tester.ensureSemantics();
       await pumpRail(tester, people(2));
 
-      expect(find.bySemanticsLabel(RegExp('아직 비어 있어요')), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('.+')), findsNothing);
       final images = find.descendant(of: find.byType(MosaicRail), matching: find.byType(Image));
       expect(tester.widgetList<Image>(images).every((image) => image.excludeFromSemantics), isTrue);
       semantics.dispose();
@@ -106,7 +119,6 @@ void main() {
 
       expect(find.byType(MosaicRail), findsOneWidget);
       expect(find.byType(MosaicPersonTile), findsNothing);
-      expect(find.byType(MosaicEmptyTile), findsNothing);
       final assets = [
         for (final image in tester.widgetList<Image>(find.descendant(of: find.byType(MosaicRail), matching: find.byType(Image))))
           (image.image as AssetImage).assetName,
@@ -227,8 +239,8 @@ void main() {
       reduceMotion(tester);
       await pumpRail(tester);
       final width = tester.getSize(find.byType(MosaicRail)).width;
-      // 한 벌 = (사람 1 + 빈 칸 1) × (칸 112 + 틈 10).
-      const cycle = 2 * (mosaicTileWidth + 10);
+      // 한 벌 = 사람 1 × (칸 112 + 틈 10).
+      const cycle = mosaicTileWidth + 10;
       final gesture = await tester.startGesture(tester.getCenter(find.byType(MosaicRail)));
       await gesture.moveBy(const Offset(-kDragSlopDefault, 0));
       await tester.pump();
