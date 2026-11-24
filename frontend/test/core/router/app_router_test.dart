@@ -1090,6 +1090,8 @@ void main() {
           // 3c 관문 화면이 읽는 학교명 · 로고(지어낸 값, 로고 없음).
           schoolNameProvider.overrideWithValue(const AsyncData('가나대학교')),
           universityLogosProvider.overrideWith((ref) => const <String, String>{}),
+          // 3c 뷰모델이 졸업생을 미리 고를지 관문 캐시의 인증 방법을 읽는다(1.0.7 1-1).
+          verificationGateRepositoryProvider.overrideWithValue(FakeVerificationGateRepository()),
           cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
           chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
           communityRepositoryProvider.overrideWithValue(FakeCommunityRepository()),

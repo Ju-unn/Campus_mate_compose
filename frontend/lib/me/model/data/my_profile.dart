@@ -1,3 +1,4 @@
+import 'package:campus_mate/auth/school_info/model/data/academic_status.dart';
 import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
 
 /// 화면 15 내 프로필(pen `nkFJV`)과 편집 화면(15c · 태그 3종 · 06-1 편집)이 읽는 값 한 벌.
@@ -34,6 +35,7 @@ class MyProfile {
     this.birthYear,
     this.gender,
     this.studentNumber,
+    this.academicStatus,
     this.surveyAnswers = const {},
     this.idealNote,
   });
@@ -96,6 +98,9 @@ class MyProfile {
 
   /// 15-6 학번 칸을 채운다. 옛 값은 2자리가 아닐 수 있어(4 · 7 · 8자리) 서버 글자 그대로 둔다. 비었거나 옛 서버면 null.
   final String? studentNumber;
+
+  /// 신분(1.0.7 1-1) — 히어로 배지와 15-6 신분 칩이 읽는다. 안 고른 사람 · 옛 서버는 null.
+  final AcademicStatus? academicStatus;
 
   /// 온보딩 뒤로가기로 돌아온 설문(05-01~09)을 채운다. 축 번호(1~9) → 값(-1~1). 설문 전이거나 옛 서버면 비어 있다.
   final Map<int, double> surveyAnswers;

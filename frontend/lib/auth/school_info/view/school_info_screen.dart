@@ -1,8 +1,10 @@
+import 'package:campus_mate/auth/school_info/model/data/academic_status.dart';
 import 'package:campus_mate/auth/school_info/model/repository/school_name_provider.dart';
 import 'package:campus_mate/auth/school_info/view/info_note.dart';
 import 'package:campus_mate/auth/school_info/viewmodel/school_info_ui_state.dart';
 import 'package:campus_mate/auth/school_info/viewmodel/school_info_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/widgets/academic_status_chips.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
@@ -84,6 +86,9 @@ class _SchoolInfoForm extends StatelessWidget {
   final SchoolInfoUiState state;
   final SchoolInfoViewModel viewModel;
 
+  /// 학교 줄 ↔ 신분 ↔ 학과 사이(pen `LIqAa` 실측 20). 간격 토큰 md(16) · lg(24) 사이 값이다.
+  static const double _statusGap = 20;
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -115,7 +120,9 @@ class _SchoolInfoForm extends StatelessWidget {
   List<Widget> _fields(BuildContext context) {
     return [
       _SchoolConfirmedRow(schoolName: schoolName),
-      const SizedBox(height: AppSpacing.lg),
+      const SizedBox(height: _statusGap),
+      _AcademicStatusGroup(selected: state.academicStatus, onSelect: viewModel.changeAcademicStatus),
+      const SizedBox(height: _statusGap),
       // 오류 줄(빨간 테두리 2 + circle-alert + 글)이 있는 공용 PccKZ 칸을 쓴다(할 일 3). 학번 칸은 다른 작업이 맡아 그대로 둔다.
       LabeledField(
         label: context.l10n.authSchoolInfoDepartmentLabel,
@@ -128,7 +135,8 @@ class _SchoolInfoForm extends StatelessWidget {
       _LabeledTextField(
         label: context.l10n.authSchoolInfoStudentNumberLabel,
         placeholder: context.l10n.authSchoolInfoStudentNumberPlaceholder,
-        helper: context.l10n.authSchoolInfoStudentNumberHelper,
+        // 대학원생을 골랐을 때만(1.0.7 1-1, pen `LIqAa`) — 학부 입학 학번을 적으라는 말이라 다른 신분에는 필요 없다.
+        helper: state.academicStatus == AcademicStatus.graduateStudent ? context.l10n.authSchoolInfoStudentNumberHelper : null,
         error: switch (state.studentNumberError) {
           final failure? => context.errorText(failure),
           null => null,
@@ -147,7 +155,27 @@ class _SchoolInfoForm extends StatelessWidget {
   }
 }
 
-/// 읽기 전용 학교 확인 행 — [원 40 · 3D 졸업모 22 | 학교 로고 + 학교명 | "확인됨" 뱃지] (§9 3c, pen 03c 화면 `B9Hu7` 학교 줄
+/// 신분 · 필수(1.0.7 1-1, pen 03c `LIqAa` · 아무것도 안 고름 `tnq9M`) — 라벨 14/600 body → 8 → 칩 한 줄.
+class _AcademicStatusGroup extends StatelessWidget {
+  const _AcademicStatusGroup({required this.selected, required this.onSelect});
+
+  final AcademicStatus? selected;
+  final ValueChanged<AcademicStatus> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(context.l10n.authSchoolInfoAcademicStatusLabel, style: AppTypography.labelSmall.copyWith(color: AppColors.body)),
+        const SizedBox(height: AppSpacing.xs),
+        AcademicStatusChips(selected: selected, onSelect: onSelect),
+      ],
+    );
+  }
+}
+
+/// 읽기 전용 학교 확인 행 —[원 40 · 3D 졸업모 22 | 학교 로고 + 학교명 | "확인됨" 뱃지] (§9 3c, pen 03c 화면 `B9Hu7` 학교 줄
 /// 328×68 · 안쪽 14 · surface-soft · 모서리 14, 대장 전달 값). 종전의 "학교" 작은 글자 줄은 pen 에 없어 뺐다.
 /// 입력칸이 아니라는 것이 한눈에 보이도록 `surface-soft` 카드에 얹어 필드 앞에 둔다.
 class _SchoolConfirmedRow extends StatelessWidget {

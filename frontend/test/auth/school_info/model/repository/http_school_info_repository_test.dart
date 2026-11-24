@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:campus_mate/auth/school_info/model/data/academic_status.dart';
 import 'package:campus_mate/core/http/api_client.dart';
 import 'package:campus_mate/auth/school_info/model/data/department.dart';
 import 'package:campus_mate/auth/school_info/model/repository/http_school_info_repository.dart';
@@ -40,12 +41,12 @@ void main() {
       expect(request.headers['Authorization'], 'Bearer token-abc');
       expect(
         jsonDecode(request.body),
-        {'department': '컴퓨터공학과', 'student_number': '21'},
+        {'department': '컴퓨터공학과', 'student_number': '21', 'academic_status': 'graduate_student'},
       );
       return http.Response('', 200);
     });
 
-    final result = await buildRepository(client).submit(department, studentNumber);
+    final result = await buildRepository(client).submit(department, studentNumber, AcademicStatus.graduateStudent);
 
     expect(result.when(onSuccess: (_) => true, onFailure: (_) => false), isTrue);
   });
@@ -59,7 +60,7 @@ void main() {
       );
     });
 
-    final result = await buildRepository(client).submit(department, studentNumber);
+    final result = await buildRepository(client).submit(department, studentNumber, AcademicStatus.graduateStudent);
 
     final failure = result.when(onSuccess: (_) => null, onFailure: (f) => f);
     expect(failure, isA<ServerRejectedFailure>());
@@ -69,7 +70,7 @@ void main() {
   test('요청 한도에 걸리면 RateLimitedFailure', () async {
     final client = MockClient((request) async => http.Response('', 429));
 
-    final result = await buildRepository(client).submit(department, studentNumber);
+    final result = await buildRepository(client).submit(department, studentNumber, AcademicStatus.graduateStudent);
 
     expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<RateLimitedFailure>());
   });
@@ -77,7 +78,7 @@ void main() {
   test('서버 내부 오류(5xx)는 문구를 지어내지 않고 UnknownFailure', () async {
     final client = MockClient((request) async => http.Response('<html>500</html>', 500));
 
-    final result = await buildRepository(client).submit(department, studentNumber);
+    final result = await buildRepository(client).submit(department, studentNumber, AcademicStatus.graduateStudent);
 
     expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<UnknownFailure>());
   });
@@ -85,7 +86,7 @@ void main() {
   test('네트워크 연결이 끊기면 예외가 새지 않고 NetworkFailure', () async {
     final client = MockClient((request) async => throw Exception('연결 실패'));
 
-    final result = await buildRepository(client).submit(department, studentNumber);
+    final result = await buildRepository(client).submit(department, studentNumber, AcademicStatus.graduateStudent);
 
     expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<NetworkFailure>());
   });

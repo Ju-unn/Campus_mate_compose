@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:campus_mate/auth/school_info/model/data/academic_status.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/pressable.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
@@ -11,6 +12,7 @@ import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/matching/model/data/daily_card.dart';
+import 'package:campus_mate/profile/onboarding/view/profile_enum_text.dart';
 import 'package:flutter/material.dart';
 
 /// 요약 카드(DESIGN.md §8.1 `daily-card-summary`, pen `v26S7z`).
@@ -36,7 +38,7 @@ class DailyCardSummary extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _BadgeRow(source: card.source, expiresAt: card.expiresAt),
+            _BadgeRow(source: card.source, expiresAt: card.expiresAt, status: card.profile.academicStatus),
             const SizedBox(height: AppSpacing.md),
             _SummaryRow(card: card),
             const SizedBox(height: AppSpacing.md),
@@ -85,10 +87,13 @@ DateTime seoulClock(DateTime value) => value.toUtc().add(const Duration(hours: 9
 /// 모서리 999 · 패딩 [6,10] · 간격 4 · 높이 30, 아이콘 lucide `shopping-bag` 18 흰색,
 /// 글자 "구매 카드" 10/600 흰색 — `AppTypography.badge` 와 같다(pen lineHeight 1.5 는 기존 배지 둘과 같은 드리프트).
 class _BadgeRow extends StatelessWidget {
-  const _BadgeRow({required this.source, required this.expiresAt});
+  const _BadgeRow({required this.source, required this.expiresAt, required this.status});
 
   final CardSource source;
   final DateTime? expiresAt;
+
+  /// 신분을 고른 상대는 "학교 인증" 알약 자리에 신분 글자를 쓴다(1.0.7 1-1, pen Row Z `MmwGI` 어두운 판) — 모양은 그대로.
+  final AcademicStatus? status;
 
   @override
   Widget build(BuildContext context) {
@@ -120,7 +125,7 @@ class _BadgeRow extends StatelessWidget {
           _Pill(
             color: AppColors.surfaceInk,
             icon: const Icon3d(AppIcon3d.badgeCheck, size: 18),
-            label: l10n.matchingVerifiedBadge,
+            label: status?.label(l10n) ?? l10n.matchingVerifiedBadge,
             textColor: AppColors.onInk,
           ),
         ],

@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/widgets/academic_status_chips.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/confirm_popup.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
@@ -116,6 +117,17 @@ class _BasicInfoEditScreenState extends ConsumerState<BasicInfoEditScreen> {
                         final failure? => _FieldNote.error(context.errorText(failure)),
                         null => null,
                       },
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    // 신분(1.0.7 1-1, pen `a6Wd1J`) — 키와 학번 사이. 라벨은 "내 MBTI" 와 같은 모양이고 "· 필수" 는 붙이지 않는다.
+                    // 아래 간격은 바깥 md 가 맡아 isLast 로 구역 아래 여백(lg)을 끈다.
+                    _Section(
+                      label: context.l10n.meBasicAcademicStatusLabel,
+                      isLast: true,
+                      child: AcademicStatusChips(
+                        selected: state.academicStatus,
+                        onSelect: viewModel.changeAcademicStatus,
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.md),
                     // 3c 와 같은 2자리 검사. 잘라 내거나 걸러 내지 않고(조용히 고쳐 쓰지 않게) 안내로 막는다 — 옛 값(4 · 7 · 8자리)은
