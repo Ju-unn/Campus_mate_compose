@@ -24,6 +24,7 @@ import 'package:campus_mate/matching/model/data/paid_card.dart';
 import 'package:campus_mate/matching/view/countdown_text.dart';
 import 'package:campus_mate/matching/view/daily_card_summary.dart';
 import 'package:campus_mate/matching/view/paid_card_slot.dart';
+import 'package:campus_mate/matching/viewmodel/rejected_cards_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_ui_state.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
 import 'package:campus_mate/tour/view/app_tour_steps.dart';
@@ -215,7 +216,7 @@ class _WaitingPanel extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: AppSpacing.lg),
+        const _RejectedCardsEntry(),
         Image.asset('assets/images/mascot-male-waiting.webp', width: 88),
         // 띠는 부제가 "도착해요" 일 때만 — "찾아볼게요" 나 시각 미정이면 pen `k2fF9y` 처럼 마스코트 아래를 비운다(사용자 결정 11-02).
         if (isArrivingSoon(nextIssueAt, now)) ...const [SizedBox(height: 14), _NextBand()],
@@ -225,6 +226,34 @@ class _WaitingPanel extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
         ],
       ],
+    );
+  }
+}
+
+/// [거절한 카드 다시 보기](pen 25-G i2gRJO `GyA9i`) — 카운트다운 아래 24 · 마스코트 위 14. 7일 안 거절이 있을 때만 보인다
+/// (있는지는 서버 목록이 비었는지만 본다 — [hasRejectedCardsProvider]). 누르면 대화 탭 [거절한 카드].
+/// pen 은 Button `HE8FZ` 인스턴스(높이 44 · surface-strong · ink 16/700 · 모서리 14 · 폭 글자 맞춤 · 안쪽 [0,20])라
+/// AppButton tonal + 높이 44 + 줄 안 폭(isInline)으로 그린다 — 줄 안 버튼의 안쪽 좌우는 AppButton 값 16 이다(pen 20).
+class _RejectedCardsEntry extends ConsumerWidget {
+  const _RejectedCardsEntry();
+
+  /// 누르는 칸 48 이 보이는 44 보다 위아래 2 씩 크다(머티리얼 기본 누름 칸) — 간격에서 빼서 보이는 자리를 pen 에 맞춘다.
+  static const double _hitOverflow = 2;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 없으면 카운트다운 → 24 → 마스코트(25-A noA0i 그대로).
+    if (!ref.watch(hasRejectedCardsProvider)) return const SizedBox(height: AppSpacing.lg);
+    return Padding(
+      // 카운트다운 → 24 → 버튼 → 14 → 마스코트(pen i2gRJO).
+      padding: const EdgeInsets.only(top: AppSpacing.lg - _hitOverflow, bottom: 14 - _hitOverflow),
+      child: AppButton(
+        label: context.l10n.matchingWaitingRejectedCards,
+        variant: AppButtonVariant.tonal,
+        height: 44,
+        isInline: true,
+        onPressed: () => context.go(AppRoutes.conversationsRejected),
+      ),
     );
   }
 }

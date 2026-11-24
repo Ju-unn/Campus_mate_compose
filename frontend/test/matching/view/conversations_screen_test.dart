@@ -10,6 +10,7 @@ import 'package:campus_mate/chat/viewmodel/user_channel.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
+import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_tab_bar.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/confirm_popup.dart';
@@ -24,10 +25,12 @@ import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/matching/model/data/acceptance.dart';
 import 'package:campus_mate/matching/model/data/card_profile.dart';
+import 'package:campus_mate/matching/model/data/rejected_card.dart';
 import 'package:campus_mate/matching/model/data/sent_request.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/matching/view/acceptance_row.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
+import 'package:campus_mate/matching/view/rejected_card_row.dart';
 import 'package:campus_mate/matching/view/sent_request_row.dart';
 import 'package:campus_mate/matching/viewmodel/sent_requests_view_model.dart';
 import 'package:flutter/material.dart';
@@ -445,12 +448,12 @@ void main() {
       expect(tester.getRect(find.byType(ChatListRow).first).top - chats.bottom, 4);
     });
 
-    testWidgets('앱바 바로 아래 탭 줄 "대화" · "보낸 신청"(수 없음), 처음엔 [대화] 탭이고 본문은 탭 줄 아래 12', (tester) async {
+    testWidgets('앱바 바로 아래 탭 줄 "대화" · "보낸 신청" · "거절한 카드"(수 없음, pen lmwl8 tQDAD 3칸), 처음엔 [대화] 탭이고 본문은 탭 줄 아래 12', (tester) async {
       final chat = FakeChatRepository()..conversations = Success([conversationFixture()]);
       await pump(tester, FakeCardRepository()..acceptances = const Success([_acceptance]), chat);
 
       final bar = tester.widget<AppTabBar>(find.byType(AppTabBar));
-      expect(bar.labels, ['대화', '보낸 신청']);
+      expect(bar.labels, ['대화', '보낸 신청', '거절한 카드']);
       expect(selected(tester), 0);
       final barRect = tester.getRect(find.byType(AppTabBar));
       expect(barRect.top, 56);
@@ -1160,6 +1163,272 @@ void main() {
 
     await tester.pump(readTimeout + conversationsPollFast);
     expect(listCalls, greaterThanOrEqualTo(3), reason: '걸린 요청이 끊긴 뒤 다음 주기');
+  });
+
+  // 20 거절한 카드(pen 25-G lmwl8 · msLC2 · Co9Bw, UI값표 CT5Lq 20-2 ~ 20-4, 대장 판정 2 · 4 · 9).
+  group('[거절한 카드] 탭', () {
+    const mine = RejectedCard(
+      cardId: 'card-1',
+      source: RejectedSource.card,
+      daysLeft: 5,
+      profile: CardProfile(nickname: '여우비', age: 23, university: '테스트대학교'),
+    );
+    const received = RejectedCard(
+      cardId: 'card-2',
+      source: RejectedSource.acceptance,
+      daysLeft: 1,
+      profile: CardProfile(nickname: '봄비', age: 22, university: '테스트대학교'),
+    );
+    const both = Success(RejectedCards([mine, received]));
+
+    Finder tab(String label) => find.descendant(of: find.byType(AppTabBar), matching: find.text(label));
+    int selected(WidgetTester tester) => tester.widget<AppTabBar>(find.byType(AppTabBar)).selected;
+
+    Future<void> openRejected(WidgetTester tester) async {
+      await tester.tap(tab('거절한 카드'));
+      await tester.pumpAndSettle();
+    }
+
+    /// 라우터로 띄운다 — 프로필 보기 · 매칭 화면 경로를 글자로 확인한다.
+    Future<GoRouter> pumpRouted(WidgetTester tester, FakeCardRepository repository) async {
+      final container = ProviderContainer(overrides: [
+        cardRepositoryProvider.overrideWithValue(repository),
+        chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
+      ]);
+      addTearDown(container.dispose);
+      final router = GoRouter(
+        initialLocation: AppRoutes.conversations,
+        routes: [
+          GoRoute(path: AppRoutes.conversations, builder: (context, state) => const ConversationsScreen()),
+          GoRoute(
+            path: '${AppRoutes.rejectedCardProfile}/:cardId',
+            builder: (context, state) => Text('거절 프로필 ${state.uri}'),
+          ),
+          GoRoute(
+            path: AppRoutes.matchMade,
+            builder: (context, state) => Text('매칭 ${(state.extra as MatchMadeArgs?)?.nickname}'),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          routerConfig: router,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      return router;
+    }
+
+    testWidgets('그 탭을 처음 열면 읽고, 다시 볼 때마다 조용히 다시 읽는다', (tester) async {
+      final repository = FakeCardRepository()..rejected = both;
+      await pump(tester, repository);
+      await tester.pumpAndSettle();
+      expect(repository.fetchRejectedCount, 0);
+
+      await openRejected(tester);
+      expect(selected(tester), 2);
+      expect(repository.fetchRejectedCount, 1);
+      expect(find.byType(RejectedCardRow), findsNWidgets(2));
+
+      await tester.tap(tab('대화'));
+      await tester.pumpAndSettle();
+      await openRejected(tester);
+      expect(repository.fetchRejectedCount, 2);
+    });
+
+    testWidgets('목록 위치 — 탭 줄 → 12 → 안내 12/보통 muted(lmwl8 문구) → 14 → 줄 → 14 → 선 1 hairline-soft → 14 → 줄, 좌우 16', (tester) async {
+      tester.view.physicalSize = const Size(360, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pump(tester, FakeCardRepository()..rejected = both);
+      await openRejected(tester);
+
+      const guide = '내가 거절한 날부터 7일 안에 마음을 바꿀 수 있어요. 받은 신청은 [수락하기]를 누르면 바로 대화가 열려요';
+      final caption = tester.getRect(find.text(guide));
+      final style = tester.widget<Text>(find.text(guide)).style!;
+      expect((style.fontSize, style.fontWeight, style.color), (12, FontWeight.w400, AppColors.muted));
+      expect(caption.top - (tester.getTopLeft(find.byType(AppTabBar)).dy + AppTabBar.height), 12);
+      expect((caption.left, caption.right), (16.0, 344.0));
+      final rows = find.byType(RejectedCardRow);
+      expect(tester.getRect(rows.at(0)).top - caption.bottom, 14);
+      final divider = find.descendant(of: find.byType(SliverPadding), matching: find.byType(Divider));
+      final line = tester.widget<Divider>(divider.first);
+      expect((line.thickness, line.color), (1.0, AppColors.hairlineSoft));
+      final lineRect = tester.getRect(divider.first);
+      expect(lineRect.center.dy - tester.getRect(rows.at(0)).bottom, closeTo(14.5, 0.01));
+      expect(tester.getRect(rows.at(1)).top - tester.getRect(rows.at(0)).bottom, 14 + 1 + 14);
+      expect((tester.getRect(rows.at(0)).left, tester.getRect(rows.at(0)).right), (16.0, 344.0));
+    });
+
+    testWidgets('빈 상태(msLC2) — 남자 마스코트 120 · 제목 "7일 안에 거절한 카드가 없어요" 18/600, 부제 · 버튼 · 안내 문구 없음', (tester) async {
+      await pump(tester, FakeCardRepository());
+      await openRejected(tester);
+
+      final mascot = find.byWidgetPredicate(
+        (widget) => widget is Image && (widget.image as AssetImage).assetName == 'assets/images/mascot-male.webp',
+      );
+      expect(tester.getSize(mascot), const Size(120, 120));
+      final title = tester.widget<Text>(find.text('7일 안에 거절한 카드가 없어요'));
+      expect((title.style!.fontSize, title.style!.fontWeight), (18, FontWeight.w600));
+      expect(find.textContaining('마음을 바꿀 수 있어요'), findsNothing);
+      expect(find.byType(AppButton), findsNothing);
+    });
+
+    testWidgets('[다시 신청하기] → 확인 팝업(Co9Bw) "다시 대화를 신청할까요?" · "상대에게는 새 신청으로 보여요" · [취소] [신청하기]', (tester) async {
+      await pump(tester, FakeCardRepository()..rejected = both);
+      await openRejected(tester);
+
+      await tester.tap(find.text('다시 신청하기'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(confirmPopupCardKey), findsOneWidget);
+      expect(find.text('다시 대화를 신청할까요?'), findsOneWidget);
+      expect(find.text('상대에게는 새 신청으로 보여요'), findsOneWidget);
+      expect(find.text('취소'), findsOneWidget);
+      expect(find.text('신청하기'), findsOneWidget);
+    });
+
+    testWidgets('[취소] 면 아무것도 보내지 않는다', (tester) async {
+      final repository = FakeCardRepository()..rejected = both;
+      await pump(tester, repository);
+      await openRejected(tester);
+
+      await tester.tap(find.text('다시 신청하기'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('취소'));
+      await tester.pumpAndSettle();
+
+      expect(repository.reappliedCardIds, isEmpty);
+      expect(selected(tester), 2);
+    });
+
+    testWidgets('[신청하기] 로 보내면 [보낸 신청] 탭으로 옮기고 "신청을 보냈어요" 토스트(10b 신청과 같은 안내)', (tester) async {
+      final repository = FakeCardRepository()
+        ..rejected = both
+        ..rejectedAfterWrite = const Success(RejectedCards([received]));
+      await pump(tester, repository);
+      await openRejected(tester);
+
+      await tester.tap(find.text('다시 신청하기'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('신청하기'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(repository.reappliedCardIds, ['card-1']);
+      expect(selected(tester), 1);
+      expect(tester.widget<AppToast>(find.byType(AppToast)).label, '신청을 보냈어요');
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('보내기가 서버에서 거절되면 그 줄이 빠지고 탭 위에 서버 문구가 보인다', (tester) async {
+      final repository = FakeCardRepository()
+        ..rejected = both
+        ..reapplyResult = const FailureResult(ServerRejectedFailure('카드를 찾을 수 없어요'))
+        ..rejectedAfterWrite = const Success(RejectedCards([received]));
+      await pump(tester, repository);
+      await openRejected(tester);
+
+      await tester.tap(find.text('다시 신청하기'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('신청하기'));
+      await tester.pumpAndSettle();
+
+      expect(selected(tester), 2);
+      expect(find.text('카드를 찾을 수 없어요'), findsOneWidget);
+      expect(find.byType(RejectedCardRow), findsOneWidget);
+    });
+
+    testWidgets('[수락하기] 는 팝업 없이 되돌리고, 매칭되면 매칭 화면(12)으로 간다', (tester) async {
+      final repository = FakeCardRepository()..rejected = both;
+      await pumpRouted(tester, repository);
+      await openRejected(tester);
+
+      await tester.tap(find.text('수락하기'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(confirmPopupCardKey), findsNothing);
+      expect(repository.undoneCardIds, ['card-2']);
+      expect(find.text('매칭 봄비'), findsOneWidget);
+    });
+
+    testWidgets('[프로필 보기] 는 `/rejected-cards/<카드>` 로, 받은 신청 출처면 `?source=acceptance` 를 붙인다', (tester) async {
+      final router = await pumpRouted(tester, FakeCardRepository()..rejected = both);
+      await openRejected(tester);
+
+      await tester.tap(find.text('프로필 보기').first);
+      await tester.pumpAndSettle();
+      expect(find.text('거절 프로필 /rejected-cards/card-1'), findsOneWidget);
+
+      router.pop();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('프로필 보기').last);
+      await tester.pumpAndSettle();
+      expect(find.text('거절 프로필 /rejected-cards/card-2?source=acceptance'), findsOneWidget);
+    });
+
+    testWidgets('프로필에서 다시 신청하고 돌아오면(참) [보낸 신청] 탭으로 옮기고 토스트', (tester) async {
+      final container = ProviderContainer(overrides: [
+        cardRepositoryProvider.overrideWithValue(FakeCardRepository()..rejected = both),
+        chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
+      ]);
+      addTearDown(container.dispose);
+      final router = GoRouter(
+        initialLocation: AppRoutes.conversations,
+        routes: [
+          GoRoute(path: AppRoutes.conversations, builder: (context, state) => const ConversationsScreen()),
+          GoRoute(
+            path: '${AppRoutes.rejectedCardProfile}/:cardId',
+            builder: (context, state) => TextButton(onPressed: () => context.pop(true), child: const Text('보냄')),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          routerConfig: router,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await openRejected(tester);
+
+      await tester.tap(find.text('프로필 보기').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('보냄'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(selected(tester), 1);
+      expect(tester.widget<AppToast>(find.byType(AppToast)).label, '신청을 보냈어요');
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('카드 대기 화면에서 들어오면(openRejected) [거절한 카드] 탭이 열려 있다', (tester) async {
+      final container = ProviderContainer(overrides: [
+        cardRepositoryProvider.overrideWithValue(FakeCardRepository()..rejected = both),
+        chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
+      ]);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: ConversationsScreen(openRejected: true),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(selected(tester), 2);
+      expect(find.byType(RejectedCardRow), findsNWidgets(2));
+    });
   });
 }
 

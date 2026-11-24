@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:campus_mate/matching/view/rejected_card_actions.dart';
+import 'package:campus_mate/matching/model/data/rejected_card.dart';
 import 'package:campus_mate/account/model/repository/account_repository.dart';
 import 'package:campus_mate/common/widgets/app_lottie_view.dart';
 import 'package:campus_mate/common/widgets/select_chip.dart';
@@ -671,7 +673,42 @@ void main() {
       expect(screen.bottomAction, isNull);
     });
 
-    testWidgets('/profiles/:profileId 는 그 사람의 14c 상대 프로필이다', (tester) async {
+    // 20-5 hhlWE: 거절한 카드 · 프로필 보기 — 제목 "거절한 카드" + 아래 버튼 하나. 받은 신청 출처는 받은 신청 읽기 · [수락하기].
+  testWidgets('/rejected-cards/:cardId 는 거절한 카드 읽기 전용 프로필(제목 "거절한 카드", 아래 [다시 신청하기])이다', (tester) async {
+    final router = await pumpRouter(tester);
+
+    router.go('${AppRoutes.rejectedCardProfile}/$_cardId');
+    await tester.pumpAndSettle();
+
+    final screen = tester.widget<ReadOnlyProfileScreen>(find.byType(ReadOnlyProfileScreen));
+    expect(screen.cardId, _cardId);
+    expect(screen.title, '거절한 카드');
+    expect(screen.readsAcceptance, isFalse);
+    final action = screen.bottomAction! as RejectedProfileAction;
+    expect((action.cardId, action.source), (_cardId, RejectedSource.card));
+  });
+
+  testWidgets('/rejected-cards/:cardId?source=acceptance 는 받은 신청 읽기 · [수락하기] 쪽이다', (tester) async {
+    final router = await pumpRouter(tester);
+
+    router.go('${AppRoutes.rejectedCardProfile}/$_cardId?source=acceptance');
+    await tester.pumpAndSettle();
+
+    final screen = tester.widget<ReadOnlyProfileScreen>(find.byType(ReadOnlyProfileScreen));
+    expect(screen.readsAcceptance, isTrue);
+    expect((screen.bottomAction! as RejectedProfileAction).source, RejectedSource.acceptance);
+  });
+
+  testWidgets('/conversations?tab=rejected 는 대화 탭을 [거절한 카드] 로 연다', (tester) async {
+    final router = await pumpRouter(tester);
+
+    router.go(AppRoutes.conversationsRejected);
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<ConversationsScreen>(find.byType(ConversationsScreen)).openRejected, isTrue);
+  });
+
+  testWidgets('/profiles/:profileId 는 그 사람의 14c 상대 프로필이다', (tester) async {
       final router = await pumpRouter(tester);
 
       router.go('${AppRoutes.partnerProfile}/$_profileId');
@@ -687,6 +724,7 @@ void main() {
       ('${AppRoutes.cardDetail}/card-1', AppRoutes.today),
       ('${AppRoutes.acceptanceDetail}/card-7', AppRoutes.conversations),
       ('${AppRoutes.sentRequestProfile}/card-8', AppRoutes.conversations),
+    ('${AppRoutes.rejectedCardProfile}/card-9', AppRoutes.conversations),
       ('${AppRoutes.partnerProfile}/p2', AppRoutes.home),
       ('${AppRoutes.partnerProfile}/${_profileId}x', AppRoutes.home),
       ('${AppRoutes.communityPoll}/p1', AppRoutes.community),
