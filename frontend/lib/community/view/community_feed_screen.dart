@@ -7,8 +7,10 @@ import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/retry_notice.dart';
 import 'package:campus_mate/community/model/data/community_feed_tab.dart';
 import 'package:campus_mate/community/model/data/community_item.dart';
+import 'package:campus_mate/community/model/data/notice.dart';
 import 'package:campus_mate/community/model/data/poll.dart';
 import 'package:campus_mate/community/view/feed_poll_card.dart';
+import 'package:campus_mate/community/view/notice_banner.dart';
 import 'package:campus_mate/community/view/poll_composer_screen.dart';
 import 'package:campus_mate/community/view/poll_feed_tabs.dart';
 import 'package:campus_mate/community/view/poll_sheets.dart';
@@ -18,6 +20,7 @@ import 'package:campus_mate/community/view/post_card.dart';
 import 'package:campus_mate/community/view/write_type_sheet.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_ui_state.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
+import 'package:campus_mate/community/viewmodel/notice_list_view_model.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
@@ -41,7 +44,8 @@ const double _askLift = AppSpacing.sm;
 /// 회색 바탕 위 흰 큰 카드([FeedPollCard]), 앱바 오른쪽 + 대신 유리 내비 위에 뜬 "글쓰기" 알약.
 /// 앱바 아래 탭 줄([PollFeedTabs], 17 `qZ5qm` · `XfcKQ`): 전체(최신순, 기본) · 인기(최근 7일 참여순 상위 20개 한 쪽) ·
 /// 내 글 · 내 투표 · 자유 · 진로 · 연애(올린 시각 순). 서버가 `tab` 으로 거르고 줄 세운다 — 앱은 탭을 바꿀 때마다 새로 받는다.
-/// 목록에는 투표 카드([FeedPollCard] `ffFIS`)와 게시물 카드([PostCard] `WHqdP`)가 섞인다. 공지 띠(25-H)는 이번 몫이 아니라 없다.
+/// 목록에는 투표 카드([FeedPollCard] `ffFIS`)와 게시물 카드([PostCard] `WHqdP`)가 섞인다. 맨 위에는 가장 최근 공지 띠([NoticeBanner] 25-H `ahtJd`)가 있다 —
+/// 공지가 없거나 못 읽으면 띠만 없고 피드는 그대로다(공지는 따로 읽는다, [noticeListViewModelProvider]).
 class CommunityFeedScreen extends ConsumerStatefulWidget {
   const CommunityFeedScreen({super.key});
 
@@ -170,15 +174,22 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
     if (state.items.isEmpty && state.error != null) {
       return aboveNav(RetryNotice(message: context.errorText(state.error!), onRetry: viewModel.refresh));
     }
-    if (state.items.isEmpty) return aboveNav(_EmptyFeed(tab: state.tab, onWrite: _write));
+    // 공지 띠는 목록 맨 위 한 칸 — 탭과 상관없이 같은 띠다. 공지 목록 화면과 같은 상태를 본다(요청 하나).
+    // 불러오는 중 · 실패 화면에는 없고, 빈 상태에는 있다(출시 직후 글이 없을 때 공지가 가장 필요하다 — 대장 11-24).
+    final notice = ref.watch(noticeListViewModelProvider).latest;
+    if (state.items.isEmpty) return aboveNav(_emptyWithBanner(state.tab, notice));
     final now = ref.read(communityNowProvider)();
+    final bannerCount = notice == null ? 0 : 1;
     // pen `eFFQi`: surface-soft 바탕, 위 12 · 좌우 16, 카드 사이 12. 탭 줄 아래 12 와 합쳐 탭에서 첫 카드까지 24.
     return ColoredBox(
       color: AppColors.surfaceSoft,
       child: NotificationListener<UserScrollNotification>(
         onNotification: _onUserScroll,
         child: RefreshIndicator(
-          onRefresh: viewModel.refresh,
+          // 당기면 공지 띠도 다시 읽는다. 공지 읽기 실패는 띠만 없앨 뿐 피드 새로 고침을 막지 않는다.
+          onRefresh: () async {
+            await (viewModel.refresh(), ref.read(noticeListViewModelProvider.notifier).refresh()).wait;
+          },
           child: ListView.separated(
             // 탭마다 새 목록 — 응답이 다음 화면 그리기보다 빨리 오면 같은 목록이 남아 앞 탭에서 내린 자리를 이어받는다.
             key: ValueKey(state.tab),
@@ -193,10 +204,14 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
               AppSpacing.md,
               navInset + _askLift + _askHeight + AppSpacing.sm,
             ),
-            itemCount: state.items.length + (state.isLoadingMore ? 1 : 0),
+            itemCount: bannerCount + state.items.length + (state.isLoadingMore ? 1 : 0),
             separatorBuilder: (context, index) => const SizedBox(height: AppSpacing.sm),
             // 화면 context 를 쓴다 — 마지막 글을 지우면 목록이 빈 화면으로 바뀌어 항목 쪽 context 는 사라진다(삭제 뒤 토스트).
-            itemBuilder: (_, index) {
+            itemBuilder: (_, position) {
+              if (notice != null && position == 0) {
+                return _banner(notice);
+              }
+              final index = position - bannerCount;
               if (index == state.items.length) {
                 return const Center(child: CircularProgressIndicator());
               }
@@ -219,6 +234,27 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _banner(Notice notice) => NoticeBanner(
+        key: const ValueKey('notice-banner'),
+        notice: notice,
+        onOpen: () => context.push(AppRoutes.communityNotices),
+      );
+
+  /// 빈 상태 위에 공지 띠(목록과 같은 자리: 위 12 · 좌우 16). 공지가 없으면 빈 안내만.
+  Widget _emptyWithBanner(CommunityFeedTab tab, Notice? notice) {
+    final empty = _EmptyFeed(tab: tab, onWrite: _write);
+    if (notice == null) return empty;
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+          child: _banner(notice),
+        ),
+        Expanded(child: empty),
+      ],
     );
   }
 

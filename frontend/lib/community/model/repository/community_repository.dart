@@ -3,6 +3,7 @@ import 'package:campus_mate/community/model/data/community_category.dart';
 import 'package:campus_mate/community/model/data/community_feed_tab.dart';
 import 'package:campus_mate/community/model/data/community_item.dart';
 import 'package:campus_mate/community/model/data/feed_page.dart';
+import 'package:campus_mate/community/model/data/notice.dart';
 import 'package:campus_mate/community/model/data/poll.dart';
 import 'package:campus_mate/community/model/data/poll_comment.dart';
 
@@ -11,7 +12,11 @@ import 'package:campus_mate/community/model/data/poll_comment.dart';
 abstract interface class CommunityRepository {
   /// 투표 · 게시물이 섞인 피드. [before] 는 화면 맨 아래 글의 값을 그대로 보낸다.
   Future<Result<FeedPage<CommunityItem>>> fetchFeed({CommunityFeedTab tab = CommunityFeedTab.all, PageCursor? before});
+  /// 투표 · 게시물 · 공지 상세. 공지면 [CommunityItem.notice] 가 채워진다(없는 공지는 404 `COMMUNITY_NOTICE_NOT_FOUND`).
   Future<Result<CommunityItem>> fetchItem(String itemId);
+
+  /// 공지 목록(할 일 21) — 최신순 20개. [before] 는 화면 맨 아래 공지의 값을 그대로 보낸다. 첫 줄이 피드 맨 위 띠다.
+  Future<Result<FeedPage<Notice>>> fetchNotices({PageCursor? before});
 
   /// 투표 올리기. 하루 10개(게시물과 합산)를 넘으면 429.
   Future<Result<void>> createPoll({

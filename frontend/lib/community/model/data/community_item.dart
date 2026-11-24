@@ -1,4 +1,5 @@
 import 'package:campus_mate/community/model/data/community_category.dart';
+import 'package:campus_mate/community/model/data/notice.dart';
 import 'package:campus_mate/community/model/data/poll.dart';
 import 'package:campus_mate/community/model/data/server_text.dart';
 
@@ -22,6 +23,7 @@ enum CommunityKind {
 /// 피드 한 줄 — 투표 또는 게시물(`GET /community/feed` · `/community/items/{id}` 의 item).
 /// **작성자가 누구인지는 모른다** — 서버가 [isMine] 만 준다. 투표면 [poll] 에 기존 [Poll] 을 그대로 담아
 /// 투표 카드 · 투표 상세가 지금 모양 그대로 쓴다. 게시물이면 [poll] 이 null 이다.
+/// 상세(`/community/items/{id}`)는 공지(할 일 21)도 준다 — 그때는 [notice] 에 제목 · 그림을 담는다(피드에는 공지가 없다).
 class CommunityItem {
   /// 투표 줄. 공통 칸은 [poll] 에서 읽는다 — 두 곳에 따로 들고 있다 어긋나지 않게.
   CommunityItem.ofPoll(Poll this.poll, {required this.category})
@@ -29,7 +31,18 @@ class CommunityItem {
         text = poll.question,
         createdAt = poll.createdAt,
         isMine = poll.isMine,
-        commentCount = poll.commentCount;
+        commentCount = poll.commentCount,
+        notice = null;
+
+  /// 공지 상세 줄. 공통 칸은 [notice] 에서 읽는다. 카테고리는 쓰지 않는다(서버 null — 자유로 둔다, 그리지 않는다).
+  CommunityItem.ofNotice(Notice this.notice)
+      : id = notice.id,
+        category = CommunityCategory.free,
+        text = notice.text,
+        createdAt = notice.createdAt,
+        isMine = false,
+        commentCount = notice.commentCount,
+        poll = null;
 
   const CommunityItem.post({
     required this.id,
@@ -38,7 +51,8 @@ class CommunityItem {
     required this.createdAt,
     this.isMine = false,
     this.commentCount = 0,
-  }) : poll = null;
+  })  : poll = null,
+        notice = null;
 
   final String id;
   final CommunityCategory category;
@@ -49,6 +63,7 @@ class CommunityItem {
   final bool isMine;
   final int commentCount;
   final Poll? poll;
+  final Notice? notice;
 
   CommunityKind get kind => poll == null ? CommunityKind.post : CommunityKind.poll;
 
@@ -56,6 +71,8 @@ class CommunityItem {
   CommunityItem withCommentCount(int count) {
     final poll = this.poll;
     if (poll != null) return CommunityItem.ofPoll(poll.withCommentCount(count), category: category);
+    final notice = this.notice;
+    if (notice != null) return CommunityItem.ofNotice(notice.withCommentCount(count));
     return CommunityItem.post(
         id: id, category: category, text: text, createdAt: createdAt, isMine: isMine, commentCount: count);
   }
@@ -65,6 +82,7 @@ class CommunityItem {
   CommunityItem withVote(Poll voted) => CommunityItem.ofPoll(voted, category: category);
 
   factory CommunityItem.fromJson(Map<String, dynamic> json) {
+    if (json['kind'] == 'notice') return CommunityItem.ofNotice(Notice.fromJson(json));
     final category = CommunityCategory.fromWire(json['category']);
     if (json['poll'] case final Map<String, dynamic> poll) {
       // 기존 Poll.fromJson 이 읽는 옛 카드 모양으로 펼친다 — 질문은 text 칸이다.

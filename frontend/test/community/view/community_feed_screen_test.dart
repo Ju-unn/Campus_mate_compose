@@ -12,6 +12,7 @@ import 'package:campus_mate/community/model/repository/community_repository_prov
 import 'package:campus_mate/community/model/data/poll.dart';
 import 'package:campus_mate/community/view/community_feed_screen.dart';
 import 'package:campus_mate/community/view/feed_poll_card.dart';
+import 'package:campus_mate/community/view/notice_banner.dart';
 import 'package:campus_mate/community/view/category_label.dart';
 import 'package:campus_mate/community/view/post_card.dart';
 import 'package:campus_mate/community/view/write_type_sheet.dart';
@@ -60,6 +61,7 @@ void main() {
           path: '/community/polls/:pollId',
           builder: (context, state) => Text('상세 ${state.pathParameters['pollId']}'),
         ),
+        GoRoute(path: '/community/notices', builder: (context, state) => const Text('공지 목록')),
       ],
     );
     addTearDown(router.dispose);
@@ -1099,6 +1101,101 @@ void main() {
       );
       expect(p.getMaxIntrinsicHeight(p.size.width), lessThanOrEqualTo(p.size.height + 0.5));
       expect(p.getMinIntrinsicWidth(double.infinity), lessThanOrEqualTo(p.size.width + 0.5));
+    });
+  });
+
+  group('공지 띠(할 일 21 · pen 17 `ahtJd`)', () {
+    testWidgets('공지가 있으면 피드 맨 위(첫 카드 위 12)에 가장 최근 공지 띠가 있다', (tester) async {
+      repository
+        ..noticePage = Success(FeedPage(
+          items: [noticeFixture(id: 'n2', title: '새 공지', isNew: true), noticeFixture(title: '옛 공지')],
+          hasMore: false,
+        ))
+        ..page = Success(FeedPage(items: [itemFixture()], hasMore: false));
+      await pump(tester);
+
+      expect(find.byType(NoticeBanner), findsOneWidget);
+      expect(find.text('새 공지'), findsOneWidget);
+      expect(find.text('옛 공지'), findsNothing);
+      final banner = tester.getRect(find.byType(NoticeBanner));
+      expect(tester.getTopLeft(find.byType(FeedPollCard)).dy - banner.bottom, 12);
+    });
+
+    testWidgets('띠를 누르면 공지 목록으로 간다', (tester) async {
+      repository
+        ..noticePage = Success(FeedPage(items: [noticeFixture()], hasMore: false))
+        ..page = Success(FeedPage(items: [itemFixture()], hasMore: false));
+      await pump(tester);
+
+      await tester.tap(find.byType(NoticeBanner));
+      await tester.pumpAndSettle();
+
+      expect(find.text('공지 목록'), findsOneWidget);
+    });
+
+    testWidgets('공지가 없으면 띠가 없다', (tester) async {
+      repository.page = Success(FeedPage(items: [itemFixture()], hasMore: false));
+      await pump(tester);
+
+      expect(find.byType(NoticeBanner), findsNothing);
+      expect(find.byType(FeedPollCard), findsOneWidget);
+    });
+
+    testWidgets('글이 없어도(빈 상태) 공지가 있으면 맨 위에 띠가 있고 빈 안내도 그대로다', (tester) async {
+      repository.noticePage = Success(FeedPage(items: [noticeFixture(title: '첫 공지')], hasMore: false));
+      await pump(tester);
+
+      expect(find.byType(NoticeBanner), findsOneWidget);
+      expect(find.text('첫 공지'), findsOneWidget);
+      expect(find.text('아직 올라온 글이 없어요'), findsOneWidget);
+      expect(
+        tester.getRect(find.byType(NoticeBanner)).bottom,
+        lessThan(tester.getRect(find.text('아직 올라온 글이 없어요')).top),
+      );
+      await tester.tap(find.byType(NoticeBanner));
+      await tester.pumpAndSettle();
+      expect(find.text('공지 목록'), findsOneWidget);
+    });
+
+    testWidgets('빈 상태에 공지도 없으면 띠가 없다', (tester) async {
+      await pump(tester);
+
+      expect(find.text('아직 올라온 글이 없어요'), findsOneWidget);
+      expect(find.byType(NoticeBanner), findsNothing);
+    });
+
+    testWidgets('피드를 못 읽은 화면(다시 시도)에는 공지가 있어도 띠가 없다', (tester) async {
+      repository
+        ..noticePage = Success(FeedPage(items: [noticeFixture()], hasMore: false))
+        ..page = const FailureResult(NetworkFailure());
+      await pump(tester);
+
+      expect(find.text('다시 시도'), findsOneWidget);
+      expect(find.byType(NoticeBanner), findsNothing);
+    });
+
+    testWidgets('공지를 못 읽어도 피드는 그대로 보이고 띠만 없다', (tester) async {
+      repository
+        ..noticePage = const FailureResult(NetworkFailure())
+        ..page = Success(FeedPage(items: [itemFixture()], hasMore: false));
+      await pump(tester);
+
+      expect(find.byType(NoticeBanner), findsNothing);
+      expect(find.byType(FeedPollCard), findsOneWidget);
+      expect(find.text('다시 시도'), findsNothing);
+    });
+
+    testWidgets('아래로 당기면 공지도 다시 읽는다', (tester) async {
+      repository
+        ..noticePage = Success(FeedPage(items: [noticeFixture()], hasMore: false))
+        ..page = Success(FeedPage(items: [itemFixture()], hasMore: false));
+      await pump(tester);
+      expect(repository.noticeRequests, hasLength(1));
+
+      await tester.fling(find.byType(ListView), const Offset(0, 500), 1500);
+      await tester.pumpAndSettle();
+
+      expect(repository.noticeRequests, hasLength(2));
     });
   });
 }

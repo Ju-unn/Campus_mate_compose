@@ -6,6 +6,7 @@ import 'package:campus_mate/community/model/data/community_category.dart';
 import 'package:campus_mate/community/model/data/community_feed_tab.dart';
 import 'package:campus_mate/community/model/data/community_item.dart';
 import 'package:campus_mate/community/model/data/feed_page.dart';
+import 'package:campus_mate/community/model/data/notice.dart';
 import 'package:campus_mate/community/model/data/poll.dart';
 import 'package:campus_mate/community/model/data/poll_comment.dart';
 import 'package:campus_mate/community/model/repository/community_repository.dart';
@@ -83,6 +84,26 @@ CommunityItem postFixture({
       commentCount: commentCount,
     );
 
+/// 공지 한 줄(할 일 21). 제목 · 본문은 지어낸 값이다.
+Notice noticeFixture({
+  String id = 'n1',
+  String title = '업데이트 안내',
+  String text = '이번 업데이트에서 바뀐 점이에요.',
+  String? imageUrl,
+  DateTime? createdAt,
+  bool isNew = false,
+  int commentCount = 0,
+}) =>
+    Notice(
+      id: id,
+      title: title,
+      text: text,
+      imageUrl: imageUrl,
+      createdAt: createdAt ?? DateTime(2026, 11, 24, 9),
+      isNew: isNew,
+      commentCount: commentCount,
+    );
+
 PollComment commentFixture({
   String id = 'c1',
   String body = '저는 상관없어요',
@@ -115,6 +136,14 @@ class FakeCommunityRepository implements CommunityRepository {
   /// 채워 두면 목록 응답(첫 쪽 · 다음 쪽)이 이것이 끝날 때까지 멈춘다 — 늦게 도착한 응답 상황용.
   /// 부른 순간의 값을 잡으니, 요청 하나를 붙잡아 두고 비운 뒤 다음 요청은 바로 돌려줄 수 있다.
   Completer<void>? holdPage;
+
+  /// 공지 첫 쪽. 커서가 있는 요청(더 보기)에는 [nextNoticePage] 를 돌려준다. 기본은 공지 없음(피드 띠 없음).
+  Result<FeedPage<Notice>> noticePage = const Success(FeedPage(items: [], hasMore: false));
+  Result<FeedPage<Notice>>? nextNoticePage;
+
+  /// 채워 두면 공지 목록 응답이 이것이 끝날 때까지 멈춘다 — 늦게 도착한 응답 · 겹침 상황용.
+  Completer<void>? holdNotices;
+  final List<({DateTime? before, String? beforeId})> noticeRequests = [];
 
   /// 글 하나 읽기(`fetchItem`) 결과. 비워 두면 404.
   Result<CommunityItem>? item;
@@ -176,6 +205,13 @@ class FakeCommunityRepository implements CommunityRepository {
     fetchedItemIds.add(itemId);
     await holdItem?.future;
     return item ?? const FailureResult(NotFoundFailure());
+  }
+
+  @override
+  Future<Result<FeedPage<Notice>>> fetchNotices({PageCursor? before}) async {
+    noticeRequests.add((before: before?.createdAt, beforeId: before?.id));
+    if (holdNotices case final hold?) await hold.future;
+    return before == null ? noticePage : (nextNoticePage ?? noticePage);
   }
 
   @override

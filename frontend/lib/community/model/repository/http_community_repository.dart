@@ -3,6 +3,7 @@ import 'package:campus_mate/community/model/data/community_category.dart';
 import 'package:campus_mate/community/model/data/community_feed_tab.dart';
 import 'package:campus_mate/community/model/data/community_item.dart';
 import 'package:campus_mate/community/model/data/feed_page.dart';
+import 'package:campus_mate/community/model/data/notice.dart';
 import 'package:campus_mate/community/model/data/poll.dart';
 import 'package:campus_mate/community/model/data/poll_comment.dart';
 import 'package:campus_mate/community/model/repository/community_repository.dart';
@@ -40,6 +41,15 @@ class HttpCommunityRepository implements CommunityRepository {
         'GET',
         '/community/items/$itemId',
         (body) => CommunityItem.fromJson((body as Map<String, dynamic>)['item'] as Map<String, dynamic>),
+      );
+
+  @override
+  Future<Result<FeedPage<Notice>>> fetchNotices({PageCursor? before}) => _api.send(
+        'GET',
+        '/community/notices',
+        (body) => FeedPage.fromJson(body as Map<String, dynamic>, Notice.fromJson),
+        // 첫 쪽에는 쿼리가 없다 — 빈 맵을 주면 URL 끝에 '?' 가 붙는다.
+        query: before?.toQuery('before'),
       );
 
   @override

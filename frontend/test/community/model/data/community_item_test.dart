@@ -53,6 +53,42 @@ void main() {
       expect(item.commentCount, 4);
       expect(item.isMine, isTrue);
     });
+
+    test('공지 줄(kind notice)은 제목 · 그림 주소를 담은 notice 가 있고, poll 은 null 이다', () {
+      final item = CommunityItem.fromJson({
+        ..._item(kind: 'notice', poll: null),
+        'is_mine': false,
+        'category': null,
+        'title': '1.0.7 업데이트 안내',
+        'image_url': 'https://img.test/a.webp',
+      });
+
+      final notice = item.notice!;
+      expect(item.poll, isNull);
+      expect(item.id, 'i1');
+      expect(item.text, '첫 데이트 더치페이');
+      expect(item.commentCount, 4);
+      expect(item.isMine, isFalse);
+      expect(notice.title, '1.0.7 업데이트 안내');
+      expect(notice.imageUrl, 'https://img.test/a.webp');
+    });
+
+    test('투표 · 게시물 줄은 notice 가 null 이다', () {
+      expect(CommunityItem.fromJson(_item()).notice, isNull);
+      expect(CommunityItem.fromJson(_item(kind: 'post', poll: null)).notice, isNull);
+    });
+  });
+
+  test('공지 줄의 withCommentCount 는 공지 칸을 지킨다', () {
+    final item = CommunityItem.fromJson({
+      ..._item(kind: 'notice', poll: null),
+      'title': '공지',
+      'image_url': null,
+    }).withCommentCount(7);
+
+    expect(item.commentCount, 7);
+    expect(item.notice!.commentCount, 7);
+    expect(item.notice!.title, '공지');
   });
 
   test('withCommentCount 는 댓글 수만 바꾸고, 투표면 안의 Poll 숫자도 같이 맞춘다', () {

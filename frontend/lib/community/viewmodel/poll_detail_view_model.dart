@@ -7,6 +7,7 @@ import 'package:campus_mate/community/model/data/poll_comment.dart';
 import 'package:campus_mate/community/model/data/poll_vote_notice.dart';
 import 'package:campus_mate/community/model/repository/community_repository_provider.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
+import 'package:campus_mate/community/viewmodel/notice_list_view_model.dart';
 import 'package:campus_mate/community/viewmodel/poll_detail_ui_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -31,7 +32,7 @@ class PollDetailViewModel extends Notifier<PollDetailUiState> {
 
   @override
   PollDetailUiState build() {
-    final inFeed = _fromFeed();
+    final inFeed = _fromFeed() ?? _fromNotices();
     unawaited(Future.microtask(() async {
       // 만들자마자 버려졌으면(화면을 바로 닫음 · 로그아웃) 읽지 않는다 — 버려진 ref 를 쓰면 던진다.
       if (!ref.mounted) return;
@@ -44,6 +45,13 @@ class PollDetailViewModel extends Notifier<PollDetailUiState> {
   CommunityItem? _fromFeed() {
     if (!ref.exists(communityFeedViewModelProvider)) return null;
     return ref.read(communityFeedViewModelProvider).items.where((item) => item.id == _pollId).firstOrNull;
+  }
+
+  /// 공지(할 일 21)는 피드에 없다 — 공지 목록이 떠 있으면 거기서 꺼낸다.
+  CommunityItem? _fromNotices() {
+    if (!ref.exists(noticeListViewModelProvider)) return null;
+    final notice = ref.read(noticeListViewModelProvider).items.where((notice) => notice.id == _pollId).firstOrNull;
+    return notice == null ? null : CommunityItem.ofNotice(notice);
   }
 
   /// 아래로 당겨 새로 고침 · 오류 화면의 "다시 시도". 글과 댓글 첫 쪽을 늘 다시 읽는다(사용자 11-11 「당기면 갱신」).
@@ -213,7 +221,7 @@ class PollDetailViewModel extends Notifier<PollDetailUiState> {
 
   int _countNow() => state.item?.commentCount ?? 0;
 
-  /// 헤더 숫자를 맞추고, 피드에 같은 글이 있으면 그 카드의 숫자도 맞춘다.
+  /// 헤더 숫자를 맞추고, 피드(투표 · 게시물) · 공지 목록에 같은 글이 있으면 그 줄의 숫자도 맞춘다.
   void _setCommentCount(int count) {
     final item = state.item;
     if (item == null) return;
@@ -221,6 +229,9 @@ class PollDetailViewModel extends Notifier<PollDetailUiState> {
     state = state.copyWith(item: item.withCommentCount(next));
     if (ref.exists(communityFeedViewModelProvider)) {
       ref.read(communityFeedViewModelProvider.notifier).updateCommentCount(_pollId, next);
+    }
+    if (ref.exists(noticeListViewModelProvider)) {
+      ref.read(noticeListViewModelProvider.notifier).updateCommentCount(_pollId, next);
     }
   }
 
