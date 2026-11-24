@@ -14,6 +14,8 @@ abstract final class AppTheme {
       colorScheme: _lightColorScheme(),
       scaffoldBackgroundColor: AppColors.canvas,
       textTheme: _textTheme(),
+      // 본문이 앱바 밑으로 스크롤돼도 앱바는 흰색 그대로다 — M3 scrolledUnder 의 분홍 물듦 · 그림자를 끈다(pen 앱바는 늘 흰색).
+      appBarTheme: const AppBarTheme(scrolledUnderElevation: 0, surfaceTintColor: Colors.transparent),
     );
   }
 
