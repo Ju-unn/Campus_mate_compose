@@ -10,7 +10,7 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 
 /// 신뢰 확인 시트(화면 14f, pen `p0XJA6` / 시트 `I5GLb`).
-/// 매칭 24시간 뒤부터 **방에 들어올 때마다** 뜨고, 스와이프로 닫을 수 있다(강제가 아니다).
+/// 시트 시각(`ChatRoom.promptAt` — 서버 `prompt_at`, 옛 서버는 매칭 24시간 뒤)부터 **방에 들어올 때마다** 뜨고, 스와이프로 닫을 수 있다(강제가 아니다).
 class TrustGateSheet extends StatelessWidget {
   const TrustGateSheet({
     required this.deadlineAt,

@@ -45,6 +45,7 @@ void main() {
     bool disableAnimations = false,
     Size screen = const Size(360, 780),
     int hours = 48,
+    int askHours = 24,
   }) async {
     tester.view.physicalSize = screen;
     tester.view.devicePixelRatio = 1;
@@ -68,6 +69,7 @@ void main() {
               StatefulBuilder(
                 builder: (context, setState) => ChatIntroCard(
                   hours: hours,
+                  askHours: askHours,
                   expanded: isExpanded,
                   onToggle: () => setState(() => isExpanded = !isExpanded),
                 ),
@@ -146,6 +148,16 @@ void main() {
     expect([for (final run in runsOf(tester, item1)) if (run.$2.fontWeight == FontWeight.w700) run.$1], ['72시간', '카카오톡 아이디']);
     expect([for (final run in runsOf(tester, item4)) if (run.$2.fontWeight == FontWeight.w700) run.$1], ['72시간', '종료']);
     expect(find.textContaining('48시간'), findsNothing);
+  });
+
+  // 확인 시트가 뜨는 시각도 서버 값(prompt_at)이다(사용자 확정 11-24 — 48시간째 시트).
+  testWidgets('물어보는 시각이 48시간인 방은 항목 2 가 "매칭 약 48시간 뒤" 이고 그 구절이 굵다', (tester) async {
+    await pump(tester, hours: 72, askHours: 48, expanded: true);
+
+    const item2 = '매칭 약 48시간 뒤, 아직 수락하지 않은 분께 알림이 가요. 알림을 누르거나 이 대화방에 들어오면 '
+        "'카카오톡 아이디를 공유할까요?' 창이 떠요. 거기서 '수락하고 공유하기' 또는 '거절하고 나가기'를 고르면 돼요.";
+    expect([for (final run in runsOf(tester, item2)) if (run.$2.fontWeight == FontWeight.w700) run.$1], ['48시간', '카카오톡 아이디']);
+    expect(find.textContaining('24시간'), findsNothing);
   });
 
   group('굵게(사용자 지시 10-17)', () {

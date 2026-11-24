@@ -710,12 +710,12 @@ void main() {
     // 미리 수락 배너 설명이 길어졌다(사용자 승인 11-24) — 가장 좁은 폭(360)에서 넘치거나 잘리지 않아야 한다.
     // 배율 1 에서 두 줄(배너 125 → 143)은 사용자 승인 「A 로 하는데 매칭 후 72시간으로 수정하자」 — 세 줄이 되면 글자를 고치지 않고 대장에게 보고한다.
     for (final scale in [1.0, 1.3, 2.0]) {
-      testWidgets('글자 배율 $scale · 360 폭 — 미리 수락 배너 설명(72시간)이 넘치거나 잘리지 않는다', (tester) async {
-        repository.room = Success(roomFixture(gateDeadline: const Duration(hours: 72)));
+      testWidgets('글자 배율 $scale · 360 폭 — 미리 수락 배너 설명(48 · 72시간)이 넘치거나 잘리지 않는다', (tester) async {
+        repository.room = Success(roomFixture(promptAfter: const Duration(hours: 48), gateDeadline: const Duration(hours: 72)));
         await pumpRoom(tester, scale: scale);
 
         expect(tester.takeException(), isNull);
-        final caption = find.text('24시간 뒤에 물어봐요. 매칭 후 72시간 안에 둘 다 수락하지 않으면 대화가 종료돼요');
+        final caption = find.text('48시간 뒤에 물어봐요. 매칭 후 72시간 안에 둘 다 수락하지 않으면 대화가 종료돼요');
         if (scale == 1.0) {
           // 설명 12 · 줄높이 1.5 = 한 줄 18 — 두 줄(36)까지.
           expect(tester.getSize(caption).height, 2 * 12 * 1.5);

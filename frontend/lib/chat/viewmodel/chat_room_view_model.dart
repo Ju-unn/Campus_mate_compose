@@ -21,7 +21,7 @@ final chatRoomViewModelProvider =
 );
 
 /// 채팅방 화면이 게이트 단계(배너·시트)를 가를 때 쓰는 시계. 테스트가 갈아끼운다
-/// (`verifyCodeNowProvider` 와 같은 방식) — 24시간 경계를 실제 시계 없이 넘기려고(백로그 22).
+/// (`verifyCodeNowProvider` 와 같은 방식) — 시트 시각 경계를 실제 시계 없이 넘기려고(백로그 22).
 final chatRoomNowProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 
 /// 방이 보이는 동안 상대가 내 줄을 읽었는지 묻는 주기(카톡식 '1', 사용자 결정 10-13, 같은 날 사용자 요청으로 5초 → 2초) —
