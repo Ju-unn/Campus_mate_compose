@@ -195,7 +195,8 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
 
   /// 어느 탭에 있든 돌아오면 대화 목록·수락 대기를 다시 읽는다. 로그아웃·관문 미완료 가드는 함수 안에 있다.
   void _refreshChatsOnResume() =>
-      refreshOnResume(ref.read, isAuthenticated: _authSession.isAuthenticated, gate: _verificationGate.value);
+      refreshOnResume(ref.read, ref.exists,
+          isAuthenticated: _authSession.isAuthenticated, gate: _verificationGate.value);
 
   void _setAppShown(bool shown) {
     _appShown = shown;

@@ -64,6 +64,13 @@ abstract final class AppRoutes {
 
   /// 보낸 신청 · 프로필 보기(읽기 전용, pen ig7i2, 1.0.7 #16) — 대화 탭 보낸 신청 줄의 [프로필 보기] 가 push 로 연다. `/sent-requests/:cardId`
   static const String sentRequestProfile = '/sent-requests';
+
+  /// 거절한 카드 · 프로필 보기(읽기 전용 + 다시 신청, pen hhlWE, 1.0.7 #20) — 대화 탭 [거절한 카드] 줄의 [프로필 보기] 가 push 로 연다.
+  /// `/rejected-cards/:cardId`, 받은 신청을 거절한 줄이면 `?source=acceptance`(읽는 길 · 아래 버튼이 다르다).
+  static const String rejectedCardProfile = '/rejected-cards';
+
+  /// 카드 대기 화면의 [거절한 카드 다시 보기] — 대화 탭을 [거절한 카드] 탭으로 연다.
+  static const String conversationsRejected = '$conversations?tab=rejected';
   static const String settings = '/settings';
   static const String notificationSettings = '/settings/notifications';
 
