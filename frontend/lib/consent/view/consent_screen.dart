@@ -83,7 +83,6 @@ class _ConsentScreenState extends ConsumerState<ConsentScreen> {
           toolbarHeight: 56,
           backgroundColor: AppColors.canvas,
           elevation: 0,
-          scrolledUnderElevation: 0,
           automaticallyImplyLeading: false,
           title: Text(context.l10n.consentScreenTitle, style: AppTypography.navTitle.copyWith(color: AppColors.ink)),
         ),
