@@ -88,8 +88,9 @@ class BasicInfoEditViewModel extends Notifier<BasicInfoEditUiState> {
     if (value.isEmpty) {
       return; // 빈 칸에 빨간 글씨를 띄우지 않는다 — 저장은 형식 검사가 막는다.
     }
-    if (!BasicInfoUiState.nicknamePattern.hasMatch(value)) {
-      state = state.copyWith(nicknameCheck: NicknameCheck.invalid);
+    final formatCheck = BasicInfoUiState.nicknameFormatCheck(value);
+    if (formatCheck != null) {
+      state = state.copyWith(nicknameCheck: formatCheck);
       return;
     }
     state = state.copyWith(nicknameCheck: NicknameCheck.checking);
@@ -347,6 +348,7 @@ class BasicInfoEditUiState {
       nicknameRejection ??
       switch (nicknameCheck) {
         NicknameCheck.invalid => const AppErrorFailure(AppError.nicknameInvalid),
+        NicknameCheck.notAllowed => const AppErrorFailure(AppError.nicknameNotAllowed),
         NicknameCheck.taken => const AppErrorFailure(AppError.nicknameTaken),
         _ => null,
       };
@@ -358,7 +360,7 @@ class BasicInfoEditUiState {
   /// 바뀌지 않은 칸은 보내지 않으니 검사하지 않는다. 중복 확인이 실패했거나 아직이어도 막지 않는다(04-1 과 같다).
   bool get _isNicknameReady =>
       !isNicknameChanged ||
-      (BasicInfoUiState.nicknamePattern.hasMatch(nicknameInput) &&
+      (BasicInfoUiState.nicknameFormatCheck(nicknameInput) == null &&
           nicknameCheck != NicknameCheck.taken &&
           nicknameRejection == null);
 

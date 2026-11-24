@@ -22,7 +22,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 한글·영문만 받는다(DESIGN §8.5 `nickname-field`). **자모(ㄱ-ㅎ·ㅏ-ㅣ)까지 허용해야 한다** —
 /// 한글 입력기는 조합 중에 자모를 먼저 넣기 때문에 막으면 기기에서 한글 자체를 칠 수 없다.
-/// 자모만 남은 값은 보내기 전 [BasicInfoUiState.nicknamePattern] 이 거른다.
+/// 자모만 남은 값은 보내기 전 `NicknameFormat`(common/input_rules.dart) 이 거른다.
 /// 글자 수는 여기서 자르지 않는다 — 조합 중인 글자를 잘라 내면 입력기가 꼬인다.
 final nicknameInputFormatters = [
   FilteringTextInputFormatter.allow(RegExp(r'[가-힣a-zA-Zㄱ-ㅎㅏ-ㅣ]')),

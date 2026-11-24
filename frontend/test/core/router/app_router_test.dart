@@ -60,6 +60,7 @@ import 'package:campus_mate/matching/model/repository/card_repository_provider.d
 import 'package:campus_mate/matching/view/acceptance_detail_screen.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/matching/view/match_made_screen.dart';
+import 'package:campus_mate/matching/view/read_only_profile_screen.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/view/avatar_regen_pick_screen.dart';
@@ -78,6 +79,7 @@ import 'package:campus_mate/profile/ideal/model/repository/ideal_note_repository
 import 'package:campus_mate/profile/traits/model/repository/survey_repository_provider.dart';
 import 'package:campus_mate/profile/bio/view/bio_screen.dart';
 import 'package:campus_mate/profile/ideal/view/ideal_conditions_screen.dart';
+import 'package:campus_mate/profile/ideal/view/ideal_intro_screen.dart';
 import 'package:campus_mate/profile/ideal/view/ideal_note_screen.dart';
 import 'package:campus_mate/profile/traits/view/survey_screen.dart';
 import 'package:campus_mate/profile/traits/view/tag_picker_screen.dart';
@@ -658,6 +660,18 @@ void main() {
       expect(tester.widget<AcceptanceDetailScreen>(find.byType(AcceptanceDetailScreen)).cardId, _cardId);
     });
 
+    testWidgets('/sent-requests/:cardId 는 그 보낸 신청의 읽기 전용 프로필(pen ig7i2, 제목 "보낸 신청")이다', (tester) async {
+      final router = await pumpRouter(tester);
+
+      router.go('${AppRoutes.sentRequestProfile}/$_cardId');
+      await tester.pumpAndSettle();
+
+      final screen = tester.widget<ReadOnlyProfileScreen>(find.byType(ReadOnlyProfileScreen));
+      expect(screen.cardId, _cardId);
+      expect(screen.title, '보낸 신청');
+      expect(screen.bottomAction, isNull);
+    });
+
     testWidgets('/profiles/:profileId 는 그 사람의 14c 상대 프로필이다', (tester) async {
       final router = await pumpRouter(tester);
 
@@ -673,6 +687,7 @@ void main() {
       ('${AppRoutes.chatRoom}/m1', AppRoutes.conversations),
       ('${AppRoutes.cardDetail}/card-1', AppRoutes.today),
       ('${AppRoutes.acceptanceDetail}/card-7', AppRoutes.conversations),
+      ('${AppRoutes.sentRequestProfile}/card-8', AppRoutes.conversations),
       ('${AppRoutes.partnerProfile}/p2', AppRoutes.home),
       ('${AppRoutes.partnerProfile}/${_profileId}x', AppRoutes.home),
       ('${AppRoutes.communityPoll}/p1', AppRoutes.community),
@@ -948,6 +963,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.widget<IdealConditionsScreen>(find.byType(IdealConditionsScreen)).isEditing, isTrue);
+      expect(find.byType(IdealIntroScreen), findsNothing, reason: '프로필 수정 길에는 이상형 들어가기(pen 25-B)가 없다');
     });
 
     for (final kind in TagPickerKind.values) {
@@ -1309,6 +1325,7 @@ void main() {
       // 06-1 화살표를 미룬 이유(조각 0~2 편차 2)가 풀렸는지: 서버 답으로 채워 흡연 문항에서 열고, "다음" 한 번은 같은 답을 보낸다.
       testWidgets('06-1 시스템 뒤로 → 설문 흡연 문항에서 열리고, "다음" 한 번이면 같은 답을 다시 저장하고 06-1 로 돌아온다', (tester) async {
         await pumpOnboarding(tester, OnboardingStep.idealConditions);
+        expect(find.byType(IdealIntroScreen), findsOneWidget, reason: '가입 06-1 앞에는 이상형 들어가기(pen 25-B)가 먼저 나온다');
         expect(find.byType(BackExitScope), findsOneWidget, reason: '두 겹이면 같은 뒤로가기에 둘 다 불린다');
         expect(backArrow(), findsOneWidget);
 
@@ -1325,7 +1342,22 @@ void main() {
 
         expect(survey.submittedAnswers, savedOnboardingProfile.surveyAnswers);
         expect(find.byType(IdealConditionsScreen), findsOneWidget);
+        expect(find.byType(IdealIntroScreen), findsNothing, reason: '06-1 에서 뒤로 갔다 다시 오면 들어가기를 다시 보이지 않는다');
         expect(steps.isRevisiting, isFalse);
+      });
+
+      testWidgets('가입 06-1 앞 이상형 들어가기는 혼자 넘어가 06-1 이 되고, 뒤로 겹이 하나다', (tester) async {
+        await pumpOnboarding(tester, OnboardingStep.idealConditions);
+        expect(find.byType(IdealIntroScreen), findsOneWidget);
+        expect(find.byType(IdealConditionsScreen), findsNothing);
+
+        await tester.pump(const Duration(milliseconds: 3100));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(IdealIntroScreen), findsNothing);
+        expect(find.byType(IdealConditionsScreen), findsOneWidget);
+        expect(find.byType(BackExitScope), findsOneWidget, reason: '두 겹이면 같은 뒤로가기에 둘 다 불린다');
+        expect(steps.value, OnboardingStep.idealConditions);
       });
 
       // 계획서 조각 3(269-270줄): 설문 첫 문항의 앱바 · 시스템 뒤로 → 04-6, 종료 안내 없음.

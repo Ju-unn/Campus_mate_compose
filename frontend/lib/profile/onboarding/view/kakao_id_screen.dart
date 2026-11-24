@@ -26,7 +26,7 @@ class KakaoIdScreen extends ConsumerWidget {
     final viewModel = ref.read(kakaoIdViewModelProvider.notifier);
     final back = onboardingBack(ref, isBusy: state.isSubmitting);
     final l10n = context.l10n;
-    final error = state.error;
+    final error = state.fieldError;
     // 시스템 뒤로도 화살표처럼 04-1 로 간다. 라우터는 이 화면을 두르지 않는다 — 두 겹이면 안내까지 뜬다.
     return BackExitScope(onBack: back, child: Scaffold(
       // pen `sN9Il` 은 04-1 과 같은 첫째 점을 켠다 — 04-1b 는 04-1 에 딸린 화면이다.
@@ -59,10 +59,13 @@ class KakaoIdScreen extends ConsumerWidget {
                         placeholder: l10n.profileKakaoIdPlaceholder,
                         initialValue: state.kakaoIdInput,
                         onChanged: viewModel.changeKakaoId,
-                        helper: l10n.profileKakaoIdHelper,
                         errorText: error == null ? null : context.errorText(error),
                       ),
-                      const SizedBox(height: AppSpacing.md),
+                      // pen gprMl qPWyr: 안내 줄은 오류 줄과 따로, 언제나 보인다(LabeledField.helper 는 오류가 뜨면 가려진다).
+                      // 칸(오류 줄 포함)과의 간격 20 은 pen Z2l77 gap 값이다 — AppSpacing.card(20)는 카드 안쪽 여백 뜻이라 빌리지 않고 숫자로 쓴다.
+                      const SizedBox(height: 20),
+                      Text(l10n.profileKakaoIdHelper, style: AppTypography.caption.copyWith(color: AppColors.muted)),
+                      const SizedBox(height: 20), // 안내 줄 ↔ 꼭 확인 카드 flTKJ 도 Z2l77 gap 20
                       NoticeCard(
                         isEmphasis: true,
                         title: l10n.profileKakaoIdNoticeTitle,

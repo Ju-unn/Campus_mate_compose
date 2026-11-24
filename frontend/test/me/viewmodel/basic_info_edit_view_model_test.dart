@@ -14,6 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../profile/basic/model/repository/fake_basic_info_repository.dart';
 import '../model/repository/fake_me_repository.dart';
+import '../../common/input_rules_cases.dart';
 
 /// 서버 `errors.py` 의 문구 — 앱은 상태코드를 못 보고 문구만 받는다.
 const _nicknameTaken = '이미 있는 닉네임이에요';
@@ -200,6 +201,34 @@ void main() {
       viewModel().changeNickname('호랑이');
       await tester.pump(const Duration(milliseconds: 350));
       expect(edit(), onboarding(NicknameCheck.taken));
+
+      viewModel().changeNickname('가가가');
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(edit(), onboarding(NicknameCheck.notAllowed));
+    });
+
+    // 서버 `has_letter_run` 과 같은 표 — 서버는 바꾸는 닉네임이 연속 글자면 422 "이미 있는 닉네임이에요" 를 준다.
+    for (final nickname in inputRuleCases('nickname', 'letter_run')) {
+      testWidgets('$nickname 으로 바꾸면 서버에 묻지 않고 "쓸 수 없는 닉네임" 을 알리고 저장을 끈다', (tester) async {
+        await open(_profile());
+
+        viewModel().changeNickname(nickname);
+        expect(state().canSave, isFalse, reason: '디바운스 전에도 꺼져 있어야 한다');
+        await tester.pump(const Duration(milliseconds: 350));
+
+        expect(state().nicknameError, _kind(AppError.nicknameNotAllowed));
+        expect(state().canSave, isFalse);
+        expect(nicknames.checkedNicknames, isEmpty);
+      });
+    }
+
+    test('예전에 들어온 연속 글자 닉네임은 그대로 두고 다른 칸만 고쳐 저장할 수 있다(서버도 바꾸는 닉네임만 본다)', () async {
+      await open(_profile(nickname: 'aaa'));
+
+      viewModel().changeHeight('180');
+
+      expect(state().nicknameError, isNull);
+      expect(state().canSave, isTrue);
     });
   });
 

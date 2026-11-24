@@ -7,6 +7,7 @@ import 'package:campus_mate/profile/onboarding/model/repository/kakao_id_reposit
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../common/input_rules_cases.dart';
 import '../../profile/onboarding/model/repository/fake_kakao_id_repository.dart';
 import '../model/repository/fake_account_repository.dart';
 
@@ -92,6 +93,76 @@ void main() {
     expect(state().error, isA<ServerRejectedFailure>());
     expect(state().completed, isFalse);
     expect(state().canSubmit, isTrue);
+  });
+
+  // 할 일 3 · 대장 판정(11-24): 04-1b 와 같은 규칙 — 서버가 거절할 아이디는 저장을 끄고, 안쪽 공백이면 칸 아래 공백 안내.
+  group('입력 중 미리 검사(서버와 같은 표)', () {
+    for (final kakaoId in inputRuleCases('kakao_id', 'reject')) {
+      test('서버가 거절하는 ${Uri.encodeComponent(kakaoId)} 는 저장할 수 없다', () async {
+        await viewModel().load();
+        viewModel().change(kakaoId);
+        expect(state().canSubmit, isFalse);
+      });
+    }
+
+    test('안쪽에 공백이 있으면 칸 아래 오류는 공백 안내다', () async {
+      await viewModel().load();
+      viewModel().change('new id');
+      expect(state().fieldError, const AppErrorFailure(AppError.kakaoIdSpace));
+    });
+
+    // 대장 규칙(15-6 과 같다): 저장된 옛 값은 사용자가 고칠 때만 본다 — 옛 앱이 받은 값으로 화면이 막히면 안 된다.
+    test('저장된 옛 아이디에 안쪽 공백이 있어도 그대로면 오류가 없고 저장을 막지 않는다', () async {
+      account.kakaoIdResult = const Success('old id');
+      await viewModel().load();
+
+      expect(state().fieldError, isNull);
+      expect(state().canSubmit, isTrue);
+    });
+
+    test('옛 아이디를 고쳐 쓰면 그때부터 미리 검사한다', () async {
+      account.kakaoIdResult = const Success('old id');
+      await viewModel().load();
+      viewModel().change('old idx');
+
+      expect(state().fieldError, const AppErrorFailure(AppError.kakaoIdSpace));
+      expect(state().canSubmit, isFalse);
+    });
+
+    test('고쳐 썼다가 옛 값으로 되돌리면 다시 막지 않는다', () async {
+      account.kakaoIdResult = const Success('old id');
+      await viewModel().load();
+      viewModel().change('old idx');
+      viewModel().change('old id');
+
+      expect(state().fieldError, isNull);
+      expect(state().canSubmit, isTrue);
+    });
+
+    testWidgets('고친 값이 공백 아닌 이유로 거절될 값이면 손을 멈춘 뒤에 입력 오류를 띄운다', (tester) async {
+      await tester.runAsync(viewModel().load);
+      viewModel().change('a');
+      expect(state().fieldError, isNull, reason: '쓰는 도중에는 띄우지 않는다');
+
+      await tester.pump(const Duration(milliseconds: 350));
+
+      expect(state().fieldError, const AppErrorFailure(AppError.invalidInput));
+    });
+
+    testWidgets('고치지 않은 옛 아이디는 거절될 값이어도 입력 오류를 띄우지 않는다', (tester) async {
+      account.kakaoIdResult = const Success('a');
+      await tester.runAsync(viewModel().load);
+
+      await tester.pump(const Duration(milliseconds: 350));
+
+      expect(state().fieldError, isNull);
+    });
+
+    test('서버 실패가 있으면 그것을 그린다', () async {
+      account.kakaoIdResult = const FailureResult(NetworkFailure());
+      await viewModel().load();
+      expect(state().fieldError, isA<NetworkFailure>());
+    });
   });
 
   test('고쳐 쓰면 오류 문구가 지워진다', () async {

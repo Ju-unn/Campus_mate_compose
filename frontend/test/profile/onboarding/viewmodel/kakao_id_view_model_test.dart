@@ -20,6 +20,7 @@ import '../model/repository/fake_kakao_id_repository.dart';
 import '../model/repository/fake_onboarding_repository.dart';
 import '../../../core/analytics/fake_analytics_service.dart';
 import '../../../core/draft/fake_draft_store.dart';
+import '../../../common/input_rules_cases.dart';
 
 void main() {
   late FakeKakaoIdRepository repository;
@@ -46,6 +47,62 @@ void main() {
     final vm = container.read(kakaoIdViewModelProvider.notifier);
     vm.changeKakaoId('   ');
     expect(container.read(kakaoIdViewModelProvider).canSubmit, isFalse);
+  });
+
+  // 할 일 3 · 대장 판정(11-24): 서버가 거절할 아이디는 "다음" 을 끄고, 안쪽 공백이면 칸 아래에 "공백 없이 적어 주세요".
+  group('입력 중 미리 검사(서버와 같은 표)', () {
+    for (final kakaoId in inputRuleCases('kakao_id', 'reject')) {
+      test('서버가 거절하는 ${Uri.encodeComponent(kakaoId)} 는 제출할 수 없다', () {
+        container.read(kakaoIdViewModelProvider.notifier).changeKakaoId(kakaoId);
+        expect(container.read(kakaoIdViewModelProvider).canSubmit, isFalse);
+      });
+    }
+
+    test('안쪽에 공백이 있으면 칸 아래 오류는 공백 안내다', () {
+      container.read(kakaoIdViewModelProvider.notifier).changeKakaoId('my id');
+      expect(container.read(kakaoIdViewModelProvider).fieldError, const AppErrorFailure(AppError.kakaoIdSpace));
+    });
+
+    test('앞뒤 공백은 오류가 아니다 — 보낼 때 다듬는다', () {
+      container.read(kakaoIdViewModelProvider.notifier).changeKakaoId(' my_id ');
+      final state = container.read(kakaoIdViewModelProvider);
+      expect(state.fieldError, isNull);
+      expect(state.canSubmit, isTrue);
+    });
+
+    // 대장 판정(11-24, 나안): 공백 아닌 거절 이유는 손을 멈춘 뒤(300ms) "입력한 값을 다시 확인해 주세요".
+    testWidgets('공백 아닌 이유로 거절될 값은 손을 멈춘 뒤에 입력 오류를 띄운다', (tester) async {
+      container.read(kakaoIdViewModelProvider.notifier).changeKakaoId('a');
+      expect(container.read(kakaoIdViewModelProvider).fieldError, isNull, reason: '쓰는 도중에는 띄우지 않는다');
+
+      await tester.pump(const Duration(milliseconds: 350));
+
+      expect(container.read(kakaoIdViewModelProvider).fieldError, const AppErrorFailure(AppError.invalidInput));
+    });
+
+    testWidgets('빈 칸은 손을 멈춰도 오류가 없다', (tester) async {
+      final vm = container.read(kakaoIdViewModelProvider.notifier);
+      vm.changeKakaoId('a');
+      vm.changeKakaoId('');
+
+      await tester.pump(const Duration(milliseconds: 350));
+
+      expect(container.read(kakaoIdViewModelProvider).fieldError, isNull);
+    });
+
+    testWidgets('기다리는 사이 버려져도 던지지 않는다', (tester) async {
+      container.read(kakaoIdViewModelProvider.notifier).changeKakaoId('a');
+      container.dispose();
+
+      await tester.pump(const Duration(milliseconds: 350));
+    });
+
+    test('공백이 아닌 이유(한 글자)로 거절되면 다음만 끄고 공백 안내는 띄우지 않는다', () {
+      container.read(kakaoIdViewModelProvider.notifier).changeKakaoId('a');
+      final state = container.read(kakaoIdViewModelProvider);
+      expect(state.fieldError, isNull);
+      expect(state.canSubmit, isFalse);
+    });
   });
 
   test('값을 채우면 제출할 수 있고 성공하면 completed 가 켜진다', () async {
@@ -146,6 +203,7 @@ void main() {
     vm.changeKakaoId('my_kakao_id');
     await vm.submit();
     expect(container.read(kakaoIdViewModelProvider).error, isA<UnknownFailure>());
+    expect(container.read(kakaoIdViewModelProvider).fieldError, isA<UnknownFailure>(), reason: '칸 아래 한 줄은 서버 실패도 그린다');
     expect(container.read(kakaoIdViewModelProvider).completed, isFalse);
   });
 

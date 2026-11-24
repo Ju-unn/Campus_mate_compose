@@ -2,14 +2,16 @@
 import pytest
 
 from app.core.junk_text import has_banned_word, has_letter_run
+from input_rules_cases import CASES
 
 
-@pytest.mark.parametrize("text", ["aaa", "AAa", "가가가", "abbb", "abc", "XYZ", "cba", "Abcd", "컴공..."])
+# 예시는 앱 시험과 같이 쓰는 표(fixtures/input_rules_cases.json)에 있다.
+@pytest.mark.parametrize("text", CASES["letter_run"]["run"])
 def test_three_same_or_alphabet_ordered_letters_in_a_row_are_a_run(text):
     assert has_letter_run(text)
 
 
-@pytest.mark.parametrize("text", ["진진", "복복", "땅땅이", "양아아", "hy", "가나", "abd", "Computer Science", "AI융합학부"])
+@pytest.mark.parametrize("text", CASES["letter_run"]["not_run"])
 def test_two_in_a_row_or_broken_order_is_not_a_run(text):
     assert not has_letter_run(text)
 

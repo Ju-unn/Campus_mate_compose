@@ -183,6 +183,10 @@ enum AppError {
 
   /// 닉네임 · 키 · 번호 칸 아래 빨간 한 줄(04-1 · 15-6). 서버 422 · 409 문구와 글자가 같다.
   nicknameInvalid,
+
+  /// 같은 글자 3번 · 알파벳 순서 3글자(`common/input_rules.dart`). 앱이 서버에 묻기 전에 막는다 — 서버는 같은 닉네임에
+  /// "이미 있는 닉네임이에요" 로만 답해 글자가 다르다(사용자가 정한 문구).
+  nicknameNotAllowed,
   nicknameTaken,
   heightRange,
   phoneInvalid,
@@ -190,6 +194,13 @@ enum AppError {
   /// 학번 칸 아래 한 줄(3c · 15-6 같은 키). 앱이 미리 막는 안내라 서버 422 STUDENT_NUMBER_INVALID 문구와는 글자가 다르다
   /// (서버가 거절하면 그 문구를 그대로 보인다).
   studentNumberInvalid,
+
+  /// 학과(3c) · 카카오톡 아이디(04-1b · 16e-1, 공백 말고 다른 이유) 칸을 서버가 받지 않을 모양으로 썼다
+  /// (`common/input_rules.dart`). 서버가 같은 값에 주는 422 글과 같다.
+  invalidInput,
+
+  /// 카카오톡 아이디(04-1b · 16e-1) 안쪽에 공백 · 0폭 문자가 있다(`common/input_rules.dart`).
+  kakaoIdSpace,
 
   /// 04-1 휴대폰 문자 인증(pen 오류 줄 모음 xzT59 · 상태 화면 ⑤ ⑦ ⑫ ⑬). 서버는 code 로 가르고 글자는 앱이 정한다.
   phoneInUse,

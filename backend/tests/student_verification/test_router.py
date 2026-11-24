@@ -12,6 +12,7 @@ from app.core.deps import get_client, get_settings
 from app.main import app
 from app.settings import Settings
 from app.student_verification.router import fetch_verification_status
+from input_rules_cases import CASES
 
 PROFILE_ID = UUID("11111111-1111-1111-1111-111111111111")
 JPEG = b"\xff\xd8\xff" + b"fake-student-id-bytes"
@@ -123,10 +124,16 @@ def test_status_verified_without_school_info():
                                          "consent": "current", "school_email_verified": True}
 
 
+# 학과 예시는 앱 시험과 같이 쓰는 표(tests/fixtures/input_rules_cases.json)에 있다 — 앱이 통과시키고 서버가 거절하면 가입이 막힌다.
+# 통과 쪽에는 알파벳 순서 3글자가 든 실제 영문 학과(Korean Studies · Defense …)가 있다(11-18 사용자 ② — 학과에는 순서 규칙이 없다).
+JUNK_DEPARTMENTS = CASES["department"]["reject"]
+REAL_DEPARTMENTS = CASES["department"]["accept"]
+
+
 @pytest.mark.parametrize(("department", "has_school_info"), [
-    (".", False), ("ㅋㅋ", False), (None, False), ("aaa학과", False), ("가\u200b", False), ("컴퓨터공학과", True),
-    # 학과에는 알파벳 순서 규칙이 없다(11-18 사용자 ②) — 이 학과로 가입한 사람이 3c 에 갇히지 않게.
-    ("Korean Studies", True), ("International Studies", True), ("Defense", True), ("First Aid", True),
+    (None, False),
+    *[(department, False) for department in JUNK_DEPARTMENTS],
+    *[(department, True) for department in REAL_DEPARTMENTS],
 ])
 def test_status_sends_a_junk_department_back_to_school_info(department, has_school_info):
     """운영에 학과 "." 로 가입을 마친 사람이 있다(11-18 사용자 「학과만 다시 띄우기」). 학과 제출과 같은 규칙에 안 맞으면
@@ -239,11 +246,7 @@ def test_school_info_turns_away_anything_but_one_to_three_digits(student_number)
     assert _calls(sent, "PATCH", "/rest/v1/profiles") == []
 
 
-@pytest.mark.parametrize("department", [
-    "...", "123", "-_-", "컴공\n", "ㄱ경영", "ㅋㅋ", ".", "..", "가", "aaa", "aaa학과", "   ", "경영\t학과", "ㆍ경영",
-    # 0폭 문자로 2자를 채운 값 · 글 방향 문자(검토 11-18).
-    "가\u200b", "경영\u202e학과",
-])
+@pytest.mark.parametrize("department", JUNK_DEPARTMENTS)
 def test_school_info_turns_away_a_junk_department_with_a_string_detail(department):
     """운영에 학과 "." 가 들어왔다(11-18). 문자열 detail 이라야 앱이 버튼 위에 그대로 띄운다(목록이면 "알 수 없는 오류")."""
     sent = _wire(_gate_row("verified"))
@@ -257,11 +260,7 @@ def test_school_info_turns_away_a_junk_department_with_a_string_detail(departmen
     assert _calls(sent, "PATCH", "/rest/v1/profiles") == []
 
 
-@pytest.mark.parametrize("department", [
-    "컴공", "경영학과", "Computer Science", "AI융합학부", "컴퓨터공학과(야간)",
-    # 알파벳 순서 3글자(stu · def · rst)가 든 실제 영문 학과(11-18 사용자 ② — 학과에는 순서 규칙이 없다).
-    "Korean Studies", "International Studies", "Defense", "First Aid",
-])
+@pytest.mark.parametrize("department", REAL_DEPARTMENTS)
 def test_school_info_takes_a_real_department(department):
     sent = _wire(_gate_row("verified"))
 
