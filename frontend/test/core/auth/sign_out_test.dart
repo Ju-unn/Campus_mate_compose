@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
+import 'package:campus_mate/core/http/http_send.dart';
 import 'package:campus_mate/core/push/push_registrar.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
@@ -223,6 +224,27 @@ void main() {
 
       verify(() => auth.signOut()).called(1);
       expect(wiped, ['cache']);
+    });
+
+    // 세션은 이미 지워졌고 서버 알림만 매달린 경우 — 쓰기 상한(30초) 뒤 공급자 로그아웃 · 기기 정리를 한다.
+    testWidgets('서버 로그아웃 알림이 끝나지 않아도 쓰기 상한 뒤 공급자 로그아웃 · 기기 정리를 한다', (tester) async {
+      final order = <String>[];
+      final registrar = PushRegistrar(FakePushMessaging(token: 'tok-1'), FakeCardRepository());
+      final auth = MockGoTrueClient();
+      when(() => auth.signOut()).thenAnswer((_) => Completer<void>().future);
+      unawaited(signOut(
+        registrar,
+        auth,
+        FakeDraftStore(),
+        social: _OrderedSocial(order),
+        deviceWipes: [() async => order.add('contacts')],
+      ));
+
+      await tester.pump(writeTimeout - const Duration(milliseconds: 1));
+      expect(order, isEmpty, reason: '상한 전에는 알림을 기다린다');
+      await tester.pump(const Duration(milliseconds: 1));
+
+      expect(order, ['providers', 'contacts']);
     });
 
     // 같은 프로세스에서 다음 사람이 로그인해도 앞사람이 본 사진(디코딩된 그림)이 메모리에 남지 않는다.
