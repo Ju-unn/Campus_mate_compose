@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:campus_mate/auth/school_info/model/data/student_number.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
@@ -21,13 +22,17 @@ const Set<String> _nicknameRejections = {'이미 있는 닉네임이에요', '�
 
 /// 서버 422(`errors.py` INVALID_INPUT) — 키 check(120~230) 위반이 이 문구로 온다.
 const String _invalidInput = '입력한 값을 다시 확인해 주세요';
+
+/// 서버 422(`errors.py` STUDENT_NUMBER_INVALID) — 보낸 학번이 2자리가 아니면 이 문구로 온다.
+const String _studentNumberInvalid = '숫자를 입력해 주세요';
 // l10n-ignore-end
 
 bool _isServerText(Failure failure, Set<String> texts) =>
     failure is ServerRejectedFailure && texts.contains(failure.serverMessage);
 
 /// 15-6 기본 정보 수정(pen `mhdYA` · 15-6-2 `ZuPTD`, 계획서 2026-09-28-me-profile.md A16 · 옛 A7). 닉네임 · 키 · MBTI · 종교 · 흡연 ·
-/// 내 동물상 · 내 인상을 고친다. 출생연도 · 성별 · 학과는 잠금 행으로 보여 주기만 한다(10-10 사용자 결정).
+/// 내 동물상 · 내 인상 · 학부 입학 학번을 고친다. 출생연도 · 성별 · 학과는 잠금 행으로 보여 주기만 한다(10-10 사용자 결정).
+/// 학번은 고친 때만 보낸다 — 옛 값이 2자리가 아니어도(4 · 7 · 8자리) 학번을 안 건드리면 다른 칸 저장은 막히지 않는다.
 ///
 /// 편집 모드. 열 때마다 서버 값으로 채운다 — autoDispose 라 닫으면 고치다 만 값이 남지 않는다(Review Focus 5).
 /// 닉네임 형식 · 중복 확인은 04-1 과 같은 규칙 · 같은 시점(300ms 디바운스)이다. **바뀐 칸만** 보낸다 — 닉네임이 그대로면
@@ -41,12 +46,15 @@ class BasicInfoEditViewModel extends Notifier<BasicInfoEditUiState> {
     ref.onDispose(() => _debounce?.cancel());
     final profile = ref.read(myProfileProvider).value?.when<MyProfile?>(onSuccess: (p) => p, onFailure: (_) => null);
     final height = profile?.heightCm?.toString() ?? '';
+    final studentNumber = profile?.studentNumber ?? '';
     return BasicInfoEditUiState(
       savedNickname: profile?.nickname ?? '',
       savedHeight: height,
       nicknameChangeableAt: profile?.nicknameChangeableAt,
       nicknameInput: profile?.nickname ?? '',
       heightInput: height,
+      savedStudentNumber: studentNumber,
+      studentNumberInput: studentNumber,
       savedMbti: profile?.mbti,
       // MBTI 가 null 이면 "선택 안 함" 이다 — "모름" 칩이 켜진 채 열린다.
       mbtiPoles: MbtiPoles.fromCode(profile?.mbti),
@@ -80,8 +88,9 @@ class BasicInfoEditViewModel extends Notifier<BasicInfoEditUiState> {
     if (value.isEmpty) {
       return; // 빈 칸에 빨간 글씨를 띄우지 않는다 — 저장은 형식 검사가 막는다.
     }
-    if (!BasicInfoUiState.nicknamePattern.hasMatch(value)) {
-      state = state.copyWith(nicknameCheck: NicknameCheck.invalid);
+    final formatCheck = BasicInfoUiState.nicknameFormatCheck(value);
+    if (formatCheck != null) {
+      state = state.copyWith(nicknameCheck: formatCheck);
       return;
     }
     state = state.copyWith(nicknameCheck: NicknameCheck.checking);
@@ -99,6 +108,9 @@ class BasicInfoEditViewModel extends Notifier<BasicInfoEditUiState> {
   }
 
   void changeHeight(String value) => state = state.copyWith(heightInput: value, heightRejection: null);
+
+  void changeStudentNumber(String value) =>
+      state = state.copyWith(studentNumberInput: value, studentNumberRejection: null);
 
   /// 아래 칸들은 저장 중에 바꾸지 못한다 — 보내는 값과 화면 값이 갈라지지 않게(닉네임 · 키 칸은 읽기 전용으로 막는다).
   void toggleMbtiPole(String pole) {
@@ -157,6 +169,7 @@ class BasicInfoEditViewModel extends Notifier<BasicInfoEditUiState> {
       religion: state.isReligionChanged ? state.religion : null,
       isSmoker: state.isSmokerChanged ? state.isSmoker : null,
       appearance: appearance,
+      studentNumber: state.isStudentNumberChanged ? state.studentNumber : null,
     );
     state = state.copyWith(isSubmitting: true, error: null);
     // 저장 중에 뒤로 나가도 끝까지 저장하고 15-5 를 다시 읽게 한다 — 그동안 autoDispose 가 버리지 않게 붙잡는다.
@@ -170,12 +183,14 @@ class BasicInfoEditViewModel extends Notifier<BasicInfoEditUiState> {
             religion: sent.religion,
             isSmoker: sent.isSmoker,
             appearance: sent.appearance,
+            studentNumber: sent.studentNumber,
           );
       // 저장하는 사이 로그아웃으로 버려졌으면(keepAlive 로도 못 막는다) 늦게 온 답은 버린다 — 상태 · ref 를 건드리면 던진다.
       if (!ref.mounted) return;
       state = result.when(
         onSuccess: (_) => state.copyWith(isSubmitting: false, completed: true),
-        onFailure: (failure) => _rejectedState(failure, sentHeight: heightCm != null),
+        onFailure: (failure) =>
+            _rejectedState(failure, sentHeight: heightCm != null, sentStudentNumber: sent.studentNumber != null),
       );
       if (state.completed) {
         ref.invalidate(myProfileProvider);
@@ -187,12 +202,15 @@ class BasicInfoEditViewModel extends Notifier<BasicInfoEditUiState> {
 
   /// 실패를 탓할 칸 아래로 보낸다(B5). 어느 칸 탓인지 모르는 실패(네트워크 등)는 04-1 처럼 버튼 위 저장 실패 문구다 —
   /// pen 15-6c `C3oV5u`(실패 종류와 상관없이 같다).
-  BasicInfoEditUiState _rejectedState(Failure failure, {required bool sentHeight}) {
+  BasicInfoEditUiState _rejectedState(Failure failure, {required bool sentHeight, required bool sentStudentNumber}) {
     if (_isServerText(failure, _nicknameRejections)) {
       return state.copyWith(isSubmitting: false, nicknameRejection: failure);
     }
     if (sentHeight && _isServerText(failure, const {_invalidInput})) {
       return state.copyWith(isSubmitting: false, heightRejection: failure);
+    }
+    if (sentStudentNumber && _isServerText(failure, const {_studentNumberInvalid})) {
+      return state.copyWith(isSubmitting: false, studentNumberRejection: failure);
     }
     return state.copyWith(isSubmitting: false, error: const AppErrorFailure(AppError.saveFailed));
   }
@@ -208,6 +226,8 @@ class BasicInfoEditUiState {
     required this.savedHeight,
     required this.nicknameInput,
     required this.heightInput,
+    this.savedStudentNumber = '',
+    this.studentNumberInput = '',
     this.savedMbti,
     this.mbtiPoles = const {},
     this.isMbtiUnknown = false,
@@ -226,6 +246,7 @@ class BasicInfoEditUiState {
     this.nicknameCheck = NicknameCheck.none,
     this.nicknameRejection,
     this.heightRejection,
+    this.studentNumberRejection,
     this.isSubmitting = false,
     this.error,
     this.completed = false,
@@ -236,6 +257,10 @@ class BasicInfoEditUiState {
   final String savedHeight;
   final String nicknameInput;
   final String heightInput;
+
+  /// 학번의 서버 값(없으면 빈 글자)과 지금 입력. 옛 값은 2자리가 아닐 수 있어 글자 그대로 든다.
+  final String savedStudentNumber;
+  final String studentNumberInput;
 
   /// MBTI · 종교 · 흡연 · 얼굴상 · 인상의 서버 값(saved)과 지금 고른 값. 서버 값이 null 이면 아직 안 고른 것이다
   /// (MBTI 만 null 이 "선택 안 함" 이라 "모름" 으로 연다).
@@ -267,6 +292,7 @@ class BasicInfoEditUiState {
   /// 저장 때 서버가 닉네임 · 키 탓으로 돌려준 거절(서버 문구를 그대로 든다). 그 칸을 고치면 지운다.
   final Failure? nicknameRejection;
   final Failure? heightRejection;
+  final Failure? studentNumberRejection;
   final bool isSubmitting;
 
   /// 어느 칸 탓인지 모르는 저장 실패(네트워크 등). 글자는 화면이 `context.errorText` 로 만든다.
@@ -276,6 +302,10 @@ class BasicInfoEditUiState {
   bool get isNicknameLocked => nicknameChangeableAt != null;
   bool get isNicknameChanged => nicknameInput != savedNickname;
   bool get isHeightChanged => heightInput != savedHeight;
+  bool get isStudentNumberChanged => studentNumberInput != savedStudentNumber;
+
+  /// 보낼 학번. 2자리가 아니면 null.
+  StudentNumber? get studentNumber => StudentNumber.tryParse(studentNumberInput);
 
   /// "모름" 이 켜졌거나 네 축이 다 찼으면 값이 정해진 것이다. 그 사이(반쪽)는 못 보낸다.
   bool get _isMbtiDecided => isMbtiUnknown || MbtiPoles.isComplete(mbtiPoles);
@@ -318,6 +348,7 @@ class BasicInfoEditUiState {
       nicknameRejection ??
       switch (nicknameCheck) {
         NicknameCheck.invalid => const AppErrorFailure(AppError.nicknameInvalid),
+        NicknameCheck.notAllowed => const AppErrorFailure(AppError.nicknameNotAllowed),
         NicknameCheck.taken => const AppErrorFailure(AppError.nicknameTaken),
         _ => null,
       };
@@ -329,18 +360,34 @@ class BasicInfoEditUiState {
   /// 바뀌지 않은 칸은 보내지 않으니 검사하지 않는다. 중복 확인이 실패했거나 아직이어도 막지 않는다(04-1 과 같다).
   bool get _isNicknameReady =>
       !isNicknameChanged ||
-      (BasicInfoUiState.nicknamePattern.hasMatch(nicknameInput) &&
+      (BasicInfoUiState.nicknameFormatCheck(nicknameInput) == null &&
           nicknameCheck != NicknameCheck.taken &&
           nicknameRejection == null);
 
   bool get _isHeightReady => !isHeightChanged || (heightCm != null && heightRejection == null);
+
+  /// 서버가 돌려준 거절이 먼저. 고쳤는데 2자리 숫자가 아니면 3c 와 같은 안내다 — 안 고친 옛 값(4 · 7 · 8자리)에는 띄우지 않는다
+  /// (사용자 결정 11-24).
+  Failure? get studentNumberError =>
+      studentNumberRejection ??
+      (isStudentNumberChanged && studentNumber == null ? const AppErrorFailure(AppError.studentNumberInvalid) : null);
+
+  /// 안 고친 학번은 보내지 않으니 옛 값이 잘못돼 있어도 막지 않는다.
+  bool get _isStudentNumberReady =>
+      !isStudentNumberChanged || (studentNumber != null && studentNumberRejection == null);
 
   /// 바뀐 칸이 있어야 하고, 그 칸이 보낼 수 있는 값이어야 한다 — MBTI 는 반쪽이 아니고, 얼굴상 · 인상은 쌍이 다 찼다.
   bool get _isMbtiReady => !isMbtiChanged || _isMbtiDecided;
   bool get _isAppearanceReady => !isAppearanceChanged || (animalType != null && impressionType != null);
 
   bool get _hasChange =>
-      isNicknameChanged || isHeightChanged || isMbtiChanged || isReligionChanged || isSmokerChanged || isAppearanceChanged;
+      isNicknameChanged ||
+      isHeightChanged ||
+      isStudentNumberChanged ||
+      isMbtiChanged ||
+      isReligionChanged ||
+      isSmokerChanged ||
+      isAppearanceChanged;
 
   /// 바뀐 것이 없거나 형식 오류면 꺼진다(B2).
   bool get canSave =>
@@ -348,12 +395,14 @@ class BasicInfoEditUiState {
       _hasChange &&
       _isNicknameReady &&
       _isHeightReady &&
+      _isStudentNumberReady &&
       _isMbtiReady &&
       _isAppearanceReady;
 
   BasicInfoEditUiState copyWith({
     String? nicknameInput,
     String? heightInput,
+    String? studentNumberInput,
     Set<String>? mbtiPoles,
     bool? isMbtiUnknown,
     Religion? religion,
@@ -363,6 +412,7 @@ class BasicInfoEditUiState {
     NicknameCheck? nicknameCheck,
     Object? nicknameRejection = _keep,
     Object? heightRejection = _keep,
+    Object? studentNumberRejection = _keep,
     bool? isSubmitting,
     Object? error = _keep,
     bool? completed,
@@ -370,6 +420,7 @@ class BasicInfoEditUiState {
     return BasicInfoEditUiState(
       savedNickname: savedNickname,
       savedHeight: savedHeight,
+      savedStudentNumber: savedStudentNumber,
       savedMbti: savedMbti,
       savedReligion: savedReligion,
       savedIsSmoker: savedIsSmoker,
@@ -381,6 +432,7 @@ class BasicInfoEditUiState {
       nicknameChangeableAt: nicknameChangeableAt,
       nicknameInput: nicknameInput ?? this.nicknameInput,
       heightInput: heightInput ?? this.heightInput,
+      studentNumberInput: studentNumberInput ?? this.studentNumberInput,
       mbtiPoles: mbtiPoles ?? this.mbtiPoles,
       isMbtiUnknown: isMbtiUnknown ?? this.isMbtiUnknown,
       religion: religion ?? this.religion,
@@ -390,6 +442,9 @@ class BasicInfoEditUiState {
       nicknameCheck: nicknameCheck ?? this.nicknameCheck,
       nicknameRejection: identical(nicknameRejection, _keep) ? this.nicknameRejection : nicknameRejection as Failure?,
       heightRejection: identical(heightRejection, _keep) ? this.heightRejection : heightRejection as Failure?,
+      studentNumberRejection: identical(studentNumberRejection, _keep)
+          ? this.studentNumberRejection
+          : studentNumberRejection as Failure?,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       error: identical(error, _keep) ? this.error : error as Failure?,
       completed: completed ?? this.completed,

@@ -46,7 +46,8 @@ class _KakaoIdSettingsScreenState extends ConsumerState<KakaoIdSettingsScreen> {
     final state = ref.watch(kakaoIdSettingsViewModelProvider);
     final viewModel = ref.read(kakaoIdSettingsViewModelProvider.notifier);
     final l10n = context.l10n;
-    final error = state.error;
+    // 서버 실패가 먼저, 아니면 안쪽 공백 안내(04-1b 와 같은 규칙, 할 일 3).
+    final error = state.fieldError;
     ref.listen(kakaoIdSettingsViewModelProvider, _onStateChanged);
     return Scaffold(
       appBar: AppBar(title: Text(l10n.commonKakaoId, style: AppTypography.navTitle)),

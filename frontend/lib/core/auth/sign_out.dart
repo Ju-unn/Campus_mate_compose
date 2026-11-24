@@ -3,6 +3,7 @@ import 'package:campus_mate/auth/media/model/repository/image_compressor_provide
 import 'package:campus_mate/auth/social/model/repository/social_login_repository.dart';
 import 'package:campus_mate/auth/social/model/repository/social_login_repository_provider.dart';
 import 'package:campus_mate/core/draft/draft_store.dart';
+import 'package:campus_mate/core/http/http_send.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
 import 'package:campus_mate/core/push/push_registrar.dart';
 import 'package:campus_mate/safety/model/repository/contact_name_store.dart';
@@ -85,7 +86,8 @@ Future<void> _signOutProviders(SocialLoginRepository? social) async {
 
 Future<void> _signOutOnDevice(GoTrueClient auth) async {
   try {
-    await auth.signOut();
+    // 서버 알림이 매달려도 뒤의 공급자 로그아웃 · 기기 정리를 하도록 쓰기 상한에서 기다리기를 멈춘다.
+    await auth.signOut().timeout(writeTimeout, onTimeout: () {});
   } on AuthException {
     // 위 주석 — 남은 것은 서버 쪽 알림뿐이다.
   }

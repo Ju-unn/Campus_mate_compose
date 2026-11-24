@@ -61,6 +61,9 @@ abstract final class AppRoutes {
 
   /// 받은 신청 · 프로필 보기(pen `o4QqYR`, 2026-10-16) — 대화 탭 받은 신청 행의 "프로필 보기" 가 push 로 연다. `/acceptances/:cardId`
   static const String acceptanceDetail = '/acceptances';
+
+  /// 보낸 신청 · 프로필 보기(읽기 전용, pen ig7i2, 1.0.7 #16) — 대화 탭 보낸 신청 줄의 [프로필 보기] 가 push 로 연다. `/sent-requests/:cardId`
+  static const String sentRequestProfile = '/sent-requests';
   static const String settings = '/settings';
   static const String notificationSettings = '/settings/notifications';
 
@@ -135,6 +138,6 @@ abstract final class AppRoutes {
   /// 15-5 "실제 사진 교체"(`E7Cv2`)가 여는 15-7 사진 수정(`szJ79`, 계획서 2026-09-28-me-profile.md A15).
   static const String myPhotos = '/me/photos';
 
-  /// 15-5 "수정 ›"(`A8LX2`)이 여는 15-6 기본 정보 수정(`mhdYA`, 계획서 2026-09-28-me-profile.md A16) — 닉네임 · 키.
+  /// 15-5 [내 프로필 수정] 줄(`oaIwg`, 1.0.7 #17 — 옛 "수정 ›" `A8LX2`)이 여는 15-6 기본 정보 수정(`mhdYA`, 계획서 2026-09-28-me-profile.md A16) — 닉네임 · 키.
   static const String myBasicInfo = '/me/basic-info';
 }

@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/photo_slider.dart';
 import 'package:campus_mate/common/widgets/section_header.dart';
@@ -23,8 +21,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// 15-5 프로필 편집(pen `rrJ27`). 화면 15 입구 "프로필 편집"(`sC8BR`)이 연다. 실제 사진 → 기본 정보 → 선호 조건 →
-/// 자기소개 — 화면 15 에 있던 섹션을 옮겨 왔다(계획서 N1). 저장 버튼 · 하단 내비는 없다 — 섹션마다 편집 화면에서
+/// 15-5 프로필 편집(pen `rrJ27` · 1.0.7 #17 `qvTuw`). 화면 15 입구 "프로필 편집"(`sC8BR`)이 연다. 실제 사진 → 기본 정보 →
+/// 내 정보 수정 → 선호 조건 → 자기소개 — 화면 15 에 있던 섹션을 옮겨 왔다(계획서 N1). 저장 버튼 · 하단 내비는 없다 — 섹션마다 편집 화면에서
 /// 저장하고, 편집 화면이 저장 뒤 내 프로필을 다시 읽게 하고 pop 해 이 화면으로 돌아온다(N8 · N19).
 class ProfileManageScreen extends ConsumerStatefulWidget {
   const ProfileManageScreen({super.key});
@@ -34,7 +32,7 @@ class ProfileManageScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileManageScreenState extends ConsumerState<ProfileManageScreen> with MeToastHost<ProfileManageScreen> {
-  /// "수정 ›" → 15-6 기본 정보 수정(A16). 저장하고 돌아오면(true) "저장했어요" 를 잠깐 띄운다(B4 — 다른 편집 화면은 토스트 없이
+  /// [내 프로필 수정] 줄(1.0.7 #17, 옛 "수정 ›") → 15-6 기본 정보 수정(A16). 저장하고 돌아오면(true) "저장했어요" 를 잠깐 띄운다(B4 — 다른 편집 화면은 토스트 없이
   /// 돌아온다). 새 값은 15-6 이 invalidate 한 내 프로필을 이 화면이 다시 읽어 그린다(N8).
   Future<void> _editBasicInfo() async {
     final l10n = context.l10n;
@@ -82,8 +80,10 @@ class _ManageContent extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.lg, AppSpacing.md, _bottomPadding),
       children: [
         _RealPhotoSection(photoUrls: profile.photoUrls, onReplace: () => context.push(AppRoutes.myPhotos)),
-        // 섹션 사이 32 를 기본 정보 상자 안에 둔다 — "수정 ›" 누름 칸이 그 자리로 삐져나간다([_BasicInfoSection]).
-        _BasicInfoSection(profile: profile, topGap: AppSpacing.xl, onEdit: onEditBasicInfo),
+        const SizedBox(height: AppSpacing.xl),
+        _BasicInfoSection(profile: profile),
+        const SizedBox(height: AppSpacing.xl),
+        _MyInfoSection(onEdit: onEditBasicInfo),
         const SizedBox(height: AppSpacing.xl),
         _PreferenceSection(profile: profile),
         const SizedBox(height: AppSpacing.xl),
@@ -179,74 +179,46 @@ class _ReplacePhotoButton extends StatelessWidget {
   }
 }
 
-/// 기본 정보 `QldHz` — 헤더 "기본 정보" + "수정 ›"(`A8LX2`) → 12 → 카드(`N1dIuc`).
-///
-/// "수정 ›" 는 pen 에서 34×20 인데 누름 칸은 44 다(N12). 헤더를 44 로 키우면 pen 간격이 어긋나므로 44 칸을 헤더 위에
-/// 겹쳐 세로 가운데를 맞춘다. 칸이 위로 삐져나가는 몫은 이 상자 안이어야 눌린다 — 상자 밖은 누름 검사가 닿지 않는다.
-/// 그래서 위 섹션과의 간격 [topGap] 을 상자 안에 둔다(15c `_TagSection` 과 같은 방식).
+/// 기본 정보 `boUep`(qvTuw) — 헤더 "기본 정보"(오른쪽 끔 — 1.0.7 #17 에서 "수정 ›" `A8LX2` 를 없앴다) → 12 → 카드(`N1dIuc`).
 class _BasicInfoSection extends StatelessWidget {
-  const _BasicInfoSection({required this.profile, required this.topGap, required this.onEdit});
+  const _BasicInfoSection({required this.profile});
 
   final MyProfile profile;
-  final double topGap;
-  final VoidCallback onEdit;
-
-  /// 대장 결정 N12(pen 높이 20 → 누름 44).
-  static const double _tapTarget = 44;
 
   @override
   Widget build(BuildContext context) {
-    // 헤더 한 줄 높이(배율 1.0 에서 25). 이 줄 가운데에 누름 칸을 맞춘다 — 글자를 키워도 "수정 ›" 이 제목과 나란하다.
-    final lineHeight = MediaQuery.textScalerOf(context).scale(SectionHeader.titleStyle.fontSize!) * SectionHeader.titleStyle.height!;
-    final linkHeight = math.max(lineHeight, _tapTarget);
-    return Stack(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: EdgeInsets.only(top: topGap),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SectionHeader(title: context.l10n.meManageBasicTitle),
-              const SizedBox(height: AppSpacing.sm),
-              _ProfileFacts(profile: profile),
-            ],
-          ),
-        ),
-        Positioned(
-          top: topGap + (lineHeight - linkHeight) / 2,
-          right: 0,
-          child: _EditLink(minHeight: linkHeight, onTap: onEdit),
-        ),
+        SectionHeader(title: context.l10n.meManageBasicTitle),
+        const SizedBox(height: AppSpacing.sm),
+        _ProfileFacts(profile: profile),
       ],
     );
   }
 }
 
-/// "수정 ›" `A8LX2` — 14/400 muted 글자만(N12 — 15c `cOkl1` 의 분홍 "수정" 과 다르다, 화면마다 pen 기준).
-/// 누름 칸은 최소 44×44, 글자는 칸 오른쪽 끝.
-class _EditLink extends StatelessWidget {
-  const _EditLink({required this.minHeight, required this.onTap});
+/// 내 정보 수정 `g9srzY`(qvTuw, 1.0.7 #17) — 헤더(오른쪽 끔) → 12 → ProfileEntryRow 한 줄 `oaIwg`(3D 편집 `DAILv`).
+/// 선호 조건 구역과 같은 모양이다. 누르면 15-6 기본 정보 수정(옛 "수정 ›" 과 같은 곳).
+class _MyInfoSection extends StatelessWidget {
+  const _MyInfoSection({required this.onEdit});
 
-  final double minHeight;
-  final VoidCallback onTap;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
-    // 스크롤 안의 탭 위젯이라 눌림 효과를 그릴 Material 을 칸 크기로 둔다(COMMON §4-2).
-    return Material(
-      type: MaterialType.transparency,
-      child: InkWell(
-        onTap: onTap,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minWidth: _BasicInfoSection._tapTarget, minHeight: minHeight),
-          child: Align(
-            alignment: Alignment.centerRight,
-            widthFactor: 1,
-            heightFactor: 1,
-            child: Text(context.l10n.meManageEditLink, style: SectionHeader.trailingStyle),
-          ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionHeader(title: context.l10n.meManageMyInfoTitle),
+        const SizedBox(height: AppSpacing.sm),
+        ProfileEntryRow(
+          icon: AppIcon3d.pencil,
+          title: context.l10n.meManageMyInfoEntryTitle,
+          note: context.l10n.meManageMyInfoEntryNote,
+          onTap: onEdit,
         ),
-      ),
+      ],
     );
   }
 }

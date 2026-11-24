@@ -36,6 +36,8 @@ from app.safety.repository import SafetyRepository
 from app.signup_policy import IDENTITY_KEY_VERSION, bytea_literal, hash_phone
 
 logger = logging.getLogger(__name__)
+# 디스코드 신고 줄의 "대상" 칸 — 공지(할 일 21)는 신고당한 사람이 없다. 운영자만 보는 알림 글이다(앱 문구 아님).
+NOTICE_TARGET_LABEL = "운영자 공지"
 
 router = APIRouter()
 
@@ -146,10 +148,14 @@ async def _poll_target(wiring: _Wiring, poll_id: UUID) -> dict:
     repo = CommunityRepository(wiring.settings.postgrest_url, wiring.settings.supabase_service_role_key,
                                wiring.client)
     poll = await repo.fetch_for_report(poll_id)
-    if not poll or poll["status"] != "visible" or poll["author"]["status"] != "active" \
-            or poll["author_id"] == wiring.profile_id:
+    if not poll or not _poll_shown(poll) or poll["author_id"] == wiring.profile_id:
         raise HTTPException(status_code=404, detail=errors.POLL_NOT_FOUND)
     return poll
+
+
+def _poll_shown(poll: dict) -> bool:
+    """피드 · 공지 목록에 보이는 글인가. 공지(할 일 21)는 글쓴이가 없다 — 작성자 active 검사를 건너뛴다."""
+    return poll["status"] == "visible" and (poll["kind"] == "notice" or poll["author"]["status"] == "active")
 
 
 async def _poll_comment_target(wiring: _Wiring, comment_id: UUID) -> dict:
@@ -162,8 +168,7 @@ async def _poll_comment_target(wiring: _Wiring, comment_id: UUID) -> dict:
         not comment
         or comment["status"] != "visible"
         or comment["author"]["status"] != "active"
-        or comment["poll"]["status"] != "visible"
-        or comment["poll"]["author"]["status"] != "active"
+        or not _poll_shown(comment["poll"])
         or comment["author_id"] == wiring.profile_id
     ):
         raise HTTPException(status_code=404, detail=errors.POLL_COMMENT_NOT_FOUND)
@@ -217,6 +222,12 @@ async def report(body: ReportRequest, wiring: _Wiring = Depends(_wire)) -> dict:
     elif poll is not None:
         snapshot = {"poll_id": poll["id"], "question": poll["question"], "option_a_label": poll["option_a_label"],
                     "option_b_label": poll["option_b_label"], "created_at": poll["created_at"]}
+        if poll["kind"] == "post":
+            # 게시물(할 일 19)은 선택지가 null 이다. 투표 스냅샷 모양은 그대로 두고 게시물만 두 칸을 더한다.
+            snapshot |= {"kind": poll["kind"], "category": poll["category"]}
+        elif poll["kind"] == "notice":
+            # 공지(할 일 21)는 제목이 있고 카테고리를 쓰지 않는다. 본문은 question 칸 그대로.
+            snapshot |= {"kind": poll["kind"], "title": poll["title"]}
     elif comment is not None:
         snapshot = {"comment_id": comment["id"], "poll_id": comment["poll_id"], "body": comment["body"],
                     "created_at": comment["created_at"]}
@@ -248,14 +259,16 @@ async def report(body: ReportRequest, wiring: _Wiring = Depends(_wire)) -> dict:
     # 신고 · 차단은 이미 저장됐다. 세기가 실패해 500 이 나면 알림도 사라지고 재시도는 409 라 영영 안 온다 —
     # 수를 "?" 로 보내고 가림은 건너뛴다. 가림은 다음 신고 때 다시 센다.
     try:
-        reporters: int | None = await wiring.repo.count_open_reporters(target)
+        # 공지(할 일 21)는 신고당한 사람이 없다(target None) — 셀 사람이 없어 0명이다.
+        reporters: int | None = 0 if target is None else await wiring.repo.count_open_reporters(target)
     except Exception:
         logger.exception("신고자 세기 실패 report=%s target=%s", report_id, target)
         reporters = None
     notifier = ReportNotifier(wiring.settings.discord_report_webhook_url, wiring.client)
     admin_base_url = wiring.settings.admin_base_url
-    await notifier.send(report_line(report_id, target, body.reason, "?" if reporters is None else reporters,
-                                    admin_base_url))
+    # 공지는 대상 칸에 사람 id 대신 읽을 수 있는 말을 싣는다("대상: None" 이 아니게).
+    await notifier.send(report_line(report_id, target or NOTICE_TARGET_LABEL, body.reason,
+                                    "?" if reporters is None else reporters, admin_base_url))
 
     # ⑦ 서로 다른 신고자 3명이면 자동 가림. 조건부라 이번에 실제로 찍혔을 때만 한 줄 더 보낸다.
     if match is not None and reporters is not None and reporters >= AUTO_HIDE_REPORTERS \

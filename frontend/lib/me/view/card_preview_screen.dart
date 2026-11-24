@@ -1,9 +1,8 @@
 import 'package:campus_mate/account/viewmodel/account_info_provider.dart';
 import 'package:campus_mate/common/widgets/app_tab_bar.dart';
+import 'package:campus_mate/common/widgets/wash_notice.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
-import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
-import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/friend_review/view/partner_reviews_section.dart';
 import 'package:campus_mate/friend_review/viewmodel/friend_review_list_view_model.dart';
 import 'package:campus_mate/matching/model/data/card_detail.dart';
@@ -111,7 +110,7 @@ class _BeforeAccept extends StatelessWidget {
     return ListView(
       padding: _bodyPadding,
       children: [
-        _PreviewNotice(text: context.l10n.meCardPreviewBeforeNotice),
+        WashNotice(text: context.l10n.meCardPreviewBeforeNotice),
         const SizedBox(height: AppSpacing.xl),
         ProfileCard(
           detail: detail,
@@ -150,7 +149,7 @@ class _AfterAccept extends ConsumerWidget {
     return ListView(
       padding: _bodyPadding,
       children: [
-        _PreviewNotice(text: context.l10n.meCardPreviewAfterNotice),
+        WashNotice(text: context.l10n.meCardPreviewAfterNotice),
         const SizedBox(height: AppSpacing.xl),
         ProfileCard(
           detail: detail,
@@ -218,28 +217,6 @@ class _PreviewFooter extends StatelessWidget {
         ] else
           const SizedBox(height: _cardBottom - _reviewsBottom),
       ],
-    );
-  }
-}
-
-/// 안내(Notice `WQIrY`) — primary-wash, 모서리 12, 안쪽 14, 아이콘 · 링크 없음, 14/400 body 줄높이 1.5.
-class _PreviewNotice extends StatelessWidget {
-  const _PreviewNotice({required this.text});
-
-  final String text;
-
-  /// 모서리 12 · 안쪽 14 는 pen 값(토큰 사이 값 — 라운드 sm 8 · md 14, 간격 sm 12 · md 16).
-  static const double _radius = 12;
-  static const double _padding = 14;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(color: AppColors.primaryWash, borderRadius: BorderRadius.circular(_radius)),
-      child: Padding(
-        padding: const EdgeInsets.all(_padding),
-        child: Text(text, style: AppTypography.bodySmall.copyWith(height: 1.5, color: AppColors.body)),
-      ),
     );
   }
 }

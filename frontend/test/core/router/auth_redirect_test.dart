@@ -645,4 +645,37 @@ void main() {
       }
     });
   });
+
+  // 02 의 미등록 학교 안내 "학교 추가 요청하기"(pen RrfFX eshx0)는 문의하기로 간다 — 학교 메일 관문에서만 연다(대장 판정 11-24 ①).
+  // 서버 POST /inquiries 는 로그인만 본다(가입 중도 보낸다). 다른 관문은 지금처럼 자기 화면으로 돌려보낸다.
+  group('학교 메일 관문의 문의하기', () {
+    AuthRedirect member(VerificationGate gate) => AuthRedirect(true, gate, OnboardingStep.basicInfo);
+
+    test('학교 메일 관문(옛 방식 · 방법 고르기를 거쳐 온 02)에서는 문의하기가 열린다', () {
+      expect(member(VerificationGate.needsSchoolEmail).resolve(AppRoutes.inquiry), isNull);
+      expect(member(VerificationGate.needsSchoolEmailChosen).resolve(AppRoutes.inquiry), isNull);
+    });
+
+    test('문의하기 말고 설정의 다른 화면은 학교 메일 관문에서 여전히 닫힌다', () {
+      for (final path in [AppRoutes.settings, AppRoutes.account, AppRoutes.faq]) {
+        expect(member(VerificationGate.needsSchoolEmail).resolve(path), AppRoutes.login, reason: path);
+      }
+    });
+
+    test('다른 관문에서는 문의하기로 가도 자기 화면으로 밀려난다', () {
+      const rows = <(VerificationGate, String)>[
+        (VerificationGate.unknown, AppRoutes.splash),
+        (VerificationGate.unreachable, AppRoutes.offline),
+        (VerificationGate.needsConsent, AppRoutes.consent),
+        (VerificationGate.needsConsentRenewal, AppRoutes.consent),
+        (VerificationGate.needsVerificationMethod, AppRoutes.verificationMethod),
+        (VerificationGate.needsGraduateApplication, AppRoutes.graduateApplication),
+        (VerificationGate.graduateReviewing, AppRoutes.graduateWaiting),
+        (VerificationGate.needsSchoolInfo, AppRoutes.schoolInfo),
+      ];
+      for (final (gate, target) in rows) {
+        expect(member(gate).resolve(AppRoutes.inquiry), target, reason: '$gate');
+      }
+    });
+  });
 }

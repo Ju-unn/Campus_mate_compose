@@ -1,4 +1,5 @@
 import 'package:campus_mate/auth/school_email/model/data/university_email.dart';
+import 'package:campus_mate/auth/school_email/model/repository/school_email_repository.dart';
 import 'package:campus_mate/common/failure.dart';
 
 /// 대학 이메일 입력 화면(DESIGN.md 화면 02)의 상태.
@@ -27,4 +28,11 @@ class SignUpUiState {
   final UniversityEmail? otpSentTo;
 
   bool get canSubmit => email != null && !isSubmitting;
+
+  /// 등록되지 않은 학교 메일로 거절됐다 — 화면이 칸 오류 · 안내 · "학교 추가 요청하기" 를 보인다(pen RrfFX).
+  /// 가입 직전 훅의 거절에는 code 가 없어(GoTrue 가 문구만 넘긴다) 서버와 글자까지 맞춘 문구로 가른다(errors.py SCHOOL_EMAIL_UNKNOWN_DOMAIN).
+  bool get isUnknownSchool => switch (error) {
+    SignUpRejectedFailure(:final serverMessage) => serverMessage == unknownSchoolEmailMessage,
+    _ => false,
+  };
 }
