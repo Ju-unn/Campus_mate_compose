@@ -164,7 +164,9 @@ class RegistryTest(unittest.TestCase):
 
     def test_the_gate_code_still_skips_a_room_with_anyone_gone(self):
         batch = (tools.ROOT / 'backend' / 'app' / 'chat' / 'batch_router.py').read_text(encoding='utf-8')
-        self.assertIn('if any(gate.is_gone(p) for p in participants):\n            continue', batch.replace('\r\n', '\n'))
+        # 건너뛴 방을 세는 줄(gone += 1 등)이 사이에 끼어도 된다 — 같은 if 안에서 continue 로 끝나면 된다.
+        self.assertRegex(batch.replace('\r\n', '\n'),
+                         r'if any\(gate\.is_gone\(p\) for p in participants\):\n(?:            [^\n]*\n)*?            continue\n')
         gate = (tools.ROOT / 'backend' / 'app' / 'chat' / 'gate.py').read_text(encoding='utf-8')
         self.assertIn('status in ("suspended", "withdrawn")', gate)
 
