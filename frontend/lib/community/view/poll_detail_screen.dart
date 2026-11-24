@@ -10,6 +10,7 @@ import 'package:campus_mate/community/model/data/poll_comment.dart';
 import 'package:campus_mate/community/view/comment_input_bar.dart';
 import 'package:campus_mate/community/view/comment_row.dart';
 import 'package:campus_mate/community/view/comment_sheets.dart';
+import 'package:campus_mate/community/view/notice_post_card.dart';
 import 'package:campus_mate/community/view/poll_card.dart';
 import 'package:campus_mate/community/view/poll_sheets.dart';
 import 'package:campus_mate/community/view/poll_time.dart';
@@ -32,13 +33,18 @@ const double _loadMoreExtent = 400;
 
 /// 17c 투표 상세(pen `BwL1G`) · 17f 게시물 상세(pen `J8zeU`) + 댓글(pen 18 `X4HnyK` · 18a `S8tPtZ`).
 /// 투표는 피드와 같은 크기의 카드에 질문만 다 보이고, 게시물은 [PostCard] Detail(`UCWuL`, 본문 전부)이다.
-/// 댓글 목록 · 입력줄은 둘이 같은 위젯이다(대장 판정 — 나중 공지 댓글도 같은 것).
+/// 댓글 목록 · 입력줄은 둘이 같은 위젯이다(대장 판정). 17h 공지 상세(pen `chZz8`, 할 일 21)도 이 화면이다 —
+/// 카드만 [NoticePostCard](… · 신고 없음, 대장 판정 5)이고 댓글 · 신고 · 가림은 게시물과 같다.
 /// **pollId 만으로 열린다** — 푸시 알림에서 피드를 거치지 않고 들어와도 `fetchItem` 으로 글을 읽는다([PollDetailViewModel]).
 /// 댓글은 오래된 순 10개씩, 버튼 없이 목록 끝 가까이 내리면 다음 10개가 이어진다(사용자 결정 11-10 「인스타처럼」).
 class PollDetailScreen extends ConsumerStatefulWidget {
-  const PollDetailScreen({required this.pollId, super.key});
+  const PollDetailScreen({required this.pollId, this.isNotice = false, super.key});
 
   final String pollId;
+
+  /// 공지 길(`/community/notices/:id`)로 열렸는지. 글을 받기 전 · 못 받았을 때도 제목을 "공지사항" 으로 두고,
+  /// 없는 공지면 서버 문구("공지를 찾을 수 없어요")를 그대로 보인다.
+  final bool isNotice;
 
   @override
   ConsumerState<PollDetailScreen> createState() => _PollDetailScreenState();
@@ -101,14 +107,17 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
                 ),
               )
             : null,
-        // 게시물은 pen 17f `rusIi` "게시물", 투표 · 아직 못 읽은 글은 17c "투표 상세".
-        title: Text(
-          state.item?.kind == CommunityKind.post ? context.l10n.communityPostDetailTitle : context.l10n.communityDetailTitle,
-          style: AppTypography.navTitle,
-        ),
+        title: Text(_title(context, state.item), style: AppTypography.navTitle),
       ),
       body: _body(context, state),
     );
+  }
+
+  /// 공지는 17h "공지사항", 게시물은 pen 17f `rusIi` "게시물", 투표 · 아직 못 읽은 글은 17c "투표 상세".
+  String _title(BuildContext context, CommunityItem? item) {
+    if (widget.isNotice || item?.notice != null) return context.l10n.communityNoticeTitle;
+    if (item?.kind == CommunityKind.post) return context.l10n.communityPostDetailTitle;
+    return context.l10n.communityDetailTitle;
   }
 
   Widget _body(BuildContext context, PollDetailUiState state) {
@@ -144,6 +153,8 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
 
   /// 투표면 17c 카드(`RpRBi`), 게시물이면 17f 게시물 카드 Detail(`UCWuL` — … 는 내 글 삭제 · 남의 글 신고).
   Widget _card(CommunityItem item, bool isVoting) {
+    final notice = item.notice;
+    if (notice != null) return NoticePostCard(notice: notice);
     final now = ref.read(communityNowProvider)();
     final poll = item.poll;
     if (poll == null) {
@@ -174,7 +185,9 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
     final failure = state.itemError;
     if (state.isLoadingItem || failure == null) return const Center(child: CircularProgressIndicator());
     if (failure is ServerRejectedFailure || failure is NotFoundFailure) {
-      return Center(child: Text(context.l10n.communityDetailNotFound, style: AppTypography.body.copyWith(color: AppColors.body)));
+      // 공지는 서버 문구(`COMMUNITY_NOTICE_NOT_FOUND`)를 그대로 — 앱에 같은 뜻의 문구를 따로 두지 않는다.
+      final message = widget.isNotice ? context.errorText(failure) : context.l10n.communityDetailNotFound;
+      return Center(child: Text(message, style: AppTypography.body.copyWith(color: AppColors.body)));
     }
     return _InlineError(failure: failure, onRetry: _viewModel.refresh);
   }

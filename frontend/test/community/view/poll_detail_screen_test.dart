@@ -12,6 +12,7 @@ import 'package:campus_mate/community/model/data/community_item.dart';
 import 'package:campus_mate/community/model/data/feed_page.dart';
 import 'package:campus_mate/community/model/repository/community_repository_provider.dart';
 import 'package:campus_mate/community/view/comment_input_bar.dart';
+import 'package:campus_mate/community/view/notice_post_card.dart';
 import 'package:campus_mate/community/view/poll_card.dart';
 import 'package:campus_mate/common/widgets/section_header.dart';
 import 'package:campus_mate/community/view/post_card.dart';
@@ -48,7 +49,13 @@ void main() {
   });
 
   /// [feedFirst] 면 피드 목록을 먼저 채운 뒤 피드 위에 17c 를 연다. 아니면 피드 없이 pollId 만으로 연다(푸시 알림).
-  Future<ProviderContainer> pumpDetail(WidgetTester tester, String pollId, {bool feedFirst = true}) async {
+  /// [path] 를 `/community/notices` 로 주면 공지 상세 길(할 일 21)로 연다.
+  Future<ProviderContainer> pumpDetail(
+    WidgetTester tester,
+    String pollId, {
+    bool feedFirst = true,
+    String path = '/community/polls',
+  }) async {
     final container = ProviderContainer(
       overrides: [
         communityRepositoryProvider.overrideWithValue(repository),
@@ -70,6 +77,10 @@ void main() {
           path: '/community/polls/:pollId',
           builder: (context, state) => PollDetailScreen(pollId: state.pathParameters['pollId']!),
         ),
+        GoRoute(
+          path: '/community/notices/:noticeId',
+          builder: (context, state) => PollDetailScreen(pollId: state.pathParameters['noticeId']!, isNotice: true),
+        ),
       ],
     );
     addTearDown(router.dispose);
@@ -83,7 +94,7 @@ void main() {
         ),
       ),
     );
-    unawaited(router.push('/community/polls/$pollId'));
+    unawaited(router.push('$path/$pollId'));
     await tester.pumpAndSettle();
     return container;
   }
@@ -186,6 +197,56 @@ void main() {
       await tester.tap(find.text('신고하기'));
       await tester.pumpAndSettle();
       expect(find.byType(ReportSheet), findsOneWidget);
+    });
+  });
+
+  group('17h 공지 상세(pen chZz8, 할 일 21)', () {
+    Future<void> openNotice(WidgetTester tester) => pumpDetail(tester, 'n1', feedFirst: false, path: '/community/notices');
+
+    testWidgets('제목 "공지사항" · 공지 카드 · "댓글 0" · 빈 댓글 · 입력줄', (tester) async {
+      repository.item = Success(CommunityItem.ofNotice(noticeFixture(title: '업데이트 안내')));
+      await openNotice(tester);
+
+      expect(repository.fetchedItemIds, ['n1']);
+      expect(find.text('공지사항'), findsOneWidget);
+      expect(find.byType(NoticePostCard), findsOneWidget);
+      expect(find.text('업데이트 안내'), findsOneWidget);
+      expect(find.byType(PostCard), findsNothing);
+      expect(find.byType(PollCard), findsNothing);
+      expect(find.widgetWithText(SectionHeader, '댓글 0'), findsOneWidget);
+      expect(find.text('첫 댓글을 남겨 보세요'), findsOneWidget);
+      expect(find.byType(CommentInputBar), findsOneWidget);
+    });
+
+    testWidgets('공지 본문에는 … · 신고가 없다(대장 판정 5)', (tester) async {
+      repository.item = Success(CommunityItem.ofNotice(noticeFixture()));
+      await openNotice(tester);
+
+      // 댓글이 없는 화면 전체에서 찾는다 — 카드가 PostCard 로 바뀌어도 ⋯ 가 잡힌다.
+      expect(find.byType(NoticePostCard), findsOneWidget);
+      expect(find.byTooltip('더보기'), findsNothing);
+      expect(find.text('신고하기'), findsNothing);
+    });
+
+    testWidgets('공지 댓글은 게시물과 같은 위젯 · 같은 신고 메뉴다', (tester) async {
+      repository.item = Success(CommunityItem.ofNotice(noticeFixture(commentCount: 1)));
+      givenComments([commentFixture(id: 'c1', body: '확인했어요')]);
+      await openNotice(tester);
+
+      expect(find.text('확인했어요'), findsOneWidget);
+      await tester.tap(moreOf('c1'));
+      await tester.pumpAndSettle();
+      expect(find.descendant(of: find.byType(BottomSheet), matching: find.text('신고하기')), findsOneWidget);
+    });
+
+    // 글을 못 받은 채(item null)여도 공지 길이면 제목이 "공지사항" 이다 — 읽는 중과 같은 갈래.
+    testWidgets('없는 공지(404)면 제목은 "공지사항" 그대로, 서버 문구 "공지를 찾을 수 없어요"', (tester) async {
+      repository.item = const FailureResult(ServerRejectedFailure('공지를 찾을 수 없어요'));
+      await openNotice(tester);
+
+      expect(find.text('공지사항'), findsOneWidget);
+      expect(find.text('공지를 찾을 수 없어요'), findsOneWidget);
+      expect(find.text('글을 찾을 수 없어요'), findsNothing);
     });
   });
 

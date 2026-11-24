@@ -477,6 +477,8 @@ void main() {
       AppRoutes.community,
       AppRoutes.communityNew,
       '${AppRoutes.communityPoll}/$id',
+      AppRoutes.communityNotices,
+      '${AppRoutes.communityNotices}/$id',
       AppRoutes.conversations,
       '${AppRoutes.chatRoom}/$id',
       AppRoutes.matchMade,
