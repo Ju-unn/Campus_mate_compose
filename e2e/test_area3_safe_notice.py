@@ -102,7 +102,7 @@ class PassPathTest(Notice53):
         self.assertIn(('expect_none', 60), self.events)
         self.assertEqual(self.fake.count('friend_reviews'), 0)  # 리뷰는 404 라 행이 안 생겼다
         self.assertIn('ensure', names)  # 푸시 연결 점검을 시작 때 한 번
-        self.assertAge(self.target(), timedelta(hours=24, minutes=5))  # 정지 방도 리마인드 창에 둔다 — 정지만 아니면 알림이 갔을 방
+        self.assertAge(self.target(), timedelta(hours=48, minutes=5))  # 정지 방도 리마인드 창에 둔다 — 정지만 아니면 알림이 갔을 방
 
     def statuses_of(self):
         return self.fake.statuses.get('id-1')

@@ -15,7 +15,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
 
-from e2e import area1, area2, area3, area3_phone5, batch_gate, notify, tools
+from e2e import area1, area2, area3, area3_phone5, batch_gate, chat_clock, notify, tools
 from e2e.area1 import SEOUL
 from e2e.test_area3_phone import App
 from e2e.test_area3_phone2 import Phone2
@@ -155,7 +155,7 @@ class Base5(Phone2):
             {'chat-gate': self.sim_gate, 'cleanup': self.sim_cleanup}[name]()
 
     def sim_gate(self):
-        """chat/batch_router.py run_chat_gate — 한쪽이 나간 방은 건너뛰고, 둘 다 수락이면 도장, 48시간이 넘으면 닫고, 24~25시간이면 아직 안 수락한 사람에게 리마인드."""
+        """chat/batch_router.py run_chat_gate — 한쪽이 나간 방은 건너뛰고, 둘 다 수락이면 도장, 72시간이 넘으면 닫고, 48~49시간이면 아직 안 수락한 사람에게 리마인드."""
         now = datetime.now(timezone.utc)
         for match in self.fake.tables.get('matches', []):
             parts = self.parts(match['id'])
@@ -165,9 +165,9 @@ class Base5(Phone2):
                 match['trust_passed_at'] = now.isoformat()
                 continue
             age = now - when(match.get('created_at') or now.isoformat())
-            if age >= timedelta(hours=48):
+            if age >= chat_clock.DEADLINE:
                 match['chat_closed_at'] = now.isoformat()
-            elif timedelta(hours=24) <= age < timedelta(hours=25):
+            elif chat_clock.PROMPT_AFTER <= age < chat_clock.PROMPT_AFTER + timedelta(hours=1):
                 self.pushed += [p['profile_id'] for p in parts if not p.get('trust_response') and p['profile_id'] not in self.off]
 
     def sim_cleanup(self):
@@ -325,7 +325,7 @@ class ChatGateCommon(Base5):
                 self.setUp()
                 self.go(case, self.says_for(case), tapped=OPENED)
                 sentinel = self.matches()[0]
-                self.assertAge(sentinel, timedelta(hours=48, minutes=5))
+                self.assertAge(sentinel, timedelta(hours=72, minutes=5))
                 self.assertIsNotNone(sentinel.get('chat_closed_at'), case)
                 made = {u['id'] for u in self.fake.users}
                 self.assertLessEqual({sentinel['profile_a'], sentinel['profile_b']}, made)
@@ -412,10 +412,10 @@ class Chat50Test(Base5):
         self.assertIn(('clear', ['stale']), self.events)  # 다른 제목의 남은 알림은 건드리지 않는다
         self.assertLess(self.names().index('clear'), self.names().index('tap'))
 
-    def test_the_room_is_aged_a_day_and_five_minutes_the_sentinel_two_days(self):
+    def test_the_room_is_aged_two_days_and_five_minutes_the_sentinel_three_days(self):
         self.run50()
-        self.assertAge(self.target(), timedelta(hours=24, minutes=5))
-        self.assertAge(self.matches()[0], timedelta(hours=48, minutes=5))
+        self.assertAge(self.target(), timedelta(hours=48, minutes=5))
+        self.assertAge(self.matches()[0], timedelta(hours=72, minutes=5))
 
     def test_only_the_partner_accepted_before_the_batch(self):
         self.run50()
@@ -491,7 +491,7 @@ class NoReminderTest(Base5):
         self.assertEqual([n for n in self.names()], ['app', 'read', 'kill', 'gcloud', 'expect_none'])
         self.assertEqual(phone.jobs, [{'token_hash': 'h', 'phase': 'login'}])
         self.assertIn(('expect_none', True, 60), self.events)
-        self.assertAge(self.target(), timedelta(hours=25, minutes=5))
+        self.assertAge(self.target(), timedelta(hours=49, minutes=5))
         self.assertEqual(self.events.count(('trust', 'id-2')), 0)  # 이 줄에는 수락 얘기가 없다
 
     def test_51_a_reminder_that_comes_anyway_is_a_fail_with_what_came(self):
@@ -505,7 +505,7 @@ class NoReminderTest(Base5):
         self.assertEqual(result, 'pass', note)
         self.assertEqual(self.names(), ['switch', 'trust', 'app', 'read', 'kill', 'gcloud', 'expect_none'])
         self.assertIn(('switch', 'id-1', {'trust_reminder': False}), self.events)  # B(폰 계정)의 스위치만
-        self.assertAge(self.target(), timedelta(hours=24, minutes=5))  # 51 과 달리 창 안에 있다
+        self.assertAge(self.target(), timedelta(hours=48, minutes=5))  # 51 과 달리 창 안에 있다
         self.assertIn(('trust', 'id-2'), self.events)  # 50 과 같은 준비: A 만 수락
 
     def test_52_without_the_switch_the_sim_server_would_remind_so_the_check_has_teeth(self):
@@ -541,7 +541,7 @@ class Chat55Test(Base5):
     def test_pass_path_closed_ten_messages_stay_and_both_lists_lack_the_room(self):
         (result, note), phone = self.run55()
         self.assertEqual(result, 'pass', note)
-        self.assertAge(self.target(), timedelta(hours=48, minutes=5))
+        self.assertAge(self.target(), timedelta(hours=72, minutes=5))
         self.assertIsNotNone(self.target().get('chat_closed_at'))
         self.assertEqual(len([m for m in self.fake.tables['messages'] if m['match_id'] == self.target()['id']]), 10)
         self.assertEqual(self.names(), ['gcloud', 'app'])  # 방 준비는 DB · A 의 목록은 API · B 의 목록은 배치 뒤에 앱이
@@ -605,7 +605,7 @@ class Chat57Test(Base5):
         self.assertEqual(result, 'pass', note)
         self.assertEqual(self.names(), ['app', 'step', 'gcloud', 'go'])  # 앱이 방을 연 채 멈춘 사이에 배치
         self.assertEqual(phone.jobs, [{'token_hash': 'h', 'nickname': self.nick(2), 'text': 'E2E-57'}])
-        self.assertAge(self.target(), timedelta(hours=48, minutes=5))
+        self.assertAge(self.target(), timedelta(hours=72, minutes=5))
         self.assertIsNotNone(self.target().get('chat_closed_at'))
 
     def test_the_room_is_still_young_when_the_app_opens_it(self):
@@ -671,7 +671,7 @@ class Chat65Test(Base5):
         self.assertEqual(result, 'pass', note)
         self.assertEqual(self.names(), ['leave', 'app', 'read', 'kill', 'gcloud', 'expect_none', 'app'])
         self.assertIn(('leave', 'id-2'), self.events)  # A 가 나간다(API) — 폰 계정(B)이 아니다
-        self.assertAge(self.target(), timedelta(hours=48, minutes=5))
+        self.assertAge(self.target(), timedelta(hours=72, minutes=5))
         self.assertIsNone(self.target().get('chat_closed_at'))
         self.assertEqual([j['phase'] for j in phone.jobs], ['login', 'list'])
         self.assertEqual(set(phone.jobs[1]), {'token_hash', 'phase', 'control'})
@@ -724,7 +724,7 @@ class Chat66Test(Base5):
     def test_pass_path_both_accepted_in_the_db_and_the_next_batch_stamps_the_pass(self):
         (result, note), phone = self.run66()
         self.assertEqual(result, 'pass', note)
-        self.assertAge(self.target(), timedelta(hours=50))
+        self.assertAge(self.target(), timedelta(hours=74))
         self.assertTrue(all(p.get('trust_response') == 'accept' for p in self.parts(self.target()['id'])))
         self.assertIsNotNone(self.target().get('trust_passed_at'))
         self.assertIsNone(self.target().get('chat_closed_at'))
@@ -780,7 +780,7 @@ class Chat67Test(Base5):
         (result, note), phone = self.run67()
         self.assertEqual(result, 'pass', note)
         self.assertEqual(self.names(), ['gcloud', 'app', 'step', 'send', 'go'])  # 배치 뒤 앱을 켜고, 앱이 멈춘 사이 A 가 보낸다
-        self.assertAge(self.target(), timedelta(hours=72))
+        self.assertAge(self.target(), timedelta(hours=96))
         self.assertIsNotNone(self.target().get('trust_passed_at'))
         self.assertIsNone(self.target().get('chat_closed_at'))
         sent = next(e for e in self.events if e[0] == 'send')
