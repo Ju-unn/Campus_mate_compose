@@ -386,7 +386,7 @@ void main() {
 
       expect(find.text('최근 7일 동안 인기 있는 글이 아직 없어요'), findsOneWidget);
       expect(find.text('아직 올라온 글이 없어요'), findsNothing);
-      expect(find.text('궁금한 걸 익명으로 물어보고\n캠퍼스 사람들의 생각을 들어 보세요.'), findsNothing);
+      expect(find.text('익명으로 글이나 투표를 올리고\n캠퍼스 사람들의 생각을 들어 보세요.'), findsNothing);
       expect(find.widgetWithText(ElevatedButton, '글쓰기'), findsNothing); // 알약(FilledButton)도 "글쓰기" 라 빈 상태 버튼 종류로 본다
       expect(find.byKey(CommunityFeedScreen.askButtonKey), findsOneWidget);
     });
@@ -397,7 +397,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('아직 투표한 질문이 없어요'), findsOneWidget);
-      expect(find.text('궁금한 걸 익명으로 물어보고\n캠퍼스 사람들의 생각을 들어 보세요.'), findsNothing);
+      expect(find.text('익명으로 글이나 투표를 올리고\n캠퍼스 사람들의 생각을 들어 보세요.'), findsNothing);
       expect(find.widgetWithText(ElevatedButton, '글쓰기'), findsNothing); // 알약(FilledButton)도 "글쓰기" 라 빈 상태 버튼 종류로 본다
       expect(find.byKey(CommunityFeedScreen.askButtonKey), findsOneWidget);
     });
@@ -451,7 +451,7 @@ void main() {
   testWidgets('글이 없으면 빈 상태(n2tqZ)', (tester) async {
     await pump(tester);
     expect(find.text('아직 올라온 글이 없어요'), findsOneWidget);
-    expect(find.text('궁금한 걸 익명으로 물어보고\n캠퍼스 사람들의 생각을 들어 보세요.'), findsOneWidget);
+    expect(find.text('익명으로 글이나 투표를 올리고\n캠퍼스 사람들의 생각을 들어 보세요.'), findsOneWidget);
     await tester.tap(find.text('글쓰기'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('투표'));
