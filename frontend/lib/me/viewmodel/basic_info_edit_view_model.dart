@@ -7,6 +7,7 @@ import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/profile/basic/model/data/mbti_poles.dart';
+import 'package:campus_mate/profile/basic/model/data/nickname_availability.dart';
 import 'package:campus_mate/profile/basic/model/repository/basic_info_repository_provider.dart';
 import 'package:campus_mate/profile/basic/viewmodel/basic_info_ui_state.dart';
 import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
@@ -104,7 +105,7 @@ class BasicInfoEditViewModel extends Notifier<BasicInfoEditUiState> {
     // 확인 자체가 실패하면(네트워크) 아무 말도 하지 않는다 — 저장 때 서버가 다시 본다(04-1 과 같다).
     state = state.copyWith(
       nicknameCheck: result.when(
-        onSuccess: (available) => available ? NicknameCheck.available : NicknameCheck.taken,
+        onSuccess: BasicInfoUiState.nicknameCheckOf,
         onFailure: (_) => NicknameCheck.none,
       ),
     );
@@ -215,6 +216,10 @@ class BasicInfoEditViewModel extends Notifier<BasicInfoEditUiState> {
   /// 실패를 탓할 칸 아래로 보낸다(B5). 어느 칸 탓인지 모르는 실패(네트워크 등)는 04-1 처럼 버튼 위 저장 실패 문구다 —
   /// pen 15-6c `C3oV5u`(실패 종류와 상관없이 같다).
   BasicInfoEditUiState _rejectedState(Failure failure, {required bool sentHeight, required bool sentStudentNumber}) {
+    // 금지어 · 연속 글자는 문구가 중복과 같아 code 로 먼저 가른다 — "쓸 수 없는 닉네임이에요".
+    if (failure is ServerRejectedFailure && failure.hasCode(nicknameNotAllowedCode)) {
+      return state.copyWith(isSubmitting: false, nicknameRejection: const AppErrorFailure(AppError.nicknameNotAllowed));
+    }
     if (_isServerText(failure, _nicknameRejections)) {
       return state.copyWith(isSubmitting: false, nicknameRejection: failure);
     }
@@ -381,6 +386,7 @@ class BasicInfoEditUiState {
       !isNicknameChanged ||
       (BasicInfoUiState.nicknameFormatCheck(nicknameInput) == null &&
           nicknameCheck != NicknameCheck.taken &&
+          nicknameCheck != NicknameCheck.notAllowed &&
           nicknameRejection == null);
 
   bool get _isHeightReady => !isHeightChanged || (heightCm != null && heightRejection == null);

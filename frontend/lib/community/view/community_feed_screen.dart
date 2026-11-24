@@ -1,15 +1,21 @@
+import 'dart:async';
+
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/empty_notice.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/retry_notice.dart';
+import 'package:campus_mate/community/model/data/community_feed_tab.dart';
+import 'package:campus_mate/community/model/data/community_item.dart';
 import 'package:campus_mate/community/model/data/poll.dart';
-import 'package:campus_mate/community/model/data/poll_feed.dart';
 import 'package:campus_mate/community/view/feed_poll_card.dart';
+import 'package:campus_mate/community/view/poll_composer_screen.dart';
 import 'package:campus_mate/community/view/poll_feed_tabs.dart';
 import 'package:campus_mate/community/view/poll_sheets.dart';
 import 'package:campus_mate/community/view/poll_time.dart';
 import 'package:campus_mate/community/view/poll_toast.dart';
+import 'package:campus_mate/community/view/post_card.dart';
+import 'package:campus_mate/community/view/write_type_sheet.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_ui_state.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
@@ -27,18 +33,19 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// 질문하기 알약(pen `dDWPl`) 높이 52 와 유리 내비 위 띄움 12.
+/// 글쓰기 알약(pen AskPill `s1Spt9` · 17 `BKfGz`) 높이 52 와 유리 내비 위 띄움 12.
 const double _askHeight = 52;
 const double _askLift = AppSpacing.sm;
 
 /// 15d 커뮤니티 피드 — 개선안 A(pen `IzG2p` > 17A `FBT9K` · 17A-2 `O8hjge`). 전체 학교 한 목록(사용자 결정 1), 무한 스크롤.
-/// 회색 바탕 위 흰 큰 카드([FeedPollCard]), 앱바 오른쪽 + 대신 유리 내비 위에 뜬 "질문하기" 알약.
-/// 앱바 아래 탭 줄([PollFeedTabs], `VEZ2l` · `XfcKQ`): 전체(최신순, 기본) · 인기(최근 7일 참여순 상위 20개 한 쪽) ·
-/// 내 질문 · 내 투표(둘 다 올린 시각 순). 서버가 `tab` 으로 거르고 줄 세운다 — 앱은 탭을 바꿀 때마다 새로 받는다.
+/// 회색 바탕 위 흰 큰 카드([FeedPollCard]), 앱바 오른쪽 + 대신 유리 내비 위에 뜬 "글쓰기" 알약.
+/// 앱바 아래 탭 줄([PollFeedTabs], 17 `qZ5qm` · `XfcKQ`): 전체(최신순, 기본) · 인기(최근 7일 참여순 상위 20개 한 쪽) ·
+/// 내 글 · 내 투표 · 자유 · 진로 · 연애(올린 시각 순). 서버가 `tab` 으로 거르고 줄 세운다 — 앱은 탭을 바꿀 때마다 새로 받는다.
+/// 목록에는 투표 카드([FeedPollCard] `ffFIS`)와 게시물 카드([PostCard] `WHqdP`)가 섞인다. 공지 띠(25-H)는 이번 몫이 아니라 없다.
 class CommunityFeedScreen extends ConsumerStatefulWidget {
   const CommunityFeedScreen({super.key});
 
-  /// 질문하기 알약. 시험이 자리 · 접힘을 잰다.
+  /// 글쓰기 알약. 시험이 자리 · 접힘을 잰다.
   static const askButtonKey = Key('community-ask-button');
 
   @override
@@ -77,6 +84,13 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
     if (notice != null && mounted) _track(showPollToast(context, pollVoteNoticeText(l10n, notice)));
   }
 
+  /// 글쓰기 알약 · 빈 화면 버튼: 고르기 시트(17 `LSCrq`) → 고른 종류의 글쓰기(17b · 17e).
+  Future<void> _write() async {
+    final kind = await showWriteTypeSheet(context);
+    if (kind == null || !mounted) return;
+    unawaited(context.push(PollComposerScreen.location(kind)));
+  }
+
   void _track(PollToast? toast) {
     if (toast == null || !mounted) return;
     setState(() => _openToasts++);
@@ -99,17 +113,17 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(communityFeedViewModelProvider);
-    // 알약은 빈 상태에 자기 "질문 올리기" 버튼이 있을 때(전체 · 내 질문)만 숨긴다. 인기 · 내 투표 빈 상태는 제목만이라
+    // 알약은 빈 상태에 자기 "글쓰기" 버튼이 있을 때(전체 · 내 글)만 숨긴다. 인기 · 내 투표 빈 상태는 제목만이라
     // 알약이 질문 올리는 유일한 길이다(사용자 결정). 불러오는 중 · 실패에도 질문을 올릴 수 있게 둔다.
     final showAsk = state.isLoading ||
-        state.polls.isNotEmpty ||
+        state.items.isNotEmpty ||
         state.error != null ||
         !_EmptyFeed.offersAsk(state.tab);
     return Scaffold(
       // 유리 내비(pen `xtj0K`) 뒤로 본문이 이어진다 — 아래 여백은 본문 MediaQuery padding.bottom(알약 + 띄움 + safe area).
       extendBody: true,
       // pen `JJAzV`(AppBar · Tab `YTDwe`): 56, 왼쪽 20, 제목 20/700. 하트 칩 · 오른쪽 버튼은 꺼져 있다 —
-      // 옛 + (`Iblb3` > `uhk6J`)는 "질문하기" 알약이 대신한다.
+      // 옛 + (`Iblb3` > `uhk6J`)는 "글쓰기" 알약이 대신한다.
       appBar: AppBar(
         titleSpacing: 20,
         title: Text(context.l10n.communityFeedTitle, style: AppTypography.navTitle.copyWith(color: AppColors.ink)),
@@ -137,7 +151,7 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
                 child: _AskButton(
                   collapsed: _askCollapsed,
                   hidden: _openToasts > 0,
-                  onPressed: () => context.push(AppRoutes.communityNew),
+                  onPressed: _write,
                 ),
               ),
           ],
@@ -153,10 +167,10 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
     // 본문이 유리 내비 뒤까지 이어진다 — 목록이 아닌 상태는 알약 자리를 비우고 그 위 영역 가운데에 둔다.
     Widget aboveNav(Widget child) => Padding(padding: EdgeInsets.only(bottom: navInset), child: child);
     if (state.isLoading) return aboveNav(const Center(child: CircularProgressIndicator()));
-    if (state.polls.isEmpty && state.error != null) {
+    if (state.items.isEmpty && state.error != null) {
       return aboveNav(RetryNotice(message: context.errorText(state.error!), onRetry: viewModel.refresh));
     }
-    if (state.polls.isEmpty) return aboveNav(_EmptyFeed(tab: state.tab));
+    if (state.items.isEmpty) return aboveNav(_EmptyFeed(tab: state.tab, onWrite: _write));
     final now = ref.read(communityNowProvider)();
     // pen `eFFQi`: surface-soft 바탕, 위 12 · 좌우 16, 카드 사이 12. 탭 줄 아래 12 와 합쳐 탭에서 첫 카드까지 24.
     return ColoredBox(
@@ -171,7 +185,7 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
             controller: _scroll,
             // 글이 한두 개라 화면을 못 채워도 아래로 당겨 새로 고칠 수 있게 — 기본 물리는 짧은 목록의 당김을 막는다.
             physics: const AlwaysScrollableScrollPhysics(),
-            // 아래는 유리 내비 + 띄움 12 + 질문하기 52 + 12 — 끝까지 내려도 마지막 글의 "자세히 보기" 가 알약에 가리지 않는다.
+            // 아래는 유리 내비 + 띄움 12 + 글쓰기 52 + 12 — 끝까지 내려도 마지막 글의 "자세히 보기" 가 알약에 가리지 않는다.
             // (pen Feed 아래 174 = 유리 내비 자리 98 + 12 + 52 + 12 와 같은 셈이다.)
             padding: EdgeInsets.fromLTRB(
               AppSpacing.md,
@@ -179,23 +193,26 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
               AppSpacing.md,
               navInset + _askLift + _askHeight + AppSpacing.sm,
             ),
-            itemCount: state.polls.length + (state.isLoadingMore ? 1 : 0),
+            itemCount: state.items.length + (state.isLoadingMore ? 1 : 0),
             separatorBuilder: (context, index) => const SizedBox(height: AppSpacing.sm),
             // 화면 context 를 쓴다 — 마지막 글을 지우면 목록이 빈 화면으로 바뀌어 항목 쪽 context 는 사라진다(삭제 뒤 토스트).
             itemBuilder: (_, index) {
-              if (index == state.polls.length) {
+              if (index == state.items.length) {
                 return const Center(child: CircularProgressIndicator());
               }
-              final poll = state.polls[index];
+              final item = state.items[index];
+              final poll = item.poll;
+              if (poll == null) return _postCard(item, now);
               return FeedPollCard(
                 // 카드 상태(방금 투표했는지)가 글 id 에 붙어 있게 — 위 글이 지워져 자리가 밀려도 섞이지 않는다.
                 key: ValueKey(poll.id),
                 poll: poll,
+                category: item.category,
                 now: now,
                 isVoting: state.votingIds.contains(poll.id),
                 onVote: (choice) => _vote(poll.id, choice),
                 onOpen: () => context.push('${AppRoutes.communityPoll}/${poll.id}'),
-                onMore: poll.isMine ? () => showPollMenu(context, ref, poll.id).then(_track) : null,
+                onMore: poll.isMine ? () => showItemMenu(context, ref, item).then(_track) : null,
                 onReport: poll.isMine ? null : () => reportPoll(context, poll.id).then(_track),
               );
             },
@@ -204,10 +221,19 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
       ),
     );
   }
+
+  /// 게시물 카드(pen `WHqdP`) — 누르면 17f 상세(투표와 같은 길, id 로 연다), … 는 내 글 삭제 · 남의 글 신고.
+  Widget _postCard(CommunityItem item, DateTime now) => PostCard(
+        key: ValueKey(item.id),
+        item: item,
+        now: now,
+        onOpen: () => context.push('${AppRoutes.communityPoll}/${item.id}'),
+        onMore: () => showItemMenu(context, ref, item).then(_track),
+      );
 }
 
-/// 질문하기 알약(pen `dDWPl` = Button `HE8FZ` 인스턴스 덮어쓰기): 높이 52 · [0,20] · 간격 8 · primary · 모서리 끝까지 ·
-/// 그림자 #1A16192E (0,6) 16 · 흰 plus 20 + "질문하기" 16/700. 스크롤을 내리면 동그라미 52(+ 만)로 접힌다.
+/// 글쓰기 알약(pen AskPill `s1Spt9`, 17 `BKfGz` 글자 덮어쓰기 "글쓰기"): 높이 52 · [0,20] · 간격 8 · primary · 모서리 끝까지 ·
+/// 그림자 #1A16192E (0,6) 16 · 흰 plus 20 + "글쓰기" 16/700. 스크롤을 내리면 동그라미 52(+ 만)로 접힌다.
 /// AppButton 은 폭이 늘 꽉 차고 앞 아이콘 · 알약 모양이 없어(공용 위젯을 넓히지 않으려고) 여기서 FilledButton 으로 그린다.
 class _AskButton extends StatelessWidget {
   const _AskButton({required this.collapsed, required this.hidden, required this.onPressed});
@@ -226,7 +252,7 @@ class _AskButton extends StatelessWidget {
     final duration = instant ? Duration.zero : AppMotion.standard;
     // 펼침: 20 + plus 20 + 8 + 글자 + 20. 접힘: 16 + 20 + 16 = 52 동그라미.
     final side = collapsed ? (_askHeight - 20) / 2 : 20.0;
-    final ask = context.l10n.communityAskButton;
+    final ask = context.l10n.communityWriteButton;
     final label = collapsed
         ? const SizedBox.shrink()
         : Padding(
@@ -282,21 +308,28 @@ class _AskButton extends StatelessWidget {
 }
 
 /// 빈 상태(pen `n2tqZ` · Empty 마스터 `TVc8b`). 전체는 그대로, 다른 탭은 대장 전달 pen 문구 —
-/// 인기 · 내 투표는 제목만(대신 질문하기 알약이 뜬다), 내 질문은 제목 + 전체와 같은 "질문 올리기" 버튼.
+/// 인기 · 내 투표 · 카테고리 셋은 제목만(대신 글쓰기 알약이 뜬다), 내 글은 제목 + 전체와 같은 "글쓰기" 버튼.
+/// 버튼은 알약과 같이 고르기 시트([onWrite])를 연다.
 class _EmptyFeed extends StatelessWidget {
-  const _EmptyFeed({required this.tab});
+  const _EmptyFeed({required this.tab, required this.onWrite});
 
-  final PollFeedTab tab;
+  final CommunityFeedTab tab;
+  final VoidCallback onWrite;
 
-  /// 이 탭의 빈 상태에 "질문 올리기" 버튼이 있는지. 화면은 버튼이 없을 때만 알약을 띄운다.
-  static bool offersAsk(PollFeedTab tab) => tab == PollFeedTab.all || tab == PollFeedTab.mine;
+  /// 이 탭의 빈 상태에 "글쓰기" 버튼이 있는지. 화면은 버튼이 없을 때만 알약을 띄운다.
+  static bool offersAsk(CommunityFeedTab tab) => tab == CommunityFeedTab.all || tab == CommunityFeedTab.mine;
 
   /// (제목, 설명)
   (String, String?) _copy(AppLocalizations l10n) => switch (tab) {
-        PollFeedTab.all => (l10n.communityEmptyAllTitle, l10n.communityEmptyAllDescription),
-        PollFeedTab.popular => (l10n.communityEmptyPopularTitle, null),
-        PollFeedTab.mine => (l10n.communityEmptyMineTitle, null),
-        PollFeedTab.voted => (l10n.communityEmptyVotedTitle, null),
+        CommunityFeedTab.all => (l10n.communityEmptyAllTitle, l10n.communityEmptyAllDescription),
+        CommunityFeedTab.popular => (l10n.communityEmptyPopularTitle, null),
+        CommunityFeedTab.mine => (l10n.communityEmptyMineTitle, null),
+        CommunityFeedTab.voted => (l10n.communityEmptyVotedTitle, null),
+        // pen 에 카테고리 탭 빈 화면은 없다 — 문구는 대장 확정(11-24), 모양은 인기 · 내 투표와 같은 제목만.
+        CommunityFeedTab.free ||
+        CommunityFeedTab.career ||
+        CommunityFeedTab.love =>
+          (l10n.communityEmptyCategoryTitle, null),
       };
 
   /// AppButton 라벨(16/700, HE8FZ 2026-10-01 개편)이 이 기기 글자 배율로 차지하는 폭.
@@ -330,7 +363,7 @@ class _EmptyFeed extends StatelessWidget {
         child: AppButton(
           label: context.l10n.communityEmptyAsk,
           variant: AppButtonVariant.secondary,
-          onPressed: () => context.push(AppRoutes.communityNew),
+          onPressed: onWrite,
         ),
       );
 }

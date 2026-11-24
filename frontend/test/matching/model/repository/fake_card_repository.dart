@@ -7,6 +7,7 @@ import 'package:campus_mate/matching/model/data/card_decision.dart';
 import 'package:campus_mate/matching/model/data/card_detail.dart';
 import 'package:campus_mate/matching/model/data/daily_card.dart';
 import 'package:campus_mate/matching/model/data/notification_preferences.dart';
+import 'package:campus_mate/matching/model/data/rejected_card.dart';
 import 'package:campus_mate/matching/model/data/sent_request.dart';
 import 'package:campus_mate/matching/model/repository/card_repository.dart';
 
@@ -134,6 +135,48 @@ class FakeCardRepository implements CardRepository {
     final snapshot = sent;
     await holdSent?.future;
     return snapshot;
+  }
+
+  /// 거절한 카드(`GET /cards/rejected`)와 읽은 횟수. [holdRejected] 를 채우면 그 조회가 멈춘다.
+  Result<RejectedCards> rejected = const Success(RejectedCards.empty);
+  int fetchRejectedCount = 0;
+  Completer<void>? holdRejected;
+
+  /// 다시 신청(내 카드) · 되돌리기(받은 신청)가 돌려줄 값과 서버에 간 카드 번호들(몇 번 갔는지).
+  /// [holdReapply] 를 채우면 두 쓰기가 이것이 끝날 때까지 멈춘다 — 보내는 도중 연타 · provider 가 버려지는 상황용.
+  Result<void> reapplyResult = const Success(null);
+  Result<AcceptanceOutcome> undoResult = const Success(AcceptanceOutcome(matched: true, matchId: 'match-1'));
+  final List<String> reappliedCardIds = [];
+  final List<String> undoneCardIds = [];
+  Completer<void>? holdReapply;
+
+  /// 채워 두면 쓰기가 끝난 뒤의 [fetchRejectedCards] 는 이 값을 돌려준다(서버가 그 줄을 뺀 모양).
+  Result<RejectedCards>? rejectedAfterWrite;
+
+  @override
+  Future<Result<RejectedCards>> fetchRejectedCards() async {
+    fetchRejectedCount += 1;
+    final written = reappliedCardIds.isNotEmpty || undoneCardIds.isNotEmpty;
+    final snapshot = written && rejectedAfterWrite != null ? rejectedAfterWrite! : rejected;
+    final hold = holdRejected;
+    if (hold != null) await hold.future;
+    return snapshot;
+  }
+
+  @override
+  Future<Result<void>> reapplyCard(String cardId) async {
+    reappliedCardIds.add(cardId);
+    final hold = holdReapply;
+    if (hold != null) await hold.future;
+    return reapplyResult;
+  }
+
+  @override
+  Future<Result<AcceptanceOutcome>> undoAcceptanceRejection(String cardId) async {
+    undoneCardIds.add(cardId);
+    final hold = holdReapply;
+    if (hold != null) await hold.future;
+    return undoResult;
   }
 
   @override

@@ -6,6 +6,7 @@ import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/matching/model/data/card_detail.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
 import 'package:campus_mate/matching/view/profile_avatar_header.dart';
+import 'package:campus_mate/matching/viewmodel/acceptance_detail_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/card_detail_view_model.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:flutter/material.dart';
@@ -21,7 +22,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// 시안에 없는 상태는 10b 의 도는 표시 · 회색 글자([DetailMessage], 숨김 · 404)와 공용 [RetryNotice](연결 실패)로 그린다
 /// (대장 판정 9 · 16-2).
 class ReadOnlyProfileScreen extends ConsumerWidget {
-  const ReadOnlyProfileScreen({required this.cardId, required this.title, this.bottomAction, super.key});
+  const ReadOnlyProfileScreen({
+    required this.cardId,
+    required this.title,
+    this.bottomAction,
+    this.readsAcceptance = false,
+    super.key,
+  });
 
   final String cardId;
 
@@ -31,12 +38,13 @@ class ReadOnlyProfileScreen extends ConsumerWidget {
   /// 카드 아래 14 에 함께 스크롤하는 버튼(10b 결정 버튼 자리, pen hhlWE "다시 신청하기"). 보낸 신청은 없다.
   final Widget? bottomAction;
 
+  /// 받은 신청을 거절한 줄(거절한 카드 출처 acceptance)은 카드 주인이 상대라 카드 읽기가 404 다 —
+  /// 받은 신청 읽기(`GET /cards/acceptances/{card_id}`, 되돌릴 수 있는 거절이면 서버가 연다)로 읽는다.
+  final bool readsAcceptance;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final provider = cardDetailViewModelProvider(cardId);
-    final state = ref.watch(provider);
-    final detail = state.detail;
-    final error = state.error;
+    final (:detail, :error, :retry) = readsAcceptance ? _readAcceptance(ref) : _readCard(ref);
     return Scaffold(
       appBar: EditAppBar(title: title),
       // pen ig7i2 `cT6qP` · hhlWE `YTn3s`: 10b 와 같은 하단 내비, 대화 탭 선택.
@@ -46,14 +54,29 @@ class ReadOnlyProfileScreen extends ConsumerWidget {
           // 10b 와 같은 가운데 회색 글자 — 숨김 · 없음은 다시 해도 같다(대장 판정 16-2).
           null when error != null && _isFinal(error) => DetailMessage(text: context.errorText(error)),
           null when error != null =>
-            RetryNotice(message: context.errorText(error), onRetry: ref.read(provider.notifier).load),
+            RetryNotice(message: context.errorText(error), onRetry: retry),
           null => const Center(child: CircularProgressIndicator()),
           _ => _Body(detail: detail, bottomAction: bottomAction),
         },
       ),
     );
   }
+
+  _Read _readCard(WidgetRef ref) {
+    final provider = cardDetailViewModelProvider(cardId);
+    final state = ref.watch(provider);
+    return (detail: state.detail, error: state.error, retry: ref.read(provider.notifier).load);
+  }
+
+  /// 받은 신청 읽기는 들어올 때마다 새로 읽는(autoDispose) 뷰모델이라 다시 시도는 새로 만들어 읽는다.
+  _Read _readAcceptance(WidgetRef ref) {
+    final provider = acceptanceDetailViewModelProvider(cardId);
+    final state = ref.watch(provider);
+    return (detail: state.detail, error: state.error, retry: () => ref.invalidate(provider));
+  }
 }
+
+typedef _Read = ({CardDetail? detail, Failure? error, VoidCallback retry});
 
 /// 다시 읽어도 결과가 같은 실패. 서버 404(상대 숨김 · 없음 `CARD_NOT_FOUND`)는 `http_send` 가 상태 코드를 버리고
 /// 서버 문구를 든 [ServerRejectedFailure] 로 넘기므로 4xx 거절 전체를 여기로 본다. 연결 · 5xx 는 다시 시도를 둔다.

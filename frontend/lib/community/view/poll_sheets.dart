@@ -1,7 +1,9 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_bottom_sheet.dart';
 import 'package:campus_mate/common/widgets/confirm_popup.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/sheet_handle.dart';
+import 'package:campus_mate/community/model/data/community_item.dart';
 import 'package:campus_mate/community/view/poll_toast.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
@@ -43,33 +45,6 @@ Future<PollToast?> _report(BuildContext context, ReportTarget target, double bot
   );
 }
 
-/// 내 글 "…"(15d-1 `RCNu0`) → "삭제하기" → 확인(15d-2 `K64Q8p`) → 지우기(사용자 결정 2).
-/// 지우는 동안 확인 시트는 열린 채 "삭제하기" 만 꺼지고(15d-2 삭제 중 `EIEFb`), 끝나면 닫고 "삭제했어요"(15d-5 `SKQgV`)
-/// 또는 오류 토스트. 도중에 시트를 닫아도 요청이 끝나면 결과를 알린다 — 서버에서는 이미 지워졌을 수 있다.
-/// 띄운 토스트를 돌려준다(지우지 않았으면 null).
-Future<PollToast?> showPollMenu(BuildContext context, WidgetRef ref, String pollId) async {
-  final wantsDelete = await showPollSheet<bool>(
-    context,
-    ActionMenuSheet(
-      actions: [
-        SheetActionRow<bool>(
-          icon: const Icon(AppIcons.trash2, size: 20, color: AppColors.error),
-          label: context.l10n.communityDelete,
-          value: true,
-          danger: true,
-        ),
-      ],
-    ),
-  );
-  if (wantsDelete != true || !context.mounted) return null;
-  return confirmAndDelete(
-    context,
-    title: context.l10n.communityDeleteConfirmTitle,
-    body: context.l10n.communityDeleteConfirmBody,
-    delete: () => ref.read(communityFeedViewModelProvider.notifier).delete(pollId),
-  );
-}
-
 /// 확인 팝업(위험) → 지우기 → 결과 토스트. 지우는 동안 팝업은 열린 채 "삭제하기" 가 빨강 그대로 도는 표시가 되고,
 /// 끝나면 닫고 "삭제했어요" 또는 오류 토스트. 도중에 팝업을 닫아도 요청이 끝나면 결과를 알린다. 지우지 않았으면(취소) null.
 /// 글 삭제(15d-2)와 댓글 삭제(18e)가 같이 쓴다.
@@ -100,6 +75,55 @@ Future<PollToast?> confirmAndDelete(
     failure == null ? l10n.communityDeleted : failureText(l10n, failure),
     bottomInset: toastBottomInset,
   );
+}
+
+/// 글 카드 "…" 메뉴 — 투표(15d-1 `RCNu0`, 내 글에만 …)와 게시물(pen PostCard `WHqdP` · `UCWuL` MoreButton, 늘 …)이 같이 쓴다.
+/// 내 글이면 "삭제하기" → 확인(15d-2 `K64Q8p`) → 지우기(사용자 결정 2), 남의 글이면 "신고하기" → 신고 시트(글 신고와 같은
+/// `poll` 대상 — 서버가 게시물도 받는다). 확인 문구만 글 종류로 고른다(투표는 받은 투표까지 사라진다는 말).
+/// 지우는 흐름은 [confirmAndDelete] — 도중에 시트를 닫아도 요청이 끝나면 결과를 알린다.
+/// 게시물 메뉴 시트는 pen 에 없다(값표 19-4 "빠진 상태") — 글 메뉴(15d-1)와 댓글 메뉴(18b ~ 18d) 모양을 그대로 쓴다.
+/// [onDeleted] 는 지운 뒤 한 번(상세는 화면을 닫는다). 띄운 토스트를 돌려준다(아무것도 안 했으면 null).
+Future<PollToast?> showItemMenu(
+  BuildContext context,
+  WidgetRef ref,
+  CommunityItem item, {
+  double bottomInset = 0,
+  VoidCallback? onDeleted,
+}) async {
+  final l10n = context.l10n;
+  final wantsAction = await showPollSheet<bool>(
+    context,
+    ActionMenuSheet(
+      actions: [
+        if (item.isMine)
+          SheetActionRow<bool>(
+            icon: const Icon(AppIcons.trash2, size: 20, color: AppColors.error),
+            label: l10n.communityDelete,
+            value: true,
+            danger: true,
+          )
+        else
+          SheetActionRow<bool>(icon: const Icon3d(AppIcon3d.siren, size: 22), label: l10n.commonReport, value: true),
+      ],
+    ),
+  );
+  if (wantsAction != true || !context.mounted) return null;
+  if (!item.isMine) return reportPoll(context, item.id, bottomInset: bottomInset);
+  var deleted = false;
+  final isPoll = item.kind == CommunityKind.poll;
+  final toast = await confirmAndDelete(
+    context,
+    title: isPoll ? l10n.communityDeleteConfirmTitle : l10n.communityPostDeleteConfirmTitle,
+    body: isPoll ? l10n.communityDeleteConfirmBody : l10n.communityPostDeleteConfirmBody,
+    toastBottomInset: bottomInset,
+    delete: () async {
+      final failure = await ref.read(communityFeedViewModelProvider.notifier).delete(item.id);
+      deleted = failure == null;
+      return failure;
+    },
+  );
+  if (deleted) onDeleted?.call();
+  return toast;
 }
 
 Future<T?> showPollSheet<T>(BuildContext context, Widget sheet) {

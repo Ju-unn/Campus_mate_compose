@@ -2,11 +2,12 @@ import 'dart:async';
 
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/profile/basic/model/data/basic_info_submission.dart';
+import 'package:campus_mate/profile/basic/model/data/nickname_availability.dart';
 import 'package:campus_mate/profile/basic/model/data/phone_code_sent.dart';
 import 'package:campus_mate/profile/basic/model/repository/basic_info_repository.dart';
 
 class FakeBasicInfoRepository implements BasicInfoRepository {
-  Result<bool> nextAvailabilityResult = const Success(true);
+  Result<NicknameAvailability> nextAvailabilityResult = const Success(NicknameAvailability.available);
   Result<void> nextSubmitResult = const Success(null);
   final List<String> checkedNicknames = [];
   BasicInfoSubmission? submitted;
@@ -15,7 +16,7 @@ class FakeBasicInfoRepository implements BasicInfoRepository {
   Completer<void>? availabilityGate;
 
   @override
-  Future<Result<bool>> checkNicknameAvailability(String nickname) async {
+  Future<Result<NicknameAvailability>> checkNicknameAvailability(String nickname) async {
     checkedNicknames.add(nickname);
     await availabilityGate?.future;
     return nextAvailabilityResult;

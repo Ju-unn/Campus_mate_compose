@@ -8,6 +8,7 @@ import 'package:campus_mate/matching/model/data/card_profile.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_ui_state.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_view_model.dart';
+import 'package:campus_mate/matching/viewmodel/rejected_cards_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -70,6 +71,31 @@ void main() {
     final state = container.read(acceptancesViewModelProvider);
     expect(state.matchedNickname, isNull);
     expect(state.acceptances, isEmpty);
+  });
+
+  test('거절하면 이미 읽은 거절한 카드 목록도 다시 읽는다 — 카드 대기 입구가 낡지 않게', () async {
+    repository.acceptances = const Success([_acceptance]);
+    final viewModel = container.read(acceptancesViewModelProvider.notifier);
+    await viewModel.refresh();
+    container.read(rejectedCardsViewModelProvider);
+    await pumpEventQueue();
+    expect(repository.fetchRejectedCount, 1);
+
+    await viewModel.respond('card-1', CardDecision.reject);
+    await pumpEventQueue();
+
+    expect(repository.fetchRejectedCount, 2);
+  });
+
+  test('거절한 카드 목록을 만든 적이 없으면 거절해도 읽지 않는다', () async {
+    repository.acceptances = const Success([_acceptance]);
+    final viewModel = container.read(acceptancesViewModelProvider.notifier);
+    await viewModel.refresh();
+
+    await viewModel.respond('card-1', CardDecision.reject);
+    await pumpEventQueue();
+
+    expect(repository.fetchRejectedCount, 0);
   });
 
   test('기한이 지난 수락(410)은 문구를 보여주고 목록을 다시 읽는다', () async {

@@ -2,6 +2,7 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
 import 'package:campus_mate/core/http/http_send.dart';
 import 'package:campus_mate/profile/basic/model/data/basic_info_submission.dart';
+import 'package:campus_mate/profile/basic/model/data/nickname_availability.dart';
 import 'package:campus_mate/profile/basic/model/data/phone_code_sent.dart';
 import 'package:campus_mate/profile/basic/model/repository/basic_info_repository.dart';
 
@@ -12,10 +13,14 @@ class HttpBasicInfoRepository implements BasicInfoRepository {
   final ApiClient _api;
 
   @override
-  Future<Result<bool>> checkNicknameAvailability(String nickname) => _api.send(
+  Future<Result<NicknameAvailability>> checkNicknameAvailability(String nickname) => _api.send(
         'GET',
         '/profile-onboarding/nickname-availability',
-        (body) => (body as Map<String, dynamic>)['available'] as bool,
+        (body) => switch (body as Map<String, dynamic>) {
+          {'available': true} => NicknameAvailability.available,
+          {'reason': nicknameNotAllowedCode} => NicknameAvailability.notAllowed,
+          _ => NicknameAvailability.taken,
+        },
         query: {'nickname': nickname},
       );
 

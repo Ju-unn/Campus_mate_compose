@@ -1,5 +1,7 @@
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/community/model/data/community_category.dart';
 import 'package:campus_mate/community/model/data/poll.dart';
+import 'package:campus_mate/community/view/category_label.dart';
 import 'package:campus_mate/community/view/poll_donut.dart';
 import 'package:campus_mate/community/view/poll_time.dart';
 import 'package:campus_mate/community/view/vote_option.dart';
@@ -19,6 +21,7 @@ import 'package:flutter/material.dart';
 class PollCard extends StatelessWidget {
   const PollCard({
     required this.poll,
+    required this.category,
     required this.now,
     required this.isVoting,
     required this.onVote,
@@ -27,6 +30,9 @@ class PollCard extends StatelessWidget {
   });
 
   final Poll poll;
+
+  /// 그 글의 카테고리 — 피드 카드와 같은 자리(머리줄 아래 12 · 질문 위 12)에 라벨로 보인다(대장 판정 3). 옛 글은 서버가 free 로 준다.
+  final CommunityCategory category;
   final DateTime now;
 
   /// 응답을 기다리는 중이면 버튼을 끈다 — 되돌릴 수 없는 투표가 두 번 가지 않게.
@@ -53,6 +59,8 @@ class PollCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _Header(poll: poll, now: now, onReport: onReport),
+              const SizedBox(height: AppSpacing.sm),
+              CategoryLabel(category: category),
               const SizedBox(height: AppSpacing.sm),
               Text(
                 poll.question,

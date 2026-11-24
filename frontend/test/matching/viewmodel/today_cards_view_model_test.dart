@@ -85,6 +85,7 @@ void main() {
     await container.read(todayCardsViewModelProvider.notifier).markDecided();
 
     expect(repository.fetchTodayCount, 2);
+    expect(repository.fetchRejectedCount, 0, reason: '거절한 카드 목록을 만든 적이 없으면 읽지 않는다');
   });
 
   // 카운트다운이 0 이 됐을 때(홈 hero ③ · 오늘 탭 11). 07:00 배치와 같은 순간이라 첫 읽기는 대개 아직 대기다.

@@ -4,6 +4,7 @@ import 'package:campus_mate/matching/model/data/card_decision.dart';
 import 'package:campus_mate/matching/model/data/card_detail.dart';
 import 'package:campus_mate/matching/model/data/daily_card.dart';
 import 'package:campus_mate/matching/model/data/notification_preferences.dart';
+import 'package:campus_mate/matching/model/data/rejected_card.dart';
 import 'package:campus_mate/matching/model/data/sent_request.dart';
 
 /// 조각 4 가 쓰는 서버 호출 전부. 화면은 이 인터페이스만 보고 `Http…` 구현을 모른다.
@@ -22,6 +23,15 @@ abstract interface class CardRepository {
 
   /// 내가 대화 신청한 카드들(대화 탭 "보낸 신청"). 최신 신청 먼저, 최대 50건 — 서버 순서 그대로다.
   Future<Result<List<SentRequest>>> fetchSentRequests();
+
+  /// 아직 되돌릴 수 있는 내 거절(대화 탭 [거절한 카드], 1.0.7 #20). 최신 거절 먼저, 최대 50건 — 서버 순서 그대로다.
+  Future<Result<RejectedCards>> fetchRejectedCards();
+
+  /// 내 카드 거절 → 다시 대화 신청(하트 없음). 조건 밖 404 · 이미 결정 409 는 서버 문구를 실은 [ServerRejectedFailure] 로 온다.
+  Future<Result<void>> reapplyCard(String cardId);
+
+  /// 받은 신청에 한 거절 → 되돌려 바로 매칭. 조건 밖 404 · 이미 답함 409(연타 두 번째 포함)는 서버 문구를 실은 [ServerRejectedFailure] 로 온다.
+  Future<Result<AcceptanceOutcome>> undoAcceptanceRejection(String cardId);
   Future<Result<void>> registerPushToken(String token);
   Future<Result<void>> deletePushToken(String token);
   Future<Result<NotificationPreferences>> fetchNotificationPreferences();

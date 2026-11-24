@@ -1,13 +1,13 @@
 import 'package:campus_mate/common/failure.dart';
-import 'package:campus_mate/community/model/data/poll.dart';
+import 'package:campus_mate/community/model/data/community_item.dart';
 import 'package:campus_mate/community/model/data/poll_comment.dart';
 
-/// 17c 투표 상세 상태 — 글 하나와 그 댓글 목록. 피드 상태와 따로 들고 있어서 알림에서 바로 들어와도 열린다.
+/// 17c 상세 상태 — 글 하나(투표 · 게시물, 할 일 19)와 그 댓글 목록. 피드 상태와 따로 들고 있어서 알림에서 바로 들어와도 열린다.
 class PollDetailUiState {
   const PollDetailUiState({
-    this.poll,
-    this.isLoadingPoll = false,
-    this.pollError,
+    this.item,
+    this.isLoadingItem = false,
+    this.itemError,
     this.isVoting = false,
     this.comments = const [],
     this.hasMoreComments = false,
@@ -19,11 +19,11 @@ class PollDetailUiState {
   });
 
   /// 피드에서 들어오면 피드 값으로 시작하고, 알림에서 들어오면 읽어 올 때까지 null.
-  final Poll? poll;
-  final bool isLoadingPoll;
+  final CommunityItem? item;
+  final bool isLoadingItem;
 
   /// 글을 못 읽었을 때(글이 없거나 가려짐 404 · 연결 실패). 글이 이미 있으면 채우지 않는다.
-  final Failure? pollError;
+  final Failure? itemError;
   final bool isVoting;
 
   /// 오래된 순. 내가 방금 보낸 댓글도 끝에 붙어 있다.
@@ -44,9 +44,9 @@ class PollDetailUiState {
 
   /// 안 넘기면 그대로다. 오류 칸 셋은 **null 을 넘겨야** 지워진다(그래서 안 넘김과 null 을 가르는 [_keep]).
   PollDetailUiState copyWith({
-    Poll? poll,
-    bool? isLoadingPoll,
-    Object? pollError = _keep,
+    CommunityItem? item,
+    bool? isLoadingItem,
+    Object? itemError = _keep,
     bool? isVoting,
     List<PollComment>? comments,
     bool? hasMoreComments,
@@ -57,9 +57,9 @@ class PollDetailUiState {
     bool? isSending,
   }) {
     return PollDetailUiState(
-      poll: poll ?? this.poll,
-      isLoadingPoll: isLoadingPoll ?? this.isLoadingPoll,
-      pollError: identical(pollError, _keep) ? this.pollError : pollError as Failure?,
+      item: item ?? this.item,
+      isLoadingItem: isLoadingItem ?? this.isLoadingItem,
+      itemError: identical(itemError, _keep) ? this.itemError : itemError as Failure?,
       isVoting: isVoting ?? this.isVoting,
       comments: comments ?? this.comments,
       hasMoreComments: hasMoreComments ?? this.hasMoreComments,
