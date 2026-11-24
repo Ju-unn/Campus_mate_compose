@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:campus_mate/auth/school_email/model/data/university_email.dart';
@@ -7,6 +8,7 @@ import 'package:campus_mate/auth/school_email/model/repository/temporary_auth_co
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/core/http/http_send.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -212,6 +214,80 @@ void main() {
       verifyAnswers(null);
       expect(failureOf(await buildRepository().verifyCode(email, code)), isA<SchoolEmailIncompleteFailure>());
     });
+
+    // 시간 초과 뒤 verifyOTP 가 늦게 성공하면 임시 연결에 세션이 남는다. 같은 코드로 다시 확인하면 이미 쓴 코드라
+    // "코드가 맞지 않아요" 가 됐다 — 같은 메일의 세션이 있으면 그것을 쓴다.
+    group('임시 연결에 이미 세션이 있으면(늦게 성공한 확인)', () {
+      void temporaryHasSessionFor(String? sessionEmail) {
+        final session = MockSession();
+        when(() => session.accessToken).thenReturn('late-token');
+        when(() => session.user).thenReturn(
+          User(id: 'temp-user', appMetadata: const {}, userMetadata: const {}, aud: 'authenticated', createdAt: '', email: sessionEmail),
+        );
+        when(() => temporary.currentSession).thenReturn(session);
+      }
+
+      test('같은 메일(대소문자 · 앞뒤 공백 무시)의 세션이면 verifyOTP 를 부르지 않고 그 토큰을 돌려준다', () async {
+        temporaryHasSessionFor(' Hong@SNU.ac.kr ');
+
+        final result = await buildRepository().verifyCode(email, code);
+
+        expect(result.when(onSuccess: (token) => token, onFailure: (_) => null), 'late-token');
+        verifyNever(
+          () => temporary.verifyOTP(email: any(named: 'email'), token: any(named: 'token'), type: any(named: 'type')),
+        );
+      });
+
+      test('다른 메일의 세션이면 지금처럼 verifyOTP 로 확인한다', () async {
+        temporaryHasSessionFor('other@snu.ac.kr');
+        final fresh = MockSession();
+        when(() => fresh.accessToken).thenReturn('temp-token');
+        verifyAnswers(fresh);
+
+        final result = await buildRepository().verifyCode(email, code);
+
+        expect(result.when(onSuccess: (token) => token, onFailure: (_) => null), 'temp-token');
+        verify(() => temporary.verifyOTP(email: 'hong@snu.ac.kr', token: '123456', type: OtpType.email)).called(1);
+      });
+
+      // "다시 받기" 로 새 코드가 나갔으면 남은 세션은 옛 코드의 것이다 — 비워야 새 코드를 서버가 확인한다
+      // (남겨 두면 아무 6자리나 통과하고, 30분이 지난 세션은 서버가 거절해 다시 받기로도 못 푼다).
+      test('새 코드를 보내는 데 성공하면 남은 세션을 비워 다음 확인은 verifyOTP 로 한다', () async {
+        temporaryHasSessionFor('hong@snu.ac.kr');
+        // gotrue 의 로그아웃처럼 메모리 세션을 지운다.
+        when(() => temporary.signOut(scope: any(named: 'scope'))).thenAnswer((_) async {
+          when(() => temporary.currentSession).thenReturn(null);
+        });
+        when(() => temporary.signInWithOtp(email: any(named: 'email'), shouldCreateUser: any(named: 'shouldCreateUser')))
+            .thenAnswer((_) async {});
+        final fresh = MockSession();
+        when(() => fresh.accessToken).thenReturn('temp-token');
+        verifyAnswers(fresh);
+        final repository = buildRepository();
+
+        await repository.requestCode(email);
+        final result = await repository.verifyCode(email, code);
+
+        expect(result.when(onSuccess: (token) => token, onFailure: (_) => null), 'temp-token');
+        verify(() => temporary.verifyOTP(email: 'hong@snu.ac.kr', token: '123456', type: OtpType.email)).called(1);
+      });
+
+      test('새 코드 보내기가 실패하면 세션을 남겨 다음 확인은 그 세션을 쓴다', () async {
+        temporaryHasSessionFor('hong@snu.ac.kr');
+        when(() => temporary.signInWithOtp(email: any(named: 'email'), shouldCreateUser: any(named: 'shouldCreateUser')))
+            .thenThrow(const AuthException('email rate limit', statusCode: '429'));
+        final repository = buildRepository();
+
+        await repository.requestCode(email);
+        final result = await repository.verifyCode(email, code);
+
+        expect(result.when(onSuccess: (token) => token, onFailure: (_) => null), 'late-token');
+        verifyNever(() => temporary.signOut(scope: any(named: 'scope')));
+        verifyNever(
+          () => temporary.verifyOTP(email: any(named: 'email'), token: any(named: 'token'), type: any(named: 'type')),
+        );
+      });
+    });
   });
 
   group('complete', () {
@@ -408,6 +484,77 @@ void main() {
         await repository.discard();
 
         verify(() => temporary.signOut(scope: SignOutScope.local)).called(1);
+      });
+    });
+  });
+
+  // 망이 끊겨 GoTrue 응답이 끝내 오지 않아도 버튼이 "진행 중" 에 묶이지 않게 앱 쓰기 상한(writeTimeout)에서 끊는다.
+  // testWidgets 의 가짜 시계로 상한을 건너뛴다(fake_async 를 따로 들이지 않는다).
+  group('응답이 끝내 오지 않으면 쓰기 상한에서 끊는다', () {
+    /// [call] 을 시작해 상한 1초 전에는 아직 기다리고, 상한을 넘기면 끝났는지 본다. 끝난 값을 돌려준다.
+    Future<T?> settleAfterTimeout<T>(WidgetTester tester, Future<T> Function() call) async {
+      T? value;
+      var finished = false;
+      unawaited(call().then((result) {
+        value = result;
+        finished = true;
+      }));
+      await tester.pump(writeTimeout - const Duration(seconds: 1));
+      expect(finished, isFalse, reason: '상한 전에는 기다린다');
+      await tester.pump(const Duration(seconds: 2));
+      expect(finished, isTrue, reason: '상한을 넘기면 끝난다');
+      return value;
+    }
+
+    void otpHangs() {
+      when(() => temporary.signInWithOtp(email: any(named: 'email'), shouldCreateUser: any(named: 'shouldCreateUser')))
+          .thenAnswer((_) => Completer<void>().future);
+    }
+
+    void signOutHangs() {
+      when(() => temporary.signOut(scope: any(named: 'scope'))).thenAnswer((_) => Completer<void>().future);
+    }
+
+    testWidgets('인증번호 보내기(signInWithOtp)가 안 끝나면 "인증번호를 보내지 못했어요"', (tester) async {
+      otpHangs();
+
+      final result = await settleAfterTimeout(tester, () => buildRepository().requestCode(email));
+
+      expect(failureOf(result!), isA<CodeNotSentFailure>());
+    });
+
+    testWidgets('코드 확인(verifyOTP)이 안 끝나면 "학교 메일 인증을 마치지 못했어요"', (tester) async {
+      when(
+        () => temporary.verifyOTP(email: any(named: 'email'), token: any(named: 'token'), type: OtpType.email),
+      ).thenAnswer((_) => Completer<AuthResponse>().future);
+
+      final result = await settleAfterTimeout(tester, () => buildRepository().verifyCode(email, code));
+
+      expect(failureOf(result!), isA<SchoolEmailIncompleteFailure>());
+    });
+
+    testWidgets('인증을 마친 뒤 임시 연결 로그아웃 알림이 안 끝나도 성공으로 끝난다', (tester) async {
+      final repository = buildRepository();
+      when(() => temporary.signInWithOtp(email: any(named: 'email'), shouldCreateUser: any(named: 'shouldCreateUser')))
+          .thenAnswer((_) async {});
+      await repository.requestCode(email);
+      signOutHangs();
+
+      final result = await settleAfterTimeout(tester, () => repository.complete('temp-token'));
+
+      expect(failureOf(result!), isNull);
+    });
+
+    testWidgets('02 로 돌아갈 때(discard) 로그아웃 알림이 안 끝나도 돌아간다', (tester) async {
+      final repository = buildRepository();
+      when(() => temporary.signInWithOtp(email: any(named: 'email'), shouldCreateUser: any(named: 'shouldCreateUser')))
+          .thenAnswer((_) async {});
+      await repository.requestCode(email);
+      signOutHangs();
+
+      await settleAfterTimeout(tester, () async {
+        await repository.discard();
+        return true;
       });
     });
   });

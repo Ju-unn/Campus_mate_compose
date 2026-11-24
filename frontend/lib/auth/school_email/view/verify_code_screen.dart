@@ -134,6 +134,16 @@ class _VerifyCodeScreenState extends ConsumerState<VerifyCodeScreen> {
       HintLine(context.l10n.authVerifySpamHint),
       const SizedBox(height: AppSpacing.md),
       if (expiresAt != null) _ExpiryTimer(expiresAt: expiresAt),
+      // 다시 보내기 실패(pen jj8YS · hAIDd = Type · body-small): 만료 줄 바로 아래, 폭 꽉, 아이콘 없이 글만.
+      // 실패 종류(429 · 422 · 네트워크 · 5xx)와 상관없이 이 한 문구다 — 서버 문구는 보이지 않는다.
+      if (state.resendError != null)
+        SizedBox(
+          width: double.infinity,
+          child: Text(
+            context.l10n.authVerifyResendFailed,
+            style: AppTypography.bodySmall.copyWith(color: AppColors.error),
+          ),
+        ),
       const SizedBox(height: 2),
       _ResendButton(availableAt: state.resendAvailableAt, onResend: viewModel.resend),
       const Spacer(),

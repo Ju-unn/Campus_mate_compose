@@ -42,6 +42,10 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
   /// 다시 보내도 답이 같은 토큰(다른 계정 · 이미 처리 · 환불 · 확인 실패). 이 뷰모델이 사는 동안(= 이 로그인) 다시 보내지 않는다.
   final Set<String> _finished = {};
 
+  /// 지급 지연으로 남은 결제. 구글은 서버가 늦게라도 지급하면 서버가 소비로 끝내 복구([HeartStoreGateway.recover])가 다시 주지
+  /// 않는다 — 그래서 다음 [refresh] 때 직접 다시 확인한다. 지급이 확인되면 그때 잔액을 다시 읽는다(없으면 아무것도 안 부른다).
+  final Map<String, StorePurchased> _delayed = {};
+
   Future<void>? _refreshing;
 
   HeartStoreGateway get _gateway => ref.read(heartStoreGatewayProvider);
@@ -76,6 +80,7 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
     if (!await _gateway.isAvailable()) return _markUnavailable(const HeartUnavailable(HeartUnavailableReason.storeUnusable));
     if (!ref.mounted) return;
     unawaited(_gateway.recover());
+    _retryDelayed();
     final prices = await _loadPrices();
     // 가격을 읽는 사이 로그아웃으로 버려졌으면 더 읽지 않는다 — 버려진 ref 를 쓰면 던진다.
     if (!ref.mounted) return;
@@ -96,6 +101,13 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
       banner: state.banner == HeartPurchaseNotice.unavailable ? null : state.banner,
       unavailable: null,
     );
+  }
+
+  /// 비워 두고 보낸다 — 또 지연이면 [_onRejected] 가 다시 넣는다. 복구로 같은 토큰이 와도 [_claim] 이 한 번만 보낸다.
+  void _retryDelayed() {
+    final delayed = _delayed.values.toList();
+    _delayed.clear();
+    _enqueue(delayed);
   }
 
   Future<Map<String, StorePrice>> _loadPrices() async {
@@ -169,7 +181,7 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
       if (event is! StorePurchased) return;
       _inFlight.remove(event.purchaseToken);
       if (ref.mounted && state.phase == HeartPurchasePhase.verifying) {
-        _onRejected(event.purchaseToken, const UnknownFailure());
+        _onRejected(event, const UnknownFailure());
       }
     }
   }
@@ -218,7 +230,7 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
     if (!ref.mounted) return;
     await result.when(
       onSuccess: (outcome) => _onVerified(token, purchase.productId, outcome),
-      onFailure: (failure) async => _onRejected(token, failure),
+      onFailure: (failure) async => _onRejected(purchase, failure),
     );
     // 처리가 끝난 뒤에 푼다 — 지급 뒤 자격을 다시 읽는(_reloadBonus) 사이에 같은 토큰이 복구로 또 와도 다시 보내지 않게.
     _inFlight.remove(token);
@@ -232,7 +244,11 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
 
   Future<void> _onVerified(String token, String productId, PurchaseOutcome outcome) async {
     // 하트가 들어갔다(새로 · 이미) — 이제야 끝낸다. 대기(202)는 아직 결제됨이 아니라 끝내지 않는다.
-    if (outcome is PurchaseGranted) unawaited(_gateway.finish(token));
+    // 지급됐으면 지연 목록에서도 뺀다 — 복구로 먼저 받은 지연 결제를 다음 복귀 때 또 보내지 않게.
+    if (outcome is PurchaseGranted) {
+      _delayed.remove(token);
+      unawaited(_gateway.finish(token));
+    }
     switch (outcome) {
       case PurchasePendingAtStore():
         state = state.copyWith(phase: HeartPurchasePhase.idle, banner: HeartPurchaseNotice.pending);
@@ -265,11 +281,14 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
   ///   서버가 계정 표시를 먼저 대조하므로 거의 안 생긴다. 다시 보내도 이 계정에는 하트가 들어갈 길이 없어 끝낸다.
   /// - 422 purchase_revoked: 애플이 환불한 거래 — 하트 없이 끝낸다.
   /// 남겨 두면 StoreKit 이 같은 상품의 새 결제를 막는다(storekit_duplicate_product_object). 구글 창구의 finish 는 아무것도 하지 않는다.
-  void _onRejected(String token, Failure failure) {
+  void _onRejected(StorePurchased purchase, Failure failure) {
+    final token = purchase.purchaseToken;
     final notice = HeartPurchaseNotice.fromVerifyFailure(failure);
     if (notice.isFinalForToken) _finished.add(token);
     if (notice.finishesPurchase) unawaited(_gateway.finish(token));
-    final phase = notice == HeartPurchaseNotice.delayed ? HeartPurchasePhase.delayed : HeartPurchasePhase.idle;
+    final delayed = notice == HeartPurchaseNotice.delayed;
+    if (delayed) _delayed[token] = purchase;
+    final phase = delayed ? HeartPurchasePhase.delayed : HeartPurchasePhase.idle;
     state = notice.isBanner
         ? state.copyWith(phase: phase, banner: notice)
         : state.copyWith(phase: phase, banner: null, toast: NoticeToast(notice));
