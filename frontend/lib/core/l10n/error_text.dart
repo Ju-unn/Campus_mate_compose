@@ -55,6 +55,7 @@ String appErrorKindText(AppLocalizations l10n, AppError error) => switch (error)
       AppError.nicknameTaken => l10n.errorNicknameTaken,
       AppError.heightRange => l10n.errorHeightRange,
       AppError.phoneInvalid => l10n.errorPhoneInvalid,
+      AppError.studentNumberInvalid => l10n.errorStudentNumberInvalid,
       AppError.phoneInUse => l10n.errorPhoneInUse,
       AppError.phoneDailyLimit => l10n.errorPhoneDailyLimit,
       AppError.phoneNotMobile => l10n.errorPhoneNotMobile,

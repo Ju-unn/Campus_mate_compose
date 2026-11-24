@@ -187,6 +187,10 @@ enum AppError {
   heightRange,
   phoneInvalid,
 
+  /// 학번 칸 아래 한 줄(3c · 15-6 같은 키). 앱이 미리 막는 안내라 서버 422 STUDENT_NUMBER_INVALID 문구와는 글자가 다르다
+  /// (서버가 거절하면 그 문구를 그대로 보인다).
+  studentNumberInvalid,
+
   /// 04-1 휴대폰 문자 인증(pen 오류 줄 모음 xzT59 · 상태 화면 ⑤ ⑦ ⑫ ⑬). 서버는 code 로 가르고 글자는 앱이 정한다.
   phoneInUse,
   phoneDailyLimit,
