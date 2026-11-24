@@ -2,8 +2,8 @@ import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/community/model/data/community_category.dart';
 import 'package:campus_mate/community/model/data/poll.dart';
 import 'package:campus_mate/community/view/category_label.dart';
+import 'package:campus_mate/community/view/community_card_parts.dart';
 import 'package:campus_mate/community/view/poll_donut.dart';
-import 'package:campus_mate/community/view/poll_time.dart';
 import 'package:campus_mate/community/view/vote_option.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -18,6 +18,7 @@ import 'package:flutter/material.dart';
 
 /// `poll-card`(pen 마스터 `RpRBi`) — **17c 상세 전용**(`BwL1G` > `y0uSd4`). 15d 피드는 개선안 A 의
 /// `FeedPollCard`(`IFUWA`)로 옮겨 갔다. 17c 는 pen 이 바뀌지 않아 도넛 결과 · 질문 전문 그대로다.
+/// 머리줄만 게시물 상세처럼 익명 프로필 줄이다(17f `DHPBU` 머리줄 `yKSd4`, 사용자 지적 11-25).
 class PollCard extends StatelessWidget {
   const PollCard({
     required this.poll,
@@ -58,7 +59,12 @@ class PollCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _Header(poll: poll, now: now, onReport: onReport),
+              // 게시물 상세와 같은 익명 프로필 줄(pen 17f `DHPBU` 머리줄 `yKSd4`, 사용자 지적 11-25).
+              CommunityCardHeader(
+                createdAt: poll.createdAt,
+                now: now,
+                trailing: onReport == null ? null : PollReportButton(onPressed: onReport!),
+              ),
               const SizedBox(height: AppSpacing.sm),
               CategoryLabel(category: category),
               const SizedBox(height: AppSpacing.sm),
@@ -76,41 +82,6 @@ class PollCard extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header({required this.poll, required this.now, required this.onReport});
-
-  final Poll poll;
-  final DateTime now;
-  final VoidCallback? onReport;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        // pen `LHkpo` · `MpYr6`: #F2F2F2 pill, [3,10], 10/600 #3F3F3F. 글자는 줄 높이 속성 없음, 렌더 16 → 칩 22.
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-          decoration: BoxDecoration(color: AppColors.surfaceStrong, borderRadius: BorderRadius.circular(AppRadius.pill)),
-          child: Text(context.l10n.communityAnonymous, style: AppTypography.badge.copyWith(color: AppColors.body, height: 16 / 10)),
-        ),
-        const SizedBox(width: AppSpacing.xs),
-        // pen `G85OOq` 은 11/500 — 11px 은 뱃지만이라 12 로 올린다(대장 예외).
-        Expanded(
-          child: Text(
-            relativeTimeLabel(context.l10n, poll.createdAt, now),
-            style: AppTypography.caption.copyWith(fontWeight: FontWeight.w500, color: AppColors.muted),
-          ),
-        ),
-        // 신고 버튼은 머리줄 오른쪽 끝(10-01 개편, 간격 8) — 켜지면 머리줄이 48.
-        if (onReport != null) ...[
-          const SizedBox(width: AppSpacing.xs),
-          PollReportButton(onPressed: onReport!),
-        ],
-      ],
     );
   }
 }
