@@ -31,6 +31,9 @@ PHOTO_URL_TTL_SECONDS = 3600
 class MessageRequest(BaseModel):
     # SafeText = 널 문자 · 제어 문자(줄바꿈 · 탭 빼고) · 글 방향 문자 거절(core/text.py). 내용 검사는 하지 않는다("ㅋㅋㅋ" 통과).
     body: SafeText = Field(min_length=1, max_length=MESSAGE_MAX_LENGTH)
+    # 1.0.7 #8: 앱이 말풍선마다 붙이는 id. 같은 id 로 다시 보내면 한 번만 저장된다. 옛 앱(1.0.6)은 보내지 않는다.
+    # compat(1.0.6): client_id 없는 채팅 전송 — MIN_APP_VERSION 1.0.7 뒤 삭제
+    client_id: UUID | None = None
 
     @field_validator("body")
     @classmethod
@@ -267,13 +270,27 @@ async def send_message(match_id: str, body: MessageRequest,
     if match is None:
         raise HTTPException(status_code=404, detail=errors.CHAT_NOT_FOUND)
     mine, partner = _sides(match, wiring.profile_id)
-    _guard_writable(match, mine, partner)
+    try:
+        _guard_writable(match, mine, partner)
+    except HTTPException as exc:
+        # 대장 A안: 첫 전송은 저장됐는데 응답을 못 받은 사이 방이 닫혔거나 나갔다 — 같은 client_id 면 같은 201 + 처음 줄.
+        # 방송 · 푸시는 첫 요청이 이미 했다. 열린 방은 아래 on_conflict 가 같은 일을 해 미리 조회하지 않는다.
+        # 409(닫힘 · 나감)만 — 나중에 다른 거절(403 등)이 더해져도 재전송이 그것을 넘지 않게.
+        if exc.status_code != 409:
+            raise
+        sent = body.client_id and await wiring.repo.find_sent(match_id, wiring.profile_id, body.client_id)
+        if sent:
+            return {"message": sent}
+        raise
 
     # 푸시 제목에 쓸 내 닉네임은 저장 **앞에서** 읽는다 — 저장 뒤에 읽다 실패하면 메시지는 남았는데 500 이 나가 앱이 다시 보내 두 줄이 된다.
     nickname = await wiring.repo.fetch_nickname(wiring.profile_id)
-    message = await wiring.repo.insert_message(match_id, wiring.profile_id, body.body)
-    preview = body.body.replace("\n", " ")[:PUSH_PREVIEW_LENGTH]
-    await _notify_message(wiring, partner, nickname, preview, match_id, now)
+    message, created = await wiring.repo.insert_message(
+        match_id, wiring.profile_id, body.body, client_id=body.client_id)
+    if created:
+        # 겹친 재전송(같은 client_id)은 첫 요청이 이미 알렸다 — 알림이 두 번 울리지 않는다.
+        preview = body.body.replace("\n", " ")[:PUSH_PREVIEW_LENGTH]
+        await _notify_message(wiring, partner, nickname, preview, match_id, now)
     return {"message": message}
 
 

@@ -602,6 +602,25 @@ void main() {
       expect(failure, isA<NetworkFailure>());
     });
 
+    // 망이 끊겨 갱신 응답이 끝내 오지 않으면 이 길을 타는 모든 API 호출이 멈췄다 — 쓰기 상한에서 끊고, 로그아웃 신호는 아니다.
+    testWidgets('갱신 응답이 끝내 오지 않으면 쓰기 상한(30초)에서 NetworkFailure', (tester) async {
+      when(() => auth.refreshSession()).thenAnswer((_) => Completer<AuthResponse>().future);
+      Failure? failure;
+      var finished = false;
+      unawaited(send((_) => unauthorized()).then((value) {
+        failure = value;
+        finished = true;
+      }));
+
+      await tester.pump(writeTimeout - const Duration(milliseconds: 1));
+      expect(finished, isFalse, reason: '상한 전에는 기다린다');
+      await tester.pump(const Duration(milliseconds: 1));
+
+      expect(finished, isTrue, reason: '상한을 넘기면 끝난다');
+      expect(failure, isA<NetworkFailure>());
+      expect(sentTokens, ['Bearer old']);
+    });
+
     test('401 이 아니면 갱신하지 않는다', () async {
       final failure = await send(
         (_) => http.Response(

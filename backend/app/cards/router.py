@@ -13,6 +13,9 @@ from app.cards.ladder import last_issue_at, upcoming_issue_at
 from app.cards.paid_offer import PAID_CARD_COST, ensure_offer, target_eligible
 from app.cards.paid_preview import preview_of
 from app.cards.push import FcmSender, notify
+from app.cards.reapply import (
+    REJECTED_SOURCE_ACCEPTANCE, REJECTED_SOURCE_CARD, reapply_cutoff, reapply_deadline, reapply_open, rejection_closed,
+)
 from app.cards.repository import NOTIFICATION_DEFAULTS, CardRepository
 # is_active 는 safety · friend_reviews 가 여기서 가져간다 — 판정 자체는 visibility 한 곳에 있다.
 from app.cards.visibility import hidden_from_cards as _hidden_from_cards
@@ -295,11 +298,44 @@ async def decide_card(card_id: str, body: DecisionRequest,
     await wiring.repo.insert_decision(card_id, body.decision)
     if body.decision == "accept":
         # 거절은 조용히 끝난다 — 상대에게 아무 신호도 보내지 않는다(설계 §2.2).
-        # 받는 쪽 화면은 "대화 신청하기" · "받은 신청" 이다(지시문 22 G). kind 는 acceptance_received 그대로.
-        me = await wiring.repo.fetch_card_profile(wiring.profile_id)
-        await notify(wiring.repo, wiring.sender, card["target_id"], "acceptance_received",
-                     "대화 신청이 왔어요", f"{me['nickname']} 님이 대화를 신청했어요",
-                     {"route": "acceptances", "card_id": card_id}, now=now)
+        await _notify_chat_request(wiring, card_id, card["target_id"])
+    return {"ok": True}
+
+
+async def _notify_chat_request(wiring: _Wiring, card_id: str, target_id: str) -> None:
+    """받는 사람에게 "대화 신청이 왔어요". 처음 수락(decide_card)과 다시 신청(reapply_card)이 같이 쓴다 —
+    제목 · 본문 · data 가 같아야 상대가 다시 신청인지 알 수 없다(거절 흔적 0).
+    받는 쪽 화면은 "대화 신청하기" · "받은 신청" 이다(지시문 22 G). kind 는 acceptance_received 그대로."""
+    me = await wiring.repo.fetch_card_profile(wiring.profile_id)
+    await notify(wiring.repo, wiring.sender, target_id, "acceptance_received",
+                 "대화 신청이 왔어요", f"{me['nickname']} 님이 대화를 신청했어요",
+                 {"route": "acceptances", "card_id": card_id}, now=wiring.now)
+
+
+@router.post("/cards/{card_id}/reapply")
+async def reapply_card(card_id: str, wiring: _Wiring = Depends(_wire)) -> dict:
+    """거절한 카드에 다시 대화 신청(1.0.7 #20). 판단은 전부 서버가 한다(규칙 cards/reapply.py) — 앱이 보낸 날짜 · 상태는 없다.
+    없는 카드 · 남의 카드 · 숨김 상대 · 결정 전 · 기한 지난 거절은 모두 같은 404 다(차단 · 탈퇴를 응답으로 가를 수 없게).
+    카드 expires_at 은 보지 않고 하트도 쓰지 않는다. 저장은 조건부 PATCH 하나라 연타 · 동시 요청의 두 번째는 409 다."""
+    now = wiring.now
+
+    card = await wiring.repo.fetch_card(card_id)
+    if card is None or card["owner_id"] != wiring.profile_id:
+        raise HTTPException(status_code=404, detail=errors.CARD_NOT_FOUND)
+    target = await wiring.repo.fetch_card_profile(card["target_id"])
+    if _hidden_from_cards(card["target_id"], target, await _hidden_partners(wiring, [card["target_id"]])):
+        raise HTTPException(status_code=404, detail=errors.CARD_NOT_FOUND)
+    decision = card["card_decisions"]
+    if not decision:
+        raise HTTPException(status_code=404, detail=errors.CARD_NOT_FOUND)
+    if decision["decision"] == "accept":
+        raise HTTPException(status_code=409, detail=errors.CARD_ALREADY_DECIDED)
+    if rejection_closed(decision, now):
+        raise HTTPException(status_code=404, detail=errors.CARD_NOT_FOUND)
+
+    if not await wiring.repo.reapply_rejected(card_id, reapply_cutoff(now), decision["decided_at"], now):
+        raise HTTPException(status_code=409, detail=errors.CARD_ALREADY_DECIDED)
+    await _notify_chat_request(wiring, card_id, card["target_id"])
     return {"ok": True}
 
 
@@ -355,7 +391,8 @@ async def get_acceptance_detail(card_id: str, wiring: _Wiring = Depends(_wire)) 
     """받은 신청 · 프로필 보기(pen `o4QqYR`). 받는 사람이 수락하기 전에 상대를 10b 카드 상세와 같은 몸통으로 본다 —
     실사진 · 카카오톡 아이디는 여전히 없다(신뢰 확인 뒤 14c). 보기만 하고 아무것도 쓰지 않는다.
     거부 판정은 수락 응답(respond_to_acceptance)과 같은 순서 · 같은 코드다: 남의 것 · 수락 아님 · 숨김 404,
-    이미 답함 409, 7일 지남 410. 받은 신청 목록처럼 이미 매칭된 상대도 404 다(목록에 없는 줄은 열리지도 않는다)."""
+    이미 답함 409, 7일 지남 410. 받은 신청 목록처럼 이미 매칭된 상대도 404 다(목록에 없는 줄은 열리지도 않는다).
+    예외 하나(1.0.7 #20): 내가 거절로 답했어도 아직 되돌릴 수 있으면(거절 목록에서 여는 읽기 전용 프로필) 409 가 아니라 연다."""
     now = wiring.now
 
     card = await wiring.repo.fetch_card(card_id)
@@ -367,13 +404,25 @@ async def get_acceptance_detail(card_id: str, wiring: _Wiring = Depends(_wire)) 
     # 행이 없으면(지워진 계정) 그릴 몸통이 없다 — 숨김과 똑같이 404.
     if not profile or _hidden_from_cards(accepter_id, profile, await _blocked_among(wiring, [accepter_id])):
         raise HTTPException(status_code=404, detail=errors.ACCEPTANCE_NOT_FOUND)
-    if card["acceptance_responses"]:
+    answer = card["acceptance_responses"]
+    if answer and not _answer_undoable(answer, accepted, now):
         raise HTTPException(status_code=409, detail=errors.ACCEPTANCE_ALREADY_ANSWERED)
     if datetime.fromisoformat(accepted["decided_at"]) <= now - timedelta(days=ACCEPTANCE_TTL_DAYS):
         raise HTTPException(status_code=410, detail=errors.ACCEPTANCE_EXPIRED)
     if accepter_id in await wiring.repo.fetch_match_partner_ids(wiring.profile_id):
         raise HTTPException(status_code=404, detail=errors.ACCEPTANCE_NOT_FOUND)
     return {"card_id": card["id"], **await profile_detail(wiring.repo, profile, wiring.settings.supabase_url, now)}
+
+
+def _request_deadline(accepted: dict) -> datetime:
+    """받은 신청의 원래 응답 기한 — 상대가 수락한 시각 + 7일(respond_to_acceptance 의 410 과 같은 경계)."""
+    return datetime.fromisoformat(accepted["decided_at"]) + timedelta(days=ACCEPTANCE_TTL_DAYS)
+
+
+def _answer_undoable(answer: dict, accepted: dict, now: datetime) -> bool:
+    """내 응답이 거절이고 아직 되돌릴 수 있는가 — 내 거절 7일 · 상대 신청 기한 둘 다 안(규칙 cards/reapply.py).
+    숨김 · 이미 매칭은 부르는 쪽이 따로 본다."""
+    return answer.get("decision") == "reject" and reapply_open(answer["decided_at"], now, _request_deadline(accepted))
 
 
 def _sent_state(response: dict | None, match: dict | None, expires_at: datetime,
@@ -444,6 +493,51 @@ async def get_sent_requests(wiring: _Wiring = Depends(_wire)) -> dict:
     return {"sent": sent}
 
 
+@router.get("/cards/rejected")
+async def get_rejected_cards(wiring: _Wiring = Depends(_wire)) -> dict:
+    """내가 거절한 것 중 아직 되돌릴 수 있는 것(1.0.7 #20). 두 종류를 최신 거절 순으로 합쳐 상한 50:
+    `source` "card" = 내 카드 거절(다시 신청), "acceptance" = 받은 신청에 한 거절(되돌리면 바로 매칭).
+    기한은 내 거절 뒤 7일(서버 시계), 받은 신청이면 상대 신청의 원래 기한과 둘 중 먼저 오는 것이고 지난 줄은 뺀다.
+    숨김은 보낸 신청과 같다: 차단(어느 쪽이든) · 지인 차단 · 정지 · 탈퇴 · 가림 · 이미 매칭된 상대는 이유 없이 빠진다.
+    days_left 는 보낸 신청과 같은 올림이다. 상대 profile_id 는 싣지 않는다."""
+    now = wiring.now
+    cutoff = reapply_cutoff(now)
+    # (card_id, source, 상대, 거절 시각, 상대 신청 기한 — 카드 거절은 없음)
+    entries = [
+        (row["card_id"], REJECTED_SOURCE_CARD, row["daily_cards"]["target_id"], row["decided_at"], None)
+        for row in await wiring.repo.fetch_recent_rejections(wiring.profile_id, cutoff, SENT_LIMIT)
+    ] + [
+        (row["card_id"], REJECTED_SOURCE_ACCEPTANCE, row["daily_cards"]["owner_id"], row["decided_at"],
+         _request_deadline(row["daily_cards"]["card_decisions"]))
+        for row in await wiring.repo.fetch_recent_answer_rejections(wiring.profile_id, cutoff, SENT_LIMIT)
+    ]
+    if not entries:
+        return {"rejected": []}
+    others = list(dict.fromkeys(entry[2] for entry in entries))
+    profiles = await wiring.repo.fetch_card_profiles(others)
+    hidden = await _blocked_among(wiring, others) | await wiring.repo.fetch_match_partner_ids(wiring.profile_id)
+
+    rejected = []
+    for card_id, source, other_id, decided_at, request_deadline in sorted(
+            entries, key=lambda entry: datetime.fromisoformat(entry[3]), reverse=True):
+        profile = profiles.get(other_id)
+        rejected_at = datetime.fromisoformat(decided_at)
+        expires_at = reapply_deadline(rejected_at, request_deadline)
+        if not profile or _hidden_from_cards(other_id, profile, hidden) or now >= expires_at:
+            continue
+        card = _card_profile(profile, wiring.settings.supabase_url, now)
+        del card["profile_id"]
+        rejected.append({
+            "card_id": card_id,
+            "source": source,
+            "rejected_at": rejected_at.isoformat(),
+            "expires_at": expires_at.isoformat(),
+            "days_left": math.ceil((expires_at - now) / timedelta(days=1)),
+            "profile": card,
+        })
+    return {"rejected": rejected[:SENT_LIMIT]}
+
+
 @router.post("/cards/acceptances/{card_id}")
 async def respond_to_acceptance(card_id: str, body: DecisionRequest,
                                 wiring: _Wiring = Depends(_wire)) -> dict:
@@ -476,6 +570,38 @@ async def respond_to_acceptance(card_id: str, body: DecisionRequest,
             return {"matched": False}
 
     match = await _make_match(wiring, card["owner_id"], accepter, now)
+    return {"matched": True, "match_id": match["id"]}
+
+
+@router.post("/cards/acceptances/{card_id}/reapply")
+async def reapply_answer(card_id: str, wiring: _Wiring = Depends(_wire)) -> dict:
+    """받은 신청에 한 거절을 되돌려 바로 매칭(1.0.7 #20, 사용자 「바로 매칭」). 판단은 전부 서버(규칙 cards/reapply.py).
+    없는 카드 · 받은 사람이 내가 아님 · 상대가 수락 안 함 · 숨김(차단 · 지인 차단 · 정지 · 탈퇴 · 가림) · 이미 매칭 ·
+    응답 없음 · 내 거절 7일 지남 · 상대 신청 기한 지남은 모두 같은 404 다(응답으로 가를 수 없게). 수락으로 답했으면 409.
+    저장은 조건부 PATCH 하나라 동시 요청의 두 번째는 409, 매칭된 뒤 다시 누르면 숨김 관문의 404 이고 매칭 · 알림도 없다. 매칭은 평소 수락과 같은
+    _make_match 라 상대에게 거절 흔적이 남지 않는다. 매칭 쓰기가 끊기면 받은 신청 목록(get_acceptances)이 이어 만든다."""
+    now = wiring.now
+
+    card = await wiring.repo.fetch_card(card_id)
+    accepted = (card or {}).get("card_decisions") or {}
+    if card is None or card["target_id"] != wiring.profile_id or accepted.get("decision") != "accept":
+        raise HTTPException(status_code=404, detail=errors.ACCEPTANCE_NOT_FOUND)
+    accepter_id = card["owner_id"]
+    accepter = await wiring.repo.fetch_card_profile(accepter_id)
+    if _hidden_from_cards(accepter_id, accepter, await _hidden_partners(wiring, [accepter_id])):
+        raise HTTPException(status_code=404, detail=errors.ACCEPTANCE_NOT_FOUND)
+    answer = card["acceptance_responses"]
+    if not answer:
+        raise HTTPException(status_code=404, detail=errors.ACCEPTANCE_NOT_FOUND)
+    if answer.get("decision") == "accept":
+        raise HTTPException(status_code=409, detail=errors.ACCEPTANCE_ALREADY_ANSWERED)
+    if not _answer_undoable(answer, accepted, now):
+        raise HTTPException(status_code=404, detail=errors.ACCEPTANCE_NOT_FOUND)
+
+    if not await wiring.repo.reapply_rejected_answer(card_id, wiring.profile_id, reapply_cutoff(now),
+                                                     answer["decided_at"], now):
+        raise HTTPException(status_code=409, detail=errors.ACCEPTANCE_ALREADY_ANSWERED)
+    match = await _make_match(wiring, accepter_id, accepter, now)
     return {"matched": True, "match_id": match["id"]}
 
 
@@ -599,7 +725,8 @@ async def get_card_detail(card_id: str,
     now = wiring.now
 
     card = await wiring.repo.fetch_card(card_id)
-    if card is None or card["owner_id"] != wiring.profile_id:
+    # 거절한 카드는 다시 신청 기한(7일) 안에서만 읽기 전용으로 열린다(1.0.7 #20). 결정 전 · 수락한 카드는 그대로.
+    if card is None or card["owner_id"] != wiring.profile_id or rejection_closed(card["card_decisions"], now):
         raise HTTPException(status_code=404, detail=errors.CARD_NOT_FOUND)
 
     profile = await wiring.repo.fetch_card_detail_profile(card["target_id"])

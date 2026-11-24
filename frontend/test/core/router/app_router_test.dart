@@ -932,7 +932,7 @@ void main() {
       expect(find.byType(MyPhotosScreen), findsOneWidget);
     });
 
-    // 15-5 "수정 ›"(`A8LX2`)이 여는 화면(계획서 2026-09-28-me-profile.md A16).
+    // 15-5 [내 프로필 수정] 줄(`oaIwg`, 1.0.7 #17 — 옛 "수정 ›")이 여는 화면(계획서 2026-09-28-me-profile.md A16).
     testWidgets('/me/basic-info 는 15-6 기본 정보 수정이다', (tester) async {
       final router = await pumpRouter(tester);
 

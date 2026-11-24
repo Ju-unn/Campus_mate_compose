@@ -15,6 +15,10 @@ COMMENT_PAGE_SIZE = 10
 
 # 15d 탭 줄. 전체 · 인기(최근 7일 참여 수 순, 한 쪽) · 내 질문 · 내 투표. DB poll_feed 의 p_tab 과 같은 값이다.
 PollTab = Literal["all", "popular", "mine", "voted"]
+# 게시물 + 카테고리(할 일 19). 카테고리 값 목록은 여기 한 곳이다 — DB polls_category check 와 같은 값이다.
+Category = Literal["free", "career", "love"]
+# 새 피드(/community/feed) 탭 = 위 넷 + 카테고리 셋(Literal 은 겹치면 펼쳐진다). DB community_feed 의 p_tab 과 같은 값이다.
+FeedTab = Literal[PollTab, Category]
 
 
 class CommunityRepository(PostgrestRepository):
@@ -35,12 +39,30 @@ class CommunityRepository(PostgrestRepository):
         raise_for_status(response)
         return response.json()
 
-    async def create_poll(self, author: UUID, question: str, option_a: str, option_b: str) -> str:
-        response = await self._post("rpc/create_poll", json={
-            "p_author": str(author), "p_question": question, "p_option_a": option_a, "p_option_b": option_b,
+    async def fetch_items(self, viewer: UUID, *, item_id: UUID | None = None,
+                          before: datetime | None = None, before_id: UUID | None = None,
+                          limit: int = POLL_PAGE_SIZE, tab: FeedTab = "all") -> list[dict]:
+        """투표 + 게시물 피드 · 상세(새 길). 반환 칸에 author_id 가 없다(마이그레이션 20261123155829)."""
+        response = await self._post("rpc/community_feed", json={
+            "p_viewer": str(viewer),
+            "p_item_id": str(item_id) if item_id else None,
+            "p_before": before.isoformat() if before else None,
+            "p_before_id": str(before_id) if before_id else None,
+            "p_limit": limit,
+            "p_tab": tab,
+        })
+        raise_for_status(response)
+        return response.json()
+
+    async def create_item(self, author: UUID, *, kind: Literal["poll", "post"], category: Category, text: str,
+                          option_a: str | None = None, option_b: str | None = None, limit_detail: str) -> str:
+        """투표 · 게시물 올리기. 한국 시간 하루 10개는 둘을 합쳐 센다 — 넘으면 429(문구는 길마다 다르다)."""
+        response = await self._post("rpc/create_community_item", json={
+            "p_author": str(author), "p_kind": kind, "p_category": category, "p_text": text,
+            "p_option_a": option_a, "p_option_b": option_b,
         })
         if error_code(response) == "CM429":
-            raise HTTPException(status_code=429, detail=errors.POLL_DAILY_LIMIT)
+            raise HTTPException(status_code=429, detail=limit_detail)
         raise_for_status(response)
         return response.json()
 
@@ -63,7 +85,7 @@ class CommunityRepository(PostgrestRepository):
         PostgREST 가 300(PGRST201)을 돌려준다."""
         response = await self._get("polls", {
             "id": f"eq.{poll_id}",
-            "select": "id,author_id,question,option_a_label,option_b_label,status,created_at,"
+            "select": "id,author_id,kind,category,question,option_a_label,option_b_label,status,created_at,"
                       "author:profiles!polls_author_id_fkey(status)",
         })
         raise_for_status(response)
@@ -82,8 +104,9 @@ class CommunityRepository(PostgrestRepository):
         return bool(response.json())
 
     async def fetch_comments(self, viewer: UUID, poll_id: UUID, *, after: datetime | None = None,
-                             after_id: UUID | None = None, limit: int) -> list[dict]:
-        """댓글 한 쪽(오래된 순). 글이 없거나 가려졌으면 404. 부르는 쪽이 has_more 를 알려고 limit 을 한 줄 더 준다."""
+                             after_id: UUID | None = None, limit: int,
+                             not_found: str = errors.POLL_NOT_FOUND) -> list[dict]:
+        """댓글 한 쪽(오래된 순). 글이 없거나 가려졌으면 404(문구는 길마다 다르다). 부르는 쪽이 has_more 를 알려고 limit 을 한 줄 더 준다."""
         response = await self._post("rpc/poll_comments_page", json={
             "p_viewer": str(viewer), "p_poll_id": str(poll_id),
             "p_after": after.isoformat() if after else None,
@@ -91,11 +114,11 @@ class CommunityRepository(PostgrestRepository):
             "p_limit": limit,
         })
         if error_code(response) == "CM404":
-            raise HTTPException(status_code=404, detail=errors.POLL_NOT_FOUND)
+            raise HTTPException(status_code=404, detail=not_found)
         raise_for_status(response)
         return response.json()
 
-    async def add_comment(self, author: UUID, poll_id: UUID, body: str) -> dict:
+    async def add_comment(self, author: UUID, poll_id: UUID, body: str, not_found: str = errors.POLL_NOT_FOUND) -> dict:
         """댓글 쓰기 + 익명 번호 부여 + 하루 50개 한도 · 1분 5개 · 같은 내용 연달아 막기를 DB 한 트랜잭션에서. 새 댓글 한 줄(+ 푸시용 글쓴이 id · 질문)을 돌려준다."""
         response = await self._post("rpc/add_poll_comment", json={
             "p_author": str(author), "p_poll_id": str(poll_id), "p_body": body,
@@ -111,7 +134,7 @@ class CommunityRepository(PostgrestRepository):
                 raise HTTPException(status_code=409, detail=errors.POLL_COMMENT_SAME_AS_LAST)
         # CM404 = 쓰기 전 확인에서 없음. 23503 = 확인과 insert 사이에 글이 지워져 FK 가 깨짐 — 둘 다 "없는 글" 이다.
         if error_code(response) in ("CM404", "23503"):
-            raise HTTPException(status_code=404, detail=errors.POLL_NOT_FOUND)
+            raise HTTPException(status_code=404, detail=not_found)
         raise_for_status(response)
         return response.json()[0]
 
