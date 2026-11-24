@@ -38,19 +38,3 @@ class PollComment {
     );
   }
 }
-
-class PollCommentPage {
-  const PollCommentPage({required this.comments, required this.hasMore});
-
-  final List<PollComment> comments;
-  final bool hasMore;
-
-  factory PollCommentPage.fromJson(Map<String, dynamic> json) {
-    return PollCommentPage(
-      comments: (json['items'] as List<dynamic>)
-          .map((item) => PollComment.fromJson(item as Map<String, dynamic>))
-          .toList(),
-      hasMore: json['has_more'] as bool,
-    );
-  }
-}

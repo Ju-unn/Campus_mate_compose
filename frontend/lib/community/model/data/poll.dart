@@ -1,3 +1,5 @@
+import 'package:campus_mate/community/model/data/server_text.dart';
+
 /// 선택지 기본 라벨. 둘 다 이 값이면 카드가 글자 대신 O·X 아이콘을 그린다(DESIGN §8.11).
 // l10n-ignore-start(wire): 서버가 주고받는 투표 기본 보기 — 글자 자체가 값이다(서버 router.py option_a_label · option_b_label 기본값과 같다)
 const String defaultOptionA = '찬성';
@@ -7,6 +9,12 @@ const String defaultOptionB = '반대';
 /// 서버 `QUESTION_MAX_LENGTH` · `OPTION_MAX_LENGTH`, DB check 와 같은 값이다.
 const int pollQuestionMaxLength = 80;
 const int pollOptionMaxLength = 6;
+
+/// 두 보기가 서버 `PollRequest` 를 통과할 모양인지 미리 본다 — 각각 빈칸이 아니고 6자 이하, 앞뒤 공백을 뗀 값이 서로 다르다.
+bool pollOptionsAccepted(String optionA, String optionB) =>
+    fitsServerText(optionA, pollOptionMaxLength) &&
+    fitsServerText(optionB, pollOptionMaxLength) &&
+    optionA.trim() != optionB.trim();
 
 enum PollChoice { a, b }
 
@@ -76,6 +84,21 @@ class Poll {
       },
       isMine: json['is_mine'] as bool,
       commentCount: json['comment_count'] as int? ?? 0,
+    );
+  }
+}
+
+/// 투표 결과(옛 카드 모양 `{poll, rewarded}` — 새 앱도 같은 길). [rewarded] 면 하루 첫 투표 하트 5개가 들어갔다(2026-10-16 개정, 종전 10).
+class VoteOutcome {
+  const VoteOutcome({required this.poll, required this.rewarded});
+
+  final Poll poll;
+  final bool rewarded;
+
+  factory VoteOutcome.fromJson(Map<String, dynamic> json) {
+    return VoteOutcome(
+      poll: Poll.fromJson(json['poll'] as Map<String, dynamic>),
+      rewarded: json['rewarded'] as bool,
     );
   }
 }
