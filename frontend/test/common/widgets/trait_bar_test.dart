@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/widgets/trait_bar.dart';
+import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -18,13 +19,25 @@ void main() {
             alignment: Alignment.topLeft,
             child: SizedBox(
               width: 286,
-              child: TraitBar(leftLabel: '낯가림', rightLabel: '금방 친해짐', value: 0.5),
+              child: TraitBar(name: '친해지기', leftLabel: '낯가림', rightLabel: '금방 친해짐', value: 0.5),
             ),
           ),
         ),
       ),
     );
   }
+
+  testWidgets('이름은 줄 위 왼쪽에 12/600/1.4 #222222 이고 줄과 4 떨어진다(pen TraitLine `G9dS3S`)', (tester) async {
+    await pump(tester);
+
+    final name = find.text('친해지기');
+    final style = tester.widget<Text>(name).style!;
+    expect((style.fontSize, style.fontWeight, style.height, style.color), (12, FontWeight.w600, 1.4, AppColors.ink));
+    expect(tester.getTopLeft(name).dx, 0);
+    // 라벨이 아니라 줄(Row) 위쪽으로 잰다 — 시험 글꼴에서 "금방 친해짐" 이 두 줄로 접혀 라벨이 가운데로 내려간다.
+    final row = find.descendant(of: find.byType(TraitBar), matching: find.byType(Row));
+    expect(tester.getTopLeft(row).dy - tester.getBottomLeft(name).dy, 4);
+  });
 
   testWidgets('배율 1.0 에서 라벨 60 · 간격 8 · 바 150 · 간격 8 · 라벨 60 이다', (tester) async {
     // pen `TORAs` 성향 줄 `J8vEs` — 바 `pDG6u` x68 · 폭 150.
