@@ -1741,6 +1741,32 @@ DB 마이그레이션 1개(`20261123161541_card_decisions_rejected_at` — `card
 - **배포 순서**: DB 먼저 → 서버 → 앱. 칸이 없는 DB 에 새 서버의 되돌리기 PATCH 가 가면 실패한다(옛 서버는 새 칸을 모르므로 DB 를 먼저 올려도 안전하다). 되돌림은 서버 리비전만 내리면 되고 칸은 남겨 둬도 된다.
 - **남은 확인**: `fetch_recent_rejections` · `fetch_recent_answer_rejections` 가 인덱스 경로를 타는지 `EXPLAIN` 으로 본 적이 없다(보낸 신청과 같은 상태). pgTAP `supabase/tests/rejected_at_test.sql` 은 로컬 Docker 에서 돌렸다 — 마이그레이션을 빼면 `column "rejected_at" of relation "card_decisions" does not exist` 로 실패, 넣으면 전체 Tests=1623 PASS.
 
+## 채팅 client_id — 재전송 두 줄 막기 (1.0.7 #8, 1/3 DB) (PR #789) — **로컬만 · 운영 미적용**
+
+앱이 메시지마다 고유 id(`client_id`)를 붙여 보내고, 응답을 못 받아 다시 보내도 서버가 같은 (방, 보낸이, id) 를 한 번만 저장한다. 세 PR 로 나눈다: DB(이 절) → 서버 → 앱.
+
+| 항목 | 값 |
+| --- | --- |
+| DB | `20261123170000_messages_client_id` — `messages.client_id uuid`(null 허용 · 기본값 없음) + 일반 유일 제약 `messages_client_id_unique (match_id, sender_id, client_id)`(PostgREST `on_conflict` 가 부분 인덱스를 못 써서 부분 인덱스가 아니다). RLS · grant · publication 은 그대로. 기존 줄은 새 칸이 전부 null 이라 제약 만들기가 실패하지 않는다(`docs/ERD.md` §4). 시험 `supabase/tests/messages_client_id_test.sql` |
+| 순서 | **DB → 서버 → 앱.** 서버가 DB 보다 먼저 나가면 `client_id` 가 실린 요청이 깨진다(칸 · 제약이 없다) — 다만 앱 1.0.7 이 나가기 전에는 `client_id` 를 보내는 앱이 없어 무해하다 |
+| 옛 앱 | 1.0.6 이하는 `client_id` 없이 보내고 지금과 똑같이 저장된다(NULL 끼리는 겹치지 않는다) |
+| 운영 적용 | **사용자 허락 뒤** MCP `apply_migration` 으로 파일 내용 그대로(`docs/SUPABASE.md` §4). 적용 전 운영 `messages` 행 수는 읽기로 확인해 둔다(제약을 짓는 동안 표가 잠깐 잠긴다) |
+| 되돌림 | 서버를 먼저 되돌린 뒤 `alter table public.messages drop constraint messages_client_id_unique, drop column client_id` (이것도 운영 쓰기라 사용자 허락) |
+
+## 채팅 client_id 서버 처리 — 재전송 두 줄 막기 (1.0.7 #8, 2/3 서버) (PR #794) — **로컬만 · 운영 미배포**
+
+DB 칸 · 제약은 1/3 DB PR(#789, `messages.client_id` + `messages_client_id_unique`)이 만든다. 이 절은 서버 계약만 적는다.
+
+| 항목 | 값 |
+| --- | --- |
+| 요청 | `POST /chat/matches/{match_id}/messages` 몸통에 `client_id` **선택** 칸. 있으면 UUID 여야 한다(아니면 422) |
+| 겹칠 때 | 같은 (방, 보낸이, `client_id`) 로 다시 오면 새 줄을 만들지 않고 **201 + 처음 줄**을 돌려준다(insert `on_conflict` + `resolution=ignore-duplicates` 가 빈 배열을 주면 `sender_id` = 나 조건으로 되읽는다). 응답 모양 `{"message": …}` 은 그대로 |
+| 방송 · 푸시 | 겹친 재전송은 Realtime 방송 · 상대 푸시를 **다시 하지 않는다**(첫 요청이 이미 했다) |
+| 겹침 확인 순서 | 겹침 확인은 닫힘 · 나감 검사보다 먼저(참여자 확인 뒤). 남의 방은 줄을 읽기 전에 404, 닫힌 · 나간 방(상대 나감 포함)에서 같은 `client_id` 줄이 있으면 201 + 처음 줄, 없으면(새 글 · `client_id` 없는 옛 앱) 지금처럼 409. 열린 방은 미리 조회하지 않고 위 `on_conflict` 로 같은 결과를 낸다(정상 전송 호출 수 그대로) |
+| 순서 | **DB → 서버 → 앱.** DB 보다 서버가 먼저 나가면 `client_id` 가 실린 요청이 500 이다(칸 · 제약 없음) — 앱 1.0.7 전에는 보내는 앱이 없다 |
+| 옛 앱 | 1.0.6 이하는 `client_id` 없이 보내고 지금과 똑같이 저장 · 방송 · 푸시된다. compat 표식 `backend/app/chat/router.py`(`MessageRequest.client_id`) · `backend/app/chat/repository.py`(`insert_message`): `# compat(1.0.6): client_id 없는 채팅 전송 — MIN_APP_VERSION 1.0.7 뒤 삭제` |
+| 시험 | `backend/tests/chat/test_chat_repository.py` · `test_chat_router.py` (겹침 · 되읽기 · 방송 · 푸시 한 번 · 1.0.6 응답 모양) |
+
 ## 3c 학번 2자리 — `POST /school-info` 를 `/me/profile` 학번 칸과 같은 규칙으로 (할 일 #9 A-2, 브랜치 `feat/school-info-student-number-two-digits`) (PR #미정) — **draft · 1.0.7 두 스토어 공개 + `MIN_APP_VERSION=1.0.7` 뒤에만 merge · 배포**
 
 마이그레이션 · env · 시크릿 · job 없음. §4-35 의 "3c 는 그대로 1~3자리" 를 끝낸다.

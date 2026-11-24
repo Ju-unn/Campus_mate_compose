@@ -6,7 +6,8 @@ import 'package:campus_mate/core/push/push_messaging.dart';
 class FakePushMessaging implements PushMessaging {
   FakePushMessaging({required this.token, this.granted = true, this.initial});
 
-  final String token;
+  /// 기기의 FCM 토큰. 테스트가 바꾸면 "다음 사람이 받은 새 토큰" 을 흉내 낸다.
+  String token;
   final bool granted;
 
   /// 기기 설정의 앱 알림 허용(16d-1). 테스트가 "설정에서 켜고 돌아옴"을 흉내 내려고 바꾼다.
@@ -33,8 +34,14 @@ class FakePushMessaging implements PushMessaging {
 
   void emitRefreshedToken(String value) => _refresh.add(value);
 
+  /// [requestPermission] 을 부른 횟수 — 다시 보내기가 권한을 또 묻지 않는지 본다.
+  int permissionRequests = 0;
+
   @override
-  Future<bool> requestPermission() async => granted;
+  Future<bool> requestPermission() async {
+    permissionRequests++;
+    return granted;
+  }
 
   @override
   Future<bool> isPermitted() async => permittedPending ?? permitted;

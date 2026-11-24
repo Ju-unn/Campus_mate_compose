@@ -478,6 +478,196 @@ void main() {
       expect(messaging.deleteTokenCalls, 0);
     });
   });
+
+  // 서버 · 시스템 문제(503 · 401 · 인터넷 없음)로 등록이 실패하면 앱을 껐다 켤 때까지 알림이 오지 않았다(1.0.7 #10).
+  // 잠시 뒤 한 번, 그리고 앱으로 돌아올 때마다 실패한 토큰을 다시 보낸다. 권한은 다시 묻지 않는다.
+  group('등록이 서버 · 시스템 문제로 실패하면 다시 보낸다', () {
+    test('서버가 잠깐 못 받으면(503) 잠시 뒤 다시 보낸다', () async {
+      final messaging = FakePushMessaging(token: 'tok-1');
+      final repository = FakeCardRepository()..writeResult = const FailureResult(ServerUnavailableFailure());
+      final registrar = PushRegistrar(messaging, repository, retryDelay: Duration.zero);
+      await registrar.start();
+      repository.writeResult = const Success(null);
+
+      await pumpEventQueue();
+
+      expect(repository.registeredTokens, ['tok-1', 'tok-1']);
+    });
+
+    test('잠시 뒤 다시 보내기도 실패하면 더 걸지 않고 앱 복귀를 기다린다', () async {
+      final messaging = FakePushMessaging(token: 'tok-1');
+      final repository = FakeCardRepository()..writeResult = const FailureResult(SessionRejectedFailure());
+      final registrar = PushRegistrar(messaging, repository, retryDelay: Duration.zero);
+      await registrar.start();
+
+      await pumpEventQueue();
+
+      expect(repository.registeredTokens, ['tok-1', 'tok-1']);
+    });
+
+    test('앱으로 돌아오면 실패했던 토큰을 다시 보내고, 권한은 다시 묻지 않는다', () async {
+      final messaging = FakePushMessaging(token: 'tok-1');
+      final repository = FakeCardRepository()..writeResult = const FailureResult(NetworkFailure());
+      final registrar = PushRegistrar(messaging, repository);
+      await registrar.start();
+      repository.writeResult = const Success(null);
+
+      await registrar.retry();
+      await registrar.retry();
+
+      expect(repository.registeredTokens, ['tok-1', 'tok-1']);
+      expect(messaging.permissionRequests, 1);
+    });
+
+    test('권한을 거부했으면 앱으로 돌아와도 아무것도 보내지 않는다', () async {
+      final messaging = FakePushMessaging(token: 'tok-1', granted: false);
+      final repository = FakeCardRepository();
+      final registrar = PushRegistrar(messaging, repository);
+      await registrar.start();
+
+      await registrar.retry();
+
+      expect(repository.registeredTokens, isEmpty);
+      expect(messaging.permissionRequests, 1);
+    });
+
+    test('관문 전 거절(403)은 다시 보내지 않는다 — 관문이 열리면 start() 가 다시 보낸다', () async {
+      final messaging = FakePushMessaging(token: 'tok-1');
+      final repository = FakeCardRepository()..writeResult = const FailureResult(ServerRejectedFailure('관문'));
+      final registrar = PushRegistrar(messaging, repository, retryDelay: Duration.zero);
+      await registrar.start();
+
+      await pumpEventQueue();
+      await registrar.retry();
+
+      expect(repository.registeredTokens, ['tok-1']);
+    });
+
+    test('로그아웃하면 걸어 둔 다시 보내기를 멈춘다 — 다음 사람 세션으로 앞 기기 토큰이 나가면 안 된다', () async {
+      final messaging = FakePushMessaging(token: 'tok-1');
+      final repository = FakeCardRepository()..writeResult = const FailureResult(ServerUnavailableFailure());
+      final registrar = PushRegistrar(messaging, repository, retryDelay: Duration.zero);
+      await registrar.start();
+      repository.writeResult = const Success(null);
+
+      await registrar.stop();
+      await pumpEventQueue();
+      await registrar.retry();
+
+      expect(repository.registeredTokens, ['tok-1']);
+    });
+
+    test('로그아웃 전에 실패했던 토큰은 다음 사람 세션에서 앱으로 돌아와도 다시 보내지 않는다', () async {
+      final messaging = FakePushMessaging(token: 'tok-A');
+      final server = _ServerRepository()..writeResult = const FailureResult(ServerUnavailableFailure());
+      final registrar = PushRegistrar(messaging, server, retryDelay: Duration.zero);
+      await registrar.start();
+      await registrar.stop();
+      await pumpEventQueue();
+      messaging.token = 'tok-B';
+      server.writeResult = const FailureResult(ServerRejectedFailure('관문'));
+
+      await registrar.start();
+      await registrar.retry();
+
+      expect(server.registeredTokens, ['tok-A', 'tok-B']);
+    });
+
+    test('갱신된 토큰 등록이 실패해도 앱으로 돌아오면 갱신 토큰을 다시 보낸다', () async {
+      final messaging = FakePushMessaging(token: 'tok-1');
+      final repository = FakeCardRepository();
+      final registrar = PushRegistrar(messaging, repository);
+      await registrar.start();
+      repository.writeResult = const FailureResult(ServerUnavailableFailure());
+      messaging.emitRefreshedToken('tok-2');
+      await pumpEventQueue();
+      repository.writeResult = const Success(null);
+
+      await registrar.retry();
+
+      expect(repository.registeredTokens, ['tok-1', 'tok-2', 'tok-2']);
+    });
+
+    test('등록이 날아가는 중에 앱으로 돌아와도 같은 토큰을 겹쳐 보내지 않는다', () async {
+      final messaging = FakePushMessaging(token: 'tok-1');
+      final server = _ServerRepository()..writeResult = const FailureResult(ServerUnavailableFailure());
+      final registrar = PushRegistrar(messaging, server);
+      await registrar.start();
+      server
+        ..writeResult = const Success(null)
+        ..registerGate = Completer<void>();
+      final login = registrar.start();
+      await pumpEventQueue();
+
+      final resend = registrar.retry();
+      await pumpEventQueue();
+      server.registerGate!.complete();
+      await Future.wait([login, resend]);
+
+      expect(server.registeredTokens, ['tok-1', 'tok-1']);
+    });
+
+    test('다시 보내기가 날아가는 중에 로그아웃하면 그 요청이 서버에 닿은 뒤에 지운다', () async {
+      // 기다리지 않으면 stop() 이 먼저 지우고, 다시 보내기가 로그아웃 뒤에 닿아 앞 사람 토큰이 서버에 남는다.
+      final messaging = FakePushMessaging(token: 'tok-1');
+      final server = _ServerRepository()..writeResult = const FailureResult(ServerUnavailableFailure());
+      final registrar = PushRegistrar(messaging, server);
+      await registrar.start();
+      server
+        ..writeResult = const Success(null)
+        ..registerGate = Completer<void>();
+      final resend = registrar.retry();
+      await pumpEventQueue();
+
+      final logout = registrar.stop();
+      await pumpEventQueue();
+      server.registerGate!.complete();
+      await Future.wait([resend, logout]);
+
+      expect(server.serverTokens, isEmpty);
+    });
+
+    test('로그아웃 중에 실패로 돌아온 등록은 다음 사람 세션에서 다시 보내지 않는다', () async {
+      final gate = Completer<void>();
+      final messaging = FakePushMessaging(token: 'tok-A');
+      final server = _ServerRepository(registerGate: gate)
+        ..writeResult = const FailureResult(ServerUnavailableFailure());
+      final registrar = PushRegistrar(messaging, server);
+      final login = registrar.start();
+      await pumpEventQueue();
+      final logout = registrar.stop();
+      await pumpEventQueue();
+      gate.complete();
+      await Future.wait([login, logout]);
+      messaging.token = 'tok-B';
+      server.writeResult = const FailureResult(ServerRejectedFailure('관문'));
+
+      await registrar.start();
+      await registrar.retry();
+
+      expect(server.registeredTokens, ['tok-A', 'tok-B']);
+    });
+
+    test('로그아웃이 기다리다 넘어간 뒤 실패로 돌아온 등록도 다음 사람 세션에서 다시 보내지 않는다', () async {
+      final gate = Completer<void>();
+      final messaging = FakePushMessaging(token: 'tok-A');
+      final server = _ServerRepository(registerGate: gate)
+        ..writeResult = const FailureResult(ServerUnavailableFailure());
+      final registrar = PushRegistrar(messaging, server, deleteTimeout: Duration.zero);
+      final login = registrar.start();
+      await pumpEventQueue();
+      await registrar.stop();
+      gate.complete();
+      await login;
+      messaging.token = 'tok-B';
+      server.writeResult = const FailureResult(ServerRejectedFailure('관문'));
+
+      await registrar.start();
+      await registrar.retry();
+
+      expect(server.registeredTokens, ['tok-A', 'tok-B']);
+    });
+  });
 }
 
 class _HangingDeleteRepository extends FakeCardRepository {
@@ -489,8 +679,8 @@ class _HangingDeleteRepository extends FakeCardRepository {
 class _ServerRepository extends FakeCardRepository {
   _ServerRepository({this.registerGate, this.registerResult, this.deleteGate});
 
-  /// 있으면 등록 요청이 이것이 끝나야 서버에 닿는다(날아가는 중).
-  final Completer<void>? registerGate;
+  /// 있으면 등록 요청이 이것이 끝나야 서버에 닿는다(날아가는 중). 테스트 중간에 걸어 다음 요청만 붙잡을 수 있다.
+  Completer<void>? registerGate;
 
   /// 있으면 삭제 요청이 이것이 끝나야 서버에 닿는다(날아가는 중).
   final Completer<void>? deleteGate;

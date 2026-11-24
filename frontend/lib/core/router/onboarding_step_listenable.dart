@@ -72,7 +72,7 @@ class OnboardingStepListenable extends ChangeNotifier {
 
   /// 화면이 저장에 성공했을 때 부른다. 다시 보는 중이면 바로 다음 화면으로 한 칸 가고(사용자 결정 ③),
   /// 그 칸이 서버 단계에 닿으면 다시 보기를 끝낸다. 그다음 서버 단계를 다시 묻는다.
-  /// [refresh] 와 따로 두는 이유: refresh 는 토큰 갱신 때마다 돈다(main.dart) — 거기서 한 칸씩 가면 화면이 혼자 넘어간다.
+  /// [refresh] 와 따로 두는 이유: refresh 는 로그인 · 사용자 바뀜 · 실패 뒤 토큰 갱신 때도 돈다(main.dart) — 거기서 한 칸씩 가면 화면이 혼자 넘어간다.
   Future<void> stepSaved() async {
     if (_visiting case final visiting?) {
       _visiting = _visibleBeforeServer(visiting.stepAfter());
