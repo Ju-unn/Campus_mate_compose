@@ -13,6 +13,7 @@ import 'package:campus_mate/core/lifecycle/resume_refresh.dart';
 import 'package:campus_mate/core/push/push_refresh.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_view_model.dart';
+import 'package:campus_mate/matching/viewmodel/rejected_cards_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/sent_requests_view_model.dart';
 import 'package:campus_mate/notifications/model/repository/notifications_repository_provider.dart';
 import 'package:campus_mate/notifications/viewmodel/unread_count_provider.dart';
@@ -51,7 +52,7 @@ void main() {
   });
 
   void resume({bool isAuthenticated = true, VerificationGate gate = VerificationGate.complete}) =>
-      refreshOnResume(container.read, isAuthenticated: isAuthenticated, gate: gate);
+      refreshOnResume(container.read, container.exists, isAuthenticated: isAuthenticated, gate: gate);
 
   /// 두 목록이 이미 한 번 읽혀 화면에 줄이 있는 상태에서 시작한다.
   Future<void> warmUp() async {
@@ -83,6 +84,19 @@ void main() {
     await pumpEventQueue();
 
     expect(cards.fetchSentCount, before + 1);
+  });
+
+  test('거절한 카드는 이미 읽은 적이 있을 때만 돌아와서 다시 읽는다(카드 대기 입구)', () async {
+    resume();
+    await pumpEventQueue();
+    expect(cards.fetchRejectedCount, 0);
+
+    container.read(rejectedCardsViewModelProvider);
+    await pumpEventQueue();
+    resume();
+    await pumpEventQueue();
+
+    expect(cards.fetchRejectedCount, 2);
   });
 
   test('[보낸 신청] 탭을 연 적이 없으면 돌아와도 보낸 신청은 서버로 가지 않는다', () async {

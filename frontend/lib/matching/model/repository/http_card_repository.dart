@@ -5,6 +5,7 @@ import 'package:campus_mate/matching/model/data/card_decision.dart';
 import 'package:campus_mate/matching/model/data/card_detail.dart';
 import 'package:campus_mate/matching/model/data/daily_card.dart';
 import 'package:campus_mate/matching/model/data/notification_preferences.dart';
+import 'package:campus_mate/matching/model/data/rejected_card.dart';
 import 'package:campus_mate/matching/model/data/sent_request.dart';
 import 'package:campus_mate/matching/model/repository/card_repository.dart';
 import 'package:flutter/foundation.dart';
@@ -72,6 +73,20 @@ class HttpCardRepository implements CardRepository {
             .where((item) => SentRequestStatus.values.asNameMap().containsKey(item['status']))
             .map(SentRequest.fromJson)
             .toList(),
+      );
+
+  @override
+  Future<Result<RejectedCards>> fetchRejectedCards() => _api.send(
+      'GET', '/cards/rejected', (body) => RejectedCards.fromJson(body as Map<String, dynamic>));
+
+  @override
+  Future<Result<void>> reapplyCard(String cardId) => _api.send('POST', '/cards/$cardId/reapply', (_) {});
+
+  @override
+  Future<Result<AcceptanceOutcome>> undoAcceptanceRejection(String cardId) => _api.send(
+        'POST',
+        '/cards/acceptances/$cardId/reapply',
+        (body) => AcceptanceOutcome.fromJson(body as Map<String, dynamic>),
       );
 
   @override
