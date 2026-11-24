@@ -30,6 +30,10 @@ class SentRequest {
   /// 눌러서 대화방으로 갈 수 있는지. 매칭됐어도 방 id 가 없으면 가지 않는다 — 대화 중 목록에 곧 방이 보인다.
   bool get opensChat => status == SentRequestStatus.matched && matchId != null;
 
+  /// [프로필 보기] 가 있는지(pen 25-C h41Epx). 기다리는 줄(INViw)과 거절된 줄(H75rq, 대장 판정 1 — 사용자
+  /// 「거절되도 볼수는 있게」)뿐이다. 매칭됨은 대화방이, 만료됨은 아무것도 열리지 않는다.
+  bool get opensProfile => status == SentRequestStatus.waiting || status == SentRequestStatus.rejected;
+
   factory SentRequest.fromJson(Map<String, dynamic> json) {
     return SentRequest(
       cardId: json['card_id'] as String,

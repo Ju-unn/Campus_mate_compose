@@ -647,6 +647,39 @@ void main() {
       expect(find.text('방 m-9'), findsOneWidget);
     });
 
+    // 16 보낸 신청 프로필 보기(pen h41Epx): 기다리는 줄 · 거절된 줄의 [프로필 보기] 는 읽기 전용 프로필(ig7i2)을 push 로 연다.
+    for (final status in [SentRequestStatus.waiting, SentRequestStatus.rejected]) {
+      testWidgets('${status.name} 줄의 [프로필 보기] 를 누르면 `/sent-requests/<카드>` 로 간다', (tester) async {
+        final container = ProviderContainer(overrides: [
+          cardRepositoryProvider.overrideWithValue(FakeCardRepository()..sent = Success([_sent('s1', status: status)])),
+          chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
+        ]);
+        addTearDown(container.dispose);
+        final router = GoRouter(
+          initialLocation: AppRoutes.conversations,
+          routes: [
+            GoRoute(path: AppRoutes.conversations, builder: (context, state) => const ConversationsScreen()),
+            GoRoute(
+              path: '${AppRoutes.sentRequestProfile}/:cardId',
+              builder: (context, state) => Text('프로필 ${state.pathParameters['cardId']}'),
+            ),
+          ],
+        );
+        addTearDown(router.dispose);
+        await tester.pumpWidget(UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router),
+        ));
+        await tester.pumpAndSettle();
+        await openSent(tester);
+
+        await tester.tap(find.text('프로필 보기'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('프로필 s1'), findsOneWidget);
+      });
+    }
+
     // 사용자 「채팅목록 클릭하면 -> 상대방이 수락하면 열립니다 토스트」 · 문구 「"상대가 수락하면 대화가 열려요" (추천)」.
     testWidgets('기다리는 줄을 누르면 "상대가 수락하면 대화가 열려요" 토스트가 신청 토스트와 같은 자리(내비 위 16 · 가운데)에 뜬다', (tester) async {
       await pump(tester, FakeCardRepository()..sent = Success([_sent('s1')]));

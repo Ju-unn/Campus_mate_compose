@@ -11,6 +11,11 @@ import 'package:flutter/material.dart';
 /// ink 글자 · 크기 · 모서리 · 라벨은 primary 와 같다(52 · 14 · 16/700).
 enum AppButtonVariant { primary, secondary, text, danger, dangerStrong, neutral, tonal }
 
+/// 버튼 크기. [regular] 는 지금까지의 규격(52 · 모서리 14, 라벨은 변형이 정한다).
+/// [small] 은 줄 안 손그림 버튼(대장 판정 6, 11-24 — 보낸 신청 [프로필 보기] pen INViw `sQbNH` · H75rq `Q8YrHc`,
+/// 거절한 카드 줄 pdOvf `c5gTV` · `tFflF`): 높이 44 · 모서리 8 · 라벨 18/700(`AppTypography.label`). 색은 변형 그대로다.
+enum AppButtonSize { regular, small }
+
 class AppButton extends StatelessWidget {
   const AppButton({
     required this.label,
@@ -21,6 +26,7 @@ class AppButton extends StatelessWidget {
     this.trailingIcon,
     this.leading,
     this.isInline = false,
+    this.size = AppButtonSize.regular,
     super.key,
   });
 
@@ -47,6 +53,11 @@ class AppButton extends StatelessWidget {
   /// (pen 보내는 중 ⑩ · 확인 중 ⑪). 끄면(기본) 지금까지와 같다.
   final bool isInline;
 
+  /// 크기(위 [AppButtonSize]). 비워 두면 지금까지와 같다.
+  final AppButtonSize size;
+
+  bool get _isSmall => size == AppButtonSize.small;
+
   bool get _isTextVariant => variant == AppButtonVariant.text;
 
   bool get _isNeutral => variant == AppButtonVariant.neutral;
@@ -54,14 +65,11 @@ class AppButton extends StatelessWidget {
   /// text variant 라벨(pen `rK7sg` 라벨 16/600).
   static final TextStyle _textLabel = AppTypography.button.copyWith(fontWeight: FontWeight.w600);
 
-  /// neutral 라벨(pen `l44zcf` 18/700).
-  static const TextStyle _neutralLabel = AppTypography.label;
-
   @override
   Widget build(BuildContext context) {
     return ElevatedButton(
       onPressed: isLoading ? null : onPressed,
-      style: _styleFor(height ?? (_isTextVariant ? 48 : 52)),
+      style: _styleFor(height ?? (_isSmall ? 44 : (_isTextVariant ? 48 : 52))),
       child: isLoading
           ? (isInline ? _inlineLoading() : _spinner())
           : _content(),
@@ -69,7 +77,7 @@ class AppButton extends StatelessWidget {
   }
 
   Widget _content() {
-    final text = Text(label, style: _isTextVariant ? _textLabel : (_isNeutral ? _neutralLabel : AppTypography.button));
+    final text = Text(label, style: _labelStyle());
     final icon = trailingIcon;
     final leading = this.leading;
     if (icon == null && leading == null) {
@@ -83,6 +91,12 @@ class AppButton extends StatelessWidget {
         if (icon != null) ...[const SizedBox(width: AppSpacing.xs), Icon(icon, size: 20)],
       ],
     );
+  }
+
+  TextStyle _labelStyle() {
+    // neutral(pen `l44zcf`) · 작은 크기는 18/700.
+    if (_isSmall || _isNeutral) return AppTypography.label;
+    return _isTextVariant ? _textLabel : AppTypography.button;
   }
 
   /// 줄 안 버튼의 보내는 중 · 확인 중 — 스피너 20(선 2) → 8 → 라벨. 색은 꺼진 버튼의 글자색(disabled)이다.
@@ -116,7 +130,9 @@ class AppButton extends StatelessWidget {
       maximumSize: Size(double.infinity, height),
       padding: isInline ? const EdgeInsets.symmetric(horizontal: AppSpacing.md) : EdgeInsets.zero,
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_isNeutral ? AppRadius.sm : AppRadius.button)),
+      // 작은 크기는 보이는 44 가 곧 누르는 칸이다 — 기본(padded)이면 위아래 2 씩 보이지 않는 칸이 붙어 줄이 pen 보다 4 커진다.
+      tapTargetSize: _isSmall ? MaterialTapTargetSize.shrinkWrap : null,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_isNeutral || _isSmall ? AppRadius.sm : AppRadius.button)),
     );
     return base.copyWith(
       backgroundColor: _backgroundColor(),

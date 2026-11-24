@@ -390,6 +390,8 @@ class _SentTab extends ConsumerWidget {
                   context.l10n.matchingSentWaitingToast,
                   icon: AppIcons.timer,
                 ),
+                // 기다리는 줄 · 거절된 줄의 [프로필 보기](pen 25-C h41Epx) → 읽기 전용 프로필(ig7i2).
+                onViewProfile: (cardId) => context.push('${AppRoutes.sentRequestProfile}/$cardId'),
               ),
             ),
           ),
