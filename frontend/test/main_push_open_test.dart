@@ -60,12 +60,12 @@ import 'notifications/model/repository/fake_notifications_repository.dart';
 
 /// 관문 조회가 [complete] 를 부를 때까지 끝나지 않는다 — 콜드 스타트에서 서버가 늦게 답하는 모양.
 class _SlowGateRepository implements VerificationGateRepository {
-  final _answer = Completer<Result<VerificationGate>>();
+  final _answer = Completer<Result<GateStatus>>();
 
-  void complete(VerificationGate gate) => _answer.complete(Success(gate));
+  void complete(VerificationGate gate) => _answer.complete(Success((gate: gate, method: null)));
 
   @override
-  Future<Result<VerificationGate>> fetchGate() => _answer.future;
+  Future<Result<GateStatus>> fetchGate() => _answer.future;
 }
 
 /// 방 id(지어낸 UUID). 라우터는 UUID 모양이 아닌 방 id 를 대화 목록으로 돌려보낸다(2026-10-18 경로 id 검사).

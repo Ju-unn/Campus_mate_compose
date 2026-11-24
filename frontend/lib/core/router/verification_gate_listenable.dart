@@ -1,5 +1,6 @@
 import 'package:campus_mate/auth/gate/model/data/verification_gate.dart';
 import 'package:campus_mate/auth/gate/model/repository/verification_gate_repository.dart';
+import 'package:campus_mate/graduate/model/data/verification_method.dart';
 import 'package:flutter/foundation.dart';
 
 /// 조회 결과가 없을 때 쓰는 기본값 — "아직 모름".
@@ -20,9 +21,14 @@ class VerificationGateListenable extends ChangeNotifier {
 
   VerificationGate get value => _cached;
 
+  /// 마지막으로 받은 인증 방법 — 3c 가 "졸업생" 을 미리 고를 때만 읽는다(1.0.7 1-1). 알리지 않는다(관문이 아니다).
+  VerificationMethod? get verificationMethod => _method;
+  VerificationMethod? _method;
+
   /// 로그아웃처럼 조회할 근거가 사라지면 기본값으로 되돌린다.
   /// 다음 사용자가 앞 사용자의 통과 상태를 물려받아 홈으로 새면 §7.3 이 깨진다.
   void reset() {
+    _method = null;
     _cache(_defaultGate);
   }
 
@@ -31,8 +37,9 @@ class VerificationGateListenable extends ChangeNotifier {
   Future<bool> refresh() async {
     final result = await _repository.fetchGate();
     return result.when(
-      onSuccess: (gate) {
-        _cache(gate);
+      onSuccess: (status) {
+        _method = status.method;
+        _cache(status.gate);
         return true;
       },
       // 아는 관문이 있으면 그대로 둔다 — 다음 세션 변화 때 다시 시도. 모르는데 실패했으면 01-1 로.

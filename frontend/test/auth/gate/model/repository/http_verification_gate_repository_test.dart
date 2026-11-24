@@ -4,6 +4,7 @@ import 'package:campus_mate/core/http/api_client.dart';
 import 'package:campus_mate/auth/gate/model/repository/http_verification_gate_repository.dart';
 import 'package:campus_mate/auth/gate/model/data/verification_gate.dart';
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/graduate/model/data/verification_method.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -53,7 +54,7 @@ void main() {
       );
     });
     final result = await buildRepository(client).fetchGate();
-    return result.when(onSuccess: (value) => value, onFailure: (_) => null);
+    return result.when(onSuccess: (value) => value.gate, onFailure: (_) => null);
   }
 
   test('동의 기록이 없으면 학생증보다 먼저 needsConsent', () async {
@@ -145,7 +146,7 @@ void main() {
             headers: {'content-type': 'application/json; charset=utf-8'},
           ));
       final result = await buildRepository(client).fetchGate();
-      return result.when(onSuccess: (value) => value, onFailure: (_) => null);
+      return result.when(onSuccess: (value) => value.gate, onFailure: (_) => null);
     }
 
     const base = <String, Object?>{
@@ -176,6 +177,28 @@ void main() {
       });
 
       expect(gate, VerificationGate.graduateReviewing);
+    });
+  });
+
+  // 3c 가 졸업증명서로 인증한 사람에게 "졸업생" 을 미리 골라 둔다(1.0.7 1-1) — 같은 응답에서 읽어 따로 묻지 않는다.
+  group('인증 방법을 관문과 함께 넘긴다', () {
+    Future<Object?> methodOf(Object? wire) async {
+      final client = MockClient((_) async => http.Response(
+            jsonEncode({'consent': 'current', 'school_email_verified': true, 'has_school_info': false, 'verification_method': wire}),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          ));
+      final result = await buildRepository(client).fetchGate();
+      return result.when(onSuccess: (value) => value.method, onFailure: (f) => f);
+    }
+
+    test('졸업증명서로 인증했으면 graduateCertificate', () async {
+      expect(await methodOf('graduate_certificate'), VerificationMethod.graduateCertificate);
+    });
+
+    test('학교 메일 · 칸 없음(옛 서버)은 그대로 schoolEmail · null', () async {
+      expect(await methodOf('school_email'), VerificationMethod.schoolEmail);
+      expect(await methodOf(null), isNull);
     });
   });
 }
