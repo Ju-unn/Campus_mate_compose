@@ -22,10 +22,11 @@ const _moreTooltip = '더보기'; // feed_poll_card.dart:178 — 내 글에만
 const _reportLabel = '신고하기'; // poll_card.dart:133 PollReportButton — 남의 글에만(머리줄 오른쪽 끝)
 const _openDetail = '자세히 보기'; // feed_poll_card.dart:483(아래 줄 오른쪽)
 const _detailTitle = '투표 상세'; // poll_detail_screen.dart:42
-const _notFound = '질문을 찾을 수 없어요'; // 서버 POLL_NOT_FOUND(토스트) · poll_detail_screen.dart:45(없는 글 자리)
+const _notFound = '질문을 찾을 수 없어요'; // 서버 POLL_NOT_FOUND(토스트)
+const _detailNotFound = '글을 찾을 수 없어요'; // 앱 communityDetailNotFound — poll_detail_screen.dart `_noPoll`(없는 글 자리)
 const _alreadyVoted = '이미 투표했어요'; // 서버 POLL_ALREADY_VOTED(토스트)
-const _menuDelete = '삭제하기'; // poll_sheets.dart:129(메뉴 줄) · :209(확인 시트 버튼)
-const _confirmTitle = '이 질문을 삭제할까요?'; // poll_sheets.dart:201
+const _menuDelete = '삭제하기'; // poll_sheets.dart showItemMenu(메뉴 줄) · confirmAndDelete(확인 시트 버튼)
+const _confirmTitle = '이 질문을 삭제할까요?'; // poll_sheets.dart:116(투표 확인 제목)
 const _deleted = '삭제했어요'; // poll_toast.dart:9
 
 /// 상대 기기를 기다리는 step 의 상한 — PC 쪽 기다림(WAIT 150초)보다 길어서 PC 가 먼저 이유를 말한다.
@@ -252,7 +253,7 @@ final Map<String, Area1Case> area2TwoPollCases = {
   }),
 
   // ── E-POLL-22 운영자가 글을 가리면(status=blinded) 피드 · 상세에서 사라지고 투표도 "없는 글". B 는 상세를 열어 둔다 —
-  // 17c 는 피드 목록의 같은 글을 보므로 새로 고치면 "질문을 찾을 수 없어요" 가 된다. PC 가 가리고 투표(API)·상세(API)를 404 로 본다.
+  // 17c 는 피드 목록의 같은 글을 보므로 새로 고치면 "글을 찾을 수 없어요" 가 된다. PC 가 가리고 투표(API)·상세(API)를 404 로 본다.
   'E-POLL-22/A': _authorSeesItVanish,
   'E-POLL-22/B': _login((tester, job) async {
     final question = job['question'] as String;
@@ -264,8 +265,8 @@ final Map<String, Area1Case> area2TwoPollCases = {
     await step('detail', timeout: _waitOther); // PC: 글을 가리고 B 토큰으로 투표 · 상세를 보낸다
     final detail = find.byType(PollDetailScreen);
     await _refresh(tester, detail);
-    await pumpUntil(tester, find.text(_notFound), timeout: const Duration(seconds: 15));
-    must(_count(find.text(_notFound)) == 1, '상세에 "$_notFound" ${_count(find.text(_notFound))}개(기대 1)');
+    await pumpUntil(tester, find.text(_detailNotFound), timeout: const Duration(seconds: 15));
+    must(_count(find.text(_detailNotFound)) == 1, '상세에 "$_detailNotFound" ${_count(find.text(_detailNotFound))}개(기대 1)');
     Navigator.of(tester.element(detail)).pop();
     await wait(tester, const Duration(milliseconds: 500));
     await _gone(tester, question); // 피드에서도 빠졌다
