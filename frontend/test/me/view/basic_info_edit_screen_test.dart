@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/auth/school_info/model/data/academic_status.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/confirm_popup.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/common/widgets/select_chip.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -41,6 +43,7 @@ MyProfile _profile({
   int? birthYear = 2001,
   String? gender = 'male',
   String? studentNumber = '21',
+  AcademicStatus? academicStatus,
 }) =>
     MyProfile(
       nickname: '늑대',
@@ -56,6 +59,7 @@ MyProfile _profile({
       birthYear: birthYear,
       gender: gender,
       studentNumber: studentNumber,
+      academicStatus: academicStatus,
       avatarUrl: null,
       preferredAgeMin: null,
       preferredAgeMax: null,
@@ -84,8 +88,10 @@ const _studentNumberHelper = '대학원생은 학부 입학 학번을 적어 주
 /// 앱이 학번 칸 아래에 띄우는 안내(3c 와 같은 키). 서버 422 문구("숫자를 입력해 주세요")와는 다르다.
 const _studentNumberInvalid = '두 자리 숫자로 입력해 주세요';
 
-/// 키 칸 아래에 학번 덩어리(16 + 라벨 20 + 8 + 상자 52 + 6 + 안내 17 = 119, pen NzQNa gap 6)가 들어와 그 아래 구역이 모두 이만큼 내려갔다.
-const double _studentShift = 119;
+/// 키 칸 아래에 신분 덩어리(16 + 라벨 20 + 8 + 칩 33 = 77, 1.0.7 1-1 pen `a6Wd1J`)와 학번 덩어리(16 + 라벨 20 + 8 + 상자 52 + 6 + 안내 17 = 119,
+/// pen NzQNa gap 6)가 들어와 그 아래 구역이 모두 이만큼 내려갔다.
+const double _statusShift = 77;
+const double _studentShift = _statusShift + 119;
 
 Finder _valueOf(Finder field) => find.descendant(of: field, matching: find.byType(EditableText));
 
@@ -257,16 +263,59 @@ void main() {
       expect(find.byIcon(AppIcons.info), findsOneWidget);
     });
 
-    testWidgets('학번 칸 — 키 칸 끝(y289) 16 아래 "학부 입학 학번"(305) → 8 → 상자 52(333) → 6 → 글자만 안내(391, pen H37ivG)', (tester) async {
+    // 1.0.7 1-1 — 키와 학번 사이(위아래 16). 라벨은 "내 MBTI" 와 같은 14/600 body(렌더 20), "· 필수" 없음.
+    testWidgets('신분 — 키 칸 끝(y289) 16 아래 "신분"(305) → 8 → 같은 폭 칩 3개(높이 33 · 사이 8) → 16 → 학번', (tester) async {
       usePenFrame(tester);
       await pump(tester);
 
-      expect(tester.getTopLeft(find.text(_studentNumberLabel)), const Offset(24, 305));
+      expect(tester.getTopLeft(find.text('신분')), const Offset(24, 305));
+      expect(tester.getSize(find.text('신분')).height, 20);
+      expect(tester.widget<Text>(find.text('신분')).style, tester.widget<Text>(find.text(_studentNumberLabel)).style);
+      final rects = [for (final label in ['대학생', '대학원생', '졸업생']) _rectOf(tester, label)];
+      // 칸 폭 (312 − 8 × 2) / 3 = 98.7 을 내려 98 — 소수 오차로 셋째 칩이 다음 줄로 밀리지 않게(AcademicStatusChips).
+      expect(rects.first, const Rect.fromLTWH(24, 333, 98, 33));
+      expect({for (final rect in rects) rect.size}, {rects.first.size});
+      expect((rects[1].left - rects[0].right, rects[2].left - rects[1].right), (8, 8));
+      expect(tester.getTopLeft(find.text(_studentNumberLabel)).dy, 366 + 16);
+    });
+
+    for (final (status, expected) in [
+      (null, [false, false, false]),
+      (AcademicStatus.alumni, [false, false, true]),
+    ]) {
+      testWidgets('신분 — 서버 $status 이면 칩이 $expected 로 열린다(null 은 모두 꺼짐)', (tester) async {
+        await pump(tester, profile: _profile(academicStatus: status));
+
+        expect([
+          for (final label in ['대학생', '대학원생', '졸업생'])
+            tester.widget<SelectChip>(find.ancestor(of: find.text(label), matching: find.byType(SelectChip))).isSelected,
+        ], expected);
+      });
+    }
+
+    testWidgets('신분만 바꿔 저장하면 본문은 {"academic_status"} 뿐', (tester) async {
+      await pump(tester, profile: _profile(academicStatus: AcademicStatus.undergraduate));
+
+      await tester.tap(find.text('대학원생'));
+      await tester.pump();
+      await tapSave(tester);
+      await tester.pumpAndSettle();
+
+      expect(me.updates, [
+        {'academic_status': 'graduate_student'},
+      ]);
+    });
+
+    testWidgets('학번 칸 — 신분 칩 끝(y366) 16 아래 "학부 입학 학번"(382) → 8 → 상자 52(410) → 6 → 글자만 안내(468, pen H37ivG)', (tester) async {
+      usePenFrame(tester);
+      await pump(tester);
+
+      expect(tester.getTopLeft(find.text(_studentNumberLabel)), const Offset(24, 382));
       final style = tester.widget<Text>(find.text(_studentNumberLabel)).style!;
       expect((style.fontSize, style.fontWeight, style.color), (14, FontWeight.w600, AppColors.body));
-      expect(tester.getRect(_studentNumberField), const Rect.fromLTWH(24, 333, 312, 52));
+      expect(tester.getRect(_studentNumberField), const Rect.fromLTWH(24, 410, 312, 52));
       final helper = find.text(_studentNumberHelper);
-      expect(tester.getTopLeft(helper), const Offset(24, 391));
+      expect(tester.getTopLeft(helper), const Offset(24, 468));
       final helperStyle = tester.widget<Text>(helper).style!;
       expect((helperStyle.fontSize, helperStyle.fontWeight, helperStyle.color), (12, FontWeight.w400, AppColors.muted));
       expect(tester.widget<EditableText>(_valueOf(_studentNumberField)).controller.text, '21');

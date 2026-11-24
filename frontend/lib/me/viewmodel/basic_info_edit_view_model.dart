@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:campus_mate/auth/school_info/model/data/academic_status.dart';
 import 'package:campus_mate/auth/school_info/model/data/student_number.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
@@ -55,6 +56,8 @@ class BasicInfoEditViewModel extends Notifier<BasicInfoEditUiState> {
       heightInput: height,
       savedStudentNumber: studentNumber,
       studentNumberInput: studentNumber,
+      savedAcademicStatus: profile?.academicStatus,
+      academicStatus: profile?.academicStatus,
       savedMbti: profile?.mbti,
       // MBTI 가 null 이면 "선택 안 함" 이다 — "모름" 칩이 켜진 채 열린다.
       mbtiPoles: MbtiPoles.fromCode(profile?.mbti),
@@ -127,6 +130,13 @@ class BasicInfoEditViewModel extends Notifier<BasicInfoEditUiState> {
     state = state.copyWith(mbtiPoles: const {}, isMbtiUnknown: !state.isMbtiUnknown);
   }
 
+  /// 신분(1.0.7 1-1). 안 고른 사람(null)도 칩을 누르면 고른 것이 된다 — "안 고름" 으로 되돌리는 칩은 없다.
+  void changeAcademicStatus(AcademicStatus value) {
+    if (!state.isSubmitting) {
+      state = state.copyWith(academicStatus: value);
+    }
+  }
+
   void changeReligion(Religion value) {
     if (!state.isSubmitting) {
       state = state.copyWith(religion: value);
@@ -170,6 +180,7 @@ class BasicInfoEditViewModel extends Notifier<BasicInfoEditUiState> {
       isSmoker: state.isSmokerChanged ? state.isSmoker : null,
       appearance: appearance,
       studentNumber: state.isStudentNumberChanged ? state.studentNumber : null,
+      academicStatus: state.isAcademicStatusChanged ? state.academicStatus : null,
     );
     state = state.copyWith(isSubmitting: true, error: null);
     // 저장 중에 뒤로 나가도 끝까지 저장하고 15-5 를 다시 읽게 한다 — 그동안 autoDispose 가 버리지 않게 붙잡는다.
@@ -184,6 +195,7 @@ class BasicInfoEditViewModel extends Notifier<BasicInfoEditUiState> {
             isSmoker: sent.isSmoker,
             appearance: sent.appearance,
             studentNumber: sent.studentNumber,
+            academicStatus: sent.academicStatus,
           );
       // 저장하는 사이 로그아웃으로 버려졌으면(keepAlive 로도 못 막는다) 늦게 온 답은 버린다 — 상태 · ref 를 건드리면 던진다.
       if (!ref.mounted) return;
@@ -228,6 +240,8 @@ class BasicInfoEditUiState {
     required this.heightInput,
     this.savedStudentNumber = '',
     this.studentNumberInput = '',
+    this.savedAcademicStatus,
+    this.academicStatus,
     this.savedMbti,
     this.mbtiPoles = const {},
     this.isMbtiUnknown = false,
@@ -261,6 +275,10 @@ class BasicInfoEditUiState {
   /// 학번의 서버 값(없으면 빈 글자)과 지금 입력. 옛 값은 2자리가 아닐 수 있어 글자 그대로 든다.
   final String savedStudentNumber;
   final String studentNumberInput;
+
+  /// 신분의 서버 값과 지금 고른 값(1.0.7 1-1). 서버 null 이면 아직 안 고른 것이라 칩이 모두 꺼진 채 열린다.
+  final AcademicStatus? savedAcademicStatus;
+  final AcademicStatus? academicStatus;
 
   /// MBTI · 종교 · 흡연 · 얼굴상 · 인상의 서버 값(saved)과 지금 고른 값. 서버 값이 null 이면 아직 안 고른 것이다
   /// (MBTI 만 null 이 "선택 안 함" 이라 "모름" 으로 연다).
@@ -303,6 +321,7 @@ class BasicInfoEditUiState {
   bool get isNicknameChanged => nicknameInput != savedNickname;
   bool get isHeightChanged => heightInput != savedHeight;
   bool get isStudentNumberChanged => studentNumberInput != savedStudentNumber;
+  bool get isAcademicStatusChanged => academicStatus != savedAcademicStatus;
 
   /// 보낼 학번. 2자리가 아니면 null.
   StudentNumber? get studentNumber => StudentNumber.tryParse(studentNumberInput);
@@ -384,6 +403,7 @@ class BasicInfoEditUiState {
       isNicknameChanged ||
       isHeightChanged ||
       isStudentNumberChanged ||
+      isAcademicStatusChanged ||
       isMbtiChanged ||
       isReligionChanged ||
       isSmokerChanged ||
@@ -403,6 +423,7 @@ class BasicInfoEditUiState {
     String? nicknameInput,
     String? heightInput,
     String? studentNumberInput,
+    AcademicStatus? academicStatus,
     Set<String>? mbtiPoles,
     bool? isMbtiUnknown,
     Religion? religion,
@@ -421,6 +442,7 @@ class BasicInfoEditUiState {
       savedNickname: savedNickname,
       savedHeight: savedHeight,
       savedStudentNumber: savedStudentNumber,
+      savedAcademicStatus: savedAcademicStatus,
       savedMbti: savedMbti,
       savedReligion: savedReligion,
       savedIsSmoker: savedIsSmoker,
@@ -433,6 +455,7 @@ class BasicInfoEditUiState {
       nicknameInput: nicknameInput ?? this.nicknameInput,
       heightInput: heightInput ?? this.heightInput,
       studentNumberInput: studentNumberInput ?? this.studentNumberInput,
+      academicStatus: academicStatus ?? this.academicStatus,
       mbtiPoles: mbtiPoles ?? this.mbtiPoles,
       isMbtiUnknown: isMbtiUnknown ?? this.isMbtiUnknown,
       religion: religion ?? this.religion,

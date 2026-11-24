@@ -818,6 +818,7 @@
   "@meAvatarRegenSheetPaidCta": {"placeholders": {"cost": {"type": "int"}}},
   "meAvatarRegenSheetTitle": "아바타를 다시 만들까요?",
   "meAvatarRegenTitle": "아바타 다시 만들기",
+  "meBasicAcademicStatusLabel": "신분",
   "meBasicAnimalLabel": "내 동물상",
   "meBasicGenderFemale": "여성",
   "meBasicGenderMale": "남성",

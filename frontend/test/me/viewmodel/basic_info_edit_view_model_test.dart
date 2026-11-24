@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:campus_mate/auth/school_info/model/data/academic_status.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
@@ -39,6 +40,7 @@ MyProfile _profile({
   AnimalType? animalType = AnimalType.dog,
   ImpressionType? impressionType = ImpressionType.arab,
   String? studentNumber = '21',
+  AcademicStatus? academicStatus,
 }) =>
     MyProfile(
       nickname: nickname,
@@ -54,6 +56,7 @@ MyProfile _profile({
       birthYear: 2001,
       gender: 'male',
       studentNumber: studentNumber,
+      academicStatus: academicStatus,
       avatarUrl: null,
       preferredAgeMin: null,
       preferredAgeMax: null,
@@ -690,6 +693,45 @@ void main() {
 
         expect(me.updates, [
           {'is_smoker': true},
+        ]);
+      });
+    });
+
+    // 1.0.7 1-1 — 안 고른 사람(null)은 칩이 모두 꺼진 채 열린다. 고친 때만 보내고 "안 고름" 으로 되돌리는 길은 없다.
+    group('신분', () {
+      test('서버 값으로 열리고, 서버 null 이면 아무것도 안 고른 채 바뀐 것이 없다', () async {
+        await open(_profile(academicStatus: AcademicStatus.alumni));
+        expect(state().academicStatus, AcademicStatus.alumni);
+
+        await open(_profile());
+        expect(state().academicStatus, isNull);
+        expect(state().canSave, isFalse);
+      });
+
+      test('신분만 바꾸면 신분만 보낸다 — 원래 값으로 돌리면 꺼진다', () async {
+        await open(_profile(academicStatus: AcademicStatus.undergraduate));
+
+        viewModel().changeAcademicStatus(AcademicStatus.graduateStudent);
+        expect(state().canSave, isTrue);
+        viewModel().changeAcademicStatus(AcademicStatus.undergraduate);
+        expect(state().canSave, isFalse);
+        viewModel().changeAcademicStatus(AcademicStatus.graduateStudent);
+        await viewModel().save();
+
+        expect(me.updates, [
+          {'academic_status': 'graduate_student'},
+        ]);
+      });
+
+      test('신분을 안 건드리고 다른 칸만 고치면 academic_status 를 보내지 않는다', () async {
+        // 서버 값이 있는 사람으로 연다 — null 이면 고장 난 코드도 보낼 값이 없어 이 시험이 잡지 못한다(검토 권고 1).
+        await open(_profile(academicStatus: AcademicStatus.alumni));
+
+        viewModel().changeReligion(Religion.catholic);
+        await viewModel().save();
+
+        expect(me.updates, [
+          {'religion': 'catholic'},
         ]);
       });
     });
