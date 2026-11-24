@@ -10,13 +10,16 @@ def _at(day: int, hour: int, minute: int = 0) -> datetime:
     return datetime(2026, 9, day, hour, minute, tzinfo=SEOUL)
 
 
-def test_deadline_is_48_hours_after_the_match():
-    assert gate.deadline_at(_at(21, 13)) == _at(23, 13)
+def test_deadline_is_72_hours_after_the_match():
+    """24시간 뒤 창이 뜨고 그 뒤로 48시간을 더 준다(사용자 11-24) — 시계는 매칭 시각 하나다."""
+    assert gate.deadline_at(_at(21, 13)) == _at(24, 13)
 
 
 def test_remaining_goes_negative_after_the_deadline():
-    assert gate.remaining(_at(21, 13), _at(22, 13)) == timedelta(hours=24)
-    assert gate.remaining(_at(21, 13), _at(23, 14)).total_seconds() < 0
+    assert gate.remaining(_at(21, 13), _at(22, 13)) == timedelta(hours=48)
+    assert gate.remaining(_at(21, 13), _at(23, 14)) == timedelta(hours=23)  # 옛 48시간 마감을 지나도 남아 있다
+    assert gate.remaining(_at(21, 13), _at(24, 13)) == timedelta(0)
+    assert gate.remaining(_at(21, 13), _at(24, 14)).total_seconds() < 0
 
 
 def test_gate_passes_only_when_both_accepted():
@@ -63,7 +66,7 @@ def _hourly_batches(created: datetime, delay: int = 0) -> list[datetime]:
     [delay] 초는 스케줄러 호출이 정각보다 늦게 도는 만큼이다 — 실제 배치의 now 는 hh:00:00 이 아니라 hh:00:02 쯤이다."""
     midnight = created.replace(hour=0, minute=0, second=0, microsecond=0)
     deadline = gate.deadline_at(created)
-    runs = (midnight + timedelta(hours=i, seconds=delay) for i in range(72))
+    runs = (midnight + timedelta(hours=i, seconds=delay) for i in range(int(gate.GATE_DEADLINE / timedelta(hours=1)) + 24))
     return [t for t in runs if created <= t < deadline]
 
 
@@ -73,7 +76,7 @@ def _is_quiet(moment: datetime) -> bool:
 
 def test_a_21_30_match_is_reminded_once_at_the_next_morning_batch():
     """리마인드 기본 시각이 21:30 이면 그 창(21:30~22:30)에 걸리는 정각은 22:00 뿐인데, 방해 금지를 켠 사람에게는 그 시각에 버려진다.
-    아침 08:00 까지 미룬다 — 마감(매칭 48시간 뒤 21:30) 안이다."""
+    아침 08:00 까지 미룬다 — 마감(매칭 72시간 뒤 21:30) 안이다."""
     created = _at(20, 21, 30)  # 기본 시각은 21일 21:30
 
     assert gate.reminder_at(created) == _at(22, 8)
@@ -118,21 +121,28 @@ def test_every_match_gets_exactly_one_reminder_on_a_batch_outside_the_quiet_hour
 # 마감 3시간 전 마지막 알림 ---------------------------------------------------------------
 
 def test_last_call_lands_on_the_hour_three_hours_before_the_deadline():
-    """기본은 마감 - 3시간을 정각으로 내린 창이다 — 받는 사람에게 3시간 이상 남는다."""
-    assert gate.last_call_at(_at(20, 13, 20)) == _at(22, 10)  # 마감 22일 13:20
-    assert gate.last_call_at(_at(20, 13, 0)) == _at(22, 10)   # 마감 22일 13:00 — 딱 3시간 전
+    """기본은 마감 - 3시간을 정각으로 내린 창이다 — 받는 사람에게 3시간 이상 남는다. 매칭 69시간 뒤 쪽이다."""
+    assert gate.last_call_at(_at(20, 13, 20)) == _at(23, 10)  # 마감 23일 13:20
+    assert gate.last_call_at(_at(20, 13, 0)) == _at(23, 10)   # 마감 23일 13:00 — 딱 3시간 전 = 매칭 69시간 뒤
 
 
 def test_last_call_window_fires_once_on_the_hourly_batch():
     created = _at(20, 13, 20)
 
-    assert gate.needs_last_call(created, _at(22, 9), responded=False) is False
-    assert gate.needs_last_call(created, _at(22, 10).replace(second=2), responded=False) is True
-    assert gate.needs_last_call(created, _at(22, 11), responded=False) is False
+    assert gate.needs_last_call(created, _at(22, 10).replace(second=2), responded=False) is False  # 옛 48시간 자리
+    assert gate.needs_last_call(created, _at(23, 9), responded=False) is False
+    assert gate.needs_last_call(created, _at(23, 10).replace(second=2), responded=False) is True
+    assert gate.needs_last_call(created, _at(23, 11), responded=False) is False
+
+
+def test_the_24_hour_reminder_stays_at_24_hours_with_the_longer_deadline():
+    created = _at(20, 13, 20)
+    assert gate.reminder_at(created) == _at(21, 13, 20)
+    assert [t for t in _hourly_batches(created) if gate.needs_reminder(created, t, responded=False)] == [_at(21, 14)]
 
 
 def test_people_who_already_answered_get_no_last_call():
-    assert gate.needs_last_call(_at(20, 13, 20), _at(22, 10), responded=True) is False
+    assert gate.needs_last_call(_at(20, 13, 20), _at(23, 10), responded=True) is False
 
 
 def test_no_last_call_at_or_after_the_deadline():

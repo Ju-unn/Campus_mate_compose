@@ -169,6 +169,8 @@ def test_room_before_the_gate_has_no_kakao_id_or_photos():
     assert body["partner"]["avatar_url"].endswith("/avatars/p2/a.png")
     assert body["gate"]["passed"] is False
     assert body["gate"]["passed_at"] is None
+    # 응답 기한은 매칭 72시간 뒤(사용자 11-24) — 화면 14f 카운트다운이 이 값을 쓴다.
+    assert body["gate"]["deadline_at"] == "2126-09-25T10:00:00+09:00"
     # 통과 전에는 키 자체가 없어야 한다 — null 로라도 내려가면 앱이 자리를 그린다.
     assert "kakao_id" not in body
     assert "photo_urls" not in body

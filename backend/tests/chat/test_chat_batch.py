@@ -132,11 +132,11 @@ async def test_people_who_already_accepted_are_not_reminded():
 
 async def test_the_room_is_closed_once_the_deadline_passes():
     run = _Run([_match()])
-    result = await run.at(MATCHED_AT + timedelta(hours=48, minutes=1))
+    result = await run.at(MATCHED_AT + timedelta(hours=72, minutes=1))
 
     assert result == {"reminded": 0, "closed": 1, "passed": 0}
     # 닫는다 = 한 칸 찍기다. 메시지를 지우는 요청은 나가지 않는다(결정 3·4).
-    assert run.patches == [{"chat_closed_at": (MATCHED_AT + timedelta(hours=48, minutes=1)).isoformat()}]
+    assert run.patches == [{"chat_closed_at": (MATCHED_AT + timedelta(hours=72, minutes=1)).isoformat()}]
 
 
 async def test_a_stranded_double_accept_is_stamped_instead_of_closed():
@@ -148,7 +148,7 @@ async def test_a_stranded_double_accept_is_stamped_instead_of_closed():
         {"profile_id": B, "trust_response": "accept", "left_at": None, "last_read_at": None},
     ])
     run = _Run([stranded])
-    now = MATCHED_AT + timedelta(hours=49)
+    now = MATCHED_AT + timedelta(hours=73)
 
     assert await run.at(now) == {"reminded": 0, "closed": 0, "passed": 1}
     assert run.patches == [{"trust_passed_at": now.isoformat()}]
@@ -157,7 +157,7 @@ async def test_a_stranded_double_accept_is_stamped_instead_of_closed():
 async def test_a_stranded_double_accept_is_stamped_before_the_deadline_too():
     """기한 전이라도 다음 매시 배치에서 바로 찍는다(#78 리뷰 권고, 백로그 16).
 
-    기한 뒤에만 찍으면 둘 다 수락한 방이 최대 48시간 동안 잠겨 있다. 이미 둘 다 수락했으니
+    기한 뒤에만 찍으면 둘 다 수락한 방이 최대 72시간 동안 잠겨 있다. 이미 둘 다 수락했으니
     리마인드도 보내지 않는다."""
     stranded = _match(participants=[
         {"profile_id": A, "trust_response": "accept", "left_at": None, "last_read_at": None},
@@ -173,13 +173,20 @@ async def test_a_stranded_double_accept_is_stamped_before_the_deadline_too():
 
 async def test_the_room_is_not_closed_a_minute_early():
     run = _Run([_match()])
-    assert (await run.at(MATCHED_AT + timedelta(hours=47, minutes=59)))["closed"] == 0
+    assert (await run.at(MATCHED_AT + timedelta(hours=71, minutes=59)))["closed"] == 0
+
+
+async def test_the_room_stays_open_past_the_old_48_hour_deadline():
+    """마감은 매칭 72시간 뒤다(사용자 11-24) — 옛 48시간을 넘긴 49시간에는 닫지 않는다."""
+    run = _Run([_match()])
+    assert await run.at(MATCHED_AT + timedelta(hours=49)) == {"reminded": 0, "closed": 0, "passed": 0}
+    assert run.patches == []
 
 
 async def test_rerunning_the_batch_does_not_count_the_same_room_twice():
     """재시도로 두 번 돌아도 이미 닫힌 방은 고쳐지지 않아 숫자가 늘지 않는다."""
     run = _Run([_match()], patch_rows=[])
-    assert (await run.at(MATCHED_AT + timedelta(hours=49)))["closed"] == 0
+    assert (await run.at(MATCHED_AT + timedelta(hours=73)))["closed"] == 0
 
 
 async def test_a_room_someone_left_is_skipped_by_both_passes():
@@ -192,7 +199,7 @@ async def test_a_room_someone_left_is_skipped_by_both_passes():
 
     quiet = {"reminded": 0, "closed": 0, "passed": 0}
     assert await _Run([gone]).at(datetime(2026, 9, 21, 14, 0, tzinfo=SEOUL)) == quiet
-    assert await _Run([gone]).at(MATCHED_AT + timedelta(hours=49)) == quiet
+    assert await _Run([gone]).at(MATCHED_AT + timedelta(hours=73)) == quiet
 
 
 async def test_the_run_logs_one_summary_line(caplog):
@@ -201,15 +208,15 @@ async def test_the_run_logs_one_summary_line(caplog):
         {"profile_id": B, "trust_response": None, "left_at": None, "last_read_at": None},
     ])
     caplog.set_level(logging.INFO, logger="app.chat.batch_router")
-    await _Run([_match(), gone]).at(MATCHED_AT + timedelta(hours=49))
+    await _Run([_match(), gone]).at(MATCHED_AT + timedelta(hours=73))
 
     assert [r.getMessage() for r in caplog.records if r.name == "app.chat.batch_router"] == [
         "매시 채팅 배치 열린 방=2 건너뜀(나감·정지)=1 도장=0 닫음=1 리마인드=0 마지막알림=0"]
 
 
 # 마감 3시간 전 마지막 알림 ---------------------------------------------------------------
-# MATCHED_AT(20일 13:20) 매칭 → 마감 22일 13:20 → 마지막 알림 창 22일 10:00~11:00.
-LAST_CALL_RUN = datetime(2026, 9, 22, 10, 0, 2, tzinfo=SEOUL)
+# MATCHED_AT(20일 13:20) 매칭 → 마감 23일 13:20 → 마지막 알림 창 23일 10:00~11:00.
+LAST_CALL_RUN = datetime(2026, 9, 23, 10, 0, 2, tzinfo=SEOUL)
 
 
 async def test_both_sides_get_the_last_call_three_hours_before_the_deadline():
@@ -357,10 +364,10 @@ def test_the_batch_endpoint_runs_with_a_scheduler_id_token(oidc_overrides, monke
 
 
 def test_closing_from_the_batch_endpoint_tells_both_people(oidc_overrides, monkeypatch):
-    """48시간 마감으로 닫힌 방은 목록에서 빠진다 — 두 사람에게 room_changed(closed) 를 쏜다(설계안 A)."""
+    """72시간 마감으로 닫힌 방은 목록에서 빠진다 — 두 사람에게 room_changed(closed) 를 쏜다(설계안 A)."""
     monkeypatch.setattr(batch_auth.id_token, "verify_oauth2_token",
                         lambda token, request, audience: {"email": SCHEDULER, "email_verified": True})
-    expired = _match(created_at=(datetime.now(SEOUL) - timedelta(hours=49)).isoformat())
+    expired = _match(created_at=(datetime.now(SEOUL) - timedelta(hours=73)).isoformat())
     broadcasts: list[dict] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -391,7 +398,7 @@ def test_a_dead_realtime_is_tried_once_per_batch_not_once_per_room(oidc_override
     방 닫기 자체는 그대로 다 된다."""
     monkeypatch.setattr(batch_auth.id_token, "verify_oauth2_token",
                         lambda token, request, audience: {"email": SCHEDULER, "email_verified": True})
-    old = (datetime.now(SEOUL) - timedelta(hours=49)).isoformat()
+    old = (datetime.now(SEOUL) - timedelta(hours=73)).isoformat()
     rooms = [_match(id=f"room-{n}", created_at=old) for n in range(3)]
     attempts: list[httpx.Request] = []
 
@@ -436,7 +443,7 @@ async def test_a_room_with_a_suspended_side_is_left_untouched():
 
     for run, now in (
         (_Run([_with_status("suspended", "active")]), datetime(2026, 9, 21, 14, 0, tzinfo=SEOUL)),
-        (_Run([_with_status("active", "suspended")]), MATCHED_AT + timedelta(hours=49)),
+        (_Run([_with_status("active", "suspended")]), MATCHED_AT + timedelta(hours=73)),
         (_Run([_with_status("suspended", "active", participants=both_accepted)]), MATCHED_AT + timedelta(hours=23)),
     ):
         assert await run.at(now) == quiet
@@ -446,7 +453,7 @@ async def test_a_room_with_a_suspended_side_is_left_untouched():
 
 async def test_an_active_room_still_runs_after_a_suspension_is_lifted():
     run = _Run([_with_status("active", "active")])
-    assert (await run.at(MATCHED_AT + timedelta(hours=49)))["closed"] == 1
+    assert (await run.at(MATCHED_AT + timedelta(hours=73)))["closed"] == 1
 
 
 # 열린 방 목록이 1000줄에서 잘리던 것(최종 점검 11-13 ⑪) ------------------------------------------------
@@ -486,9 +493,9 @@ def _left_room(i: int) -> dict:
 
 
 async def test_new_rooms_behind_1500_left_rooms_still_close_and_get_reminded():
-    """나간 방이 1000개를 넘게 쌓이면 그 뒤의 새 방은 48시간 마감도 리마인드도 조용히 못 받았다."""
+    """나간 방이 1000개를 넘게 쌓이면 그 뒤의 새 방은 마감도 리마인드도 조용히 못 받았다."""
     now = datetime(2026, 9, 21, 14, 0, tzinfo=SEOUL)  # MATCHED_AT 방의 리마인드 창 안
-    overdue = _room(1500, created_at=(now - timedelta(hours=49)).isoformat())
+    overdue = _room(1500, created_at=(now - timedelta(hours=73)).isoformat())
     waiting = _room(1501)
     run = _PagedRun([*(_left_room(i) for i in range(1500)), overdue, waiting])
 
@@ -499,10 +506,10 @@ async def test_new_rooms_behind_1500_left_rooms_still_close_and_get_reminded():
 
 
 async def test_every_one_of_2500_open_rooms_is_read():
-    rooms = [_room(i, created_at=(MATCHED_AT - timedelta(hours=30)).isoformat()) for i in range(2500)]
+    rooms = [_room(i, created_at=(MATCHED_AT - timedelta(hours=54)).isoformat()) for i in range(2500)]
     run = _PagedRun(rooms)
 
-    result = await run.at(MATCHED_AT + timedelta(hours=19))  # 전부 48시간이 지났다
+    result = await run.at(MATCHED_AT + timedelta(hours=19))  # 전부 73시간이 지났다
 
     assert result["closed"] == 2500
     assert len(run.reads) == 4 and all(p.get("order") == "id.asc" for p in run.reads)  # 1000 · 1000 · 500 · 0
