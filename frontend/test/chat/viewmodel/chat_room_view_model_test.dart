@@ -146,6 +146,96 @@ void main() {
     expect(messages.where((message) => message.id == 'msg-9').length, 1);
   });
 
+  group('다시 보내기 client id (1.0.7 #8)', () {
+    test('처음 보내는 글에는 uuid v4 client id 를 싣는다 — 서버가 UUID 로 검사한다', () async {
+      final container = containerFor();
+      await opened(container);
+
+      await container.read(chatRoomViewModelProvider('m1').notifier).send('안녕');
+
+      expect(repository.sentClientIds.single,
+          matches(RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$')));
+    });
+
+    test('실패한 뒤 방을 떠났다 다시 들어와 같은 글을 보내면 새 client id 다 — 기억은 방과 함께 버려진다', () async {
+      final container = containerFor();
+      final firstVisit = container.listen(chatRoomViewModelProvider('m1'), (_, _) {});
+      await Future<void>.delayed(Duration.zero);
+      repository.sendResult = const FailureResult(NetworkFailure());
+      await container.read(chatRoomViewModelProvider('m1').notifier).send('안녕');
+      firstVisit.close();
+      await pumpEventQueue();
+
+      await opened(container);
+      await container.read(chatRoomViewModelProvider('m1').notifier).send('안녕');
+
+      expect(repository.roomFetchCount, 2, reason: '두 번째 방문은 새 뷰모델이어야 한다');
+      expect(repository.sentClientIds, hasLength(2));
+      expect(repository.sentClientIds.last, isNot(repository.sentClientIds.first));
+    });
+
+    // 응답을 못 받아 실패로 돌아온 글을 그대로 다시 보내면 서버가 같은 id 로 알아보고 처음 줄을 돌려준다 — 두 줄이 안 생긴다.
+    test('실패 뒤 같은 글을 다시 보내면 같은 client id 를 싣는다', () async {
+      final container = containerFor();
+      await opened(container);
+      final viewModel = container.read(chatRoomViewModelProvider('m1').notifier);
+      repository.sendResult = const FailureResult(NetworkFailure());
+      await viewModel.send('안녕');
+
+      repository.sendResult = Success(messageFixture(id: 'msg-9', senderId: myId, body: '안녕'));
+      await viewModel.send('안녕');
+
+      expect(repository.sentClientIds, hasLength(2));
+      expect(repository.sentClientIds.last, repository.sentClientIds.first);
+    });
+
+    test('실패 뒤 글을 고쳐 보내면 새 client id 다', () async {
+      final container = containerFor();
+      await opened(container);
+      final viewModel = container.read(chatRoomViewModelProvider('m1').notifier);
+      repository.sendResult = const FailureResult(NetworkFailure());
+      await viewModel.send('안녕');
+
+      await viewModel.send('안녕하세요');
+
+      expect(repository.sentClientIds, hasLength(2));
+      expect(repository.sentClientIds.last, isNot(repository.sentClientIds.first));
+    });
+
+    test('보내기에 성공한 뒤 같은 글을 또 보내면 새 client id 다 — 일부러 보낸 두 번째 줄', () async {
+      final container = containerFor();
+      await opened(container);
+      final viewModel = container.read(chatRoomViewModelProvider('m1').notifier);
+      repository.sendResult = Success(messageFixture(id: 'msg-9', senderId: myId, body: 'ㅋㅋ'));
+      await viewModel.send('ㅋㅋ');
+
+      repository.sendResult = Success(messageFixture(id: 'msg-10', senderId: myId, body: 'ㅋㅋ'));
+      await viewModel.send('ㅋㅋ');
+
+      expect(repository.sentClientIds, hasLength(2));
+      expect(repository.sentClientIds.last, isNot(repository.sentClientIds.first));
+    });
+
+    test('서버가 다시 보낸 글에 처음 줄을 돌려줘도 화면에는 한 줄만 있다', () async {
+      final container = containerFor();
+      await opened(container);
+      final viewModel = container.read(chatRoomViewModelProvider('m1').notifier);
+      // 서버는 저장했지만 응답이 끊겼다 — 줄은 구독으로 먼저 들어온다.
+      repository.sendResult = const FailureResult(NetworkFailure());
+      await viewModel.send('안녕');
+      stream.push(messageFixture(id: 'msg-9', senderId: myId, body: '안녕'));
+      await Future<void>.delayed(Duration.zero);
+
+      repository.sendResult = Success(messageFixture(id: 'msg-9', senderId: myId, body: '안녕'));
+      await viewModel.send('안녕');
+
+      // 서버가 처음 줄을 돌려주는 것은 다시 보낸 글이 같은 client id 를 실었을 때뿐이다.
+      expect(repository.sentClientIds.last, repository.sentClientIds.first);
+      final messages = container.read(chatRoomViewModelProvider('m1')).messages;
+      expect(messages.where((message) => message.id == 'msg-9').length, 1);
+    });
+  });
+
   test('상대 줄이 구독으로 먼저 오고 내 응답이 늦게 와도 시간 · id 순으로 선다', () async {
     final base = DateTime(2026, 9, 22, 14, 10);
     // 서버는 내 INSERT(t1) 뒤에 닉네임 조회 · 푸시를 하고 응답한다 — 그 사이 상대 줄(t2)의 구독 줄이 응답보다 먼저 올 수 있다.

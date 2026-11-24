@@ -12,14 +12,18 @@ import 'package:flutter/material.dart';
 ///
 /// 2026-09-23: 실기기 대조에서 pen `TORAs` 와 어긋나 트랙을 2 선 + 점 12 에서
 /// **6 굵기 트랙 + 16×6 표시**로 바꿨다. 표시가 트랙 안에 머물러 양 끝에서 잘리지 않는다.
+///
+/// 2026-11-24: 줄 위에 작은 이름(12/600 ink)을 4 띄워 붙인다(pen TraitLine `G9dS3S`, 사용자 「주어가 빠져서 무엇인지 구분이 안간다」).
 class TraitBar extends StatelessWidget {
   const TraitBar({
+    required this.name,
     required this.leftLabel,
     required this.rightLabel,
     required this.value,
     super.key,
   });
 
+  final String name;
   final String leftLabel;
   final String rightLabel;
 
@@ -28,6 +32,17 @@ class TraitBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(name, style: AppTypography.caption.copyWith(fontWeight: FontWeight.w600, color: AppColors.ink)),
+        const SizedBox(height: AppSpacing.xxs),
+        _bar(),
+      ],
+    );
+  }
+
+  Widget _bar() {
     final ratio = ((value + 1) / 2).clamp(0.0, 1.0);
     return Row(
       children: [

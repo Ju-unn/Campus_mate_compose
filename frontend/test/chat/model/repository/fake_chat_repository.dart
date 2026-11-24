@@ -21,6 +21,9 @@ class FakeChatRepository implements ChatRepository {
   Result<TrustAcceptOutcome> trustResult = const Success(TrustAcceptOutcome(passed: false));
 
   final List<String> sent = [];
+
+  /// 보낼 때마다 실린 client id — 다시 보낸 같은 글이 같은 id 를 싣는지 볼 때 쓴다.
+  final List<String> sentClientIds = [];
   final List<({DateTime? before, String? beforeId})> pages = [];
   int readCount = 0;
   int leaveCount = 0;
@@ -86,8 +89,9 @@ class FakeChatRepository implements ChatRepository {
   }
 
   @override
-  Future<Result<Message?>> sendMessage(String matchId, String body) async {
+  Future<Result<Message?>> sendMessage(String matchId, String body, {required String clientId}) async {
     sent.add(body);
+    sentClientIds.add(clientId);
     await holdSend?.future;
     return sendResult;
   }
