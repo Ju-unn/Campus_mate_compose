@@ -481,14 +481,16 @@ final Map<String, Area1Case> area1Cases = {
     must(!enabled(tester, '다음'), '신분을 안 골랐는데 다음이 켜짐');
     await pickAcademicStatus(tester);
     // — (학과, 친 학번, 칸에 남는 학번, 다음 켜짐) — 아래는 신분을 고른 채로 본다.
+    // 30 · 31자 학과는 반복 없는 값이다 — '가' * N 은 같은 글자 3번 규칙(#775)에 걸려 길이와 상관없이 꺼진다.
+    final dept30 = '컴퓨터공학과' * 5;
     for (final (dept, no, shown, on) in [
       ('', '21', '21', false),
       ('컴퓨터공학과', '', '', false),
-      ('가' * 31, '21', '21', false),
+      ('$dept30부', '21', '21', false),
       ('컴퓨터공학과', 'ab', 'ab', false),
       ('컴퓨터공학과', '1', '1', false),
       ('컴퓨터공학과', '123', '123', false),
-      ('가' * 30, '21', '21', true),
+      (dept30, '21', '21', true),
     ]) {
       await type(tester, department, dept);
       await type(tester, number, no);
