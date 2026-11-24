@@ -7,6 +7,7 @@ import io
 
 from PIL import Image, ImageOps
 
+from app.core.image_magic import sniff_image_type
 from app.core.storage import public_object_url
 from app.student_verification.image_validation import MAX_IMAGE_BYTES
 
@@ -22,6 +23,7 @@ JPEG_QUALITY = 80
 # 풀기 전에 머리의 가로 × 세로로 막는다. 1600 으로 줄일 그림이라 이보다 큰 원본은 받을 까닭이 없다(Pillow 기본 상한의 반쯤).
 # 전역 Image.MAX_IMAGE_PIXELS 는 다른 모듈(face_framing · paid_preview)도 쓰므로 건드리지 않는다.
 MAX_PIXELS = 40_000_000
+_PILLOW_FORMAT = {"image/jpeg": "JPEG", "image/png": "PNG"}
 
 __all__ = ["CONTENT_TYPE", "IMAGE_TOO_LARGE", "IMAGE_TYPE", "LONG_SIDE", "MAX_IMAGE_BYTES", "NOTICE_BUCKET", "ImageRejected",
            "notice_image_path", "notice_image_url", "prepare_notice_image"]
@@ -43,10 +45,10 @@ class ImageRejected(ValueError):
 
 
 def _magic_format(data: bytes) -> str | None:
-    if data.startswith(b"\xff\xd8\xff"):
-        return "JPEG"
-    if data.startswith(b"\x89PNG\r\n\x1a\n"):
-        return "PNG"
+    """Pillow 형식 이름. JPEG · PNG 머리는 학생증과 같은 core/image_magic 판정, WEBP 는 공지만 받아 여기서 본다."""
+    shared = _PILLOW_FORMAT.get(sniff_image_type(data))
+    if shared is not None:
+        return shared
     if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
         return "WEBP"
     return None
