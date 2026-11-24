@@ -9,6 +9,7 @@ import 'package:campus_mate_admin/heart_tasks/heart_task_item.dart';
 import 'package:campus_mate_admin/home/home_item.dart';
 import 'package:campus_mate_admin/inquiries/inquiry_item.dart';
 import 'package:campus_mate_admin/matching/matching_item.dart';
+import 'package:campus_mate_admin/notices/notice_item.dart';
 import 'package:campus_mate_admin/reports/report_item.dart';
 import 'package:campus_mate_admin/server_status/server_status_models.dart';
 import 'package:campus_mate_admin/unknown_domains/unknown_domain_item.dart';
@@ -313,6 +314,29 @@ class AdminApi {
   Future<InquiryItem> updateInquiry(String id, {InquiryStatus? status, String? memo}) async {
     final body = {'status': ?status?.code, 'admin_memo': ?memo?.trim()};
     return _read(send('PATCH', _idPath('/admin/inquiries', id), body: body), InquiryItem.fromJson);
+  }
+
+  // 공지사항 — 서버 계약은 backend/app/admin/notices.py. 가림 · 해제는 따로 없고 기존 글 가림 길(polls, [setContentStatus])이다.
+
+  /// 최근 순 20개(가린 공지 포함). [after] 를 주면 그 줄 다음 쪽 — 커서는 서버가 준 created_at 글자 그대로 보낸다.
+  Future<CursorPage<NoticeItem>> listNotices({NoticeItem? after}) {
+    final query = after == null ? null : {'before': after.createdAtRaw, 'before_id': after.id};
+    return _read(send('GET', '/admin/notices', query: query), (body) => CursorPage.fromJson(body, NoticeItem.fromJson, '공지 목록'));
+  }
+
+  /// multipart 로 만든다. 그림이 없으면 image 칸을 아예 넣지 않는다(빈 파일도 보내지 않는다). 그림 오류는 422 이유 image_type ·
+  /// image_too_large. 응답 본문(id)은 읽지 않는다 — 만들어졌는데 모양이 틀려 실패로 보이면 다시 눌러 공지가 둘 생긴다.
+  Future<void> createNotice({required String title, required String body, NoticeImage? image}) async {
+    final request = http.MultipartRequest('POST', _uri('/admin/notices', null))
+      ..fields['title'] = title.trim()
+      ..fields['body'] = body.trim();
+    if (image != null) request.files.add(http.MultipartFile.fromBytes('image', image.bytes, filename: image.name));
+    return _read(_exchange(request), (_) {});
+  }
+
+  /// 지우기(사유 필수, 댓글 · 그림도 서버가 지운다)
+  Future<void> deleteNotice(String id, String reason) async {
+    return _read(send('DELETE', _idPath('/admin/notices', id), body: {'reason': reason.trim()}), (_) {});
   }
 
   /// 경로에 넣는 번호로 받는 글자: 영숫자와 하이픈(서버 번호는 UUID). 주소창 링크의 `..%2Fme` 를 go_router 가 `../me` 로
