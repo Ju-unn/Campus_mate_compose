@@ -8,6 +8,7 @@ import 'package:campus_mate/tour/view/app_tour_steps.dart';
 import 'package:campus_mate/tour/view/tour_target.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -20,8 +21,9 @@ void main() {
     tester.view.physicalSize = Size(width, 780);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      MaterialApp(
+    // 탭 줄이 안내 움직임 기록을 읽는다(19-3) — 계정을 모르는 기본값이라 여기선 움직이지 않는다.
+    await tester.pumpWidget(ProviderScope(
+      child: MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Builder(
@@ -35,7 +37,7 @@ void main() {
           ),
         ),
       ),
-    );
+    ));
     await tester.pumpAndSettle();
   }
 
