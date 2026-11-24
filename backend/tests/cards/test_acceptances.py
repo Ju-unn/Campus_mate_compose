@@ -479,7 +479,8 @@ def _answered_card(mine: str, decided_at: str | None = None) -> Callable[[httpx.
     저장소가 decision 을 읽지 않으면 다시 수락이 409 로 돌아가 아래 시험이 잡는다."""
     def extra(request: httpx.Request) -> httpx.Response:
         if "/rest/v1/daily_cards" in str(request.url):
-            asked = "acceptance_responses(responder_id,decision)" in request.url.params["select"]
+            embed = request.url.params["select"].split("acceptance_responses(")[1].split(")")[0]
+            asked = "decision" in embed.split(",")
             return httpx.Response(200, json=[_accepted_card(
                 decided_at or _hours_ago(24),
                 acceptance_responses={"responder_id": PROFILE_ID, **({"decision": mine} if asked else {})},

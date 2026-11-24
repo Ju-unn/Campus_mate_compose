@@ -1723,6 +1723,36 @@ INFO 를 켠 로거는 핸들러를 직접 달아서 같은 로거의 WARNING �
 | 옛 `POST /community/polls` | `category` **선택 칸**을 더했다 — 없으면 `free`, 세 값 밖이면 422. 하루 한도는 게시물과 합산되지만 문구는 그대로 "오늘은 질문을 더 올릴 수 없어요". 옛 `/community/polls/…` 의 404 · 푸시 제목도 그대로 |
 | 신고 `POST /reports` | `target_type` 은 게시물도 `poll`. 게시물이면 스냅샷에 `kind` · `category` 가 더해지고 선택지는 null(관리자 웹은 "—" 로 그린다) |
 
+## 1.0.7 거절 되돌리기 — 거절한 카드 다시 신청 · 받은 신청 거절 되돌리기 (할 일 #20, 브랜치 `feat/card-reapply`) — **아직 merge 전 · 운영 DB 미적용 · 서버 미배포** (PR #796)
+
+DB 마이그레이션 1개(`20261123161541_card_decisions_rejected_at` — `card_decisions` · `acceptance_responses` 에 `rejected_at timestamptz null`, RLS · grant 변경 없음)와 서버 코드. 새 env · 시크릿 · job 은 없다. 규칙은 `backend/app/cards/reapply.py` 한 곳에 있다: 기한은 **내가 거절한 시각부터 7일(`REAPPLY_WINDOW_DAYS`), 서버 시계**, 카드 `expires_at` 은 보지 않고 하트도 쓰지 않는다. **한 장에 한 번만**(2026-11-24 사용자 확정) — 되돌리면 그 행의 `decision` 이 `accept` 가 되어 "아직 거절" 조건에 다시 걸리지 않는다. 저장은 "아직 거절 · 7일 안" 을 조건으로 건 PATCH 하나라 연타 · 동시 요청의 두 번째는 0행 → 409 이고 알림 · 매칭이 없다(받은 신청 되돌리기는 매칭이 생긴 뒤 다시 누르면 숨김 관문에서 404). 되돌린 행의 `decided_at` 이 되돌린 시각으로 바뀌어 `match_candidates` 의 90일 쉬기 기준도 그 시각으로 밀린다.
+
+| 길 | 계약 |
+| --- | --- |
+| `POST /cards/{card_id}/reapply` (본문 없음) | (a) 내 카드 거절 → 다시 대화 신청. 200 `{"ok": true}`. 없는 카드 · 남의 카드(사지 않은 유료 제안 id 포함) · 숨김 상대(차단 양쪽 · 지인 차단 · 정지 · 탈퇴 · 가림 · 이미 매칭) · 결정 전 · 거절 7일 지남은 **모두 같은 404 `CARD_NOT_FOUND`**(본문까지 같다), 이미 수락한 카드 · 동시 요청의 두 번째는 409 `CARD_ALREADY_DECIDED`. 성공하면 `decided_at` = 다시 신청 시각, `rejected_at` = 원래 거절 시각이고, 상대에게 처음 수락과 **똑같은** "대화 신청이 왔어요" 알림(`acceptance_received`, data `{route: acceptances, card_id}`)이 간다. 보낸 신청 목록에는 `waiting`(보낸 시각 = 다시 신청 시각, 기한 = 그 뒤 7일)으로 보인다 |
+| `POST /cards/acceptances/{card_id}/reapply` (본문 없음) | (b) 받은 신청에 내가 한 거절 → 되돌려 **바로 매칭**(사용자 「바로 매칭」). 200 `{"matched": true, "match_id": …}`(수락 응답과 같은 모양). 없는 카드 · 받은 사람이 내가 아님 · 상대가 수락 안 함 · 숨김 · 이미 매칭 · 응답 없음 · 내 거절 7일 지남 · **상대 신청의 원래 기한(상대 수락 + 7일) 지남**은 모두 같은 404 `ACCEPTANCE_NOT_FOUND`, 수락으로 답했거나 동시 요청의 두 번째면 409 `ACCEPTANCE_ALREADY_ANSWERED`. 매칭은 평소 수락과 같은 `_make_match`(매칭 행 · 대화방 · `room_changed` · 양쪽 `match_made` 알림)라 카드 주인에게 되돌림 흔적이 없다. 매칭 쓰기가 끊기면 받은 신청 목록(`GET /cards/acceptances`)의 끊긴 매칭 이어 만들기가 accept 응답을 보고 잇는다. 카드 주인의 보낸 신청 줄은 `rejected` 에서 `matched` 로 바뀐다 |
+| `GET /cards/rejected` | `{"rejected": [{card_id, source, rejected_at, expires_at, days_left, profile}]}` — 아직 되돌릴 수 있는 내 거절, 두 종류를 최신 거절 순으로 합쳐 **상한 50**. `source` 는 `"card"`(내 카드 거절) 또는 `"acceptance"`(받은 신청 거절). `expires_at` = 거절 + 7일, 받은 신청이면 상대 신청 기한과 둘 중 먼저 오는 것(지난 줄은 뺀다), `days_left` 는 보낸 신청과 같은 올림. `profile` 은 카드 앞면 요약에서 **상대 `profile_id` 를 뺀 것**. 숨김은 보낸 신청과 같다(이유를 가르지 않고 빠진다) |
+| `GET /cards/{card_id}` 변경 | 내 결정이 거절이고 거절 뒤 7일이 지났으면 404 `CARD_NOT_FOUND`. 결정 전 · 수락한 카드는 그대로 |
+| `GET /cards/acceptances/{card_id}` 변경 | 내가 거절로 답했어도 아직 되돌릴 수 있으면(내 거절 7일 · 상대 신청 기한 안 · 숨김 아님) 409 대신 프로필을 연다(읽기 전용). 수락으로 답한 것과 되돌릴 수 없는 거절은 409 그대로 |
+
+- **옛 앱(1.0.6) 영향 없음**: 새 길만 늘었다. 옛 결정 길 `POST /cards/{card_id}/decision` 은 거절한 카드에 다시 부르면 409 `CARD_ALREADY_DECIDED` 그대로, `POST /cards/acceptances/{card_id}` 는 거절로 답한 신청에 다시 부르면 409 그대로다(시험). 1.0.6 은 7일 지난 거절 카드 상세 · 답한 받은 신청 상세를 여는 길이 없다.
+- **상대에게 거절 흔적 0**: 상대 쪽 읽기(받은 신청 목록 · 상세 · 보낸 신청 · 카드 읽기)는 `rejected_at` 을 select 하지 않고, 응답 · 알림 본문 · 알림 data 가 처음 수락과 같다(시험으로 비교). `rejected_at` 은 관리자 집계용이다.
+- **관리자 통계 주의**: 다시 신청 · 되돌리기는 그 행의 `decided_at` 을 되돌린 시각으로 덮는다. 그래서 관리자 통계에서 **거절한 날의 거절 1건이 사라지고 되돌린 날의 수락 1건으로 옮겨 간다(과거 일자 숫자가 바뀔 수 있음)**. 원래 거절 시각은 `rejected_at` 에 남는다.
+- **배포 순서**: DB 먼저 → 서버 → 앱. 칸이 없는 DB 에 새 서버의 되돌리기 PATCH 가 가면 실패한다(옛 서버는 새 칸을 모르므로 DB 를 먼저 올려도 안전하다). 되돌림은 서버 리비전만 내리면 되고 칸은 남겨 둬도 된다.
+- **남은 확인**: `fetch_recent_rejections` · `fetch_recent_answer_rejections` 가 인덱스 경로를 타는지 `EXPLAIN` 으로 본 적이 없다(보낸 신청과 같은 상태). pgTAP `supabase/tests/rejected_at_test.sql` 은 로컬 Docker 에서 돌렸다 — 마이그레이션을 빼면 `column "rejected_at" of relation "card_decisions" does not exist` 로 실패, 넣으면 전체 Tests=1623 PASS.
+
+## 채팅 client_id — 재전송 두 줄 막기 (1.0.7 #8, 1/3 DB) (PR #789) — **로컬만 · 운영 미적용**
+
+앱이 메시지마다 고유 id(`client_id`)를 붙여 보내고, 응답을 못 받아 다시 보내도 서버가 같은 (방, 보낸이, id) 를 한 번만 저장한다. 세 PR 로 나눈다: DB(이 절) → 서버 → 앱.
+
+| 항목 | 값 |
+| --- | --- |
+| DB | `20261123170000_messages_client_id` — `messages.client_id uuid`(null 허용 · 기본값 없음) + 일반 유일 제약 `messages_client_id_unique (match_id, sender_id, client_id)`(PostgREST `on_conflict` 가 부분 인덱스를 못 써서 부분 인덱스가 아니다). RLS · grant · publication 은 그대로. 기존 줄은 새 칸이 전부 null 이라 제약 만들기가 실패하지 않는다(`docs/ERD.md` §4). 시험 `supabase/tests/messages_client_id_test.sql` |
+| 순서 | **DB → 서버 → 앱.** 서버가 DB 보다 먼저 나가면 `client_id` 가 실린 요청이 깨진다(칸 · 제약이 없다) — 다만 앱 1.0.7 이 나가기 전에는 `client_id` 를 보내는 앱이 없어 무해하다 |
+| 옛 앱 | 1.0.6 이하는 `client_id` 없이 보내고 지금과 똑같이 저장된다(NULL 끼리는 겹치지 않는다) |
+| 운영 적용 | **사용자 허락 뒤** MCP `apply_migration` 으로 파일 내용 그대로(`docs/SUPABASE.md` §4). 적용 전 운영 `messages` 행 수는 읽기로 확인해 둔다(제약을 짓는 동안 표가 잠깐 잠긴다) |
+| 되돌림 | 서버를 먼저 되돌린 뒤 `alter table public.messages drop constraint messages_client_id_unique, drop column client_id` (이것도 운영 쓰기라 사용자 허락) |
+
 ## 커뮤니티 공지사항 (할 일 21, 브랜치 `feat/community-notices` — 19 브랜치 위) — **아직 merge 전 · DB 미적용 · 서버 미배포** (PR #801)
 
 설계 `docs/superpowers/specs/2026-11-24-community-notices-design.md`(19 의 `polls` 에 `kind='notice'` 로 얹음). 마이그레이션 `20261124090000_community_notices`(공개 버킷 `community-notices` 포함), 시험 `supabase/tests/community_notices_test.sql` · `backend/tests/community/test_community_notices.py` · `test_notice_image.py` · `backend/tests/admin/test_admin_notices.py` · `backend/tests/safety/test_report_poll.py` · `test_report_poll_comment.py`.
