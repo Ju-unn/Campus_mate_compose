@@ -113,6 +113,7 @@ class HealthReport {
 
 const Map<String, (String, String)> _health = {
   'cards_issued_today': ('오늘 카드가 도착했는지 (지급 요일 기준)', '곳'),
+  // 74 = 서버 backend/app/admin/health.py ROOM_HOURS(채팅 마감 72 + 2). 서버가 시간 수를 보내지 않아 마감이 바뀌면 같이 고친다.
   'stuck_chat_rooms': ('74시간 지나도 안 닫힌 방', '개'),
   'overdue_withdrawn': ('탈퇴 31일 넘은 미삭제 프로필', '명'),
   'avatar_failures_24h': ('최근 24시간 아바타 생성 실패', '건'),
