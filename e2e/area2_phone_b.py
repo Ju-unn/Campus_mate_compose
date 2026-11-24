@@ -22,7 +22,7 @@ from e2e.area2_phone import _school
 from e2e.tools import Blocked
 
 PREFIX = '[E2E] '  # area2._poll 이 붙이는 접두어와 같다 — 피드에서 시험 글을 알아보는 표시
-DAILY_LIMIT = '오늘은 질문을 더 올릴 수 없어요'  # backend errors.POLL_DAILY_LIMIT
+DAILY_LIMIT = '오늘은 글을 더 올릴 수 없어요'  # backend errors.POLL_DAILY_LIMIT
 MONTHLY_LIMIT = '이번 달에는 더 인증할 수 없어요'  # backend errors.HEART_TASK_MONTHLY_LIMIT
 THUMB = '\U0001F44D'  # 👍 — 앱이 79자 뒤에 붙이는 👍🏻 의 앞 코드 포인트(뒤 🏻 는 80 에서 잘린다)
 NOTICE_SECONDS = 60  # E-HEART-09 "60초 알림 0"
@@ -95,13 +95,13 @@ def _fill_today(run, account, count):
 
 
 def _twelfth(check, run, account, label):
-    """한도에 닿은 계정의 다음 글은 429 "오늘은 질문을 더 올릴 수 없어요" 다."""
+    """한도에 닿은 계정의 다음 글은 429 "오늘은 글을 더 올릴 수 없어요" 다."""
     reply = _api(run, 'POST', '/community/polls', account['token'], {'question': f'{PREFIX}한도 확인'})
     check.reply(label, reply, 429, DAILY_LIMIT)
 
 
 def p_poll_14(run, phone):
-    """오늘 글 9개를 API 로 채운 뒤 앱이 10번째(성공) · 11번째(오늘은 질문을 더 올릴 수 없어요)를 올린다."""
+    """오늘 글 9개를 API 로 채운 뒤 앱이 10번째(성공) · 11번째(오늘은 글을 더 올릴 수 없어요)를 올린다."""
     check = Check()
     account, token = _signed_in(run, 'home')
     with _cleaned(run, account):

@@ -26,7 +26,7 @@ BUNDLE = ('E-POLL-01 E-POLL-13 E-POLL-14 E-POLL-15 E-POLL-18 E-POLL-25 E-POLL-26
 POLLS = [c for c in BUNDLE if c.startswith('E-POLL')]
 PASS = {'result': 'pass'}
 THUMB = '\U0001F44D'
-DAILY_LIMIT = '오늘은 질문을 더 올릴 수 없어요'
+DAILY_LIMIT = '오늘은 글을 더 올릴 수 없어요'
 MONTHLY_LIMIT = '이번 달에는 더 인증할 수 없어요'
 SEOUL = area1.SEOUL
 
