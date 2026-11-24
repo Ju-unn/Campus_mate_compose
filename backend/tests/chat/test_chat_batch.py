@@ -21,7 +21,7 @@ MATCH_ID = "33333333-3333-3333-3333-333333333333"
 A = "11111111-1111-1111-1111-111111111111"
 B = "22222222-2222-2222-2222-222222222222"
 
-# 리마인드 창은 매칭 24시간 뒤부터 한 시간이다. 20일 13:20 매칭 → 21일 13:20~14:20.
+# 리마인드 창은 매칭 48시간 뒤(마감 24시간 전)부터 한 시간이다. 20일 13:20 매칭 → 22일 13:20~14:20.
 MATCHED_AT = datetime(2026, 9, 20, 13, 20, tzinfo=SEOUL)
 
 AUDIENCE = "https://campus-mate-backend.example.run.app"
@@ -96,14 +96,21 @@ class _Run:
 
 async def test_nothing_happens_before_the_reminder_window():
     run = _Run([_match()])
-    early = MATCHED_AT + timedelta(hours=23, minutes=40)
+    early = MATCHED_AT + timedelta(hours=47, minutes=40)
     assert await run.at(early) == {"reminded": 0, "closed": 0, "passed": 0}
+    assert run.pushes == []
+
+
+async def test_no_reminder_at_the_old_24_hour_window():
+    """리마인드는 48시간째로 옮겼다(사용자 11-24) — 옛 24시간 창에는 아무것도 안 간다."""
+    run = _Run([_match()])
+    assert await run.at(datetime(2026, 9, 21, 14, 0, tzinfo=SEOUL)) == {"reminded": 0, "closed": 0, "passed": 0}
     assert run.pushes == []
 
 
 async def test_both_sides_are_reminded_inside_the_window():
     run = _Run([_match()])
-    result = await run.at(datetime(2026, 9, 21, 14, 0, tzinfo=SEOUL))
+    result = await run.at(datetime(2026, 9, 22, 14, 0, tzinfo=SEOUL))
 
     assert result == {"reminded": 2, "closed": 0, "passed": 0}
     assert run.pushes[0]["data"]["route"] == "chat"
@@ -111,15 +118,15 @@ async def test_both_sides_are_reminded_inside_the_window():
 
 async def test_the_window_closes_after_an_hour():
     run = _Run([_match()])
-    assert (await run.at(datetime(2026, 9, 21, 15, 0, tzinfo=SEOUL)))["reminded"] == 0
+    assert (await run.at(datetime(2026, 9, 22, 15, 0, tzinfo=SEOUL)))["reminded"] == 0
 
 
 async def test_a_dawn_window_is_moved_to_the_morning_batch():
     """새벽 창을 그대로 두면 조용한 시간에 버려지고, 창이 한 번뿐이라 영영 안 온다."""
     dawn = _match(created_at=datetime(2026, 9, 20, 3, 40, tzinfo=SEOUL).isoformat())
 
-    assert (await _Run([dawn]).at(datetime(2026, 9, 21, 3, 0, tzinfo=SEOUL)))["reminded"] == 0
-    assert (await _Run([dawn]).at(datetime(2026, 9, 21, 8, 0, tzinfo=SEOUL)))["reminded"] == 1 * 2
+    assert (await _Run([dawn]).at(datetime(2026, 9, 22, 3, 0, tzinfo=SEOUL)))["reminded"] == 0
+    assert (await _Run([dawn]).at(datetime(2026, 9, 22, 8, 0, tzinfo=SEOUL)))["reminded"] == 1 * 2
 
 
 async def test_people_who_already_accepted_are_not_reminded():
@@ -127,7 +134,7 @@ async def test_people_who_already_accepted_are_not_reminded():
         {"profile_id": A, "trust_response": "accept", "left_at": None, "last_read_at": None},
         {"profile_id": B, "trust_response": None, "left_at": None, "last_read_at": None},
     ])
-    assert (await _Run([half]).at(datetime(2026, 9, 21, 14, 0, tzinfo=SEOUL)))["reminded"] == 1
+    assert (await _Run([half]).at(datetime(2026, 9, 22, 14, 0, tzinfo=SEOUL)))["reminded"] == 1
 
 
 async def test_the_room_is_closed_once_the_deadline_passes():
@@ -198,7 +205,7 @@ async def test_a_room_someone_left_is_skipped_by_both_passes():
     ])
 
     quiet = {"reminded": 0, "closed": 0, "passed": 0}
-    assert await _Run([gone]).at(datetime(2026, 9, 21, 14, 0, tzinfo=SEOUL)) == quiet
+    assert await _Run([gone]).at(datetime(2026, 9, 22, 14, 0, tzinfo=SEOUL)) == quiet
     assert await _Run([gone]).at(MATCHED_AT + timedelta(hours=73)) == quiet
 
 
@@ -321,7 +328,7 @@ async def test_a_failing_push_does_not_stop_the_rest_of_the_run():
 
     run._handler = handler
     # 첫 사람의 알림이 터져도 두 번째 사람까지 돌고 200 으로 끝난다.
-    assert await run.at(datetime(2026, 9, 21, 14, 0, tzinfo=SEOUL)) == {"reminded": 0, "closed": 0, "passed": 0}
+    assert await run.at(datetime(2026, 9, 22, 14, 0, tzinfo=SEOUL)) == {"reminded": 0, "closed": 0, "passed": 0}
 
 
 # 엔드포인트 -------------------------------------------------------------------
@@ -442,7 +449,7 @@ async def test_a_room_with_a_suspended_side_is_left_untouched():
     ]
 
     for run, now in (
-        (_Run([_with_status("suspended", "active")]), datetime(2026, 9, 21, 14, 0, tzinfo=SEOUL)),
+        (_Run([_with_status("suspended", "active")]), datetime(2026, 9, 22, 14, 0, tzinfo=SEOUL)),
         (_Run([_with_status("active", "suspended")]), MATCHED_AT + timedelta(hours=73)),
         (_Run([_with_status("suspended", "active", participants=both_accepted)]), MATCHED_AT + timedelta(hours=23)),
     ):
@@ -494,7 +501,7 @@ def _left_room(i: int) -> dict:
 
 async def test_new_rooms_behind_1500_left_rooms_still_close_and_get_reminded():
     """나간 방이 1000개를 넘게 쌓이면 그 뒤의 새 방은 마감도 리마인드도 조용히 못 받았다."""
-    now = datetime(2026, 9, 21, 14, 0, tzinfo=SEOUL)  # MATCHED_AT 방의 리마인드 창 안
+    now = datetime(2026, 9, 22, 14, 0, tzinfo=SEOUL)  # MATCHED_AT 방의 리마인드 창 안
     overdue = _room(1500, created_at=(now - timedelta(hours=73)).isoformat())
     waiting = _room(1501)
     run = _PagedRun([*(_left_room(i) for i in range(1500)), overdue, waiting])

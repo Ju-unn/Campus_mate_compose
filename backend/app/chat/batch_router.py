@@ -50,7 +50,7 @@ async def run_chat_gate(repo: ChatRepository, push_repo: CardRepository, sender:
     """매시 정각(Asia/Seoul)에 도는 게이트 배치. 세 가지만 한다.
 
     ① 양쪽 다 수락했는데 도장이 빠진 매칭에 trust_passed_at 기록(기한과 상관없이, 백로그 16)
-    ② 리마인드 창(24시간 뒤) · 마지막 알림 창(마감 3시간 전)에 걸렸고 아직 수락하지 않은 사람에게 trust_reminder 푸시
+    ② 리마인드 창(매칭 48시간 뒤 = 마감 24시간 전) · 마지막 알림 창(마감 3시간 전)에 걸렸고 아직 수락하지 않은 사람에게 trust_reminder 푸시
        — 마지막 알림 수는 로그에만 남긴다(응답 dict 는 그대로)
     ③ 마감(매칭 72시간 뒤, gate.GATE_DEADLINE)을 넘겼고 아직 통과하지 않은 매칭에 chat_closed_at 기록
 
