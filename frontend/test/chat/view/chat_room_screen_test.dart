@@ -707,6 +707,18 @@ void main() {
       });
     }
 
+    // 물어보는 시각(prompt_at)도 화면이 카드에 넘긴다 — 기한(72)과 섞이면 "매칭 약 72시간 뒤" 가 된다.
+    testWidgets('시트 48 · 마감 72 방 — 펼친 카드 2번 항목은 "매칭 약 48시간 뒤"', (tester) async {
+      repository.room = Success(roomFixture(promptAfter: const Duration(hours: 48), gateDeadline: const Duration(hours: 72)));
+      await pumpRoom(tester);
+
+      await tester.tap(find.text('자세히 보기'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('매칭 약 48시간 뒤, 아직 수락하지 않은 분께 알림이 가요.'), findsOneWidget);
+      expect(find.textContaining('매칭 약 72시간 뒤'), findsNothing);
+    });
+
     // 미리 수락 배너 설명이 길어졌다(사용자 승인 11-24) — 가장 좁은 폭(360)에서 넘치거나 잘리지 않아야 한다.
     // 배율 1 에서 두 줄(배너 125 → 143)은 사용자 승인 「A 로 하는데 매칭 후 72시간으로 수정하자」 — 세 줄이 되면 글자를 고치지 않고 대장에게 보고한다.
     for (final scale in [1.0, 1.3, 2.0]) {
