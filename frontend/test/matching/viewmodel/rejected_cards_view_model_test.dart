@@ -252,6 +252,47 @@ void main() {
       expect(repository.reappliedCardIds, ['card-1']);
     });
 
+    // 앞 검토 보완 (a): 줄을 빼기 전에 시작한 읽기는 뺀 줄이 든 옛 목록을 돌려준다 — 그 답이 늦게 와서 줄을 되살리면 안 된다.
+    test('줄을 빼기 전에 시작한 읽기가 늦게 와도 뺀 줄이 되살아나지 않는다(서버 거절 · 조용한 다시 읽기)', () async {
+      await loaded();
+      final hold = repository.holdRejected = Completer<void>();
+      unawaited(viewModel().refresh(quiet: true));
+      await pumpEventQueue();
+      repository.reapplyResult = _cardGone;
+      repository.rejectedAfterWrite = const Success(RejectedCards([_received]));
+
+      final sending = viewModel().reapply('card-1');
+      await pumpEventQueue();
+      hold.complete();
+      await sending;
+      await pumpEventQueue();
+
+      expect(rowIds(), ['card-2']);
+      expect(serverTextOf(state().error), '카드를 찾을 수 없어요');
+    });
+
+    test('줄을 빼기 전에 시작한 읽기가 늦게 와도 성공한 줄이 잠깐이라도 되살아나지 않는다', () async {
+      await loaded();
+      final hold = repository.holdRejected = Completer<void>();
+      unawaited(viewModel().refresh(quiet: true));
+      await pumpEventQueue();
+      repository.rejectedAfterWrite = const Success(RejectedCards([_received]));
+      final seen = <List<String>>[];
+      container.listen(
+        rejectedCardsViewModelProvider,
+        (_, next) => seen.add(next.cards.toList().map((card) => card.cardId).toList()),
+      );
+
+      final sending = viewModel().reapply('card-1');
+      await pumpEventQueue();
+      hold.complete();
+      await sending;
+
+      // 처음 빠진 뒤로는 한 번도 다시 보이지 않는다.
+      expect(seen.skipWhile((ids) => ids.contains('card-1')).any((ids) => ids.contains('card-1')), isFalse);
+      expect(rowIds(), ['card-2']);
+    });
+
     test('보내는 중에 목록 읽기가 끝나도 보내는 중 표시를 지우지 않는다', () async {
       await loaded();
       repository.holdReapply = Completer<void>();
@@ -290,6 +331,21 @@ void main() {
 
       expect(matched, isNull);
       expect(serverTextOf(state().error), '이미 답한 수락이에요');
+      expect(rowIds(), ['card-1']);
+      expect(repository.fetchRejectedCount, 2);
+    });
+
+    // 앞 검토 보완 (b): 되돌리기의 404(없음 · 숨김 · 기한 지남 — 서버가 같은 404 로 묶는다)도 서버 거절이다.
+    test('404 는 서버 문구를 보이고 매칭 화면으로 보내지 않으며 그 줄을 빼고 목록을 다시 읽는다', () async {
+      await loaded();
+      repository.undoResult = const FailureResult(ServerRejectedFailure('받은 신청을 찾을 수 없어요'));
+      repository.rejectedAfterWrite = const Success(RejectedCards([_mine]));
+
+      final matched = await viewModel().undo('card-2');
+
+      expect(matched, isNull);
+      expect(serverTextOf(state().error), '받은 신청을 찾을 수 없어요');
+      expect(state().submittingCardId, isNull);
       expect(rowIds(), ['card-1']);
       expect(repository.fetchRejectedCount, 2);
     });

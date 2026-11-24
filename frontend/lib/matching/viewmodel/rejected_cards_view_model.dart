@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/matching/model/data/acceptance.dart';
+import 'package:campus_mate/matching/model/data/rejected_card.dart';
 import 'package:campus_mate/matching/model/repository/card_repository.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/matching/viewmodel/rejected_cards_ui_state.dart';
@@ -26,6 +27,9 @@ class RejectedCardsViewModel extends Notifier<RejectedCardsUiState> {
 
   /// 진행 중인 읽기에 조용하지 않은 호출이 합쳐졌다 — 끝난 뒤 조용하지 않게 한 번 더 읽는다(받은 신청과 같다).
   bool _readAgain = false;
+
+  /// 줄을 뺄 때마다 오른다. 빼기 전에 시작한 읽기의 답은 뺀 줄이 든 옛 목록이라, 그리지 않고 한 번 더 읽는다.
+  int _generation = 0;
 
   @override
   RejectedCardsUiState build() {
@@ -54,8 +58,15 @@ class RejectedCardsViewModel extends Notifier<RejectedCardsUiState> {
   }
 
   Future<void> _load({required bool quiet}) async {
+    final generation = _generation;
     final result = await ref.read(cardRepositoryProvider).fetchRejectedCards();
     if (!ref.mounted) return;
+    if (generation == _generation) return _apply(result, quiet: quiet);
+    // 읽는 사이 줄을 뺐다 — 되살리지 않게 버리고 다시 읽는다(실패는 다시 읽은 쪽이 보인다).
+    _readAgain = true;
+  }
+
+  void _apply(Result<RejectedCards> result, {required bool quiet}) {
     // 보내는 중 표시는 목록 읽기와 상관없이 그대로 둔다(연타 방지).
     final submitting = state.submittingCardId;
     state = result.when(
@@ -102,6 +113,7 @@ class RejectedCardsViewModel extends Notifier<RejectedCardsUiState> {
 
   /// 그 줄을 먼저 빼고 목록을 다시 읽는다. [shown](보일 서버 문구)이 있으면 조용히 읽고, 읽은 뒤에도 그 문구를 남긴다.
   Future<Result<T>> _dropAndReread<T>(String cardId, Result<T> result, {Failure? shown}) async {
+    _generation += 1;
     state = state.copyWith(cards: state.cards.without(cardId), error: shown);
     await refresh(quiet: shown != null);
     // 다시 읽기가 성공하면 오류 칸을 지운다 — 보일 서버 문구는 읽은 뒤에 다시 올린다.
