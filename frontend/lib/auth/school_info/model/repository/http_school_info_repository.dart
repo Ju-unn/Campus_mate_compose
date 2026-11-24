@@ -1,3 +1,4 @@
+import 'package:campus_mate/auth/school_info/model/data/academic_status.dart';
 import 'package:campus_mate/auth/school_info/model/data/department.dart';
 import 'package:campus_mate/auth/school_info/model/data/student_number.dart';
 import 'package:campus_mate/auth/school_info/model/repository/school_info_repository.dart';
@@ -11,13 +12,14 @@ class HttpSchoolInfoRepository implements SchoolInfoRepository {
   final ApiClient _api;
 
   @override
-  Future<Result<void>> submit(Department department, StudentNumber studentNumber) => _api.send(
+  Future<Result<void>> submit(Department department, StudentNumber studentNumber, AcademicStatus status) => _api.send(
         'POST',
         '/school-info',
         (_) {},
         body: {
           'department': department.toRequestValue(),
           'student_number': studentNumber.toRequestValue(),
+          'academic_status': status.wire,
         },
       );
 }

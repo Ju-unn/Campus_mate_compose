@@ -1,3 +1,4 @@
+import 'package:campus_mate/auth/school_info/model/data/academic_status.dart';
 import 'package:campus_mate/auth/school_info/model/data/department.dart';
 import 'package:campus_mate/auth/school_info/model/data/student_number.dart';
 import 'package:campus_mate/auth/school_info/viewmodel/school_info_ui_state.dart';
@@ -30,10 +31,20 @@ void main() {
     expect(state.canSubmit, isFalse);
   });
 
-  test('학과와 학번이 모두 있고 제출 중이 아니면 제출할 수 있다', () {
-    final state = SchoolInfoUiState(department: department, studentNumber: studentNumber);
+  test('학과 · 학번 · 신분이 모두 있고 제출 중이 아니면 제출할 수 있다', () {
+    final state = SchoolInfoUiState(
+      department: department,
+      studentNumber: studentNumber,
+      academicStatus: AcademicStatus.undergraduate,
+    );
 
     expect(state.canSubmit, isTrue);
+  });
+
+  test('신분이 없으면 제출할 수 없다(1.0.7 1-1, 신분 · 필수)', () {
+    final state = SchoolInfoUiState(department: department, studentNumber: studentNumber);
+
+    expect(state.canSubmit, isFalse);
   });
 
   test('학과가 없으면 제출할 수 없다', () {

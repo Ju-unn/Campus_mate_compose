@@ -1,4 +1,6 @@
+import 'package:campus_mate/auth/gate/model/data/verification_gate.dart';
 import 'package:campus_mate/auth/gate/model/repository/verification_gate_repository_provider.dart';
+import 'package:campus_mate/auth/school_info/model/data/academic_status.dart';
 import 'package:campus_mate/auth/school_info/model/data/department.dart';
 import 'package:campus_mate/auth/school_info/model/data/student_number.dart';
 import 'package:campus_mate/auth/school_info/model/repository/school_info_repository_provider.dart';
@@ -6,6 +8,8 @@ import 'package:campus_mate/auth/school_info/viewmodel/school_info_ui_state.dart
 import 'package:campus_mate/auth/school_info/viewmodel/school_info_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
+import 'package:campus_mate/graduate/model/data/verification_method.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -41,6 +45,7 @@ void main() {
     final viewModel = container.read(schoolInfoViewModelProvider.notifier);
     viewModel.changeDepartment('컴퓨터공학과');
     viewModel.changeStudentNumber('21');
+    viewModel.changeAcademicStatus(AcademicStatus.undergraduate);
     return viewModel;
   }
 
@@ -199,12 +204,60 @@ void main() {
 
     testWidgets('기다리는 사이 버려져도 던지지 않는다', (tester) async {
       final container = ProviderContainer(
-        overrides: [schoolInfoRepositoryProvider.overrideWithValue(repository)],
+        overrides: [
+          schoolInfoRepositoryProvider.overrideWithValue(repository),
+          verificationGateRepositoryProvider.overrideWithValue(gateRepository),
+        ],
       );
       container.read(schoolInfoViewModelProvider.notifier).changeDepartment('...');
       container.dispose();
 
       await tester.pump(const Duration(milliseconds: 350));
+    });
+  });
+
+  // 신분(1.0.7 1-1) — 필수. 졸업증명서로 인증한 사람만 "졸업생" 을 미리 골라 둔다(관문 조회가 실어 온 방법, 따로 묻지 않음).
+  group('신분', () {
+    Future<ProviderContainer> containerAfterGate(VerificationMethod? method) async {
+      gateRepository
+        ..nextResult = const Success(VerificationGate.needsSchoolInfo)
+        ..nextMethod = method;
+      final container = buildContainer();
+      await container.read(verificationGateListenableProvider).refresh();
+      return container;
+    }
+
+    test('졸업증명서로 인증했으면 졸업생이 골라진 채 열린다', () async {
+      final container = await containerAfterGate(VerificationMethod.graduateCertificate);
+
+      expect(readState(container).academicStatus, AcademicStatus.alumni);
+    });
+
+    test('학교 메일 · 방법 없음이면 아무것도 안 고른 채 열리고, 학과 · 학번을 채워도 [다음] 이 꺼져 있다', () async {
+      for (final method in [VerificationMethod.schoolEmail, null]) {
+        final container = await containerAfterGate(method);
+        final viewModel = container.read(schoolInfoViewModelProvider.notifier)
+          ..changeDepartment('컴퓨터공학과')
+          ..changeStudentNumber('21');
+
+        expect(readState(container).academicStatus, isNull, reason: '$method');
+        expect(readState(container).canSubmit, isFalse, reason: '$method');
+        await viewModel.submit();
+        expect(repository.submittedStatuses, isEmpty, reason: '$method');
+      }
+    });
+
+    test('미리 골라진 졸업생을 다른 칩으로 바꾸면 바꾼 값을 보낸다 — 저장은 [다음] 때만', () async {
+      final container = await containerAfterGate(VerificationMethod.graduateCertificate);
+      final viewModel = container.read(schoolInfoViewModelProvider.notifier)
+        ..changeDepartment('컴퓨터공학과')
+        ..changeStudentNumber('21')
+        ..changeAcademicStatus(AcademicStatus.graduateStudent);
+      expect(repository.submittedStatuses, isEmpty, reason: '칩을 눌러도 아직 보내지 않는다');
+
+      await viewModel.submit();
+
+      expect(repository.submittedStatuses, [AcademicStatus.graduateStudent]);
     });
   });
 }

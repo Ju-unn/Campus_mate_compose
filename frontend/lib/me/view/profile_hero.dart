@@ -1,3 +1,4 @@
+import 'package:campus_mate/auth/school_info/model/data/academic_status.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
@@ -8,6 +9,7 @@ import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
+import 'package:campus_mate/profile/onboarding/view/profile_enum_text.dart';
 import 'package:flutter/material.dart';
 
 /// 화면 15 히어로(pen 마스터 `l8p6X` "ProfileHero", 328×360) — 아바타 그림 위에 보기 칩 · 인증 배지(위)와 이름 묶음(아래).
@@ -47,12 +49,12 @@ class ProfileHero extends StatelessWidget {
                 children: [
                   // Top Row `dd4Jv` — space_between · 가운데 맞춤: 보기 칩 왼쪽, 인증 배지 오른쪽.
                   // 글자를 키워 폭이 모자라면 칩 글자가 줄을 바꾼다. 사이 8 은 pen 에 없는 최소 간격(맞닿지 않게).
-                  const Row(
+                  Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Flexible(child: _PillBadge.viewChip()),
-                      SizedBox(width: AppSpacing.xs),
-                      _VerifiedBadge(),
+                      const Flexible(child: _PillBadge.viewChip()),
+                      const SizedBox(width: AppSpacing.xs),
+                      _VerifiedBadge(status: profile.academicStatus),
                     ],
                   ),
                   _Identity(profile: profile, onRegenerate: onRegenerate),
@@ -149,8 +151,11 @@ class _PillBadge extends StatelessWidget {
 
 /// 학교 인증 배지 `EQjrL`(3D) — 흰 알약 · 그림자 · [6,10] · 3D badge-check 18 → 4 → "학교 인증" 10/600 ink.
 /// 늘 보인다 — `GET /me/profile` 은 인증된 사람만 닿는다.
+/// 신분을 골랐으면 "학교 인증" 대신 신분 글자를 쓴다(1.0.7 1-1, pen Row Z `MmwGI` 밝은 판) — 모양은 그대로.
 class _VerifiedBadge extends StatelessWidget {
-  const _VerifiedBadge();
+  const _VerifiedBadge({required this.status});
+
+  final AcademicStatus? status;
 
   /// pen `EQjrL` 그림자 — [AppElevation.verifiedBadge].
 
@@ -170,7 +175,7 @@ class _VerifiedBadge extends StatelessWidget {
             const Icon3d(AppIcon3d.badgeCheck, size: 18),
             const SizedBox(width: AppSpacing.xxs),
             // 10/600 — 줄높이는 pen 에 없어 보기 칩(Badge `XPRBv`)과 같은 1.5. 높이는 아이콘 18 이 정한다.
-            Text(context.l10n.meHeroVerifiedBadge, style: AppTypography.badge.copyWith(height: 1.5, letterSpacing: 0, color: AppColors.ink)),
+            Text(status?.label(context.l10n) ?? context.l10n.meHeroVerifiedBadge, style: AppTypography.badge.copyWith(height: 1.5, letterSpacing: 0, color: AppColors.ink)),
           ],
         ),
       ),

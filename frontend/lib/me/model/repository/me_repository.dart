@@ -1,3 +1,4 @@
+import 'package:campus_mate/auth/school_info/model/data/academic_status.dart';
 import 'package:campus_mate/auth/school_info/model/data/student_number.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/matching/model/data/card_detail.dart';
@@ -28,6 +29,7 @@ abstract interface class MeRepository {
     bool? isSmoker,
     ({AnimalType animalType, ImpressionType impressionType})? appearance,
     StudentNumber? studentNumber,
+    AcademicStatus? academicStatus,
   });
 
   /// 15-7 사진 수정 — 칸 [slots] 순서 그대로 한 번에 저장한다(U2). [avatarSource] 는 아바타 원본이 될 칸 번호(0부터).

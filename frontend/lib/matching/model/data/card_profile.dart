@@ -1,3 +1,5 @@
+import 'package:campus_mate/auth/school_info/model/data/academic_status.dart';
+
 /// 카드 앞면·수락함 행이 쓰는 최소 프로필(설계 §7.1 — 실명·연락처는 서버가 내려보내지 않는다).
 class CardProfile {
   const CardProfile({
@@ -7,6 +9,7 @@ class CardProfile {
     this.university,
     this.major,
     this.avatarUrl,
+    this.academicStatus,
   });
 
   /// 보낸 신청(`GET /cards/sent`)은 상대 id 를 싣지 않아 null 이다. 카드 · 수락함은 늘 싣는다.
@@ -18,6 +21,9 @@ class CardProfile {
 
   /// 표시용 만화 아바타. 실사진은 신뢰 확인(조각 5) 전까지 존재하지 않는다(§5.2).
   final String? avatarUrl;
+
+  /// 신분 배지(1.0.7 1-1). 안 고른 사람 · 옛 서버는 null — 배지는 지금처럼 "학교 인증" 이다.
+  final AcademicStatus? academicStatus;
 
   /// pen `eWD7g` 가 "여우비, 23" 한 줄로 쓴다.
   String get nameWithAge => '$nickname, $age';
@@ -33,6 +39,7 @@ class CardProfile {
       university: json['university'] as String?,
       major: json['major'] as String?,
       avatarUrl: json['avatar_url'] as String?,
+      academicStatus: AcademicStatus.tryParse(json['academic_status']),
     );
   }
 }
