@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:campus_mate/auth/school_info/model/data/academic_status.dart';
 import 'package:campus_mate/auth/school_info/model/data/department.dart';
 import 'package:campus_mate/auth/school_info/model/data/student_number.dart';
 import 'package:campus_mate/auth/school_info/model/repository/school_info_repository_provider.dart';
@@ -7,6 +8,7 @@ import 'package:campus_mate/auth/school_info/viewmodel/school_info_ui_state.dart
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
+import 'package:campus_mate/graduate/model/data/verification_method.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final schoolInfoViewModelProvider = NotifierProvider<SchoolInfoViewModel, SchoolInfoUiState>(
@@ -26,8 +28,17 @@ class SchoolInfoViewModel extends Notifier<SchoolInfoUiState> {
   @override
   SchoolInfoUiState build() {
     ref.onDispose(() => _departmentDebounce?.cancel());
-    return const SchoolInfoUiState();
+    return SchoolInfoUiState(academicStatus: _preselectedStatus());
   }
+
+  /// 졸업증명서로 인증한 사람만 "졸업생" 을 미리 골라 둔다(1.0.7 1-1, 대장 ①). 관문 조회가 이미 실어 온 방법을 읽는다 —
+  /// 따로 묻지 않는다. 학교 메일 · 방법 없음(옛 서버)은 아무것도 안 고른 채 연다.
+  AcademicStatus? _preselectedStatus() {
+    final method = ref.read(verificationGateListenableProvider).verificationMethod;
+    return method == VerificationMethod.graduateCertificate ? AcademicStatus.alumni : null;
+  }
+
+  void changeAcademicStatus(AcademicStatus status) => state = _copyWith(academicStatus: status);
 
   /// "다음" 은 바로 끄고(값이 없으면 못 누른다), 칸 아래 오류는 손을 멈춘 뒤에만 띄운다.
   void changeDepartment(String value) {
@@ -42,15 +53,14 @@ class SchoolInfoViewModel extends Notifier<SchoolInfoUiState> {
     state = _copyWith(studentNumberInput: value, studentNumber: StudentNumber.tryParse(value));
   }
 
-  /// 학과·학번이 아직 없으면 아무 일도 하지 않는다.
+  /// 학과·학번·신분이 아직 없으면 아무 일도 하지 않는다.
   Future<void> submit() async {
-    final department = state.department;
-    final studentNumber = state.studentNumber;
-    if (department == null || studentNumber == null) {
+    final (department, studentNumber, status) = (state.department, state.studentNumber, state.academicStatus);
+    if (department == null || studentNumber == null || status == null) {
       return;
     }
     state = _copyWith(isSubmitting: true, error: null);
-    final next = await _submittedState(department, studentNumber);
+    final next = await _submittedState(department, studentNumber, status);
     if (next == null) return;
     state = next;
     _refreshGateIfCompleted();
@@ -69,10 +79,10 @@ class SchoolInfoViewModel extends Notifier<SchoolInfoUiState> {
   /// 저장소 호출이 던지는 예외까지 흡수해 `isSubmitting` 이 영원히 true 로 굳지 않게 한다.
   /// (세션 만료·비정상 응답 바디로 `Result` 밖으로 새는 `TypeError` 등 — 해당 파일은 이 작업 범위 밖이라
   /// ViewModel 에서 막는다). `on Exception` 만으로는 `Error` 계열을 놓치므로 넓게 잡는다.
-  Future<SchoolInfoUiState?> _submittedState(Department department, StudentNumber studentNumber) async {
+  Future<SchoolInfoUiState?> _submittedState(Department department, StudentNumber studentNumber, AcademicStatus status) async {
     try {
       final repository = ref.read(schoolInfoRepositoryProvider);
-      final result = await repository.submit(department, studentNumber);
+      final result = await repository.submit(department, studentNumber, status);
       // 보내는 사이 로그아웃으로 버려졌으면 null — 늦게 온 답으로 버려진 상태 · ref 를 건드리면 던진다.
       if (!ref.mounted) return null;
       return _stateFromResult(result);
@@ -98,6 +108,7 @@ class SchoolInfoViewModel extends Notifier<SchoolInfoUiState> {
     bool? departmentChecked,
     String? studentNumberInput,
     Object? studentNumber = _keep,
+    AcademicStatus? academicStatus,
     bool? isSubmitting,
     Object? error = _keep,
     bool? completed,
@@ -108,6 +119,7 @@ class SchoolInfoViewModel extends Notifier<SchoolInfoUiState> {
       departmentChecked: departmentChecked ?? state.departmentChecked,
       studentNumberInput: studentNumberInput ?? state.studentNumberInput,
       studentNumber: identical(studentNumber, _keep) ? state.studentNumber : studentNumber as StudentNumber?,
+      academicStatus: academicStatus ?? state.academicStatus,
       isSubmitting: isSubmitting ?? state.isSubmitting,
       error: identical(error, _keep) ? state.error : error as Failure?,
       completed: completed ?? state.completed,

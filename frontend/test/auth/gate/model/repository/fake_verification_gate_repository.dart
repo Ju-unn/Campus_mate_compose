@@ -3,11 +3,15 @@ import 'dart:async';
 import 'package:campus_mate/auth/gate/model/data/verification_gate.dart';
 import 'package:campus_mate/auth/gate/model/repository/verification_gate_repository.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/graduate/model/data/verification_method.dart';
 
 /// 테스트 전용 [VerificationGateRepository].
 /// 기본은 게이트를 모두 통과한 상태이고, `nextResult` 로 다른 결과를 흉내 낸다.
 class FakeVerificationGateRepository implements VerificationGateRepository {
   Result<VerificationGate> nextResult = const Success(VerificationGate.complete);
+
+  /// 성공한 조회에 같이 실어 보낼 인증 방법. 기본은 null(아직 안 고름 · 옛 서버).
+  VerificationMethod? nextMethod;
 
   /// 라우터에 재평가를 알리려고 실제로 조회했는지 확인하는 용도.
   int fetchCount = 0;
@@ -16,9 +20,12 @@ class FakeVerificationGateRepository implements VerificationGateRepository {
   Completer<void>? holdFetch;
 
   @override
-  Future<Result<VerificationGate>> fetchGate() async {
+  Future<Result<GateStatus>> fetchGate() async {
     fetchCount++;
     await holdFetch?.future;
-    return nextResult;
+    return nextResult.when(
+      onSuccess: (gate) => Success((gate: gate, method: nextMethod)),
+      onFailure: FailureResult.new,
+    );
   }
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:campus_mate/auth/gate/model/repository/verification_gate_repository_provider.dart';
+import 'package:campus_mate/auth/school_info/model/data/academic_status.dart';
 import 'package:campus_mate/auth/school_info/model/repository/school_info_repository_provider.dart';
 import 'package:campus_mate/auth/school_info/model/repository/school_name_provider.dart';
 import 'package:campus_mate/auth/school_info/view/school_info_screen.dart';
@@ -10,6 +11,7 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
+import 'package:campus_mate/common/widgets/select_chip.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -88,7 +90,10 @@ void main() {
     return tester.widget<ElevatedButton>(find.widgetWithText(ElevatedButton, '다음'));
   }
 
+  /// 신분(필수)은 "대학생" 으로 고른다 — 글자를 치면 칸이 보이게 스크롤되니 칩을 먼저 누른다.
   Future<void> enterSchoolInfo(WidgetTester tester, String department, String studentNumber) async {
+    await tester.tap(find.text('대학생'));
+    await tester.pump();
     await tester.enterText(find.byType(TextField).at(0), department);
     await tester.enterText(find.byType(TextField).at(1), studentNumber);
     // 학과 오류는 손을 멈춘 뒤(300ms 디바운스) 뜬다 — 기다리지 않으면 시험 끝에 타이머가 남는다.
@@ -211,10 +216,18 @@ void main() {
     });
 
     // 할 일 #1: 대학원생도 학부 입학 학번을 적게 칸 아래 도움말을 둔다 — LabeledField 도움말과 같은 caption · muted.
-    testWidgets('학번 칸 아래에 대학원생 안내 도움말을 보여준다', (tester) async {
+    // 1.0.7 1-1: 신분에서 "대학원생" 을 골랐을 때만 보인다(pen 03c `LIqAa`).
+    testWidgets('신분이 대학원생일 때만 학번 칸 아래에 대학원생 안내 도움말을 보여준다', (tester) async {
       await pumpScreen(tester);
-
       final helper = find.text('대학원생은 학부 입학 학번을 적어 주세요');
+      expect(helper, findsNothing, reason: '아직 안 고름');
+      await tester.tap(find.text('대학생'));
+      await tester.pump();
+      expect(helper, findsNothing, reason: '대학생');
+
+      await tester.tap(find.text('대학원생'));
+      await tester.pump();
+
       expect(helper, findsOneWidget);
       expect(tester.widget<Text>(helper).style, AppTypography.caption.copyWith(color: AppColors.muted));
       // 학번 칸 바로 아래, 공개 범위 안내보다 위.
@@ -294,6 +307,10 @@ void main() {
         await pumpScreen(tester);
 
         await enterSchoolInfo(tester, '컴퓨터공학과', '');
+        // 도움말은 대학원생일 때만 보인다 — 그 신분에서 오류가 도움말 자리를 차지하지 않는지 본다.
+        await tester.ensureVisible(find.text('대학원생'));
+        await tester.tap(find.text('대학원생'));
+        await tester.pump();
 
         expect(find.text(invalid), findsNothing);
         expect(find.text(helper), findsOneWidget);
@@ -397,6 +414,21 @@ void main() {
       expect(findCallToAction(tester).enabled, isTrue);
     });
 
+    testWidgets('학과 · 학번을 채워도 신분을 고르기 전에는 CTA 가 비활성이다(신분 · 필수)', (tester) async {
+      await pumpScreen(tester);
+      await tester.enterText(find.byType(TextField).at(0), '컴퓨터공학과');
+      await tester.enterText(find.byType(TextField).at(1), '21');
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(findCallToAction(tester).enabled, isFalse);
+
+      // 글자를 치면 칸이 보이게 스크롤된다 — 칩을 다시 화면에 들인 뒤 누른다.
+      await tester.ensureVisible(find.text('졸업생'));
+      await tester.tap(find.text('졸업생'));
+      await tester.pump();
+
+      expect(findCallToAction(tester).enabled, isTrue);
+    });
+
     testWidgets('CTA 를 누르면 입력한 학과·학번을 그대로 제출한다', (tester) async {
       await pumpScreen(tester);
       await enterSchoolInfo(tester, '컴퓨터공학과', '21');
@@ -406,6 +438,7 @@ void main() {
 
       expect(repository.submittedDepartments.single.toRequestValue(), '컴퓨터공학과');
       expect(repository.submittedStudentNumbers.single.toRequestValue(), '21');
+      expect(repository.submittedStatuses, [AcademicStatus.undergraduate]);
     });
 
     testWidgets('제출이 실패하면 안내 문구와 함께 입력값이 남는다', (tester) async {
@@ -419,6 +452,43 @@ void main() {
       expect(find.text(failureText(AppLocalizationsKo(), const NetworkFailure())), findsOneWidget);
       expect(find.text('컴퓨터공학과'), findsOneWidget);
       expect(findCallToAction(tester).enabled, isTrue); // 바로 다시 제출할 수 있다
+    });
+
+    // 1.0.7 1-1 신분 고르기 — pen 03c `LIqAa`(아무것도 안 고름 `tnq9M`, 대장 전달 값).
+    group('신분 칩', () {
+      const labels = ['대학생', '대학원생', '졸업생'];
+      Finder chip(String label) => find.ancestor(of: find.text(label), matching: find.byType(SelectChip));
+      List<bool> selected(WidgetTester tester) => [for (final label in labels) tester.widget<SelectChip>(chip(label)).isSelected];
+
+      testWidgets('라벨 "신분 · 필수" 는 14/600/1.2 body 이고 칩과 8 떨어진다', (tester) async {
+        await pumpScreen(tester);
+
+        final label = find.text('신분 · 필수');
+        expect(tester.widget<Text>(label).style, AppTypography.labelSmall.copyWith(color: AppColors.body));
+        expect(tester.getTopLeft(chip('대학생')).dy - tester.getBottomLeft(label).dy, 8);
+      });
+
+      testWidgets('학교 줄 20 아래 · 학과 라벨 20 위에 같은 폭 칩 3개(높이 33 · 사이 8)가 처음엔 모두 꺼져 있다', (tester) async {
+        await pumpScreen(tester);
+
+        final rects = [for (final label in labels) tester.getRect(chip(label))];
+        expect({for (final rect in rects) rect.height}, {33});
+        expect({for (final rect in rects) rect.width}.length, 1);
+        expect((rects[1].left - rects[0].right, rects[2].left - rects[1].right), (8, 8));
+        expect(selected(tester), [false, false, false]);
+        final schoolRow = find.ancestor(of: find.text('확인됨'), matching: find.byType(Container)).last;
+        expect(tester.getTopLeft(find.text('신분 · 필수')).dy - tester.getBottomLeft(schoolRow).dy, 20);
+        expect(tester.getTopLeft(find.text('학과 · 필수')).dy - rects[0].bottom, 20);
+      });
+
+      testWidgets('칩을 누르면 그 칩만 켜진다', (tester) async {
+        await pumpScreen(tester);
+
+        await tester.tap(find.text('대학원생'));
+        await tester.pump();
+
+        expect(selected(tester), [false, true, false]);
+      });
     });
   });
 }
