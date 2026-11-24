@@ -14,13 +14,13 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from unittest import mock
 
-from e2e import area1, area3, area3_phone5, area3_phone6, batch_gate, notify, tools
+from e2e import area1, area3, area3_phone5, area3_phone6, batch_gate, chat_clock, notify, tools
 from e2e.area1 import SEOUL
 from e2e.test_area3_phone5 import BODY, TITLE, Base5, Phone5, at, when
 from e2e.tools import Blocked
 
 CASE = 'E-CHAT-53'
-YESTERDAY_THREE = datetime(2026, 10, 5, 3, 0, tzinfo=SEOUL)  # 시계가 10-06 일 때 "어제 03:00(서울)"
+THREE_AM_PROMPT = datetime(2026, 10, 4, 3, 0, tzinfo=SEOUL)  # 시계가 10-06 일 때 시트 · 리마인드 기본 시각(+48시간)이 "오늘 03:00(서울)" 인 매칭 시각
 
 
 class Base6(Base5):
@@ -102,7 +102,7 @@ class Base6(Base5):
         super().gcloud(name)
 
     def reminder_at(self, created):
-        base = (created + timedelta(hours=24)).astimezone(SEOUL)
+        base = (created + chat_clock.PROMPT_AFTER).astimezone(SEOUL)
         if self.shift and base.hour >= 22:
             base = (base + timedelta(days=1)).replace(hour=8, minute=0, second=0, microsecond=0)
         elif self.shift and base.hour < 8:
@@ -116,7 +116,7 @@ class Base6(Base5):
             if match.get('trust_passed_at') or match.get('chat_closed_at') or any(p.get('left_at') for p in parts):
                 continue
             created = when(match.get('created_at') or now.isoformat())
-            if now - created >= timedelta(hours=48):
+            if now - created >= chat_clock.DEADLINE:
                 match['chat_closed_at'] = now.isoformat()
                 continue
             start = self.reminder_at(created)
@@ -199,10 +199,10 @@ class PassPathTest(Base6):
         (_, _), phone = self.run53()
         self.assertEqual(phone.jobs, [{'token_hash': 'h', 'phase': 'login'}])
 
-    def test_the_room_is_yesterday_three_seoul_at_both_batches(self):
+    def test_the_room_is_prompted_at_three_seoul_at_both_batches(self):
         self.run53()
-        self.assertEqual(self.snap_created(0), YESTERDAY_THREE)
-        self.assertEqual(self.snap_created(1), YESTERDAY_THREE)
+        self.assertEqual(self.snap_created(0), THREE_AM_PROMPT)
+        self.assertEqual(self.snap_created(1), THREE_AM_PROMPT)
         self.assertEqual(self.snap_created(0).utcoffset(), timedelta(0))  # UTC 로 보낸다 — 서울 시각과 같은 순간
         self.assertEqual(self.snap_created(0).astimezone(SEOUL).hour, 3)
 
@@ -250,7 +250,7 @@ class PassPathTest(Base6):
 
 class SevenHourTest(Base6):
     def test_a_reminder_in_the_seven_hour_is_a_fail_and_the_eight_hour_is_still_judged(self):
-        self.due = lambda created, now: now - created >= timedelta(hours=24)  # 창을 무시하고
+        self.due = lambda created, now: now - created >= chat_clock.PROMPT_AFTER  # 창을 무시하고
         self.quiet_check = False  # 조용한 시간도 무시하는 서버
         result, note = self.run53()[0]
         self.assertEqual(result, 'fail')
@@ -290,11 +290,11 @@ class SevenHourTest(Base6):
 
 
 class SevenHourFailureTest(Base6):
-    """07시대가 중간에 끊겨도 방이 어제 03:00 으로 남지 않는다 — 남으면 08:00 예약 실행이 B 에게 리마인드를 보내고, 시험이 끝난 방이 실계정처럼 알림을 쏜다."""
+    """07시대가 중간에 끊겨도 방이 03:00 리마인드 시각으로 남지 않는다 — 남으면 08:00 예약 실행이 B 에게 리마인드를 보내고, 시험이 끝난 방이 실계정처럼 알림을 쏜다."""
 
     def assert_room_not_left_old(self):
         created = when(self.case_match()['created_at'])
-        self.assertNotEqual(created, YESTERDAY_THREE)
+        self.assertNotEqual(created, THREE_AM_PROMPT)
         self.assertGreater(created, at('07:00'))  # 지금(07시대)으로 되돌아와 있다
 
     def test_a_sentinel_that_never_closes_still_makes_the_room_young_again(self):
@@ -334,10 +334,10 @@ class SevenHourFailureTest(Base6):
         self.assertIn('08:00', note)
         self.assertEqual(len(self.snaps), 1)
         self.assertNotIn('send', self.names())  # 07시대 판정도 대조도 안 한다
-        self.assertNotEqual(when(self.case_match()['created_at']), YESTERDAY_THREE)
+        self.assertNotEqual(when(self.case_match()['created_at']), THREE_AM_PROMPT)
 
     def test_a_seven_hour_fail_is_kept_in_the_note_when_the_control_never_comes(self):
-        self.due = lambda created, now: now - created >= timedelta(hours=24)
+        self.due = lambda created, now: now - created >= chat_clock.PROMPT_AFTER
         self.quiet_check = False  # 07시대에 리마인드가 와 버리는 서버
         self.drop_control = True  # 그런데 대조 알림은 안 온다
         result, note = self.run53()[0]
@@ -424,14 +424,14 @@ class ServerContractTest(unittest.TestCase):
             sys.path.remove(str(tools.ROOT / 'backend'))
         cls.gate = gate
 
-    def test_yesterday_three_is_reminded_in_the_zero_eight_hour_not_before(self):
-        created = area3_phone6._yesterday_three(at('07:10'))
-        self.assertEqual(created, YESTERDAY_THREE)
+    def test_a_three_am_prompt_is_reminded_in_the_zero_eight_hour_not_before(self):
+        created = area3_phone6._three_am_prompt(at('07:10'))
+        self.assertEqual(created, THREE_AM_PROMPT)
         self.assertEqual(self.gate.reminder_at(created), at('08:00'))
         self.assertFalse(self.gate.needs_reminder(created, at('07:30'), responded=False))
         self.assertTrue(self.gate.needs_reminder(created, at('08:10'), responded=False))
         self.assertFalse(self.gate.needs_reminder(created, at('09:10'), responded=False))
-        self.assertGreater(self.gate.remaining(created, at('08:10')).total_seconds(), 0)  # 48시간이 아직 안 지났다
+        self.assertGreater(self.gate.remaining(created, at('08:10')).total_seconds(), 0)  # 72시간이 아직 안 지났다
 
     def test_the_title_and_body_are_the_servers(self):
         text = (tools.ROOT / 'backend' / 'app' / 'chat' / 'batch_router.py').read_text(encoding='utf-8')

@@ -11,7 +11,7 @@ import re
 import unittest
 from datetime import datetime, timedelta, timezone
 
-from e2e import area1, area3, area3_phone4, tools
+from e2e import area1, area3, area3_phone4, chat_clock, tools
 from e2e.test_area3_phone import App, said
 from e2e.test_area3_phone2 import MidwayApp, Phone2
 from e2e.tools import Reply
@@ -19,7 +19,6 @@ from e2e.tools import Reply
 CASES = ['E-CHAT-45', 'E-CHAT-46', 'E-CHAT-47', 'E-CHAT-48', 'E-CHAT-49', 'E-CHAT-56']
 GATE_OVER = '응답 기한이 지나 이 대화는 종료됐어요'
 ENDING = '이 대화는 23시간 뒤 종료돼요'
-DAY = timedelta(hours=24)
 
 
 def iso(at):
@@ -60,16 +59,16 @@ class Gate4Base(Phone2):
 
 class Chat45Test(Gate4Base):
     def answer(self, job, off=0, **override):
-        """앱이 방을 열어 시트의 아이디 · 남은 시간을 읽었다 — 남은 시간은 PC 가 옮긴 created_at + 48시간 − 그 순간(+ [off]초)."""
+        """앱이 방을 열어 시트의 아이디 · 남은 시간을 읽었다 — 남은 시간은 PC 가 옮긴 created_at + 응답 기한(72시간) − 그 순간(+ [off]초)."""
         now = datetime.now(timezone.utc)
-        left = (self.patched() + 2 * DAY - now).total_seconds() + off
+        left = (self.patched() + chat_clock.DEADLINE - now).total_seconds() + off
         return {**said(sheet=True, sheet_id=self.private['kakao_id'], countdown=label(left), shown_at=iso(now)), **override}
 
-    def test_pass_path_opens_a_room_older_than_24_hours_by_one_minute(self):
+    def test_pass_path_opens_a_room_older_than_48_hours_by_one_minute(self):
         (result, note), app = self.case('E-CHAT-45', self.answer)
         self.assertEqual(result, 'pass', note)
         self.assertEqual(app.jobs, [self.base_job()])
-        self.assertAlmostEqual(self.age(), 24 * 3600 + 60, delta=30)  # 지금 − 24시간 − 1분
+        self.assertAlmostEqual(self.age(), 48 * 3600 + 60, delta=30)  # 지금 − 48시간 − 1분(시트 방)
         self.assert_pair(self.match(), 'id-1', 'id-2')
         self.assert_all_home()
 
@@ -117,7 +116,7 @@ class Chat46Test(Gate4Base):
         (result, note), app = self.case('E-CHAT-46', self.answer)
         self.assertEqual(result, 'pass', note)
         self.assertEqual(app.jobs, [self.base_job()])
-        self.assertAlmostEqual(self.age(), 24 * 3600 + 60, delta=30)
+        self.assertAlmostEqual(self.age(), 48 * 3600 + 60, delta=30)
         self.assert_all_home()
 
     def test_a_second_swipe_is_fine_but_the_note_says_it(self):
@@ -169,9 +168,9 @@ class EdgeApp(MidwayApp):
 
 class Chat47Test(Gate4Base):
     def answer(self, job, off=0, **override):
-        """앱이 방을 연 시각(앱 시계)과 시트가 뜰 때까지 걸린 ms — 기대는 PC 가 옮긴 created_at + 24시간 − 연 시각(+ [off]초)."""
+        """앱이 방을 연 시각(앱 시계)과 시트가 뜰 때까지 걸린 ms — 기대는 PC 가 옮긴 created_at + 48시간(시트 경계) − 연 시각(+ [off]초)."""
         opened = datetime.now(timezone.utc)
-        expected = (self.patched() + DAY - opened).total_seconds()
+        expected = (self.patched() + chat_clock.PROMPT_AFTER - opened).total_seconds()
         return {**said(open_at=iso(opened), sheet_at_open=False, sheet=True, sheet_ms=round((expected + off) * 1000)), **override}
 
     def run_case(self, answer=None):
@@ -187,7 +186,7 @@ class Chat47Test(Gate4Base):
         self.assertEqual(app.jobs, [self.base_job()])
         self.assertEqual(events, ['step', 'go'])
         self.assertEqual([row.get('created_at') for row in app.before], [None])  # 멈춘 순간엔 아직 안 옮김 — 방은 방금 만든 것
-        self.assertAlmostEqual(self.age(), 23 * 3600 + 59 * 60, delta=30)  # 지금 − 23시간 59분
+        self.assertAlmostEqual(self.age(), 47 * 3600 + 59 * 60, delta=30)  # 지금 − 47시간 59분
         self.assert_all_home()
 
     def test_the_note_carries_the_seconds_between_opening_and_the_sheet(self):
@@ -242,7 +241,7 @@ class Chat48Test(Gate4Base):
         self.assertEqual({k: v for k, v in job.items() if k != 'value'}, {**self.base_job(), 'kakao': 'e2e1'})
         self.assertRegex(job['value'], r'^e2e\d+c[0-9a-f]{6}$')  # 형식 제약 없음 — 영문 · 숫자만
         self.assertNotEqual(job['value'], 'e2e1')
-        self.assertAlmostEqual(self.age(), 24 * 3600 + 60, delta=30)
+        self.assertAlmostEqual(self.age(), 48 * 3600 + 60, delta=30)
         self.assert_all_home()
 
     def test_the_new_value_differs_every_run(self):
@@ -300,7 +299,7 @@ class Chat49Test(Gate4Base):
         (result, note), app = self.case('E-CHAT-49', self.answer)
         self.assertEqual(result, 'pass', note)
         self.assertEqual(app.jobs, [self.base_job()])
-        self.assertAlmostEqual(self.age(), 24 * 3600 + 60, delta=30)
+        self.assertAlmostEqual(self.age(), 48 * 3600 + 60, delta=30)
         self.assert_pair(self.match(), 'id-1', 'id-2')
         self.assert_all_home()
 
@@ -362,11 +361,11 @@ class Chat56Test(Gate4Base):
     def answer(self, job, **override):
         return {**said(sheet=True, error=GATE_OVER, error_now=GATE_OVER), **override}
 
-    def test_pass_path_opens_a_room_older_than_48_hours_and_leaves_the_batch_alone(self):
+    def test_pass_path_opens_a_room_older_than_72_hours_and_leaves_the_batch_alone(self):
         (result, note), app = self.case('E-CHAT-56', self.answer)
         self.assertEqual(result, 'pass', note)
         self.assertEqual(app.jobs, [self.base_job()])
-        self.assertAlmostEqual(self.age(), 48 * 3600 + 60, delta=30)  # 지금 − 48시간 − 1분
+        self.assertAlmostEqual(self.age(), 72 * 3600 + 60, delta=30)  # 지금 − 72시간 − 1분(기한 지남)
         self.assert_pair(self.match(), 'id-1', 'id-2')
         self.assert_all_home()
 
