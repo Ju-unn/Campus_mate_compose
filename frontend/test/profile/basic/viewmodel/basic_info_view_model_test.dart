@@ -6,6 +6,7 @@ import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
+import 'package:campus_mate/profile/basic/model/data/nickname_availability.dart';
 import 'package:campus_mate/profile/basic/model/repository/basic_info_repository_provider.dart';
 import 'package:campus_mate/profile/onboarding/model/repository/onboarding_repository_provider.dart';
 import 'package:campus_mate/profile/onboarding/model/data/onboarding_step.dart';
@@ -86,12 +87,21 @@ void main() {
   });
 
   testWidgets('중복 닉네임이면 인라인 에러를 보여준다', (tester) async {
-    repository.nextAvailabilityResult = const Success(false);
+    repository.nextAvailabilityResult = const Success(NicknameAvailability.taken);
     final vm = container.read(basicInfoViewModelProvider.notifier);
     vm.changeNickname('중복닉네임');
     await tester.pump(const Duration(milliseconds: 350));
     final state = container.read(basicInfoViewModelProvider);
     expect(state.nicknameError, _kind(AppError.nicknameTaken));
+  });
+
+  testWidgets('서버가 금지어(reason)라고 하면 "쓸 수 없는 닉네임" 이다', (tester) async {
+    repository.nextAvailabilityResult = const Success(NicknameAvailability.notAllowed);
+    final vm = container.read(basicInfoViewModelProvider.notifier);
+    vm.changeNickname('관리자');
+    await tester.pump(const Duration(milliseconds: 350));
+    final state = container.read(basicInfoViewModelProvider);
+    expect(state.nicknameError, _kind(AppError.nicknameNotAllowed));
   });
 
   testWidgets('형식이 안 맞으면 서버에 묻지 않고 왜 안 되는지 알려 준다', (tester) async {
@@ -207,7 +217,7 @@ void main() {
 
   testWidgets('조회가 끝나기 전에 입력이 바뀌면 낡은 결과는 버린다', (tester) async {
     repository.availabilityGate = Completer<void>();
-    repository.nextAvailabilityResult = const Success(false);
+    repository.nextAvailabilityResult = const Success(NicknameAvailability.taken);
     final vm = container.read(basicInfoViewModelProvider.notifier);
 
     vm.changeNickname('가나다');
@@ -410,6 +420,26 @@ void main() {
       final state = container.read(basicInfoViewModelProvider);
       expect(state.error, _rejected('이미 있는 닉네임이에요'));
       expect(state.phoneNumberError, isNull);
+    });
+
+    testWidgets('저장 422 code NICKNAME_NOT_ALLOWED 는 버튼 위가 아니라 닉네임 칸 아래 "쓸 수 없는 닉네임"', (tester) async {
+      repository.nextSubmitResult =
+          const FailureResult(ServerRejectedFailure('이미 있는 닉네임이에요', code: 'NICKNAME_NOT_ALLOWED'));
+      final vm = container.read(basicInfoViewModelProvider.notifier);
+      vm.changeNickname('가나다');
+      await tester.pump(const Duration(milliseconds: 350));
+      vm.changeBirthYear('2002');
+      vm.changeHeight('175');
+      vm.changePhoneNumber('010-0135-2468');
+      vm.changeGender('male');
+      await _verifyPhone(vm);
+
+      await vm.submit();
+
+      final state = container.read(basicInfoViewModelProvider);
+      expect(state.error, isNull);
+      expect(state.nicknameError, _kind(AppError.nicknameNotAllowed));
+      expect(state.canSubmit, isFalse);
     });
   });
 

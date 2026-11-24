@@ -196,3 +196,5 @@ class NextStepResponse(BaseModel):
 
 class NicknameAvailabilityResponse(BaseModel):
     available: bool
+    # 금지어 · 연속 글자일 때만 errors.CODE_NICKNAME_NOT_ALLOWED. 진짜 중복은 칸이 없다(응답에서 빠진다).
+    reason: str | None = None

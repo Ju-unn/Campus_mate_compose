@@ -6,6 +6,7 @@ import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/viewmodel/basic_info_edit_view_model.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
+import 'package:campus_mate/profile/basic/model/data/nickname_availability.dart';
 import 'package:campus_mate/profile/basic/model/repository/basic_info_repository_provider.dart';
 import 'package:campus_mate/profile/basic/viewmodel/basic_info_ui_state.dart';
 import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
@@ -154,12 +155,23 @@ void main() {
 
     testWidgets('중복이면 칸 아래 오류이고 저장이 꺼진다', (tester) async {
       await open(_profile());
-      nicknames.nextAvailabilityResult = const Success(false);
+      nicknames.nextAvailabilityResult = const Success(NicknameAvailability.taken);
 
       viewModel().changeNickname('호랑이');
       await tester.pump(const Duration(milliseconds: 350));
 
       expect(state().nicknameError, _kind(AppError.nicknameTaken));
+      expect(state().canSave, isFalse);
+    });
+
+    testWidgets('서버가 금지어(reason)라고 하면 "쓸 수 없는 닉네임" 이고 저장이 꺼진다', (tester) async {
+      await open(_profile());
+      nicknames.nextAvailabilityResult = const Success(NicknameAvailability.notAllowed);
+
+      viewModel().changeNickname('관리자');
+      await tester.pump(const Duration(milliseconds: 350));
+
+      expect(state().nicknameError, _kind(AppError.nicknameNotAllowed));
       expect(state().canSave, isFalse);
     });
 
@@ -197,7 +209,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 350));
       expect(edit(), onboarding(NicknameCheck.invalid));
 
-      nicknames.nextAvailabilityResult = const Success(false);
+      nicknames.nextAvailabilityResult = const Success(NicknameAvailability.taken);
       viewModel().changeNickname('호랑이');
       await tester.pump(const Duration(milliseconds: 350));
       expect(edit(), onboarding(NicknameCheck.taken));
@@ -489,6 +501,19 @@ void main() {
   });
 
   group('저장 실패 — 오류 자리(B5)', () {
+    testWidgets('서버 422 code NICKNAME_NOT_ALLOWED 는 닉네임 칸 아래 "쓸 수 없는 닉네임" — 저장이 꺼진다', (tester) async {
+      await open(_profile());
+      viewModel().changeNickname('호랑이');
+      await tester.pump(const Duration(milliseconds: 350));
+      me.updateResult = const FailureResult(ServerRejectedFailure(_nicknameTaken, code: 'NICKNAME_NOT_ALLOWED'));
+
+      await viewModel().save();
+
+      expect(state().nicknameError, _kind(AppError.nicknameNotAllowed));
+      expect(state().error, isNull);
+      expect(state().canSave, isFalse);
+    });
+
     for (final message in [_nicknameTaken, _nicknameTooSoon]) {
       testWidgets('서버 409 "$message" 는 닉네임 칸 아래 — 저장이 꺼지고, 닉네임을 고치면 지운다', (tester) async {
         await open(_profile());

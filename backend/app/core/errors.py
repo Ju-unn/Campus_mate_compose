@@ -72,6 +72,8 @@ PROFILE_NOT_FOUND = "프로필을 찾을 수 없어요"
 PROFILE_INCOMPLETE = "프로필을 먼저 완성해 주세요"
 NICKNAME_TAKEN = "이미 있는 닉네임이에요"
 NICKNAME_CHANGE_TOO_SOON = "닉네임은 30일에 한 번 바꿀 수 있어요"
+# 금지어 · 연속 글자 닉네임의 기계용 값 — detail 은 NICKNAME_TAKEN 그대로 두고 옆에 붙인다(가입 확인 reason · 저장 422 code).
+CODE_NICKNAME_NOT_ALLOWED = "NICKNAME_NOT_ALLOWED"
 # 온보딩을 마친 뒤 POST /profile-onboarding/basic-info 를 다시 부름(409) — 성별 · 출생연도 잠금 · 닉네임 30일 규칙 우회 차단.
 BASIC_INFO_LOCKED = "가입을 마친 뒤에는 내 프로필에서 고쳐 주세요"
 PHONE_NUMBER_INVALID = "올바른 휴대폰 번호를 입력해 주세요"
