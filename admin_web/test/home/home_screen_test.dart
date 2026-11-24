@@ -153,7 +153,7 @@ void main() {
       expect((warnIcon.icon, warnIcon.size, warnIcon.color), (LucideIcons.triangleAlert, 18, AdminColors.warning));
       final alertIcon = tester.widget<Icon>(find.descendant(of: row('avatar_failures_24h'), matching: find.byType(Icon)));
       expect((alertIcon.icon, alertIcon.color), (LucideIcons.triangleAlert, AdminColors.danger));
-      final warnLabel = find.text('48시간 지나도 안 닫힌 방');
+      final warnLabel = find.text('74시간 지나도 안 닫힌 방');
       expect((styleOf(tester, warnLabel).fontWeight, styleOf(tester, warnLabel).color), (FontWeight.w600, AdminColors.ink));
 
       StatusBadge badge(String text) => tester.widget<StatusBadge>(find.widgetWithText(StatusBadge, text).first);
