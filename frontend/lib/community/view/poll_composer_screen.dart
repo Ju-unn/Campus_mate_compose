@@ -1,13 +1,14 @@
-import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/community/model/data/community_category.dart';
+import 'package:campus_mate/community/model/data/community_item.dart';
 import 'package:campus_mate/community/model/data/poll.dart';
-import 'package:campus_mate/community/model/repository/community_repository_provider.dart';
+import 'package:campus_mate/community/view/category_chip.dart';
 import 'package:campus_mate/community/view/poll_feed_tabs.dart';
 import 'package:campus_mate/community/view/vote_option.dart';
-import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
-import 'package:campus_mate/core/analytics/analytics_provider.dart';
+import 'package:campus_mate/community/viewmodel/community_composer_view_model.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
+import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -26,12 +27,25 @@ TextInputFormatter _maxCodePoints(int max) => TextInputFormatter.withFunction((o
       return TextEditingValue(text: text, selection: TextSelection.collapsed(offset: text.length));
     });
 
-/// 투표 방식 탭(pen 링 탭 줄 `CgYsy` 의 두 칸). O/X 는 "찬성"/"반대" 를 보내 카드가 O·X 아이콘을 그린다.
-enum _VoteMode { ox, custom }
+/// pen 덩어리 사이 20(토큰 밖).
+const double _sectionGap = 20;
 
-/// 17b `poll-composer`(pen `tKjGJ` O/X · `Xe28J` 직접 적기). 입력 상태가 이 화면 안에서 끝나 ViewModel 을 두지 않는다.
+/// 입력칸 높이: 투표 질문 100(`YuHSq`, 대장 10-08) · 게시물 본문 220(`EcZyq`).
+const double _pollBoxHeight = 100;
+const double _postBoxHeight = 220;
+
+/// 17b 글쓰기 — 투표(pen `YuHSq` 질문 작성, 옛 17b `tKjGJ` · `Xe28J`)와 게시물(pen `EcZyq` 처음 · `Efyv9` 쓰는 중).
+/// 종류는 피드의 고르기 시트(17 `LSCrq`)가 정해 주소 `?kind=` 로 넘긴다(없으면 투표). 상태 · 보내기는
+/// [CommunityComposerViewModel] 이 맡고, 화면은 입력칸 글자(컨트롤러)만 들고 있다.
+/// 위 → 아래: 안내 상자 → 20 → 카테고리(필수, 칩 셋) → 20 → 본문 → 20 → (투표면 투표 방식 → 20) → 올리기.
 class PollComposerScreen extends ConsumerStatefulWidget {
-  const PollComposerScreen({super.key});
+  const PollComposerScreen({this.kind, super.key});
+
+  /// 넘기지 않으면 주소의 `?kind=` 를 읽는다(라우터는 화면만 만든다).
+  final CommunityKind? kind;
+
+  /// 고르기 시트에서 고른 종류의 글쓰기 주소.
+  static String location(CommunityKind kind) => '${AppRoutes.communityNew}?kind=${kind.name}';
 
   static const questionKey = Key('poll-question');
   static const optionAKey = Key('poll-option-a');
@@ -47,63 +61,48 @@ class PollComposerScreen extends ConsumerStatefulWidget {
 }
 
 class _PollComposerScreenState extends ConsumerState<PollComposerScreen> {
-  final _question = TextEditingController();
+  final _text = TextEditingController();
   final _optionA = TextEditingController();
   final _optionB = TextEditingController();
-  _VoteMode _mode = _VoteMode.ox;
-  bool _isSubmitting = false;
-  Failure? _error;
+  late final CommunityKind _kind = widget.kind ?? _kindFromAddress();
+
+  CommunityComposerViewModel get _viewModel => ref.read(communityComposerViewModelProvider.notifier);
+
+  CommunityKind _kindFromAddress() {
+    final name = GoRouterState.of(context).uri.queryParameters['kind'];
+    return CommunityKind.values.where((kind) => kind.name == name).firstOrNull ?? CommunityKind.poll;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // 그리는 중에는 provider 를 바꿀 수 없다 — 첫 프레임 뒤에 종류를 맞춘다(화면 모양은 처음부터 [_kind] 로 그린다).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _viewModel.selectKind(_kind);
+    });
+  }
 
   @override
   void dispose() {
-    _question.dispose();
+    _text.dispose();
     _optionA.dispose();
     _optionB.dispose();
     super.dispose();
   }
 
-  /// O/X 탭은 보기가 정해져 있어 늘 맞다. 직접 적기 탭은 둘 다 적고 서로 달라야 한다(서버 규칙과 같다).
-  String get _optionTextA => _mode == _VoteMode.ox ? defaultOptionA : _optionA.text.trim();
-  String get _optionTextB => _mode == _VoteMode.ox ? defaultOptionB : _optionB.text.trim();
-
-  bool get _canSubmit {
-    final a = _optionTextA;
-    final b = _optionTextB;
-    return !_isSubmitting && _question.text.trim().isNotEmpty && a.isNotEmpty && b.isNotEmpty && a != b;
-  }
-
   Future<void> _submit() async {
-    setState(() {
-      _isSubmitting = true;
-      _error = null;
-    });
-    final result = await ref.read(communityRepositoryProvider).createPoll(
-          question: _question.text.trim(),
-          optionA: _optionTextA,
-          optionB: _optionTextB,
-        );
-    if (!mounted) return;
-    result.when(
-      onSuccess: (_) {
-        // 사용 통계 `poll_create` — 서버가 질문을 받아 준 뒤에만. 질문 글 · 보기 글자는 싣지 않는다.
-        ref.read(analyticsServiceProvider).logPollCreate();
-        // 어느 탭에서 왔든 전체 탭으로 옮겨 새로 받는다 — 방금 올린 글이 맨 위에 보인다(사용자 결정).
-        ref.read(communityFeedViewModelProvider.notifier).showAllAfterPosting();
-        context.pop();
-      },
-      onFailure: (failure) => setState(() {
-        _isSubmitting = false;
-        // 하루 10개를 넘겼을 때(서버 `POLL_DAILY_LIMIT` 과 같은 문구, 사용자 결정 3). 429 는 [RateLimitedFailure] 로 오고,
-        // 이 화면이 그 형을 보고 문구를 앱 값(`AppError.pollDailyLimit`)으로 바꿔 낀다(서버 문구가 실려 와도 같다).
-        _error = failure is RateLimitedFailure ? const AppErrorFailure(AppError.pollDailyLimit) : failure;
-      }),
-    );
+    final posted = await _viewModel.submit();
+    if (posted && mounted) context.pop();
   }
 
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(communityComposerViewModelProvider);
+    final l10n = context.l10n;
+    final isPoll = _kind == CommunityKind.poll;
+    final error = state.error;
     return Scaffold(
-      // pen `jrUTh`: 56, 안쪽 [0,8] · 간격 4, 뒤로 `g58njs` 48(arrow-left 22), 제목 `RKulj` x60.
+      // pen 앱바(손으로 그린 프레임): 56, 안쪽 [0,8] · 간격 4, 뒤로 48(arrow-left 22), 제목 x60 20/700.
       appBar: AppBar(
         leadingWidth: 56,
         titleSpacing: AppSpacing.xxs,
@@ -117,27 +116,35 @@ class _PollComposerScreenState extends ConsumerState<PollComposerScreen> {
                 ),
               )
             : null,
-        title: Text(context.l10n.communityComposerTitle, style: AppTypography.navTitle),
+        title: Text(isPoll ? l10n.communityComposerTitle : l10n.communityComposerPostTitle, style: AppTypography.navTitle),
       ),
       body: SafeArea(
-        // pen `QhlmU`: 세로 간격 20, 안쪽 16. 버튼도 본문 흐름 안에 있다(화면 아래 고정 아님).
+        // pen Body: 세로 간격 20, 안쪽 16. 버튼도 본문 흐름 안에 있다(화면 아래 고정 아님).
         child: ListView(
           padding: const EdgeInsets.all(AppSpacing.md),
           children: [
             const _AnonymityNotice(),
-            const SizedBox(height: 20),
-            // pen `BxeOU/VCwQo` 14/600 #3F3F3F, 줄 높이 속성 없음 · 렌더 20.
-            Text(context.l10n.communityComposerQuestionLabel, style: AppTypography.labelSmall.copyWith(color: AppColors.body, height: 20 / 14)),
+            const SizedBox(height: _sectionGap),
+            _CategorySection(selected: state.category, onSelected: _viewModel.selectCategory),
+            // 칩 누름 영역 44 가 보이는 32 보다 아래로 6 더 크다 — 보이는 간격 20 을 지킨다(대장 판정 8).
+            const SizedBox(height: _sectionGap - _CategorySection.hitOverhang),
+            _FieldLabel(isPoll ? l10n.communityComposerQuestionLabel : l10n.communityComposerPostLabel),
             const SizedBox(height: AppSpacing.xs),
-            _QuestionBox(controller: _question, onChanged: () => setState(() {})),
-            const SizedBox(height: 20),
-            _voteSection(),
-            const SizedBox(height: 20),
-            if (_error != null) ...[
-              Text(context.errorText(_error!), style: AppTypography.bodySmall.copyWith(color: AppColors.error)),
+            _QuestionBox(
+              controller: _text,
+              maxLength: _kind.maxLength,
+              minHeight: isPoll ? _pollBoxHeight : _postBoxHeight,
+              hint: isPoll ? l10n.communityComposerQuestionHint : l10n.communityComposerPostHint,
+              onChanged: _viewModel.updateText,
+            ),
+            const SizedBox(height: _sectionGap),
+            if (isPoll) ...[_voteSection(state.usesDefaultOptions), const SizedBox(height: _sectionGap)],
+            if (error != null) ...[
+              // 하루 한도(429)면 서버가 준 문구 그대로(`RateLimitedFailure.serverMessage`).
+              Text(context.errorText(error), style: AppTypography.bodySmall.copyWith(color: AppColors.error)),
               const SizedBox(height: AppSpacing.xs),
             ],
-            AppButton(label: context.l10n.communityComposerSubmit, onPressed: _canSubmit ? _submit : null),
+            AppButton(label: l10n.communityComposerSubmit, onPressed: state.canSubmit ? _submit : null),
           ],
         ),
       ),
@@ -145,14 +152,14 @@ class _PollComposerScreenState extends ConsumerState<PollComposerScreen> {
   }
 
   /// pen `VoteSection`: 세로 간격 12 — 라벨 14/600 #3F3F3F → 2칸 링 탭 줄(94) → 보기 줄(칸 사이 12) → 안내 글 12 muted lh1.5.
-  Widget _voteSection() {
-    final custom = _mode == _VoteMode.custom;
+  Widget _voteSection(bool usesDefault) {
+    final custom = !usesDefault;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(context.l10n.communityComposerVoteMode, style: AppTypography.labelSmall.copyWith(color: AppColors.body, height: 20 / 14)),
+        _FieldLabel(context.l10n.communityComposerVoteMode),
         const SizedBox(height: AppSpacing.sm),
-        _ModeTabs(mode: _mode, onSelected: (mode) => setState(() => _mode = mode)),
+        _ModeTabs(usesDefault: usesDefault, onSelected: _viewModel.useDefaultOptions),
         const SizedBox(height: AppSpacing.sm),
         Row(
           children: [
@@ -175,13 +182,56 @@ class _PollComposerScreenState extends ConsumerState<PollComposerScreen> {
   /// pen `xlCc2`(파랑 · "보기 1") · `k9Bdo8`(빨강 · "보기 2").
   Widget _input(VoteSide side) {
     final isAgree = side == VoteSide.agree;
+    final controller = isAgree ? _optionA : _optionB;
     return VoteOption.input(
       side: side,
-      controller: isAgree ? _optionA : _optionB,
+      controller: controller,
       hint: isAgree ? context.l10n.communityComposerOption1 : context.l10n.communityComposerOption2,
       fieldKey: isAgree ? PollComposerScreen.optionAKey : PollComposerScreen.optionBKey,
       inputFormatters: [_maxCodePoints(pollOptionMaxLength)],
-      onChanged: () => setState(() {}),
+      onChanged: () => isAgree ? _viewModel.updateOptionA(controller.text) : _viewModel.updateOptionB(controller.text),
+    );
+  }
+}
+
+/// 칸 이름(pen Label `IwYG2` · TextInput 라벨): 14/600 #3F3F3F, 줄 높이 속성 없음 · 렌더 20.
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) =>
+      Text(text, style: AppTypography.labelSmall.copyWith(color: AppColors.body, height: 20 / 14));
+}
+
+/// 카테고리 고르기(pen CategorySection): 라벨 "카테고리" → 8 → 칩 셋(자유 · 진로 · 연애, 사이 8). 고르기 전에는 모두 Off.
+/// 칩의 누름 영역(44)이 보이는 알약(32)보다 위아래로 6 씩 크다 — 위 간격은 여기서, 아래 간격은 부르는 쪽이 [hitOverhang] 만큼 줄인다.
+class _CategorySection extends StatelessWidget {
+  const _CategorySection({required this.selected, required this.onSelected});
+
+  final CommunityCategory? selected;
+  final ValueChanged<CommunityCategory> onSelected;
+
+  /// (누름 44 − 보임 32) / 2.
+  static const double hitOverhang = 6;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _FieldLabel(context.l10n.communityComposerCategoryLabel),
+        const SizedBox(height: AppSpacing.xs - hitOverhang),
+        // 글자를 키워 한 줄에 못 들어가면 다음 줄로 내린다.
+        Wrap(
+          spacing: AppSpacing.xs,
+          children: [
+            for (final category in CommunityCategory.values)
+              CategoryChip(category: category, selected: category == selected, onTap: () => onSelected(category)),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -212,19 +262,28 @@ class _AnonymityNotice extends StatelessWidget {
   }
 }
 
-/// Textarea 마스터 `Zhq9p`: #F7F7F7 · radius 8 · 테두리 #767676 1 · 안쪽 12 · 간격 4 · 최소 104,
-/// 카운터 "0 / 80" 은 상자 안 아래 왼쪽. 라벨 · 자리글 문구는 17b `p4wnJ` 값이다(대장 지시로 두 값을 합친다).
+/// Textarea 마스터 `Zhq9p`: #F7F7F7 · radius 8 · 테두리 #767676 1 · 안쪽 12 · 간격 4 · 최소 [minHeight],
+/// 카운터 "n / 최대" 는 상자 안 아래 왼쪽. 투표 질문과 게시물 본문이 같이 쓴다.
 class _QuestionBox extends StatelessWidget {
-  const _QuestionBox({required this.controller, required this.onChanged});
+  const _QuestionBox({
+    required this.controller,
+    required this.maxLength,
+    required this.minHeight,
+    required this.hint,
+    required this.onChanged,
+  });
 
   final TextEditingController controller;
-  final VoidCallback onChanged;
+  final int maxLength;
+  final double minHeight;
+  final String hint;
+  final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final counterStyle = AppTypography.caption.copyWith(height: 1.5, color: AppColors.muted);
     return Container(
-      constraints: const BoxConstraints(minHeight: 100), // 17b 질문 상자 100(대장 10-08, 옛 104)
+      constraints: BoxConstraints(minHeight: minHeight),
       padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
         color: AppColors.surfaceSoft,
@@ -239,19 +298,22 @@ class _QuestionBox extends StatelessWidget {
           TextField(
             key: PollComposerScreen.questionKey,
             controller: controller,
-            inputFormatters: [_maxCodePoints(pollQuestionMaxLength)],
+            inputFormatters: [_maxCodePoints(maxLength)],
             minLines: 2,
             maxLines: null,
             style: AppTypography.bodySmall.copyWith(height: 1.5, color: AppColors.ink),
             decoration: InputDecoration.collapsed(
-              hintText: context.l10n.communityComposerQuestionHint,
+              hintText: hint,
               hintStyle: AppTypography.bodySmall.copyWith(height: 1.5, color: AppColors.muted),
             ),
-            onChanged: (_) => onChanged(),
+            onChanged: onChanged,
           ),
           Padding(
             padding: const EdgeInsets.only(top: AppSpacing.xxs),
-            child: Text('${controller.text.runes.length} / $pollQuestionMaxLength', style: counterStyle),
+            child: ListenableBuilder(
+              listenable: controller,
+              builder: (context, _) => Text('${controller.text.runes.length} / $maxLength', style: counterStyle),
+            ),
           ),
         ],
       ),
@@ -262,10 +324,11 @@ class _QuestionBox extends StatelessWidget {
 /// 투표 방식 탭 줄(pen 17b `u4UOb` · `tKjGJ` 의 KindTabs · StoryTab `CgYsy`): 폭 꽉 · 높이 94(위아래 4) · 탭 사이 12 · 왼쪽 정렬 ·
 /// 아래 선 없음. 탭은 15d 피드와 같은 링 탭([PollRingTab], StoryTab `XfcKQ` 72×86) — O/X 는 3D 투표 · 직접 적기는 3D 편집.
 class _ModeTabs extends StatelessWidget {
-  const _ModeTabs({required this.mode, required this.onSelected});
+  const _ModeTabs({required this.usesDefault, required this.onSelected});
 
-  final _VoteMode mode;
-  final ValueChanged<_VoteMode> onSelected;
+  /// O/X 탭이면 true.
+  final bool usesDefault;
+  final ValueChanged<bool> onSelected;
 
   /// pen `CgYsy` 탭 사이 12 = [AppSpacing.sm].
   static const double _gap = AppSpacing.sm;
@@ -283,8 +346,8 @@ class _ModeTabs extends StatelessWidget {
             ringKey: PollComposerScreen.oxRingKey,
             label: 'O/X',
             icon: AppIcon3d.vote, // 3D 투표 `x5QLa`
-            selected: mode == _VoteMode.ox,
-            onTap: () => onSelected(_VoteMode.ox),
+            selected: usesDefault,
+            onTap: () => onSelected(true),
           ),
           const SizedBox(width: _gap),
           PollRingTab(
@@ -292,8 +355,8 @@ class _ModeTabs extends StatelessWidget {
             ringKey: PollComposerScreen.customRingKey,
             label: context.l10n.communityComposerModeCustom,
             icon: AppIcon3d.pencil, // 3D 편집 `DAILv`
-            selected: mode == _VoteMode.custom,
-            onTap: () => onSelected(_VoteMode.custom),
+            selected: !usesDefault,
+            onTap: () => onSelected(false),
           ),
         ],
       ),

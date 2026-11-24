@@ -1,5 +1,7 @@
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/community/model/data/community_category.dart';
 import 'package:campus_mate/community/model/data/poll.dart';
+import 'package:campus_mate/community/view/category_label.dart';
 import 'package:campus_mate/community/view/feed_poll_card.dart';
 import 'package:campus_mate/community/view/poll_donut.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -28,6 +30,7 @@ void main() {
     VoidCallback? onOpen,
     VoidCallback? onMore,
     bool withReport = true,
+    CommunityCategory category = CommunityCategory.free,
   }) {
     return tester.pumpWidget(
       MaterialApp(
@@ -40,6 +43,7 @@ void main() {
                 width: width,
                 child: FeedPollCard(
                   poll: poll,
+                  category: category,
                   now: now,
                   isVoting: isVoting,
                   onVote: onVote ?? (_) {},
@@ -117,7 +121,14 @@ void main() {
       expect((style.fontSize, style.fontWeight, style.height, style.letterSpacing, style.color),
           (18, FontWeight.w700, 1.4, -0.18, AppColors.ink));
       expect((question.maxLines, question.overflow), (2, TextOverflow.ellipsis));
-      expect(tester.getRect(find.text('가' * 80)).top - card(tester).top, 16 + 48 + 12);
+      expect(tester.getRect(find.text('가' * 80)).top - card(tester).top, closeTo(16 + 48 + 12 + 26 + 12, 0.5));
+    });
+
+    testWidgets('머리줄 아래 12 에 그 글의 카테고리 라벨(ffFIS · xc5kR, 대장 판정 3 — 투표 카드에도 전부)', (tester) async {
+      await pumpCard(tester, pollFixture(), category: CommunityCategory.career);
+      final label = tester.getRect(find.byType(CategoryLabel));
+      expect(label.topLeft - card(tester).topLeft, const Offset(16, 16 + 48 + 12));
+      expect(find.descendant(of: find.byType(CategoryLabel), matching: find.text('진로')), findsOneWidget);
     });
   });
 
@@ -191,7 +202,7 @@ void main() {
       final box = card(tester);
       final line = tester.getRect(find.byKey(FeedPollCard.separatorKey));
       expect((line.left, line.right, line.height), (box.left + 16, box.right - 16, 1));
-      expect(tester.widget<ColoredBox>(find.byKey(FeedPollCard.separatorKey)).color, AppColors.hairlineSoft);
+      expect(tester.widget<ColoredBox>(find.descendant(of: find.byKey(FeedPollCard.separatorKey), matching: find.byType(ColoredBox))).color, AppColors.hairlineSoft);
       expect(line.top - tester.getRect(find.widgetWithIcon(FilledButton, AppIcons.circle)).bottom, 12);
 
       final people = tester.getRect(find.byIcon(AppIcons.users));
@@ -206,10 +217,10 @@ void main() {
       // 줄은 누름 48 — pen 44 + 아래 안쪽 16 = 48 + 12 로 카드 높이는 pen 과 같다.
       expect(caption.center.dy - line.bottom, 12 + 24);
       expect(box.bottom - (line.bottom + 12 + 48), 12);
-      // 질문 1줄(18 × 1.4 = 25.2, 시험 글꼴은 25 로 반올림) 카드: 16 + 48 + 12 + 질문 + 12 + 56 + 12 + 1 + 12 + 48 + 12.
+      // 질문 1줄(18 × 1.4 = 25.2, 시험 글꼴은 25 로 반올림) 카드: 16 + 48 + 12 + 라벨 26 + 12 + 질문 + 12 + 56 + 12 + 1 + 12 + 48 + 12.
       final question = tester.getSize(find.text('첫 데이트 더치페이')).height;
       expect(question, closeTo(25.2, 0.5));
-      expect(box.height, closeTo(16 + 48 + 12 + question + 12 + 56 + 12 + 1 + 12 + 48 + 12, 0.01));
+      expect(box.height, closeTo(16 + 48 + 12 + 26 + 12 + question + 12 + 56 + 12 + 1 + 12 + 48 + 12, 0.5));
     });
 
     testWidgets('"N명 참여" 옆에 말풍선 16 + "댓글 N" 12/500 muted — 앞 간격 8, 말풍선과 글자 사이 4 (Qzv5q · lsvu8 · uNX9X)', (tester) async {

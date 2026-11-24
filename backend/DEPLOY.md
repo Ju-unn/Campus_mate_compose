@@ -1720,7 +1720,7 @@ INFO 를 켠 로거는 핸들러를 직접 달아서 같은 로거의 WARNING �
 | `POST /community/posts` | `{category, body}` → 201 `{id}`. 본문 여러 줄 · 앞뒤 공백 자름 · 1~500자 · 보이는 글자 필수 · 널 · 제어 · 글 방향 문자 거절. 카테고리 세 값만(그 밖 · 없음 422). 하루 10개는 **투표 + 게시물 합산** — 넘으면 429 "오늘은 글을 더 올릴 수 없어요" |
 | `DELETE /community/items/{id}` · `GET` · `POST /community/items/{id}/comments` | 옛 `/community/polls/…` 와 같은 처리 함수. 없음 404 문구만 "글을 찾을 수 없어요", 댓글 푸시 제목은 투표 · 게시물 모두 "내 글에 새 댓글이 달렸어요" |
 | 옛 `GET /community/polls` · `/community/polls/{id}` | 투표만, 응답 모양 그대로(1.0.6) |
-| 옛 `POST /community/polls` | `category` **선택 칸**을 더했다 — 없으면 `free`, 세 값 밖이면 422. 하루 한도는 게시물과 합산되지만 문구는 그대로 "오늘은 질문을 더 올릴 수 없어요". 옛 `/community/polls/…` 의 404 · 푸시 제목도 그대로 |
+| 옛 `POST /community/polls` | `category` **선택 칸**을 더했다 — 없으면 `free`, 세 값 밖이면 422. 하루 한도는 게시물과 합산되고 문구는 "오늘은 글을 더 올릴 수 없어요"(11-24 사용자 허락으로 바꿈, 새 서버 전에는 옛 문구 "오늘은 질문을 더 올릴 수 없어요"). 옛 `/community/polls/…` 의 404 · 푸시 제목도 그대로 |
 | 신고 `POST /reports` | `target_type` 은 게시물도 `poll`. 게시물이면 스냅샷에 `kind` · `category` 가 더해지고 선택지는 null(관리자 웹은 "—" 로 그린다) |
 
 ## 1.0.7 거절 되돌리기 — 거절한 카드 다시 신청 · 받은 신청 거절 되돌리기 (할 일 #20, 브랜치 `feat/card-reapply`) — **아직 merge 전 · 운영 DB 미적용 · 서버 미배포** (PR #796)

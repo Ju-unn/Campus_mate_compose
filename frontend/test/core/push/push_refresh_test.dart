@@ -165,7 +165,7 @@ void main() {
     late ProviderContainer detailContainer;
 
     setUp(() {
-      community = FakeCommunityRepository()..poll = Success(pollFixture());
+      community = FakeCommunityRepository()..item = Success(itemFixture());
       detailContainer = ProviderContainer(overrides: [communityRepositoryProvider.overrideWithValue(community)]);
       addTearDown(detailContainer.dispose);
     });
@@ -185,7 +185,7 @@ void main() {
       detailContainer.listen(pollDetailViewModelProvider('p1'), (_, _) {});
       detailContainer.listen(pollDetailViewModelProvider('p2'), (_, _) {});
       await pumpEventQueue();
-      int readsOf(String id) => community.commentRequests.where((r) => r.pollId == id).length;
+      int readsOf(String id) => community.commentRequests.where((r) => r.itemId == id).length;
       expect((readsOf('p1'), readsOf('p2')), (1, 1));
 
       refreshForPush(detailContainer.read, {'route': 'poll', 'poll_id': 'p2'}, invalidate: detailContainer.invalidate, exists: detailContainer.exists);
