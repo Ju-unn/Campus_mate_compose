@@ -2,6 +2,7 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/matching/model/data/daily_card.dart';
 import 'package:campus_mate/matching/model/data/paid_card.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
+import 'package:campus_mate/matching/viewmodel/rejected_cards_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_ui_state.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -53,7 +54,11 @@ class TodayCardsViewModel extends Notifier<TodayCardsUiState> {
   }
 
   /// 10b 에서 결정하고 돌아왔을 때. 결정한 카드가 그대로 남아 있으면 안 된다.
-  Future<void> markDecided() => refresh();
+  /// 거절이었으면 카드 대기의 [거절한 카드 다시 보기] 가 떠야 한다 — 이미 읽은 거절 목록도 다시 읽는다.
+  Future<void> markDecided() {
+    refreshRejectedCardsIfRead(ref.read, ref.exists);
+    return refresh();
+  }
 
   /// 다음 카드 카운트다운이 0 이 됐다(홈 hero ③ · 오늘 탭 11) — 푸시를 기다리지 않고 바로 읽는다.
   /// 0 은 07:00 배치가 시작하는 순간이라 첫 읽기는 대개 아직 대기다. 대기면 [_dueRetryGap] 간격으로 [_dueRetryLimit] 번까지만
