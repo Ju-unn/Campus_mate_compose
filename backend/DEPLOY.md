@@ -1753,6 +1753,20 @@ DB 마이그레이션 1개(`20261123161541_card_decisions_rejected_at` — `card
 | 운영 적용 | **사용자 허락 뒤** MCP `apply_migration` 으로 파일 내용 그대로(`docs/SUPABASE.md` §4). 적용 전 운영 `messages` 행 수는 읽기로 확인해 둔다(제약을 짓는 동안 표가 잠깐 잠긴다) |
 | 되돌림 | 서버를 먼저 되돌린 뒤 `alter table public.messages drop constraint messages_client_id_unique, drop column client_id` (이것도 운영 쓰기라 사용자 허락) |
 
+## 채팅 client_id 서버 처리 — 재전송 두 줄 막기 (1.0.7 #8, 2/3 서버) (PR #794) — **로컬만 · 운영 미배포**
+
+DB 칸 · 제약은 1/3 DB PR(#789, `messages.client_id` + `messages_client_id_unique`)이 만든다. 이 절은 서버 계약만 적는다.
+
+| 항목 | 값 |
+| --- | --- |
+| 요청 | `POST /chat/matches/{match_id}/messages` 몸통에 `client_id` **선택** 칸. 있으면 UUID 여야 한다(아니면 422) |
+| 겹칠 때 | 같은 (방, 보낸이, `client_id`) 로 다시 오면 새 줄을 만들지 않고 **201 + 처음 줄**을 돌려준다(insert `on_conflict` + `resolution=ignore-duplicates` 가 빈 배열을 주면 `sender_id` = 나 조건으로 되읽는다). 응답 모양 `{"message": …}` 은 그대로 |
+| 방송 · 푸시 | 겹친 재전송은 Realtime 방송 · 상대 푸시를 **다시 하지 않는다**(첫 요청이 이미 했다) |
+| 겹침 확인 순서 | 겹침 확인은 닫힘 · 나감 검사보다 먼저(참여자 확인 뒤). 남의 방은 줄을 읽기 전에 404, 닫힌 · 나간 방(상대 나감 포함)에서 같은 `client_id` 줄이 있으면 201 + 처음 줄, 없으면(새 글 · `client_id` 없는 옛 앱) 지금처럼 409. 열린 방은 미리 조회하지 않고 위 `on_conflict` 로 같은 결과를 낸다(정상 전송 호출 수 그대로) |
+| 순서 | **DB → 서버 → 앱.** DB 보다 서버가 먼저 나가면 `client_id` 가 실린 요청이 500 이다(칸 · 제약 없음) — 앱 1.0.7 전에는 보내는 앱이 없다 |
+| 옛 앱 | 1.0.6 이하는 `client_id` 없이 보내고 지금과 똑같이 저장 · 방송 · 푸시된다. compat 표식 `backend/app/chat/router.py`(`MessageRequest.client_id`) · `backend/app/chat/repository.py`(`insert_message`): `# compat(1.0.6): client_id 없는 채팅 전송 — MIN_APP_VERSION 1.0.7 뒤 삭제` |
+| 시험 | `backend/tests/chat/test_chat_repository.py` · `test_chat_router.py` (겹침 · 되읽기 · 방송 · 푸시 한 번 · 1.0.6 응답 모양) |
+
 ## 5. 현재 배포 상태 (아래 표는 2026-11-14 새벽 기준 — 2026-11-16 개정은 개정 5 바로 아래 네 문단(종전 서술: "첫 네 문단", 그 앞 "첫 세 문단"), 2026-11-17 개정 5 는 개정 6 바로 아래 문단, 2026-11-18 개정 6 은 개정 7 바로 아래 문단, 지금 운영은 2026-11-18 개정 7 — 맨 위 문단)
 
 **2026-11-18 개정 7(낮, 대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다): 운영 트래픽 100% 는 `campus-mate-backend-00141-wew`(태그 `l1118`, main `28b800cb` 기준)다. 바로 앞 운영은 `campus-mate-backend-00139-lit`(태그 `v1118`)이고 이것이 되돌림 대상이다(§2 (다)).** 오늘 올린 세 리비전(모두 asia-northeast3, §2 고정 3단계): `00137-wiz`(태그 `i1118`, 서버 PR #775 입력 검사, 되돌림 `00135-haz`) → `00139-lit`(태그 `v1118`, **`MIN_APP_VERSION` 을 `1.0.3` 에서 `1.0.6` 으로**, env 만 바꾼 배포 · env 33개 그대로, 되돌림 `00137-wiz`) → `00141-wew`(태그 `l1118`, 서버 PR #776 구글 모니터링 실패 로그에 상태 코드, 되돌림 `00139-lit`). 내용 · 되돌림 영향은 §4-34. 새 시크릿 · 마이그레이션 · job 은 없다. **개정 6 의 "운영 100% 는 `00135-haz`" 는 이 개정으로 대체됐다.** 아래 표 "설정" 줄과 열려 있는 것 6 · 12 의 `MIN_APP_VERSION=1.0.3` 은 종전 값이라 지우지 않는다 — 지금 운영 값은 `1.0.6` 이다(두 스토어 공개 확인, 사용자 요청). 개정 6 이하와 표는 종전 서술이다.
