@@ -461,14 +461,17 @@ final Map<String, Area1Case> area1Cases = {
   'E-GATE-53': _session((tester, job) async {
     await arrive(tester, '3c');
     final department = input('예: 컴퓨터공학과');
-    final number = input('예: 21');
-    // 학번 칸은 숫자만 받고 3자리에서 멈춘다(앱 1.0.1) — (학과, 친 학번, 칸에 남는 학번, 다음 켜짐)
+    final number = input('예: 21 (2자리)');
+    // 학번 칸은 잘라 내거나 걸러 내지 않는다 — 친 그대로 남고 2자리 숫자가 아니면 다음이 꺼진다(할 일 #9 A안, 11-24 결정)
+    // — (학과, 친 학번, 칸에 남는 학번, 다음 켜짐)
     for (final (dept, no, shown, on) in [
       ('', '21', '21', false),
       ('컴퓨터공학과', '', '', false),
       ('가' * 31, '21', '21', false),
-      ('컴퓨터공학과', 'ab', '', false),
-      ('가' * 30, '1234', '123', true),
+      ('컴퓨터공학과', 'ab', 'ab', false),
+      ('컴퓨터공학과', '1', '1', false),
+      ('컴퓨터공학과', '123', '123', false),
+      ('가' * 30, '21', '21', true),
     ]) {
       await type(tester, department, dept);
       await type(tester, number, no);
@@ -480,7 +483,7 @@ final Map<String, Area1Case> area1Cases = {
   'E-GATE-54': _session((tester, job) async {
     await arrive(tester, '3c');
     await type(tester, input('예: 컴퓨터공학과'), '컴퓨터공학과');
-    await type(tester, input('예: 21'), '21');
+    await type(tester, input('예: 21 (2자리)'), '21');
     await tap(tester, button('다음'));
     await arrive(tester, '04-1', timeout: const Duration(seconds: 5));
     return null;
@@ -490,7 +493,7 @@ final Map<String, Area1Case> area1Cases = {
     await arrive(tester, '3c');
     if (!_fresh(job)) {
       await type(tester, input('예: 컴퓨터공학과'), '컴퓨터공학과');
-      await type(tester, input('예: 21'), '21');
+      await type(tester, input('예: 21 (2자리)'), '21');
       await tap(tester, button('다음'));
       await arrive(tester, '04-1', timeout: const Duration(seconds: 10));
     }

@@ -130,3 +130,67 @@ def test_duplicate_poll_report_is_409(client, world, polls):
 
     assert response.status_code == 409
     assert response.json()["detail"] == errors.ALREADY_REPORTED
+
+
+# 공지(할 일 21)도 target_type 은 poll 그대로다. 글쓴이가 없다 — 작성자 active · 본인 검사를 건너뛰고 target_profile_id 는 null.
+def _notice(polls) -> None:
+    polls[POLL_ID].update(author_id=None, author=None, kind="notice", category="free", title="서비스 점검 안내",
+                          question="점검 본문", option_a_label=None, option_b_label=None)
+
+
+def test_notice_report_has_no_target_profile_and_snapshots_kind_title_and_body(client, world, polls):
+    _notice(polls)
+
+    response = client.post("/reports", json=_body(), headers=AUTH)
+
+    assert response.status_code == 201
+    stored = world.reports[0]
+    assert stored["target_type"] == "poll"
+    assert stored["target_profile_id"] is None
+    assert stored["target_snapshot"] == {
+        "poll_id": POLL_ID, "question": "점검 본문", "option_a_label": None, "option_b_label": None,
+        "created_at": "2026-10-01T03:00:00+00:00", "kind": "notice", "title": "서비스 점검 안내",
+    }
+    assert world.blocks == []
+    assert world.auto_hide_patches == []
+
+
+def test_notice_report_does_not_count_reporters_of_a_missing_target(client, world, polls, webhook):
+    # 공지는 신고당한 사람이 없다 — `target_profile_id=eq.None` 같은 엉뚱한 세기 요청을 보내지 않는다.
+    _notice(polls)
+
+    client.post("/reports", json=_body(), headers=AUTH)
+
+    counts = [r for r in world.requests if r.method == "GET" and r.url.path.endswith("/reports")
+              and "target_profile_id" in r.url.params]
+    assert counts == []
+    # 디스코드 한 줄은 사람이 읽는 말로 — "대상: None" 이 아니다.
+    (line,) = world.discord
+    assert "대상: 운영자 공지" in line
+    assert "None" not in line
+    assert "누적 신고자: 0명" in line
+
+
+def test_notice_report_reads_kind_and_title(client, world, polls):
+    _notice(polls)
+    seen: list[str] = []
+    table = world._polls
+
+    def spy(method, params, body):
+        seen.append(params["select"])
+        return table(method, params, body)
+
+    world._polls = spy
+    client.post("/reports", json=_body(), headers=AUTH)
+
+    assert {"kind", "title"} <= set(seen[0].split(","))
+
+
+def test_blinded_notice_report_is_404(client, world, polls):
+    _notice(polls)
+    polls[POLL_ID]["status"] = "blinded"
+
+    response = client.post("/reports", json=_body(), headers=AUTH)
+
+    assert response.status_code == 404
+    assert world.reports == []

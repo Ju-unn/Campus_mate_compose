@@ -20,13 +20,22 @@ const Object _keep = Object();
 
 /// 학과·학번 입력 화면(DESIGN.md 화면 3c)의 흐름을 맡는다.
 class SchoolInfoViewModel extends Notifier<SchoolInfoUiState> {
+  /// 학과 오류를 손을 멈춘 뒤에 띄우는 타이머(닉네임 04-1 과 같은 300ms).
+  Timer? _departmentDebounce;
+
   @override
   SchoolInfoUiState build() {
+    ref.onDispose(() => _departmentDebounce?.cancel());
     return const SchoolInfoUiState();
   }
 
+  /// "다음" 은 바로 끄고(값이 없으면 못 누른다), 칸 아래 오류는 손을 멈춘 뒤에만 띄운다.
   void changeDepartment(String value) {
-    state = _copyWith(departmentInput: value, department: Department.tryParse(value));
+    state = _copyWith(departmentInput: value, department: Department.tryParse(value), departmentChecked: false);
+    _departmentDebounce?.cancel();
+    _departmentDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (ref.mounted) state = _copyWith(departmentChecked: true);
+    });
   }
 
   void changeStudentNumber(String value) {
@@ -86,6 +95,7 @@ class SchoolInfoViewModel extends Notifier<SchoolInfoUiState> {
   SchoolInfoUiState _copyWith({
     String? departmentInput,
     Object? department = _keep,
+    bool? departmentChecked,
     String? studentNumberInput,
     Object? studentNumber = _keep,
     bool? isSubmitting,
@@ -95,6 +105,7 @@ class SchoolInfoViewModel extends Notifier<SchoolInfoUiState> {
     return SchoolInfoUiState(
       departmentInput: departmentInput ?? state.departmentInput,
       department: identical(department, _keep) ? state.department : department as Department?,
+      departmentChecked: departmentChecked ?? state.departmentChecked,
       studentNumberInput: studentNumberInput ?? state.studentNumberInput,
       studentNumber: identical(studentNumber, _keep) ? state.studentNumber : studentNumber as StudentNumber?,
       isSubmitting: isSubmitting ?? state.isSubmitting,

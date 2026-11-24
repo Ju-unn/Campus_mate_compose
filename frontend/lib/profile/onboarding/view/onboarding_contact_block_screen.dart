@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/common/widgets/wash_notice.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
@@ -16,8 +17,6 @@ import 'package:go_router/go_router.dart';
 const _circleSize = 96.0; // pen I8gQZ
 const _iconSize = 52.0; // pen Nnsox
 const _skipHeight = 48.0; // pen Dazi1
-const _noticeRadius = 12.0; // pen xxLBt — 토큰 사이 값(radius sm 8 · md 14)
-const _noticePadding = 14.0; // pen xxLBt
 
 /// 06-4 지인 차단(pen `lK8tn`). 가입 마지막 화면이다(결정 8 ①) — 20d 뒤 앱에서만 잇는다.
 /// 버튼은 8a → 8d(온보딩 쪽 경로)를 열고, 차단을 마치면 홈으로 간다. 건너뛰기도 홈으로 간다.
@@ -66,7 +65,9 @@ class OnboardingContactBlockScreen extends ConsumerWidget {
                     ),
                     // QvfFs 아래 16 + LHBul 위 8.
                     const SizedBox(height: AppSpacing.md + AppSpacing.xs),
-                    const _Notice(),
+                    // pen xxLBt — 15-4 안내(`WQIrY`)와 같은 틀. pen 옛 문구("암호화해서 비교에만 · 연락처 목록은 저장하지 않아요")는
+                    // 사실과 달라 — 기기엔 이름 · 가린 번호가 남는다 — 코드 사실 문장으로 바꿨다(2026-10-14, pen 후속).
+                    WashNotice(text: context.l10n.contactAllNotices),
                   ],
                 ),
               ),
@@ -144,27 +145,6 @@ class _AppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
       ),
       title: Text(context.l10n.profileContactBlockTitle, style: AppTypography.subNavTitle.copyWith(color: AppColors.ink)),
-    );
-  }
-}
-
-/// pen xxLBt — 15-4 안내(`WQIrY`)와 같은 틀이다.
-class _Notice extends StatelessWidget {
-  const _Notice();
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(color: AppColors.primaryWash, borderRadius: BorderRadius.circular(_noticeRadius)),
-      child: Padding(
-        padding: const EdgeInsets.all(_noticePadding),
-        // pen 옛 문구("암호화해서 비교에만 · 연락처 목록은 저장하지 않아요")는 사실과 달라 — 기기엔 이름 · 가린 번호가 남는다 —
-        // 코드 사실 문장으로 바꿨다(2026-10-14, pen 후속).
-        child: Text(
-          context.l10n.contactAllNotices,
-          style: AppTypography.bodySmall.copyWith(height: 1.5, color: AppColors.body),
-        ),
-      ),
     );
   }
 }

@@ -103,8 +103,10 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
     if (value.isEmpty) {
       return; // 아직 아무것도 안 쓴 칸과 같다 — 빈 칸에 빨간 글씨를 띄우지 않는다.
     }
-    if (!BasicInfoUiState.nicknamePattern.hasMatch(value)) {
-      state = _copyWith(nicknameCheck: NicknameCheck.invalid);
+    // 모양이 틀리거나 연속 글자면 서버에 묻지 않는다 — 서버도 연속 글자에는 "없음" 으로만 답한다.
+    final formatCheck = BasicInfoUiState.nicknameFormatCheck(value);
+    if (formatCheck != null) {
+      state = _copyWith(nicknameCheck: formatCheck);
       return;
     }
     state = _copyWith(nicknameCheck: NicknameCheck.checking);

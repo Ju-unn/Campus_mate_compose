@@ -9,6 +9,8 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/confirm_popup.dart';
+import 'package:campus_mate/common/widgets/text_action_button.dart';
+import 'package:campus_mate/common/widgets/wash_notice.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -426,5 +428,135 @@ void main() {
       await tester.pump();
       expect(find.text('인증 메일 받기').hitTestable(), findsOneWidget);
     });
+  });
+
+  // 값표 I-5 RrfFX "[할 일 5] 02 학교 메일 · 미등록 학교"(11-24) + 대장 판정(Notice 위 12 · 버튼 48 · 왼쪽 정렬).
+  group('미등록 학교 메일 안내(pen RrfFX)', () {
+    const unknownSchool = '등록되지 않은 학교 메일이에요';
+    const notice = '다른 학교 메일이 있으면 그 메일로 해 보세요. 우리 학교를 추가해 달라고 요청할 수도 있어요.';
+    const requestSchool = '학교 추가 요청하기';
+
+    Future<void> pumpRejected(WidgetTester tester, Failure failure) async {
+      final repository = FakeSchoolEmailRepository()..nextRequestCodeResult = FailureResult(failure);
+      final router = GoRouter(
+        initialLocation: AppRoutes.login,
+        routes: [
+          GoRoute(path: AppRoutes.login, builder: (context, state) => const SignUpScreen()),
+          GoRoute(path: AppRoutes.inquiry, builder: (context, state) => const Text('inquiry-screen')),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [schoolEmailRepositoryProvider.overrideWithValue(repository)],
+          child: MaterialApp.router(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.enterText(find.byType(TextField), 'hong@unknown.ac.kr');
+      await tester.pump();
+      await tester.ensureVisible(find.text('인증 메일 받기'));
+      await tester.pump();
+      await tester.tap(find.text('인증 메일 받기'));
+      await tester.pumpAndSettle();
+    }
+
+    Finder emailBoxFinder() => find.ancestor(of: find.byType(TextField), matching: find.byType(Container)).first;
+
+    BoxDecoration emailBox(WidgetTester tester) => tester.widget<Container>(emailBoxFinder()).decoration! as BoxDecoration;
+
+    testWidgets('칸이 오류 상태가 된다 — 테두리 error 2, 칸 바로 아래 오류 줄(아이콘 + 12 error)', (tester) async {
+      await pumpRejected(tester, const SignUpRejectedFailure(unknownSchool));
+
+      expect(emailBox(tester).border, Border.all(color: AppColors.error, width: 2));
+      expect(find.text(unknownSchool), findsOneWidget);
+      final style = tester.widget<Text>(find.text(unknownSchool)).style!;
+      expect((style.fontSize, style.color), (12.0, AppColors.error));
+      final errorRow = find.ancestor(of: find.text(unknownSchool), matching: find.byType(Row)).first;
+      expect(find.descendant(of: errorRow, matching: find.byIcon(AppIcons.circleAlert)), findsOneWidget);
+      // 오류 줄은 칸(PccKZ ErrorRow)에 붙고, 힌트 줄은 그 아래다.
+      expect(tester.getRect(errorRow).top, tester.getRect(emailBoxFinder()).bottom + 8);
+      expect(tester.getRect(find.text(domainHint)).top, greaterThan(tester.getRect(errorRow).bottom));
+    });
+
+    testWidgets('힌트 줄 아래 12 에 Notice(아이콘 없음), 그 아래 왼쪽 정렬 "학교 추가 요청하기"(48 · primary-text)', (tester) async {
+      await pumpRejected(tester, const SignUpRejectedFailure(unknownSchool));
+
+      final noticeBox = find.byType(WashNotice);
+      expect(noticeBox, findsOneWidget);
+      expect(find.descendant(of: noticeBox, matching: find.text(notice)), findsOneWidget);
+      expect(find.descendant(of: noticeBox, matching: find.byType(Icon)), findsNothing);
+      final hintRow = find.ancestor(of: find.text(domainHint), matching: find.byType(Row)).first;
+      expect(tester.getRect(noticeBox).top, tester.getRect(hintRow).bottom + 12);
+      expect(tester.getRect(noticeBox).left, 24);
+      expect(tester.getRect(noticeBox).width, 800 - 48);
+
+      final button = find.byType(TextActionButton);
+      expect(find.descendant(of: button, matching: find.text(requestSchool)), findsOneWidget);
+      final tapArea = find.ancestor(of: find.text(requestSchool), matching: find.byType(InkWell));
+      expect(tester.getRect(tapArea).top, greaterThanOrEqualTo(tester.getRect(noticeBox).bottom));
+      expect(tester.getRect(tapArea).left, 24);
+      expect(tester.getSize(tapArea).height, 48);
+      expect(tester.widget<Text>(find.text(requestSchool)).style!.color, AppColors.primaryText);
+      // 아래 "인증 메일 받기" 는 그대로 공용 AppButton(활성) — 손으로 그린 버튼을 새로 두지 않는다(판정 6).
+      expect(tester.widget<ElevatedButton>(find.byType(ElevatedButton)).onPressed, isNotNull);
+    });
+
+    testWidgets('"학교 추가 요청하기" 를 누르면 문의하기 화면으로 간다', (tester) async {
+      await pumpRejected(tester, const SignUpRejectedFailure(unknownSchool));
+
+      await tester.ensureVisible(find.text(requestSchool));
+      await tester.tap(find.text(requestSchool));
+      await tester.pumpAndSettle();
+
+      expect(find.text('inquiry-screen'), findsOneWidget);
+    });
+
+    for (final failure in const <Failure>[
+      CodeNotSentFailure(),
+      RateLimitedFailure(),
+      SignUpRejectedFailure('학교 메일 원래 주소로 인증해 주세요'),
+    ]) {
+      testWidgets('다른 실패(${failure.runtimeType})에는 Notice · 요청 버튼 · 칸 오류 테두리가 없다', (tester) async {
+        await pumpRejected(tester, failure);
+
+        expect(find.byType(WashNotice), findsNothing);
+        expect(find.text(requestSchool), findsNothing);
+        expect(emailBox(tester).border, Border.all(color: AppColors.hairline));
+      });
+    }
+
+    testWidgets('메일을 고치면 칸 오류 · Notice · 요청 버튼이 함께 사라진다', (tester) async {
+      await pumpRejected(tester, const SignUpRejectedFailure(unknownSchool));
+
+      await tester.enterText(find.byType(TextField), 'hong@unknown.ac.k');
+      await tester.pump();
+
+      expect(find.text(unknownSchool), findsNothing);
+      expect(find.byType(WashNotice), findsNothing);
+      expect(find.text(requestSchool), findsNothing);
+      expect(emailBox(tester).border, Border.all(color: AppColors.hairline));
+    });
+
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('320 폭 · 글자 배율 $scale 에서 넘치지 않고 요청 버튼까지 닿는다', (tester) async {
+        tester.view.physicalSize = const Size(320, 640);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await pumpRejected(tester, const SignUpRejectedFailure(unknownSchool));
+
+        expect(tester.takeException(), isNull);
+        await tester.ensureVisible(find.text(requestSchool));
+        await tester.pump();
+        expect(find.text(requestSchool).hitTestable(), findsOneWidget);
+        final text = tester.renderObject<RenderBox>(find.text(notice));
+        expect(text.size.height, greaterThanOrEqualTo(text.getMinIntrinsicHeight(text.size.width)));
+      });
+    }
   });
 }

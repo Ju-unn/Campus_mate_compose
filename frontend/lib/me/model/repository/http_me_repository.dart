@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:campus_mate/auth/school_info/model/data/student_number.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
 import 'package:campus_mate/core/http/http_send.dart';
@@ -55,6 +56,7 @@ class HttpMeRepository implements MeRepository {
           impressionType: _enumOrNull(ImpressionType.values, json['impression_type']),
           birthYear: json['birth_year'] as int?,
           gender: json['gender'] as String?,
+          studentNumber: json['student_number'] as String?,
           // 옛 서버는 두 키가 없다 — null 과 같게 읽는다. 값은 JSON 정수(0 · 1)로도 와서 num 으로 받는다.
           surveyAnswers: {
             for (final MapEntry(:key, :value) in (json['survey_answers'] as Map<String, dynamic>? ?? const {}).entries)
@@ -92,6 +94,7 @@ class HttpMeRepository implements MeRepository {
     Religion? religion,
     bool? isSmoker,
     ({AnimalType animalType, ImpressionType impressionType})? appearance,
+    StudentNumber? studentNumber,
   }) {
     assert(mbti == null || !clearMbti, 'MBTI 는 글자를 보내거나 지우거나 둘 중 하나다');
     return _api.send(
@@ -108,6 +111,7 @@ class HttpMeRepository implements MeRepository {
         'is_smoker': ?isSmoker,
         'animal_type': ?appearance?.animalType.name,
         'impression_type': ?appearance?.impressionType.name,
+        'student_number': ?studentNumber?.toRequestValue(),
       },
       timeout: longWriteTimeout,
     );

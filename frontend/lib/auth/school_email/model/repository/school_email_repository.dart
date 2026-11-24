@@ -2,6 +2,11 @@ import 'package:campus_mate/auth/school_email/model/data/university_email.dart';
 import 'package:campus_mate/auth/school_email/model/data/verification_code.dart';
 import 'package:campus_mate/common/result.dart';
 
+/// 등록되지 않은 학교 메일. 가입 직전 훅(02)과 서버(03)가 같은 문구다(errors.py SCHOOL_EMAIL_UNKNOWN_DOMAIN).
+/// 훅 거절에는 code 가 없어 이 글자로 가른다 — 구현(옛 서버 호환)과 02 화면 상태(미등록 학교 안내)가 같이 쓴다.
+// l10n-ignore(server-text): 서버 errors.py SCHOOL_EMAIL_UNKNOWN_DOMAIN 과 글자까지 같아야 하는 비교 상수 — ARB 로 옮기면 분기가 조용히 죽는다
+const unknownSchoolEmailMessage = '등록되지 않은 학교 메일이에요';
+
 /// 학교 메일 1회 인증(02 · 03). 소셜 로그인 뒤, 약관 동의 다음 관문이다.
 ///
 /// 인증번호를 받고 확인하는 일은 메인(소셜) 연결과 따로 둔 **임시 연결**이 하고, 끝나면 그 임시 토큰을
