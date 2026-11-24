@@ -111,7 +111,7 @@ def test_profile_returns_my_fields():
     assert response.json() == {
         "nickname": "하늘",
         "age": 24, "birth_year": 2003, "gender": "female", "university": "서울대학교", "major": "컴퓨터공학과",
-        "student_number": "21",
+        "student_number": "21", "academic_status": None,
         "height_cm": 178, "mbti": "ENFP",
         "religion": "none", "is_smoker": False, "accepts_smoker": None, "animal_type": "fox", "impression_type": "chic",
         "avatar_url": f"{SUPABASE_URL}/storage/v1/object/public/avatars/{PROFILE_ID}/new.png",
@@ -350,3 +350,17 @@ def test_regen_cost_follows_the_ready_count(ready, cost):
 ])
 def test_nickname_lock_is_judged_from_the_injected_now(changed_at, changeable_at):
     assert _get({**FULL_PROFILE, "nickname_changed_at": changed_at}).json()["nickname_changeable_at"] == changeable_at
+
+
+@pytest.mark.parametrize("value", ["undergraduate", "alumni", None])
+def test_profile_returns_academic_status_as_stored(value):
+    """15-6 신분 칩을 미리 켠다 — 빈 값(옛 가입자)은 셋 다 꺼짐."""
+    assert _get({**FULL_PROFILE, "academic_status": value}).json()["academic_status"] == value
+
+
+def test_profile_asks_the_db_for_academic_status():
+    seen: list[httpx.Request] = []
+    _get(FULL_PROFILE, seen)
+
+    select = next(r.url.params["select"] for r in seen if r.url.path.endswith("/profiles") and "nickname" in r.url.params.get("select", ""))
+    assert "academic_status" in select.split(",")

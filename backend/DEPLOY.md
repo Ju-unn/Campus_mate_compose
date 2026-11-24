@@ -1788,6 +1788,17 @@ DB 칸 · 제약은 1/3 DB PR(#789, `messages.client_id` + `messages_client_id_u
 | 옛 앱 | 1.0.6 이하는 `client_id` 없이 보내고 지금과 똑같이 저장 · 방송 · 푸시된다. compat 표식 `backend/app/chat/router.py`(`MessageRequest.client_id`) · `backend/app/chat/repository.py`(`insert_message`): `# compat(1.0.6): client_id 없는 채팅 전송 — MIN_APP_VERSION 1.0.7 뒤 삭제` |
 | 시험 | `backend/tests/chat/test_chat_repository.py` · `test_chat_router.py` (겹침 · 되읽기 · 방송 · 푸시 한 번 · 1.0.6 응답 모양) |
 
+## 신분 고르기 + 신분 배지 — DB + 서버 (1.0.7 1-1, 브랜치 `feat/academic-status-server`) — **로컬만 · 운영 미적용 · 서버 미배포**
+
+| 항목 | 값 |
+| --- | --- |
+| DB | `20261124150000_profiles_academic_status` — `profiles.academic_status text null` + check `profiles_academic_status_check`(`undergraduate` · `graduate_student` · `alumni`). 백필 없음(null = "학교 인증" 배지). RLS · grant 그대로 |
+| 요청 | `POST /school-info`(3c) 몸통에 `academic_status` **선택** 칸 — 없으면 칸을 쓰지 않는다(옛 앱), null · 세 값 밖은 422. `PATCH /me/profile`(15-6) 에 같은 칸 — null 명시 · 세 값 밖은 422("안 고름" 으로 되돌리는 길 없음) |
+| 응답 | `GET /me/profile` 과 카드 계열 프로필(오늘의 카드 · 10b · 받은 신청 · 보낸 신청 · 거절한 카드 `GET /cards/rejected` · 내 카드 미리보기 · 매칭 상대 프로필 `GET /profiles/{id}` — 모두 같은 `_card_profile`)에 `academic_status`(null 가능). 숨는 상대(차단 · 지인 차단 · 정지 · 탈퇴 · 자동 숨김)는 지금처럼 프로필이 통째로 안 나간다 |
+| 순서 | **DB → 서버 순서 필수.** 서버가 먼저 나가면 카드 · 내 프로필 select 의 `academic_status` 가 칸 없음으로 **읽기 실패**한다 |
+| 옛 앱 | 1.0.6 은 칸을 안 보내고(null 그대로 → "학교 인증") 응답의 새 키는 무시한다. compat 표식 `backend/app/student_verification/schemas.py`(`SchoolInfoRequest.academic_status`): `# compat(1.0.6): 옛 앱은 신분을 안 보냄 … — MIN_APP_VERSION 1.0.7 뒤 삭제하고 필수로` |
+| 시험 | `supabase/tests/profiles_academic_status_test.sql` · `backend/tests/student_verification/test_router.py` · `tests/me/test_me_profile*.py` · `tests/cards/test_cards_router.py` · `test_cards_hidden.py` |
+
 ## 닉네임 금지어 안내 — 확인 reason · 저장 code (1.0.7 #2, 브랜치 `feat/nickname-not-allowed`) — **아직 merge 전 · 서버 미배포**
 
 §4-34 닉네임 줄의 세 거절 응답에 기계용 값만 덧붙인다. 문구(`NICKNAME_TAKEN` "이미 있는 닉네임이에요")와 상태 코드는 그대로다.

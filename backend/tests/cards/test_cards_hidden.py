@@ -268,3 +268,17 @@ def test_blocks_are_read_once_per_request_not_per_card(world):
     assert seen.count("/rest/v1/profile_private") == 1
     assert seen.count("/rest/v1/contact_blocks") == 2
 
+
+@pytest.mark.parametrize("path", ["/cards/today", "/cards/acceptances"])
+def test_hidden_partners_academic_status_never_goes_out(world, path, monkeypatch):
+    """탈퇴 · 정지 · 차단 · 지인 차단 상대는 지금처럼 프로필이 통째로 안 나간다 — 새 칸(신분)도 함께다."""
+    # 숨는 상대는 모두 졸업생, 보이는 상대만 대학생 — 응답에 "alumni" 가 한 글자라도 있으면 숨는 상대가 샌 것이다.
+    original = globals()["_profile"]
+    monkeypatch.setitem(globals(), "_profile", lambda profile_id: {
+        **original(profile_id), "academic_status": "undergraduate" if profile_id == VISIBLE else "alumni"})
+
+    response = TestClient(app).get(path, headers=AUTH)
+
+    assert response.status_code == 200
+    assert "undergraduate" in response.text  # 새 칸이 실제로 나가는 경로를 본다
+    assert "alumni" not in response.text

@@ -1,10 +1,11 @@
 import re
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.core.junk_text import has_letter_run
 from app.core.text import has_bad_char, visible
+from app.profile_onboarding.schemas import AcademicStatus
 
 
 class GraduateState(BaseModel):
@@ -38,6 +39,16 @@ class SchoolInfoRequest(BaseModel):
     # 2026-09-20 분석담당 리뷰)와 상한을 맞춘다 — department 30자, student_number 20자.
     department: str = Field(min_length=1, max_length=30)
     student_number: str = Field(min_length=1, max_length=20)
+    # compat(1.0.6): 옛 앱은 신분을 안 보냄(칸 없음 = 안 씀, null 그대로) — MIN_APP_VERSION 1.0.7 뒤 삭제하고 필수로
+    academic_status: AcademicStatus | None = None
+
+    @field_validator("academic_status")
+    @classmethod
+    def _no_null_status(cls, status: str | None) -> str | None:
+        # 칸을 빼는 것(옛 앱)만 허락한다. null 을 실어 보내는 앱은 없다 — 오면 앱 버그다.
+        if status is None:
+            raise ValueError("신분을 골라 주세요")
+        return status
 
     def has_valid_student_number(self) -> bool:
         # compat(1.0.6): 3c 학번 1~3자리 허용(옛 앱 입력) — MIN_APP_VERSION 1.0.7 뒤 삭제하고 me/schemas.py is_valid_student_number(2자리) 하나로 합친다

@@ -66,13 +66,15 @@ class StudentVerificationRepository(PostgrestRepository):
         )
         raise_for_status(response)
 
-    async def save_school_info(self, profile_id: UUID, department: str, student_number: str) -> None:
-        response = await self._patch(
-            "profiles",
-            params={"id": f"eq.{profile_id}"},
-            # 컬럼 이름은 major 다 — department 는 API·클라이언트 쪽 이름이라 여기서만 바꿔 준다.
-            json={"major": department, "student_number": student_number},
-        )
+    async def save_school_info(
+        self, profile_id: UUID, department: str, student_number: str, academic_status: str | None = None,
+    ) -> None:
+        # 컬럼 이름은 major 다 — department 는 API·클라이언트 쪽 이름이라 여기서만 바꿔 준다.
+        fields = {"major": department, "student_number": student_number}
+        # 신분이 없으면(옛 앱) 칸을 쓰지 않는다 — 15-6 에서 고른 값을 3c 다시 띄우기가 지우지 않게.
+        if academic_status is not None:
+            fields["academic_status"] = academic_status
+        response = await self._patch("profiles", params={"id": f"eq.{profile_id}"}, json=fields)
         raise_for_status(response)
 
     async def fetch_latest_attempt(self, profile_id: UUID) -> dict | None:

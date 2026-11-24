@@ -141,6 +141,8 @@ def _card_profile(profile: dict, supabase_url: str, now: datetime) -> dict:
         "university": (profile.get("universities") or {}).get("name"),
         "major": profile.get("major"),
         "avatar_url": _avatar_url(profile, supabase_url),
+        # 신분 배지(1.0.7 1-1). null 이면 앱이 지금처럼 "학교 인증" 을 그린다. 옛 앱은 모르는 키를 무시한다.
+        "academic_status": profile.get("academic_status"),
     }
 
 

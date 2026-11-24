@@ -76,6 +76,8 @@ async def get_my_profile(
         "mbti": profile["mbti"],
         # 기본 정보 수정(15-6) 학번 칸을 채운다. 3c 가 받은 옛 값(2자리 밖)도 그대로 내보낸다. 옛 앱은 모르는 키를 무시한다.
         "student_number": profile["student_number"],
+        # 15-6 신분 칩을 미리 켠다. null = 아직 안 고름. 옛 앱은 모르는 키를 무시한다.
+        "academic_status": profile.get("academic_status"),
         # 기본 정보 수정(15-6)이 현재 값으로 채운다. 구버전 앱은 모르는 키를 무시한다.
         "religion": profile["religion"],
         "is_smoker": profile["is_smoker"],

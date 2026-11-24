@@ -71,6 +71,8 @@ class TagsRequest(BaseModel):
 # DB 가 막는 값과 같다(enum religion · survey_answers_axis_range · survey_answers_value_scale).
 # 저장이 두 번(답 insert → 프로필 PATCH)이라, DB 에만 맡기면 뒤쪽이 실패할 때 앞쪽 답만 남는다(E2E D-01).
 RELIGIONS = frozenset({"none", "protestant", "catholic", "buddhist"})
+# 신분(1.0.7 1-1, 사용자 결정 11-24). DB check profiles_academic_status_check 와 같다. null = 아직 안 고름(= "학교 인증" 배지).
+AcademicStatus = Literal["undergraduate", "graduate_student", "alumni"]
 SURVEY_AXES = range(1, 10)
 SURVEY_VALUES = frozenset({-1, -0.5, 0, 0.5, 1})
 
