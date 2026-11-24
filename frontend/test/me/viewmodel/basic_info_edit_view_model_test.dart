@@ -164,6 +164,17 @@ void main() {
       expect(state().canSave, isFalse);
     });
 
+    testWidgets('서버가 금지어(reason)라고 하면 "쓸 수 없는 닉네임" 이고 저장이 꺼진다', (tester) async {
+      await open(_profile());
+      nicknames.nextAvailabilityResult = const Success(NicknameAvailability.notAllowed);
+
+      viewModel().changeNickname('관리자');
+      await tester.pump(const Duration(milliseconds: 350));
+
+      expect(state().nicknameError, _kind(AppError.nicknameNotAllowed));
+      expect(state().canSave, isFalse);
+    });
+
     testWidgets('형식이 틀리면 서버에 묻지 않고 오류이고 저장이 꺼진다', (tester) async {
       await open(_profile());
 
@@ -490,6 +501,19 @@ void main() {
   });
 
   group('저장 실패 — 오류 자리(B5)', () {
+    testWidgets('서버 422 code NICKNAME_NOT_ALLOWED 는 닉네임 칸 아래 "쓸 수 없는 닉네임" — 저장이 꺼진다', (tester) async {
+      await open(_profile());
+      viewModel().changeNickname('호랑이');
+      await tester.pump(const Duration(milliseconds: 350));
+      me.updateResult = const FailureResult(ServerRejectedFailure(_nicknameTaken, code: 'NICKNAME_NOT_ALLOWED'));
+
+      await viewModel().save();
+
+      expect(state().nicknameError, _kind(AppError.nicknameNotAllowed));
+      expect(state().error, isNull);
+      expect(state().canSave, isFalse);
+    });
+
     for (final message in [_nicknameTaken, _nicknameTooSoon]) {
       testWidgets('서버 409 "$message" 는 닉네임 칸 아래 — 저장이 꺼지고, 닉네임을 고치면 지운다', (tester) async {
         await open(_profile());

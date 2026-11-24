@@ -421,6 +421,26 @@ void main() {
       expect(state.error, _rejected('이미 있는 닉네임이에요'));
       expect(state.phoneNumberError, isNull);
     });
+
+    testWidgets('저장 422 code NICKNAME_NOT_ALLOWED 는 버튼 위가 아니라 닉네임 칸 아래 "쓸 수 없는 닉네임"', (tester) async {
+      repository.nextSubmitResult =
+          const FailureResult(ServerRejectedFailure('이미 있는 닉네임이에요', code: 'NICKNAME_NOT_ALLOWED'));
+      final vm = container.read(basicInfoViewModelProvider.notifier);
+      vm.changeNickname('가나다');
+      await tester.pump(const Duration(milliseconds: 350));
+      vm.changeBirthYear('2002');
+      vm.changeHeight('175');
+      vm.changePhoneNumber('010-0135-2468');
+      vm.changeGender('male');
+      await _verifyPhone(vm);
+
+      await vm.submit();
+
+      final state = container.read(basicInfoViewModelProvider);
+      expect(state.error, isNull);
+      expect(state.nicknameError, _kind(AppError.nicknameNotAllowed));
+      expect(state.canSubmit, isFalse);
+    });
   });
 
   testWidgets('제출에 성공하면 completed 가 켜지고 온보딩 단계를 다시 조회한다', (tester) async {

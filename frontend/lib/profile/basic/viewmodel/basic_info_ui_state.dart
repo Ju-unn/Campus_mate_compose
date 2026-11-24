@@ -194,7 +194,9 @@ class BasicInfoUiState {
 
   /// 확인이 실패했거나(네트워크) 아직 안 끝났어도 막지 않는다 — 제출 때 서버가 다시 본다.
   bool get _isNicknameValid {
-    return nicknameFormatCheck(nicknameInput) == null && nicknameCheck != NicknameCheck.taken;
+    return nicknameFormatCheck(nicknameInput) == null &&
+        nicknameCheck != NicknameCheck.taken &&
+        nicknameCheck != NicknameCheck.notAllowed;
   }
 
   bool get canSubmit {
