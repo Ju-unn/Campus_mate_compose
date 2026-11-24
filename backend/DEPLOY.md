@@ -1741,6 +1741,18 @@ DB 마이그레이션 1개(`20261123161541_card_decisions_rejected_at` — `card
 - **배포 순서**: DB 먼저 → 서버 → 앱. 칸이 없는 DB 에 새 서버의 되돌리기 PATCH 가 가면 실패한다(옛 서버는 새 칸을 모르므로 DB 를 먼저 올려도 안전하다). 되돌림은 서버 리비전만 내리면 되고 칸은 남겨 둬도 된다.
 - **남은 확인**: `fetch_recent_rejections` · `fetch_recent_answer_rejections` 가 인덱스 경로를 타는지 `EXPLAIN` 으로 본 적이 없다(보낸 신청과 같은 상태). pgTAP `supabase/tests/rejected_at_test.sql` 은 로컬 Docker 에서 돌렸다 — 마이그레이션을 빼면 `column "rejected_at" of relation "card_decisions" does not exist` 로 실패, 넣으면 전체 Tests=1623 PASS.
 
+## 채팅 client_id — 재전송 두 줄 막기 (1.0.7 #8, 1/3 DB) (PR #789) — **로컬만 · 운영 미적용**
+
+앱이 메시지마다 고유 id(`client_id`)를 붙여 보내고, 응답을 못 받아 다시 보내도 서버가 같은 (방, 보낸이, id) 를 한 번만 저장한다. 세 PR 로 나눈다: DB(이 절) → 서버 → 앱.
+
+| 항목 | 값 |
+| --- | --- |
+| DB | `20261123170000_messages_client_id` — `messages.client_id uuid`(null 허용 · 기본값 없음) + 일반 유일 제약 `messages_client_id_unique (match_id, sender_id, client_id)`(PostgREST `on_conflict` 가 부분 인덱스를 못 써서 부분 인덱스가 아니다). RLS · grant · publication 은 그대로. 기존 줄은 새 칸이 전부 null 이라 제약 만들기가 실패하지 않는다(`docs/ERD.md` §4). 시험 `supabase/tests/messages_client_id_test.sql` |
+| 순서 | **DB → 서버 → 앱.** 서버가 DB 보다 먼저 나가면 `client_id` 가 실린 요청이 깨진다(칸 · 제약이 없다) — 다만 앱 1.0.7 이 나가기 전에는 `client_id` 를 보내는 앱이 없어 무해하다 |
+| 옛 앱 | 1.0.6 이하는 `client_id` 없이 보내고 지금과 똑같이 저장된다(NULL 끼리는 겹치지 않는다) |
+| 운영 적용 | **사용자 허락 뒤** MCP `apply_migration` 으로 파일 내용 그대로(`docs/SUPABASE.md` §4). 적용 전 운영 `messages` 행 수는 읽기로 확인해 둔다(제약을 짓는 동안 표가 잠깐 잠긴다) |
+| 되돌림 | 서버를 먼저 되돌린 뒤 `alter table public.messages drop constraint messages_client_id_unique, drop column client_id` (이것도 운영 쓰기라 사용자 허락) |
+
 ## 채팅 client_id 서버 처리 — 재전송 두 줄 막기 (1.0.7 #8, 2/3 서버) (PR #794) — **로컬만 · 운영 미배포**
 
 DB 칸 · 제약은 1/3 DB PR(#789, `messages.client_id` + `messages_client_id_unique`)이 만든다. 이 절은 서버 계약만 적는다.

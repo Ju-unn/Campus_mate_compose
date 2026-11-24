@@ -32,6 +32,9 @@ class PushRegistrar {
   // 사라지면 main.dart 가 한 번 더 부르는데, 그때 기기에서 토큰을 읽어 지우려 하면 안 된다.
   bool _active = false;
   Timer? _discardRetry;
+  // 서버 · 시스템 문제로 등록하지 못한 토큰과, 그것을 잠시 뒤 한 번 다시 보낼 타이머([_keepForRetry]).
+  String? _failedToken;
+  Timer? _registerRetry;
   Future<void>? _discarding;
 
   /// 겹쳐 불리면 진행 중인 시도를 같이 기다린다 — 로그인 직후와 게이트가 열리는 순간이
@@ -42,6 +45,20 @@ class PushRegistrar {
       return Future<void>.value();
     }
     return _starting ??= _start().whenComplete(() => _starting = null);
+  }
+
+  /// 앱으로 돌아왔을 때 main.dart 가 부른다. 서버 · 시스템 문제로 등록하지 못한 토큰만 다시 보낸다 —
+  /// [start] 와 달리 권한을 다시 묻지 않는다(거부한 사람에게 권한 창을 또 띄우지 않게).
+  Future<void> retry() => _resend(retryLater: true);
+
+  /// 로그아웃 중 · 뒤에는 [_failedToken] 이 비어 있다 — [stop] 이 비우고, [_keepForRetry] 가 그동안 다시 채우지 않는다.
+  Future<void> _resend({required bool retryLater}) {
+    final token = _failedToken;
+    if (token == null) {
+      return Future<void>.value();
+    }
+    // 진행 중인 등록으로 묶는다 — 등록 중이면 겹쳐 보내지 않고, [stop] 이 이 요청이 서버에 닿은 뒤에 지운다([_tokenToDelete]).
+    return _starting ??= _register(token, retryLater: retryLater).whenComplete(() => _starting = null);
   }
 
   Future<void> _start() async {
@@ -58,11 +75,35 @@ class PushRegistrar {
     _refreshSubscription ??= _messaging.onTokenRefresh.listen(_register);
   }
 
-  Future<void> _register(String token) async {
+  Future<void> _register(String token, {bool retryLater = true}) async {
     final result = await _repository.registerPushToken(token);
     // 서버가 받아 준 토큰만 기억한다 — 실패한 것을 기억하면 다시 시도하지 않고,
     // [stop] 이 서버에 없는 토큰을 지우려 한다.
-    result.when(onSuccess: (_) => _remember(token), onFailure: (_) {});
+    result.when(onSuccess: (_) => _remember(token), onFailure: (failure) => _keepForRetry(token, failure, retryLater));
+  }
+
+  /// 서버 · 시스템 문제(503 · 401 · 인터넷 없음)로 못 보낸 토큰은 [_retryDelay] 뒤 한 번, 그리고 앱 복귀([retry])마다 다시 보낸다.
+  /// 잠시 뒤 다시 보내기가 또 실패하면 타이머를 더 걸지 않는다 — 서버가 오래 아플 때 1분마다 계속 두드리지 않게.
+  /// [ServerRejectedFailure](관문 전 403 처럼 서버가 이유를 들어 거절)는 새로 기억하지도, 타이머를 걸지도 않는다 — 관문이 열리면 main.dart 가 [start] 를 다시 부른다.
+  /// 다만 앞서 다른 이유로 기억한 토큰은 지우지 않고 둔다(앱 복귀마다 403 을 한 번 더 받을 수 있지만, 관문이 열리는 순간과 겹쳐도 토큰을 잃지 않게).
+  /// 정지 · 429 · 404 · Unknown 같은 나머지 실패는 다시 보낸다.
+  /// 로그아웃 중 · 뒤에 실패로 돌아온 등록은 기억하지 않는다 — 다음 사람 세션에서 앞 사람 토큰을 다시 보내지 않게.
+  void _keepForRetry(String token, Failure failure, bool retryLater) {
+    if (!_active || _stopping != null || failure is ServerRejectedFailure) {
+      return;
+    }
+    _failedToken = token;
+    if (!retryLater) {
+      return;
+    }
+    _registerRetry?.cancel();
+    _registerRetry = Timer(_retryDelay, () => unawaited(_resend(retryLater: false)));
+  }
+
+  void _forgetFailedToken() {
+    _registerRetry?.cancel();
+    _registerRetry = null;
+    _failedToken = null;
   }
 
   void _remember(String token) {
@@ -71,6 +112,7 @@ class PushRegistrar {
       return;
     }
     _registeredToken = token;
+    _forgetFailedToken();
     // 이 토큰은 이제 새로 로그인한 사람 것이다 — 앞 사람 로그아웃 때 걸어 둔 버리기를 멈춘다.
     _discardRetry?.cancel();
     _discardRetry = null;
@@ -89,6 +131,8 @@ class PushRegistrar {
     if (!_active) {
       return Future<void>.value();
     }
+    // 걸어 둔 다시 보내기를 바로 멈춘다 — 로그아웃이 끝나기 전에 타이머가 울려 앞 사람 토큰을 보내지 않게.
+    _forgetFailedToken();
     return _stopping = _stopSession().whenComplete(() => _stopping = null);
   }
 
