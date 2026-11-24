@@ -161,12 +161,64 @@ class CardRepository(PostgrestRepository):
         rows = await self._rows("daily_cards", {
             "id": f"eq.{card_id}",
             "select": "id,owner_id,target_id,source,issued_at,expires_at,"
-                      "card_decisions(decision,decided_at),acceptance_responses(responder_id,decision)",
+                      # 응답의 decided_at 은 받은 신청 거절 되돌리기 기한(1.0.7 #20)에 쓴다 — 응답에는 싣지 않는다.
+                      "card_decisions(decision,decided_at),acceptance_responses(responder_id,decision,decided_at)",
         })
         return rows[0] if rows else None
 
     async def insert_decision(self, card_id: UUID | str, decision: str) -> None:
         await self._rows_post("card_decisions", {"card_id": str(card_id), "decision": decision}, prefer="")
+
+    async def reapply_rejected(self, card_id: UUID | str, rejected_after: datetime, rejected_at: str,
+                               now: datetime) -> bool:
+        """(a) 내 카드 거절을 수락(= 대화 신청)으로 바꾼다. 조건 · 반환은 _undo_rejection."""
+        return await self._undo_rejection("card_decisions", {"card_id": f"eq.{card_id}"},
+                                          rejected_after, rejected_at, now)
+
+    async def reapply_rejected_answer(self, card_id: UUID | str, responder_id: UUID | str, rejected_after: datetime,
+                                      rejected_at: str, now: datetime) -> bool:
+        """(b) 받은 신청에 내가 한 거절을 수락으로 바꾼다 — 응답한 사람이 나인 행만. 조건 · 반환은 _undo_rejection."""
+        return await self._undo_rejection(
+            "acceptance_responses", {"card_id": f"eq.{card_id}", "responder_id": f"eq.{responder_id}"},
+            rejected_after, rejected_at, now)
+
+    async def _undo_rejection(self, table: str, row: dict, rejected_after: datetime, rejected_at: str,
+                              now: datetime) -> bool:
+        """거절을 수락으로 바꾸는 조건부 PATCH — **아직 거절이고 rejected_after 뒤에 거절한 행만**(규칙은 cards/reapply.py).
+        바뀐 행이 없으면 False: 연타 · 동시 요청의 두 번째이거나 그사이 기한이 지났다. 원래 거절 시각은 rejected_at 에 남긴다.
+        decided_at 은 서버 시계(now)로 쓴다 — 7일 경계를 본 시계와 같아야 보낸 신청 · 받은 신청 기한이 어긋나지 않는다."""
+        response = await self._patch(
+            table,
+            params={**row, "decision": "eq.reject",
+                    "decided_at": f"gt.{rejected_after.astimezone(timezone.utc).isoformat()}", "select": "card_id"},
+            json={"decision": "accept", "rejected_at": rejected_at,
+                  "decided_at": now.astimezone(timezone.utc).isoformat()},
+            prefer="return=representation",
+        )
+        raise_for_status(response)
+        return bool(response.json())
+
+    async def fetch_recent_rejections(self, profile_id: UUID | str, since: datetime, limit: int) -> list[dict]:
+        """내가 since 뒤에 거절한 카드, 최신 거절 순(GET /cards/rejected). fetch_sent_acceptances 와 같은 길이다.
+        rejected_at 칸은 고르지 않는다 — 거절 시각은 decided_at 이다(rejected_at 은 다시 신청한 행에만 있다)."""
+        return await self._rows("card_decisions", {
+            "select": "card_id,decided_at,daily_cards!inner(target_id)",
+            "decision": "eq.reject",
+            "decided_at": f"gt.{since.astimezone(timezone.utc).isoformat()}",
+            "daily_cards.owner_id": f"eq.{profile_id}",
+            "order": "decided_at.desc", "limit": limit,
+        })
+
+    async def fetch_recent_answer_rejections(self, profile_id: UUID | str, since: datetime, limit: int) -> list[dict]:
+        """받은 신청에 내가 since 뒤에 한 거절, 최신 거절 순(GET /cards/rejected). 신청한 사람(카드 주인)과 그 사람이
+        수락한 시각(원래 응답 기한의 재료)을 daily_cards 를 거쳐 붙인다. rejected_at 칸은 고르지 않는다."""
+        return await self._rows("acceptance_responses", {
+            "select": "card_id,decided_at,daily_cards(owner_id,card_decisions(decided_at))",
+            "decision": "eq.reject",
+            "responder_id": f"eq.{profile_id}",
+            "decided_at": f"gt.{since.astimezone(timezone.utc).isoformat()}",
+            "order": "decided_at.desc", "limit": limit,
+        })
 
     # 유료 카드 제안(paid_card_offers, 지시문 22) ---------------------------------------
     async def fetch_offered(self, owner_id: UUID | str) -> list[dict]:

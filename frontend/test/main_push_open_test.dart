@@ -200,14 +200,16 @@ void main() {
     WidgetTester tester, {
     Map<String, dynamic>? launch,
     Result<HomeSummary> summary = const FailureResult(NetworkFailure()),
+    bool pushGranted = false,
+    Result<void> pushRegister = const Success(null),
   }) async {
     final chat = appChat = FakeChatRepository()..room = Success(roomFixture());
-    appCards = FakeCardRepository();
+    appCards = FakeCardRepository()..writeResult = pushRegister;
     appNotifications = FakeNotificationsRepository(unreadCount: 3);
     appSystemNotifications = FakeSystemNotifications(launch: launch);
     appEvents = FakeUserEventStream();
     appAnalytics = FakeAnalyticsService();
-    final push = FakePushMessaging(token: 't', granted: false);
+    final push = FakePushMessaging(token: 't', granted: pushGranted);
     appHome = FakeHomeRepository(summary);
     final container = appContainer = ProviderContainer(
       overrides: [
@@ -292,6 +294,17 @@ void main() {
 
     expect(chat.conversationsFetchCount, before + 1);
     expect(appCards.fetchAcceptancesCount, cardsBefore + 1);
+  });
+
+  // 1.0.7 #10: 서버가 잠깐 못 받아(503) 알림 토큰 등록이 실패해도 앱으로 돌아오면 다시 보낸다 — 껐다 켤 때까지 기다리지 않는다.
+  testWidgets('알림 토큰 등록이 실패했으면 앱이 백그라운드에서 돌아올 때 다시 보낸다', (tester) async {
+    await pumpHome(tester, pushGranted: true, pushRegister: const FailureResult(ServerUnavailableFailure()));
+    expect(appCards.registeredTokens, ['t']);
+    appCards.writeResult = const Success(null);
+
+    await returnFromBackground(tester);
+
+    expect(appCards.registeredTokens, ['t', 't']);
   });
 
   // 관문이 끝나지 않은 계정은 대화 조회가 403 일 수 있다 — 앱 루트가 현재 관문 값을 넘기는지 본다.

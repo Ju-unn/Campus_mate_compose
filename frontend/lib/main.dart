@@ -162,10 +162,19 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   }
 
   /// 백그라운드에서 돌아오면 ① 업데이트가 필요한지 다시 묻고(오래 켜 둔 앱이 그 사이 정해진 최소 버전에 걸릴 수 있다 —
-  /// 로그인 여부와 상관없어 [refreshOnResume] 의 로그인·관문 가드 밖에서 부른다) ② 대화·수락 대기를 다시 읽는다.
+  /// 로그인 여부와 상관없어 [refreshOnResume] 의 로그인·관문 가드 밖에서 부른다) ② 대화·수락 대기를 다시 읽고
+  /// ③ 실패했던 알림 토큰 등록을 다시 보낸다.
   void _onResume() {
     ref.invalidate(updateRequirementProvider);
     _refreshChatsOnResume();
+    _retryPushOnResume();
+  }
+
+  /// 서버 · 시스템 문제로 실패한 알림 토큰 등록을 다시 보낸다(1.0.7 #10). [_startPush] 를 지난 세션만 — 그 전에는 registrar 를 만들지 않는다.
+  void _retryPushOnResume() {
+    if (_pushSubscriptions.isNotEmpty) {
+      unawaited(ref.read(pushRegistrarProvider).retry());
+    }
   }
 
   /// 어느 탭에 있든 돌아오면 대화 목록·수락 대기를 다시 읽는다. 로그아웃·관문 미완료 가드는 함수 안에 있다.
