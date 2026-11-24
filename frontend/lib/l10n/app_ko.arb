@@ -451,7 +451,6 @@
   "errorPhotoRejected": "{count}장은 얼굴이 보이지 않아 빠졌어요",
   "@errorPhotoRejected": {"placeholders": {"count": {"type": "int"}}},
   "errorPhotoUnreadable": "사진을 다시 확인해 주세요",
-  "errorPollDailyLimit": "오늘은 질문을 더 올릴 수 없어요",
   "errorRateLimited": "너무 많이 시도했어요. 잠시 후 다시 시도해 주세요",
   "errorReportLimited": "오늘은 더 신고할 수 없어요",
   "errorSaveFailed": "저장하지 못했어요. 잠시 후 다시 시도해 주세요",

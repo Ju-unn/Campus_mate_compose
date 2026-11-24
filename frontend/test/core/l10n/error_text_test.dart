@@ -49,7 +49,6 @@ void main() {
     (const AppErrorFailure(AppError.friendCodeTryLater), '잠시 후 다시 시도해 주세요.'),
     (const AppErrorFailure(AppError.friendReviewAlreadyWritten), '이미 리뷰를 남겼어요'),
     (const AppErrorFailure(AppError.reportLimited), '오늘은 더 신고할 수 없어요'),
-    (const AppErrorFailure(AppError.pollDailyLimit), '오늘은 질문을 더 올릴 수 없어요'),
     (const AppErrorFailure(AppError.chatGateOver), '응답 기한이 지나 이 대화는 종료됐어요'),
     (const AppErrorFailure(AppError.nicknameInvalid), '한글 또는 영문 2~5자로 입력해 주세요'),
     (const AppErrorFailure(AppError.nicknameTaken), '이미 있는 닉네임이에요'),
