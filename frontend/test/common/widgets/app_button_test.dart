@@ -370,4 +370,38 @@ void main() {
       expect(tapped, isFalse);
     });
   });
+
+  // 대장 판정 6(11-24): 보낸 신청 [프로필 보기] (pen INViw `sQbNH` · H75rq `Q8YrHc`) · 거절한 카드 줄 버튼(pdOvf `c5gTV` · `tFflF`)은
+  // 손으로 그린 44 · 모서리 8 · 18/700 lh1.2 ls-0.18 — 따로 버튼을 만들지 않고 AppButton 의 작은 크기로 그린다.
+  group('AppButton 작은 크기(small)', () {
+    testWidgets('높이 44 · 모서리 8 · 라벨 18/700 lh1.2 ls-0.18 이다', (tester) async {
+      final style = await styleOf(tester, AppButton(label: '프로필 보기', onPressed: () {}, size: AppButtonSize.small));
+
+      expect(style.minimumSize?.resolve({})?.height, 44);
+      expect(style.maximumSize?.resolve({})?.height, 44);
+      final shape = style.shape?.resolve({}) as RoundedRectangleBorder;
+      expect(shape.borderRadius, BorderRadius.circular(8));
+      final label = tester.widget<Text>(find.text('프로필 보기')).style!;
+      expect(label.fontSize, 18);
+      expect(label.fontWeight, FontWeight.w700);
+      expect(label.height, 1.2);
+      expect(label.letterSpacing, closeTo(-0.18, 0.001));
+      expect(tester.getSize(find.byType(AppButton)).height, 44);
+    });
+
+    testWidgets('채움 · 글자 색은 변형이 정한다 — primary 는 #FF385C 위 흰 글자', (tester) async {
+      final style = await styleOf(tester, AppButton(label: '프로필 보기', onPressed: () {}, size: AppButtonSize.small));
+
+      expect(style.backgroundColor?.resolve({}), AppColors.primary);
+      expect(style.foregroundColor?.resolve({}), AppColors.onPrimary);
+    });
+
+    testWidgets('기본 크기는 지금 모양 그대로다(52 · 모서리 14 · 16/700)', (tester) async {
+      final style = await styleOf(tester, AppButton(label: '다음으로', onPressed: () {}));
+
+      expect(style.minimumSize?.resolve({})?.height, 52);
+      expect((style.shape?.resolve({}) as RoundedRectangleBorder).borderRadius, BorderRadius.circular(14));
+      expect(tester.widget<Text>(find.text('다음으로')).style?.fontSize, 16);
+    });
+  });
 }
