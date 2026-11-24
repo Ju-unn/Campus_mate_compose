@@ -1141,6 +1141,7 @@ void main() {
       final before = tester.getRect(find.byType(NoticeBanner));
       expect(before.top - tabsBottom, 12);
       expect(find.descendant(of: find.byType(ListView), matching: find.byType(NoticeBanner)), findsNothing);
+      expect(find.byKey(const ValueKey('p0')), findsOneWidget);
 
       await tester.drag(find.byType(ListView), const Offset(0, -5000));
       await tester.pumpAndSettle();
