@@ -15,7 +15,6 @@ import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 학과·학번을 직접 입력받는 화면 (DESIGN.md 화면 3c, pen 03c 화면 `B9Hu7`).
@@ -126,10 +125,14 @@ class _SchoolInfoForm extends StatelessWidget {
       _LabeledTextField(
         label: context.l10n.authSchoolInfoStudentNumberLabel,
         placeholder: context.l10n.authSchoolInfoStudentNumberPlaceholder,
+        helper: context.l10n.authSchoolInfoStudentNumberHelper,
+        error: switch (state.studentNumberError) {
+          final failure? => context.errorText(failure),
+          null => null,
+        },
         initialValue: state.studentNumberInput,
         onChanged: viewModel.changeStudentNumber,
         keyboardType: TextInputType.number,
-        inputFormatters: studentNumberInputFormatters,
       ),
       const SizedBox(height: AppSpacing.sm),
       InfoNote(icon: AppIcons.eye, text: context.l10n.authSchoolInfoPublicNote),
@@ -140,12 +143,6 @@ class _SchoolInfoForm extends StatelessWidget {
     ];
   }
 }
-
-/// 학번은 숫자만 받고 3자리에서 끊는다(2026-11-02 앱 1.0.1) — 서버 규칙 `[0-9]{1,3}` 과 같다.
-final studentNumberInputFormatters = <TextInputFormatter>[
-  FilteringTextInputFormatter.digitsOnly,
-  LengthLimitingTextInputFormatter(3),
-];
 
 /// 읽기 전용 학교 확인 행 — [원 40 · 3D 졸업모 22 | 학교 로고 + 학교명 | "확인됨" 뱃지] (§9 3c, pen 03c 화면 `B9Hu7` 학교 줄
 /// 328×68 · 안쪽 14 · surface-soft · 모서리 14, 대장 전달 값). 종전의 "학교" 작은 글자 줄은 pen 에 없어 뺐다.
@@ -233,16 +230,22 @@ class _LabeledTextField extends StatelessWidget {
     required this.placeholder,
     required this.initialValue,
     required this.onChanged,
+    this.helper,
+    this.error,
     this.keyboardType,
-    this.inputFormatters,
   });
 
   final String label;
   final String placeholder;
+
+  /// 칸 바로 아래 회색 도움말 한 줄 — 공용 `LabeledField.helper` 와 같은 caption · muted, 간격 0(pen 04-1 MLJum·EKXNe).
+  final String? helper;
+
+  /// 도움말 자리에 대신 뜨는 오류 한 줄(caption · error). 학번 칸만 쓴다 — 잘라 내지 않고 이 안내로 막는다(사용자 결정 11-24).
+  final String? error;
   final String initialValue;
   final ValueChanged<String> onChanged;
   final TextInputType? keyboardType;
-  final List<TextInputFormatter>? inputFormatters;
 
   @override
   Widget build(BuildContext context) {
@@ -252,6 +255,10 @@ class _LabeledTextField extends StatelessWidget {
         Text(label, style: AppTypography.labelSmall.copyWith(color: AppColors.body)),
         const SizedBox(height: AppSpacing.xs),
         _field(),
+        if (error case final message?)
+          Text(message, style: AppTypography.caption.copyWith(color: AppColors.error))
+        else if (helper case final text?)
+          Text(text, style: AppTypography.caption.copyWith(color: AppColors.muted)),
       ],
     );
   }
@@ -275,7 +282,6 @@ class _LabeledTextField extends StatelessWidget {
       initialValue: initialValue,
       onChanged: onChanged,
       keyboardType: keyboardType,
-      inputFormatters: inputFormatters,
       style: AppTypography.body.copyWith(color: AppColors.ink),
       decoration: InputDecoration(
         isDense: true,
