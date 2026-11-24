@@ -52,7 +52,7 @@ async def run_chat_gate(repo: ChatRepository, push_repo: CardRepository, sender:
     ① 양쪽 다 수락했는데 도장이 빠진 매칭에 trust_passed_at 기록(기한과 상관없이, 백로그 16)
     ② 리마인드 창(24시간 뒤) · 마지막 알림 창(마감 3시간 전)에 걸렸고 아직 수락하지 않은 사람에게 trust_reminder 푸시
        — 마지막 알림 수는 로그에만 남긴다(응답 dict 는 그대로)
-    ③ 48시간을 넘겼고 아직 통과하지 않은 매칭에 chat_closed_at 기록
+    ③ 마감(매칭 72시간 뒤, gate.GATE_DEADLINE)을 넘겼고 아직 통과하지 않은 매칭에 chat_closed_at 기록
 
     셋 다 **한쪽이라도 나간 매칭은 건너뛴다**(결정 7·11). 거절은 곧 나가기라서, 닫아 봐야
     남은 사람의 기록만 목록에서 감춰진다. **한쪽이라도 정지된 매칭도 통째로 건너뛴다**(조각 6) —
@@ -126,7 +126,7 @@ async def run_chat_gate_batch(
     )
 
     key = settings.supabase_service_role_key
-    # 48시간 마감으로 닫히는 방을 두 사람의 목록에서 바로 빼려고 실시간 이벤트를 쏜다(close_chat).
+    # 마감으로 닫히는 방을 두 사람의 목록에서 바로 빼려고 실시간 이벤트를 쏜다(close_chat).
     # Realtime 이 죽었으면 첫 실패 뒤 나머지 방은 건너뛴다 — 방마다 제한시간을 기다리지 않는다. 앱은 목록 새로고침이 메운다.
     repo = ChatRepository(settings.postgrest_url, key, client,
                           broadcaster=Broadcaster(settings.supabase_url, key, client, give_up_after_failure=True))
