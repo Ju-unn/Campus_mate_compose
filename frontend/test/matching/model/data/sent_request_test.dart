@@ -68,4 +68,14 @@ void main() {
       expect(request.opensChat, isFalse, reason: wire);
     }
   });
+
+  // 25-C h41Epx: 기다리는 줄(INViw) · 거절된 줄(H75rq, 대장 판정 1)에만 [프로필 보기]. 매칭됨 · 만료됨은 없다.
+  test('기다림 · 거절됨만 프로필 보기가 있다', () {
+    final cases = {'waiting': true, 'rejected': true, 'matched': false, 'expired': false};
+    for (final MapEntry(key: wire, value: expected) in cases.entries) {
+      final request = SentRequest.fromJson(sentJson(status: wire, daysLeft: wire == 'waiting' ? 3 : null));
+
+      expect(request.opensProfile, expected, reason: wire);
+    }
+  });
 }

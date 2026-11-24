@@ -66,21 +66,32 @@ void main() {
     expect(button.variant, AppButtonVariant.primary);
   });
 
+  // 대장 판정 16-3: 받은 신청 줄 버튼(pen SFzLW)도 보낸 신청 INViw 와 같은 손그림 44 · 모서리 8 · 18/700 — AppButton 작은 크기.
+  testWidgets('"프로필 보기" 는 AppButton 작은 크기(44 · 모서리 8 · 18/700)다', (tester) async {
+    await pump(tester);
+
+    expect(tester.widget<AppButton>(find.byType(AppButton)).size, AppButtonSize.small);
+    final style = tester.widget<ElevatedButton>(find.byType(ElevatedButton)).style!;
+    expect((style.shape?.resolve({}) as RoundedRectangleBorder).borderRadius, BorderRadius.circular(8));
+    final label = tester.widget<Text>(find.text('프로필 보기')).style!;
+    expect((label.fontSize, label.fontWeight), (18.0, FontWeight.w700));
+  });
+
   // 행 높이 130(pen `wwfFX`)은 Pretendard 기준이다 — 시험 글꼴은 글자 줄 높이가 달라 숫자 대신 짜임을 본다:
-  // 위 12 · 정보 줄 · 8 · 버튼 44 · 아래 12. 종전 두 버튼 줄도 높이 44 라 행 높이는 바뀌지 않는다.
-  testWidgets('"프로필 보기" 는 행 안쪽 폭 전체 × 44, 정보 줄 아래 8 · 행 아래 12 — 행 짜임(높이) 그대로', (tester) async {
+  // 위 12 · 정보 줄 · 8 · 버튼 44 · 아래 12.
+  testWidgets('"프로필 보기" 는 행 안쪽 폭 전체 × 44, 정보 줄 아래 8 · 행 아래 12', (tester) async {
     await pump(tester);
 
     final row = tester.getRect(find.byType(AcceptanceRow));
-    // 보이는 버튼 = ElevatedButton 의 Material(누르는 칸은 위아래 2씩 더 큰 48 — 종전 두 버튼 줄과 같다).
+    // 보이는 버튼 = ElevatedButton 의 Material. 작은 크기는 누르는 칸도 44 라 보이지 않는 위아래 2 가 없다(옛 값 10 · 14).
     final button = tester.getRect(find.descendant(of: find.byType(AppButton), matching: find.byType(Material)).first);
     // 정보 줄 = 아바타 44 와 이름 · 학교 두 줄을 담은 Row(아바타는 그 안에서 세로 가운데).
     final info = tester.getRect(find.ancestor(of: find.byType(RowAvatar), matching: find.byType(Row)).first);
     expect(button.width, row.width - 24);
     expect(button.left, row.left + 12);
     expect(button.height, 44);
-    expect(button.top - info.bottom, 8 + 2);
-    expect(row.bottom - button.bottom, 12 + 2);
+    expect(button.top - info.bottom, 8);
+    expect(row.bottom - button.bottom, 12);
     expect(info.top - row.top, 12);
   });
 

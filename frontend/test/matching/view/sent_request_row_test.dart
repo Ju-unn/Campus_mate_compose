@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/university_logos.dart';
+import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -31,13 +32,15 @@ SentRequest _request(
 void main() {
   final opened = <String>[];
   var waitingTaps = 0;
+  final profileOpened = <String>[];
 
   setUp(() {
     opened.clear();
     waitingTaps = 0;
+    profileOpened.clear();
   });
 
-  Future<void> pump(WidgetTester tester, SentRequest request, {double width = 328}) async {
+  Future<void> pump(WidgetTester tester, SentRequest request, {double width = 328, bool withProfile = false}) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [universityLogosProvider.overrideWith((ref) => const <String, String>{})],
@@ -49,7 +52,12 @@ void main() {
               alignment: Alignment.topLeft,
               child: SizedBox(
                 width: width,
-                child: SentRequestRow(request: request, onOpenChat: opened.add, onWaitingTap: () => waitingTaps++),
+                child: SentRequestRow(
+                  request: request,
+                  onOpenChat: opened.add,
+                  onWaitingTap: () => waitingTaps++,
+                  onViewProfile: withProfile ? profileOpened.add : null,
+                ),
               ),
             ),
           ),
@@ -308,4 +316,61 @@ void main() {
       });
     }
   }
+
+  // 25-C h41Epx(대장 판정 1 · 6, 16-1): 기다리는 줄 INViw · 거절된 줄 H75rq 모두 줄 → 8 → 버튼 → 아래 12 = 136
+  // (INViw 는 pen 에 아래 여백이 없지만 대장 판정 16-1 로 H75rq 와 같게 12). 버튼은 AppButton 작은 크기(44 · 모서리 8 · 18/700).
+  group('[프로필 보기] 버튼', () {
+    for (final (request, height) in [
+      (_request(SentRequestStatus.waiting, daysLeft: 3), 136.0),
+      (_request(SentRequestStatus.rejected), 136.0),
+    ]) {
+      testWidgets('${request.status.name}: 줄 아래 8 에 폭 꽉 44 버튼, 전체 높이 $height', (tester) async {
+        await pump(tester, request, withProfile: true);
+
+        final whole = tester.getRect(find.byType(SentRequestRow));
+        expect(whole.height, height);
+        final button = find.widgetWithText(AppButton, '프로필 보기');
+        expect(tester.widget<AppButton>(button).size, AppButtonSize.small);
+        expect(tester.widget<AppButton>(button).variant, AppButtonVariant.primary);
+        expect(tester.getRect(button), Rect.fromLTWH(whole.left, whole.top + 80, 328, 44));
+      });
+
+      testWidgets('${request.status.name}: 버튼을 누르면 그 카드의 프로필을 연다', (tester) async {
+        await pump(tester, request, withProfile: true);
+
+        await tester.tap(find.text('프로필 보기'));
+
+        expect(profileOpened, ['card-1']);
+        expect(opened, isEmpty);
+        expect(waitingTaps, 0);
+      });
+    }
+
+    for (final request in [_request(SentRequestStatus.matched, matchId: 'm-1'), _request(SentRequestStatus.expired)]) {
+      testWidgets('${request.status.name}: 버튼이 없고 줄은 72 그대로다', (tester) async {
+        await pump(tester, request, withProfile: true);
+
+        expect(find.text('프로필 보기'), findsNothing);
+        expect(tester.getSize(find.byType(SentRequestRow)).height, 72);
+      });
+    }
+
+    testWidgets('기다리는 줄: 버튼 위 줄을 누르면 지금처럼 안내만 부른다', (tester) async {
+      await pump(tester, _request(SentRequestStatus.waiting, daysLeft: 3), withProfile: true);
+
+      await tester.tap(find.text('여우비, 23'));
+
+      expect(waitingTaps, 1);
+      expect(profileOpened, isEmpty);
+    });
+
+    testWidgets('글자 배율 2.0 · 거절됨: 줄 · 버튼이 넘치지 않는다', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      await pump(tester, _request(SentRequestStatus.rejected), withProfile: true);
+
+      expect(tester.takeException(), isNull);
+    });
+  });
 }

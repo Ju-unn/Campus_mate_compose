@@ -61,6 +61,9 @@ abstract final class AppRoutes {
 
   /// 받은 신청 · 프로필 보기(pen `o4QqYR`, 2026-10-16) — 대화 탭 받은 신청 행의 "프로필 보기" 가 push 로 연다. `/acceptances/:cardId`
   static const String acceptanceDetail = '/acceptances';
+
+  /// 보낸 신청 · 프로필 보기(읽기 전용, pen ig7i2, 1.0.7 #16) — 대화 탭 보낸 신청 줄의 [프로필 보기] 가 push 로 연다. `/sent-requests/:cardId`
+  static const String sentRequestProfile = '/sent-requests';
   static const String settings = '/settings';
   static const String notificationSettings = '/settings/notifications';
 

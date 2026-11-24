@@ -41,6 +41,7 @@ import 'package:campus_mate/matching/view/card_detail_screen.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/matching/view/match_made_screen.dart';
 import 'package:campus_mate/matching/view/notification_settings_screen.dart';
+import 'package:campus_mate/matching/view/read_only_profile_screen.dart';
 import 'package:campus_mate/matching/view/settings_screen.dart';
 import 'package:campus_mate/matching/view/today_cards_screen.dart';
 import 'package:campus_mate/me/view/basic_info_edit_screen.dart';
@@ -275,6 +276,15 @@ abstract final class AppRouter {
         path: '${AppRoutes.acceptanceDetail}/:cardId',
         redirect: _uuidOr('cardId', AppRoutes.conversations),
         builder: (context, state) => AcceptanceDetailScreen(cardId: state.pathParameters['cardId']!),
+      ),
+      // 보낸 신청 · 프로필 보기(읽기 전용, pen ig7i2) — 대화 탭 보낸 신청 줄의 [프로필 보기] 가 push 로 연다.
+      _PlatformRoute(
+        path: '${AppRoutes.sentRequestProfile}/:cardId',
+        redirect: _uuidOr('cardId', AppRoutes.conversations),
+        builder: (context, state) => ReadOnlyProfileScreen(
+          cardId: state.pathParameters['cardId']!,
+          title: context.l10n.matchingConversationsSentSection,
+        ),
       ),
       _PlatformRoute(
         path: AppRoutes.matchMade,
