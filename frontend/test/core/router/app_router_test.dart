@@ -60,6 +60,7 @@ import 'package:campus_mate/matching/model/repository/card_repository_provider.d
 import 'package:campus_mate/matching/view/acceptance_detail_screen.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/matching/view/match_made_screen.dart';
+import 'package:campus_mate/matching/view/read_only_profile_screen.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/view/avatar_regen_pick_screen.dart';
@@ -658,6 +659,18 @@ void main() {
       expect(tester.widget<AcceptanceDetailScreen>(find.byType(AcceptanceDetailScreen)).cardId, _cardId);
     });
 
+    testWidgets('/sent-requests/:cardId 는 그 보낸 신청의 읽기 전용 프로필(pen ig7i2, 제목 "보낸 신청")이다', (tester) async {
+      final router = await pumpRouter(tester);
+
+      router.go('${AppRoutes.sentRequestProfile}/$_cardId');
+      await tester.pumpAndSettle();
+
+      final screen = tester.widget<ReadOnlyProfileScreen>(find.byType(ReadOnlyProfileScreen));
+      expect(screen.cardId, _cardId);
+      expect(screen.title, '보낸 신청');
+      expect(screen.bottomAction, isNull);
+    });
+
     testWidgets('/profiles/:profileId 는 그 사람의 14c 상대 프로필이다', (tester) async {
       final router = await pumpRouter(tester);
 
@@ -673,6 +686,7 @@ void main() {
       ('${AppRoutes.chatRoom}/m1', AppRoutes.conversations),
       ('${AppRoutes.cardDetail}/card-1', AppRoutes.today),
       ('${AppRoutes.acceptanceDetail}/card-7', AppRoutes.conversations),
+      ('${AppRoutes.sentRequestProfile}/card-8', AppRoutes.conversations),
       ('${AppRoutes.partnerProfile}/p2', AppRoutes.home),
       ('${AppRoutes.partnerProfile}/${_profileId}x', AppRoutes.home),
       ('${AppRoutes.communityPoll}/p1', AppRoutes.community),
