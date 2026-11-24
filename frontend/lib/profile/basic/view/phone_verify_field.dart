@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/phone_number_formatter.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/text_action_button.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -65,7 +66,7 @@ class PhoneVerifyField extends StatelessWidget {
             const SizedBox(width: AppSpacing.xs),
             if (isVerified)
               // Change Button(UqCmR 변형) 52 높이 · 안쪽 [0,12] · primary-text.
-              _TextAction(
+              TextActionButton(
                 label: l10n.profileBasicInfoPhoneChange,
                 color: AppColors.primaryText,
                 height: 52,
@@ -166,7 +167,7 @@ class OtpEntryRow extends StatelessWidget {
           HintLine(l10n.profileBasicInfoCodeHint),
         const SizedBox(height: AppSpacing.xs),
         // Resend(UqCmR 변형) 48 높이 · 안쪽 0 · 왼쪽 정렬. 기다리는 동안 회색 "m:ss 뒤 다시 받기", 되면 분홍 "다시 받기".
-        _TextAction(
+        TextActionButton(
           label: phone.resendSecondsLeft > 0
               ? l10n.profileBasicInfoCodeResendIn(time: _clock(phone.resendSecondsLeft))
               : l10n.profileBasicInfoCodeResend,
@@ -337,51 +338,6 @@ class _StatusLine extends StatelessWidget {
           const SizedBox(width: AppSpacing.xxs),
           Flexible(child: Text(text, style: AppTypography.caption.copyWith(color: color))),
         ],
-      ),
-    );
-  }
-}
-
-/// 글자 버튼(datingApp.pen TextButton `UqCmR`: 14/600, 채움 · 밑줄 · 아이콘 없음). 높이 · 안쪽 여백 · 색은 쓰는 자리의 pen 인스턴스 값이다
-/// — "번호 바꾸기" 52 · [0,12], "다시 받기" 48 · 0. 꺼지면([onPressed] null) 눌리지 않고 부른 쪽이 회색을 준다.
-/// 공용 `MutedTextButton`(muted 고정 · 늘 켜짐)과 AppButton text 변형(16/600)이 이 모양과 달라 이 화면 안에 둔다.
-class _TextAction extends StatelessWidget {
-  const _TextAction({
-    required this.label,
-    required this.color,
-    required this.height,
-    required this.horizontalPadding,
-    required this.onPressed,
-  });
-
-  final String label;
-  final Color color;
-  final double height;
-  final double horizontalPadding;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      enabled: onPressed != null,
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(AppRadius.sm),
-          // 높이는 최소값만 건다 — 글자를 키우면 버튼이 따라 커진다.
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: height),
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-              child: Center(
-                widthFactor: 1,
-                child: Text(label, style: AppTypography.labelSmall.copyWith(color: color)),
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }

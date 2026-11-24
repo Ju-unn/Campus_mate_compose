@@ -45,5 +45,10 @@ class SchoolInfoUiState {
   /// 화면 전환은 라우터가 게이트 변화로 처리한다(Task A10).
   final bool completed;
 
+  /// 학번 칸 아래 안내. 비었으면 아직 안 친 것이라 없고, 쳤는데 2자리 숫자가 아니면 15-6 과 같은 안내다.
+  Failure? get studentNumberError => studentNumberInput.isNotEmpty && studentNumber == null
+      ? const AppErrorFailure(AppError.studentNumberInvalid)
+      : null;
+
   bool get canSubmit => department != null && studentNumber != null && !isSubmitting;
 }

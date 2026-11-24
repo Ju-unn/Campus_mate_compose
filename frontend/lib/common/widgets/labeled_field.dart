@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/widgets/field_error_line.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -86,7 +87,7 @@ class LabeledField extends StatelessWidget {
           ),
         ),
         if (errorText != null)
-          _note(const Icon(AppIcons.circleAlert, size: 14, color: AppColors.error), AppColors.error, errorText!)
+          FieldErrorLine(errorText!)
         else if (pendingText != null)
           _note(_spinner, AppColors.muted, pendingText!)
         else if (successText != null)

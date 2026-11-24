@@ -104,12 +104,14 @@ class AuthRedirect {
 
   /// 관문 하나가 화면 둘인 경우(학교 메일 02 → 03) 둘째 화면도 그 관문으로 본다.
   /// 인증을 마쳐 관문이 바뀌면 02 · 03 둘 다 다음 관문으로 밀려나 다시 돌아오지 못한다.
+  /// 학교 메일 관문은 문의하기도 연다 — 02 미등록 학교 안내의 "학교 추가 요청하기"(pen RrfFX, 대장 판정 11-24 ①).
+  /// 서버 POST /inquiries 는 로그인만 본다(가입 중도 보낸다).
   bool _isOnGate(String location, String gateTarget) {
     if (location == gateTarget) {
       return true;
     }
     final isEmailGate = _gate == VerificationGate.needsSchoolEmail || _gate == VerificationGate.needsSchoolEmailChosen;
-    return isEmailGate && location == AppRoutes.verifyCode;
+    return isEmailGate && (location == AppRoutes.verifyCode || location == AppRoutes.inquiry);
   }
 
   /// 아직 끝내지 못한 온보딩 화면. 모두 끝냈으면 null.

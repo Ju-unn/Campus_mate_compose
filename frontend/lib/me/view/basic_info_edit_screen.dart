@@ -24,9 +24,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 /// 15-6 기본 정보 수정(pen `mhdYA` · 15-6-2 `ZuPTD`, 계획서 2026-09-28-me-profile.md A16 · 2026-10-10 확대). 15-5 [내 프로필 수정] 줄(`oaIwg`, 1.0.7 #17 — 옛 "수정 ›" `A8LX2`)이 연다.
-/// 닉네임 → 16 → 키 → "바꿀 수 있는 정보"(내 MBTI · 종교 · 흡연 · 내 동물상 · 내 인상, 구역 사이 24) →
-/// "바꿀 수 없는 정보"(출생연도 · 성별 · 학과 잠금 행) → "저장". 저장하면 `true` 를 돌려주며 15-5 로 돌아간다 — 15-5 가
-/// "저장했어요" 를 띄운다(B4). 실명 · 전화번호 · 학번은 나오지 않는다(서버가 내려 주지 않는다).
+/// 닉네임 → 16 → 키 → 16 → 학부 입학 학번(pen 시안 `x1mvAB`, 11-24 사용자 UI 승인) → "바꿀 수 있는 정보"(내 MBTI · 종교 · 흡연 ·
+/// 내 동물상 · 내 인상, 구역 사이 24) → "바꿀 수 없는 정보"(출생연도 · 성별 · 학과 잠금 행) → "저장". 저장하면 `true` 를 돌려주며
+/// 15-5 로 돌아간다 — 15-5 가 "저장했어요" 를 띄운다(B4). 실명 · 전화번호는 나오지 않는다(서버가 내려 주지 않는다).
 class BasicInfoEditScreen extends ConsumerStatefulWidget {
   const BasicInfoEditScreen({super.key});
 
@@ -40,6 +40,8 @@ class _BasicInfoEditScreenState extends ConsumerState<BasicInfoEditScreen> {
       TextEditingController(text: ref.read(basicInfoEditViewModelProvider).nicknameInput);
   late final TextEditingController _height =
       TextEditingController(text: ref.read(basicInfoEditViewModelProvider).heightInput);
+  late final TextEditingController _studentNumber =
+      TextEditingController(text: ref.read(basicInfoEditViewModelProvider).studentNumberInput);
 
   /// 닉네임을 실제로 바꿀 때만 저장 전에 한 번 묻는다 — 바꾸면 30일 동안 다시 못 바꾼다
   /// (대장 전달 2026-11-16, 공용 확인 팝업 일반 변형). 다른 칸만 바꿨으면 묻지 않고 바로 저장한다.
@@ -64,6 +66,7 @@ class _BasicInfoEditScreenState extends ConsumerState<BasicInfoEditScreen> {
   void dispose() {
     _nickname.dispose();
     _height.dispose();
+    _studentNumber.dispose();
     super.dispose();
   }
 
@@ -114,6 +117,20 @@ class _BasicInfoEditScreenState extends ConsumerState<BasicInfoEditScreen> {
                         null => null,
                       },
                     ),
+                    const SizedBox(height: AppSpacing.md),
+                    // 3c 와 같은 2자리 검사. 잘라 내거나 걸러 내지 않고(조용히 고쳐 쓰지 않게) 안내로 막는다 — 옛 값(4 · 7 · 8자리)은
+                    // 그대로 보이고, 고친 때만 안내가 뜬다(사용자 결정 11-24).
+                    _InputField(
+                      label: context.l10n.meBasicStudentNumberLabel,
+                      placeholder: context.l10n.meBasicStudentNumberPlaceholder,
+                      controller: _studentNumber,
+                      onChanged: viewModel.changeStudentNumber,
+                      isSaving: state.isSubmitting,
+                      hasError: state.studentNumberError != null,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: const [],
+                      note: _studentNumberNote(context, state),
+                    ),
                     const SizedBox(height: AppSpacing.lg),
                     _EditSections(state: state, viewModel: viewModel),
                     _LockedSection(state: state),
@@ -162,6 +179,20 @@ class _BasicInfoEditScreenState extends ConsumerState<BasicInfoEditScreen> {
       text: l10n.meBasicNicknameRule,
     );
   }
+
+  /// 학번 칸 아래 한 줄 — 오류 > 평소 안내(pen `H37ivG` 글자만 12/400 muted, 칸 아래 6).
+  static Widget _studentNumberNote(BuildContext context, BasicInfoEditUiState state) {
+    if (state.studentNumberError case final failure?) {
+      return _FieldNote.error(context.errorText(failure));
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: _studentNumberHelperGap),
+      child: Text(context.l10n.authSchoolInfoStudentNumberHelper, style: _noteStyle.copyWith(color: AppColors.muted)),
+    );
+  }
+
+  /// pen `NzQNa` 세로 gap 6 — 간격 토큰(4 · 8) 사이 값.
+  static const double _studentNumberHelperGap = 6;
 
   /// 04-1 확인 중 표식(`LabeledField`)과 같은 14 · 선 2 의 도는 원.
   static const Widget _spinner = _Spinner14(color: AppColors.muted);
@@ -343,6 +374,7 @@ class _InputField extends StatelessWidget {
     this.isLocked = false,
     this.isSaving = false,
     this.keyboardType,
+    this.placeholder,
     this.note,
   });
 
@@ -357,6 +389,9 @@ class _InputField extends StatelessWidget {
   /// 칸을 막는다).
   final bool isSaving;
   final TextInputType? keyboardType;
+
+  /// 빈 칸 자리표시(`p3T9Jb` muted — `LabeledField` 와 같은 색). 학번 칸만 쓴다.
+  final String? placeholder;
   final Widget? note;
 
   /// 상자 `TDM1r` 높이(최소값).
@@ -379,6 +414,8 @@ class _InputField extends StatelessWidget {
           inputFormatters: inputFormatters,
           style: _valueStyle.copyWith(color: isLocked ? AppColors.disabled : AppColors.ink),
           decoration: InputDecoration(
+            hintText: placeholder,
+            hintStyle: _valueStyle.copyWith(color: AppColors.muted),
             filled: true,
             fillColor: AppColors.surfaceSoft,
             constraints: const BoxConstraints(minHeight: _boxHeight),

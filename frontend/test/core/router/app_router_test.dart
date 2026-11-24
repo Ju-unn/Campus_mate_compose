@@ -1064,6 +1064,8 @@ void main() {
           notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
           faqRepositoryProvider.overrideWithValue(FakeFaqRepository(const Success(faqFixture))),
           faqCacheProvider.overrideWithValue(FakeFaqCache()),
+          // 02 → 문의하기(21a) — 답장 메일 칸 초기값은 비운다(실제 계정 메일을 읽지 않게).
+          inquiryAccountEmailProvider.overrideWithValue(null),
         ],
       );
       addTearDown(container.dispose);
@@ -1588,6 +1590,22 @@ void main() {
       expect(find.byType(VerifyCodeScreen), findsNothing);
       expect(find.text('한 번 더 누르면 종료돼요'), findsNothing);
       expect(exitCalls, 0);
+    });
+
+    // 02 미등록 학교 안내의 "학교 추가 요청하기"(pen RrfFX eshx0) — 학교 메일 관문에서도 문의하기가 열리고, 뒤로 하면 02 로 온다.
+    testWidgets('학교 메일 관문: 02 → 문의하기 push → 뒤로 → 02', (tester) async {
+      final router = await pumpMember(tester, gate: VerificationGate.needsSchoolEmail);
+      expect(find.byType(SignUpScreen), findsOneWidget);
+
+      unawaited(router.push(AppRoutes.inquiry));
+      await tester.pumpAndSettle();
+      expect(find.byType(InquiryScreen), findsOneWidget);
+      expect(find.byType(SignUpScreen), findsNothing);
+
+      await tester.tap(find.byTooltip('뒤로'));
+      await tester.pumpAndSettle();
+      expect(find.byType(SignUpScreen), findsOneWidget);
+      expect(find.byType(InquiryScreen), findsNothing);
     });
 
     testWidgets('메일(extra) 없이 03 으로 가면 02 로 돌려보낸다(_verifyCodeGuard)', (tester) async {
