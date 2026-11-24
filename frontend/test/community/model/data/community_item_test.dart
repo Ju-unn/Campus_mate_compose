@@ -127,17 +127,19 @@ void main() {
   });
 
   group('CommunityKind — 앱 검사는 미리 보여 주기만, 기준은 서버', () {
-    test('글자 상한: 투표 질문 80 · 게시물 본문 500 (서버 · DB 와 같다)', () {
-      expect(CommunityKind.poll.maxLength, 80);
+    test('글자 상한: 투표 질문 400 · 게시물 본문 500 (서버 · DB 와 같다, 1.0.7 사용자 「투표 400」)', () {
+      expect(CommunityKind.poll.maxLength, 400);
       expect(CommunityKind.post.maxLength, 500);
+      expect(CommunityKind.poll.accepts('가' * 400), isTrue);
+      expect(CommunityKind.poll.accepts('가' * 401), isFalse);
     });
 
     test('앞뒤 공백을 깎고 코드 포인트로 잰다', () {
       expect(CommunityKind.post.accepts('${'가' * 500}  '), isTrue);
       expect(CommunityKind.post.accepts('가' * 501), isFalse);
       // 👍🏻 = 코드 포인트 2개(서버 len 과 같다)
-      expect(CommunityKind.poll.accepts('👍🏻' * 40), isTrue);
-      expect(CommunityKind.poll.accepts('${'👍🏻' * 40}a'), isFalse);
+      expect(CommunityKind.poll.accepts('👍🏻' * 200), isTrue);
+      expect(CommunityKind.poll.accepts('${'👍🏻' * 200}a'), isFalse);
     });
 
     test('빈 글 · 공백뿐 · 0폭 문자뿐이면 받지 않는다(서버 visible 과 같은 목록)', () {
