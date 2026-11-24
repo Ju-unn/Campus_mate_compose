@@ -78,6 +78,20 @@ void main() {
     expect(find.text('대화 신청하기'), findsOneWidget);
   });
 
+  testWidgets('성향 9줄 위에 이름이 화면 순서대로 붙고 묶음 사이는 12 다(pen TraitLine `G9dS3S`)', (tester) async {
+    // 사용자 11-24 「주어가 빠져서 무엇인지 구분이 안간다」.
+    await pump(tester);
+
+    const names = ['외출', '친해지기', '계획', '연락', '표현', '술', '운동', '연애 속도', '새로움'];
+    final bars = find.byType(TraitBar);
+    for (var i = 0; i < names.length; i += 1) {
+      final name = find.descendant(of: bars.at(i), matching: find.text(names[i]));
+      expect(name, findsOneWidget, reason: names[i]);
+    }
+    final gap = tester.getTopLeft(bars.at(1)).dy - tester.getBottomLeft(bars.at(0)).dy;
+    expect(gap, 12);
+  });
+
   testWidgets('카드 맨 위(이름 줄 위)에 상대 아바타 칸이 있다(pen `TORAs` 의 `md2PT`, 사용자 결정 10-16)', (tester) async {
     await pump(tester);
 
