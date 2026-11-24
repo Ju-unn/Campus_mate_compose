@@ -7,6 +7,7 @@ import 'package:campus_mate/core/draft/draft_store.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/profile/basic/model/data/basic_info_submission.dart';
 import 'package:campus_mate/profile/basic/model/data/mbti_poles.dart';
+import 'package:campus_mate/profile/basic/model/data/nickname_availability.dart';
 import 'package:campus_mate/profile/basic/model/data/phone_code_sent.dart';
 import 'package:campus_mate/profile/basic/model/repository/basic_info_repository_provider.dart';
 import 'package:campus_mate/profile/basic/viewmodel/basic_info_ui_state.dart';
@@ -116,8 +117,7 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
       return; // 조회가 끝나기 전에 입력이 또 바뀌었으면 낡은 결과를 반영하지 않는다.
     }
     result.when(
-      onSuccess: (available) =>
-          state = _copyWith(nicknameCheck: available ? NicknameCheck.available : NicknameCheck.taken),
+      onSuccess: (answer) => state = _copyWith(nicknameCheck: BasicInfoUiState.nicknameCheckOf(answer)),
       // 확인 자체가 실패하면(네트워크) 아무 말도 하지 않는다 — 틀렸다고 단정할 근거가 없고, 제출 때 서버가 다시 본다.
       // 다만 도는 표시는 반드시 내린다. 안 내리면 "확인 중…" 이 영영 남는다.
       onFailure: (_) => state = _copyWith(nicknameCheck: NicknameCheck.none),
@@ -374,6 +374,10 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
   /// 서버 422 `phone_number_invalid` 는 버튼 위가 아니라 번호 칸 아래에 띄운다(앱 규칙에 걸린 것과 같은 자리 · 문구).
   /// 문구가 아니라 code 로 가른다 — 서버가 문구를 고쳐도 자리가 바뀌지 않게.
   BasicInfoUiState _stateFromFailure(Failure failure) {
+    // 금지어 · 연속 글자(422 code) — 버튼 위가 아니라 닉네임 칸 아래 "쓸 수 없는 닉네임이에요".
+    if (failure is ServerRejectedFailure && failure.hasCode(nicknameNotAllowedCode)) {
+      return _copyWith(isSubmitting: false, nicknameCheck: NicknameCheck.notAllowed);
+    }
     if (failure is ServerRejectedFailure && failure.hasCode(_phoneNumberInvalidCode)) {
       return _copyWith(isSubmitting: false, rejectedPhoneDigits: state.phoneDigits);
     }

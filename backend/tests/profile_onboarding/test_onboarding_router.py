@@ -157,7 +157,7 @@ def test_basic_info_rejects_duplicate_nickname_with_409():
     )
 
     assert response.status_code == 409
-    assert "닉네임" in response.json()["detail"]
+    assert response.json() == {"detail": errors.NICKNAME_TAKEN}  # 진짜 중복에는 code 가 없다
 
 
 def test_basic_info_creates_private_row_before_saving_phone():
@@ -494,8 +494,22 @@ def test_nickname_availability_says_a_junk_nickname_is_not_available(nickname):
         "/profile-onboarding/nickname-availability", headers=AUTH_HEADERS, params={"nickname": nickname}
     )
 
-    assert (response.status_code, response.json()) == (200, {"available": False})
+    assert (response.status_code, response.json()) == (200, {"available": False, "reason": "NICKNAME_NOT_ALLOWED"})
     assert [r for r in lookups if r.url.path == "/rest/v1/profiles" and "nickname" in r.url.params] == []
+
+
+def test_nickname_availability_says_a_taken_nickname_is_not_available_without_a_reason():
+    """진짜 중복은 reason 없이 available=false — 앱은 지금처럼 "이미 있는 닉네임이에요"."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/rest/v1/profiles" and "nickname" in request.url.params:
+            return httpx.Response(200, json=[{"id": "someone-else"}])
+        return httpx.Response(200, json=[])
+
+    response = _wire(handler).get(
+        "/profile-onboarding/nickname-availability", headers=AUTH_HEADERS, params={"nickname": "가나"}
+    )
+
+    assert (response.status_code, response.json()) == (200, {"available": False})
 
 
 @pytest.mark.parametrize("nickname", CASES["nickname"]["accept"])
@@ -531,7 +545,7 @@ def test_basic_info_turns_away_a_junk_nickname_before_writing(nickname):
     )
 
     assert response.status_code == 422
-    assert response.json()["detail"] == errors.NICKNAME_TAKEN
+    assert response.json() == {"detail": errors.NICKNAME_TAKEN, "code": "NICKNAME_NOT_ALLOWED"}
     assert writes == []
 
 

@@ -5,6 +5,7 @@ import 'package:campus_mate/core/http/api_client.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/profile/basic/model/data/basic_info_submission.dart';
+import 'package:campus_mate/profile/basic/model/data/nickname_availability.dart';
 import 'package:campus_mate/profile/basic/model/repository/http_basic_info_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -45,6 +46,21 @@ void main() {
     phoneNumber: '01001352468',
     gender: 'male',
   );
+
+  // 서버 계약(profile_onboarding/router.py nickname-availability): 금지어 · 연속 글자만 reason 이 붙는다.
+  for (final (reply, answer) in [
+    ({'available': true}, NicknameAvailability.available),
+    ({'available': false}, NicknameAvailability.taken), // 진짜 중복 · 옛 서버 — reason 이 없으면 지금처럼 중복
+    ({'available': false, 'reason': 'NICKNAME_NOT_ALLOWED'}, NicknameAvailability.notAllowed),
+  ]) {
+    test('닉네임 확인 $reply 는 ${answer.name}', () async {
+      nextResponse = () => http.Response(jsonEncode(reply), 200, headers: {'content-type': 'application/json'});
+
+      final result = await repository.checkNicknameAvailability('가나');
+
+      expect(result.when(onSuccess: (value) => value, onFailure: (_) => null), answer);
+    });
+  }
 
   test('번호는 숫자만 phone_number 칸에 실어 보낸다', () async {
     await repository.submit(submission);
