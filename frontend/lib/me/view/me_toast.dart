@@ -7,7 +7,7 @@ import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/widgets.dart';
 
-/// "곧 열려요" — 홈 하트 칩 "+" 처럼 갈 화면이 아직 없는 입구. 15-5 "교체" 는 15-7(A15), "수정 ›" 은 15-6(A16)으로 연결됐다.
+/// "곧 열려요" — 홈 하트 칩 "+" 처럼 갈 화면이 아직 없는 입구. 15-5 "교체" 는 15-7(A15), [내 프로필 수정] 줄은 15-6(A16)으로 연결됐다.
 AppToast comingSoonToast(AppLocalizations l10n) => AppToast(
       leading: const Icon(AppIcons.clock3, size: 16, color: AppColors.onInk),
       label: l10n.meToastComingSoon,
