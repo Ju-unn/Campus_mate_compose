@@ -7,6 +7,7 @@ import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/matching/model/data/daily_card.dart';
 import 'package:campus_mate/matching/model/repository/http_card_repository.dart';
 import 'package:campus_mate/matching/model/data/paid_card.dart';
+import 'package:campus_mate/matching/model/data/rejected_card.dart';
 import 'package:campus_mate/matching/model/data/sent_request.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -296,6 +297,120 @@ void main() {
     final outcome = result.when(onSuccess: (value) => value, onFailure: (_) => null);
     expect(outcome!.matched, isTrue);
     expect(outcome.matchId, 'm-1');
+  });
+
+  group('거절한 카드 다시 신청(1.0.7 #20)', () {
+    http.Response rejection(int status, String detail) => http.Response(
+          jsonEncode({'detail': detail}),
+          status,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+
+    test('목록은 GET /cards/rejected 를 읽어 서버 순서 그대로 올린다', () async {
+      late http.Request seen;
+      final client = MockClient((request) async {
+        seen = request;
+        return jsonResponse({
+          'rejected': [
+            {
+              'card_id': 'card-2',
+              'source': 'acceptance',
+              'rejected_at': '2026-11-21T10:00:00+00:00',
+              'expires_at': '2026-11-27T10:00:00+00:00',
+              'days_left': 3,
+              'profile': {'nickname': '여우비', 'age': 23, 'university': null, 'major': null, 'avatar_url': null},
+            },
+            {
+              'card_id': 'card-1',
+              'source': 'card',
+              'rejected_at': '2026-11-20T10:00:00+00:00',
+              'expires_at': '2026-11-27T10:00:00+00:00',
+              'days_left': 6,
+              'profile': {'nickname': '봄비', 'age': 22, 'university': '테스트대학교', 'major': null, 'avatar_url': null},
+            },
+          ],
+        });
+      });
+
+      final result = await buildRepository(client).fetchRejectedCards();
+
+      expect(seen.method, 'GET');
+      expect(seen.url.toString(), 'https://api.test/cards/rejected');
+      final cards = result.when(onSuccess: (value) => value.toList(), onFailure: (_) => null)!;
+      expect(cards.map((card) => card.cardId), ['card-2', 'card-1']);
+      expect(cards.first.source, RejectedSource.acceptance);
+      expect(cards.last.daysLeft, 6);
+    });
+
+    test('내 카드 다시 신청은 본문 없이 POST /cards/{card_id}/reapply 로 간다', () async {
+      late http.Request seen;
+      final client = MockClient((request) async {
+        seen = request;
+        return jsonResponse({'ok': true});
+      });
+
+      final result = await buildRepository(client).reapplyCard('card-1');
+
+      expect(seen.method, 'POST');
+      expect(seen.url.toString(), 'https://api.test/cards/card-1/reapply');
+      expect(seen.body, isEmpty);
+      expect(result.when(onSuccess: (_) => true, onFailure: (_) => false), isTrue);
+    });
+
+    test('받은 신청 거절 되돌리기는 POST /cards/acceptances/{card_id}/reapply 로 가고 매칭 방을 돌려준다', () async {
+      late http.Request seen;
+      final client = MockClient((request) async {
+        seen = request;
+        return jsonResponse({'matched': true, 'match_id': 'm-1'});
+      });
+
+      final result = await buildRepository(client).undoAcceptanceRejection('card-2');
+
+      expect(seen.method, 'POST');
+      expect(seen.url.toString(), 'https://api.test/cards/acceptances/card-2/reapply');
+      expect(seen.body, isEmpty);
+      final outcome = result.when(onSuccess: (value) => value, onFailure: (_) => null)!;
+      expect(outcome.matched, isTrue);
+      expect(outcome.matchId, 'm-1');
+    });
+
+    // 앱은 이 실패 종류(문구가 있는 4xx = ServerRejectedFailure)로 "서버 문구를 보이고 목록을 다시 읽기" 를 가른다 — 문구로 가르지 않는다.
+    test('다시 신청의 404 · 409 는 서버 문구를 실은 서버 거절로 온다', () async {
+      Future<Failure> failureOf(int status, String detail) async {
+        final client = MockClient((request) async => rejection(status, detail));
+        final result = await buildRepository(client).reapplyCard('card-1');
+        return result.when(onSuccess: (_) => throw StateError('성공이면 안 된다'), onFailure: (f) => f);
+      }
+
+      expect(await failureOf(404, '카드를 찾을 수 없어요'),
+          isA<ServerRejectedFailure>().having((f) => f.serverMessage, 'serverMessage', '카드를 찾을 수 없어요'));
+      expect(await failureOf(409, '이미 결정한 카드예요'),
+          isA<ServerRejectedFailure>().having((f) => f.serverMessage, 'serverMessage', '이미 결정한 카드예요'));
+    });
+
+    test('되돌리기의 404 · 409 는 서버 문구를 실은 서버 거절로 온다', () async {
+      Future<Failure> failureOf(int status, String detail) async {
+        final client = MockClient((request) async => rejection(status, detail));
+        final result = await buildRepository(client).undoAcceptanceRejection('card-2');
+        return result.when(onSuccess: (_) => throw StateError('성공이면 안 된다'), onFailure: (f) => f);
+      }
+
+      expect(await failureOf(404, '수락을 찾을 수 없어요'),
+          isA<ServerRejectedFailure>().having((f) => f.serverMessage, 'serverMessage', '수락을 찾을 수 없어요'));
+      expect(await failureOf(409, '이미 답한 수락이에요'),
+          isA<ServerRejectedFailure>().having((f) => f.serverMessage, 'serverMessage', '이미 답한 수락이에요'));
+    });
+
+    test('5xx · 끊긴 연결은 서버 거절이 아니다 — 줄을 두는 쪽으로 간다', () async {
+      final down = MockClient((request) async => http.Response('', 503));
+      final broken = MockClient((request) async => throw http.ClientException('끊김'));
+
+      final unavailable = await buildRepository(down).reapplyCard('card-1');
+      final offline = await buildRepository(broken).undoAcceptanceRejection('card-2');
+
+      expect(unavailable.when(onSuccess: (_) => null, onFailure: (f) => f), isA<ServerUnavailableFailure>());
+      expect(offline.when(onSuccess: (_) => null, onFailure: (f) => f), isA<NetworkFailure>());
+    });
   });
 
   test('보낸 신청은 GET /cards/sent 를 읽어 서버 순서 그대로 올린다', () async {
