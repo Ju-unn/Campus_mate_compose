@@ -22,9 +22,9 @@ from e2e.area2_phone import _school
 from e2e.tools import Blocked
 
 PREFIX = '[E2E] '  # area2._poll 이 붙이는 접두어와 같다 — 피드에서 시험 글을 알아보는 표시
-DAILY_LIMIT = '오늘은 질문을 더 올릴 수 없어요'  # backend errors.POLL_DAILY_LIMIT
+DAILY_LIMIT = '오늘은 글을 더 올릴 수 없어요'  # backend errors.POLL_DAILY_LIMIT
 MONTHLY_LIMIT = '이번 달에는 더 인증할 수 없어요'  # backend errors.HEART_TASK_MONTHLY_LIMIT
-THUMB = '\U0001F44D'  # 👍 — 앱이 79자 뒤에 붙이는 👍🏻 의 앞 코드 포인트(뒤 🏻 는 80 에서 잘린다)
+THUMB = '\U0001F44D'  # 👍 — 앱이 399자 뒤에 붙이는 👍🏻 의 앞 코드 포인트(뒤 🏻 는 400 에서 잘린다)
 NOTICE_SECONDS = 60  # E-HEART-09 "60초 알림 0"
 REASONS = ('date_missing', 'not_verified', 'reused')  # heart_task_reject_reason — 문구는 앱이 가진 것을 앱이 본다
 FEED_PAGE = 20
@@ -61,7 +61,7 @@ def _titled(text):
 
 
 def p_poll_01(run, phone):
-    """커뮤니티 → "질문하기" 알약 → 입력 → "익명으로 올리기". 앱이 올린 글이 DB 에 한 줄, 선택지는 기본값."""
+    """커뮤니티 → "글쓰기" 알약 → 시트 투표 → 입력 → "익명으로 올리기". 앱이 올린 글이 DB 에 한 줄, 선택지는 기본값."""
     check = Check()
     account, token = _signed_in(run, 'home')
     question = _titled('첫 질문')
@@ -95,13 +95,13 @@ def _fill_today(run, account, count):
 
 
 def _twelfth(check, run, account, label):
-    """한도에 닿은 계정의 다음 글은 429 "오늘은 질문을 더 올릴 수 없어요" 다."""
+    """한도에 닿은 계정의 다음 글은 429 "오늘은 글을 더 올릴 수 없어요" 다."""
     reply = _api(run, 'POST', '/community/polls', account['token'], {'question': f'{PREFIX}한도 확인'})
     check.reply(label, reply, 429, DAILY_LIMIT)
 
 
 def p_poll_14(run, phone):
-    """오늘 글 9개를 API 로 채운 뒤 앱이 10번째(성공) · 11번째(오늘은 질문을 더 올릴 수 없어요)를 올린다."""
+    """오늘 글 9개를 API 로 채운 뒤 앱이 10번째(성공) · 11번째(오늘은 글을 더 올릴 수 없어요)를 올린다."""
     check = Check()
     account, token = _signed_in(run, 'home')
     with _cleaned(run, account):
@@ -139,7 +139,7 @@ def p_poll_18(run, phone):
     check = Check()
     account, token = _signed_in(run, 'home')
     bad = {
-        '질문 81자': {'question': PREFIX + 'a' * 75},
+        '질문 401자': {'question': PREFIX + 'a' * 395},
         '선택지 7자': {'question': f'{PREFIX}선택지', 'option_a_label': 'abcdefg'},
         '공백만': {'question': '   '},
         '두 선택지 같음': {'question': f'{PREFIX}같음', 'option_a_label': '같음', 'option_b_label': '같음'},
@@ -153,18 +153,19 @@ def p_poll_18(run, phone):
     return check.result()
 
 
-def _visible_polls(run, token):
-    """지금 피드에 실제로 보이는 글 수 — GET /community/polls 를 커서(before · before_id)로 끝까지 읽어 센다.
-    DB polls 행 수는 가려진(blinded) 글 · 정지 · 탈퇴 작성자 글까지 세므로 쓰지 않는다. 읽기 GET 이라 끊김은 기본 재시도에 맡긴다."""
+def _visible_feed(run, token):
+    """지금 피드에 실제로 보이는 글(투표 + 게시물) 수 — 앱과 같은 GET /community/feed({items, has_more})를
+    커서(before · before_id)로 끝까지 읽어 센다. DB polls 행 수는 가려진(blinded) 글 · 정지 · 탈퇴 작성자 글까지 세고
+    게시물은 빠지므로 쓰지 않는다. 읽기 GET 이라 끊김은 기본 재시도에 맡긴다."""
     total, query = 0, ''
     while True:
-        status, body = _api(run, 'GET', f'/community/polls{query}', token)
+        status, body = _api(run, 'GET', f'/community/feed{query}', token)
         if status != 200:
             raise Blocked(f'피드 읽기 {status} {_detail(body)}')
-        total += len(body['polls'])
-        if not body['has_more'] or not body['polls']:
+        total += len(body['items'])
+        if not body['has_more'] or not body['items']:
             return total
-        last = body['polls'][-1]
+        last = body['items'][-1]
         query = '?' + urlencode({'before': last['created_at'], 'before_id': last['id']})  # 시각의 `+` 를 %2B 로
 
 
@@ -173,14 +174,14 @@ def p_poll_25(run, phone):
     글은 계정 셋이 10 · 10 · 5 로 올린다. 피드를 읽을 수 없거나 올린 뒤 보이는 수가 어긋나면 blocked."""
     check = Check()
     first, token = _signed_in(run, 'home')
-    existing = _visible_polls(run, first['token'])  # 시험 글을 올리기 전에
+    existing = _visible_feed(run, first['token'])  # 시험 글을 올리기 전에
     others = [run.account('home'), run.account('home')]
     authors = [first, *others]
     with _cleaned(run, *authors):
         for who, count in zip(authors, (10, 10, 5)):
             for i in range(count):
                 _poll(run, who, f'페이지 {authors.index(who) + 1}-{i + 1}')
-        total = _visible_polls(run, first['token'])
+        total = _visible_feed(run, first['token'])
         if total != 25 + existing:
             raise Blocked(f'준비한 뒤 피드에 글 {total}개(기대 25 + 기존 {existing})')
         _app(check, phone(token_hash=token, existing=existing))
@@ -211,17 +212,17 @@ def p_poll_27(run, phone):
 
 
 def p_poll_31(run, phone):
-    """질문 79자 + 👍🏻(코드 포인트 2개) → 앱이 80 에서 자르고 서버도 받는다(201). 저장된 글은 80자이고 끝이 👍 다."""
+    """질문 399자 + 👍🏻(코드 포인트 2개) → 앱이 400 에서 자르고 서버도 받는다(201). 저장된 글은 400자이고 끝이 👍 다(1.0.7)."""
     check = Check()
     account, token = _signed_in(run, 'home')
-    base = PREFIX + 'a' * 73  # 79자
+    base = PREFIX + 'a' * 393  # 399자
     with _cleaned(run, account):
         said = _app(check, phone(token_hash=token, base=base))
         if _passed(said):
             rows = _polls(run, account)
             check.that(len(rows) == 1, f'polls {len(rows)}행(기대 1 — 올리기 201)')
             question = rows[0]['question'] if rows else ''
-            check.that(len(question) == 80, f'저장된 글 {len(question)}자(기대 코드 포인트 80)')  # 파이썬 len 은 코드 포인트
+            check.that(len(question) == 400, f'저장된 글 {len(question)}자(기대 코드 포인트 400)')  # 파이썬 len 은 코드 포인트
             check.that(question == base + THUMB, f'저장된 글의 끝 {question[-3:]!r}(기대 👍)')
     return check.result()
 

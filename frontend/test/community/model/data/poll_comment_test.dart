@@ -1,3 +1,4 @@
+import 'package:campus_mate/community/model/data/feed_page.dart';
 import 'package:campus_mate/community/model/data/poll.dart';
 import 'package:campus_mate/community/model/data/poll_comment.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -32,11 +33,11 @@ void main() {
   });
 
   test('쪽은 댓글 목록과 더 있는지를 읽는다', () {
-    final page = PollCommentPage.fromJson({
+    final page = FeedPage.fromJson({
       'items': [_json()],
       'has_more': true,
-    });
-    expect(page.comments.single.id, 'c1');
+    }, PollComment.fromJson);
+    expect(page.items.single.id, 'c1');
     expect(page.hasMore, isTrue);
   });
 

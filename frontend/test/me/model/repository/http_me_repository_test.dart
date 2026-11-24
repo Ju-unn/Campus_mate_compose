@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:campus_mate/auth/school_info/model/data/academic_status.dart';
 import 'package:campus_mate/auth/school_info/model/data/student_number.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
@@ -512,6 +513,12 @@ void main() {
       expect((await read(const {})).studentNumber, isNull);
     });
 
+    test('academic_status 를 읽는다 — null 이거나 키가 없으면(옛 서버) null', () async {
+      expect((await read({'academic_status': 'alumni'})).academicStatus, AcademicStatus.alumni);
+      expect((await read({'academic_status': null})).academicStatus, isNull);
+      expect((await read(const {})).academicStatus, isNull);
+    });
+
     test('accepts_smoker 가 null 이거나 키가 아예 없어도(옛 서버) null 로 읽는다', () async {
       expect((await read({'accepts_smoker': null})).acceptsSmoker, isNull);
       expect((await read(const {})).acceptsSmoker, isNull);
@@ -561,6 +568,14 @@ void main() {
       final body = await sent((repository) => repository.updateProfile(heightCm: 180));
 
       expect(body, {'height_cm': 180});
+    });
+
+    // 1.0.7 1-1 — 고친 때만 보낸다. 안 건드리면 키가 없다(서버는 null 명시를 거절한다).
+    test('신분은 서버 문자열로 보내고, 안 건드리면 academic_status 키가 아예 없다', () async {
+      final body = await sent((repository) => repository.updateProfile(academicStatus: AcademicStatus.graduateStudent));
+
+      expect(body, {'academic_status': 'graduate_student'});
+      expect(await sent((repository) => repository.updateProfile(heightCm: 180)), isNot(contains('academic_status')));
     });
 
     test('MBTI 를 안 건드리면 mbti 키가 아예 없다 — null 로 지우지 않는다', () async {

@@ -1,6 +1,10 @@
 import 'package:campus_mate/graduate/model/data/graduate_request_state.dart';
 import 'package:campus_mate/graduate/model/data/verification_method.dart';
 
+/// `GET /me/verification-status` 한 번에서 읽는 관문과 인증 방법. 3c 는 방법이 졸업증명서일 때 "졸업생" 을 미리 고른다
+/// (1.0.7 1-1) — 같은 응답이라 따로 묻지 않는다. 옛 서버 · 아직 안 고름은 null.
+typedef GateStatus = ({VerificationGate gate, VerificationMethod? method});
+
 /// go_router 가 다음 화면을 정할 때만 쓰는 굵은 단위 상태.
 /// 학생증(3b) 관문은 2026-10-17 에 없앴다 — 학교 메일 다음이 바로 학과(3c)다.
 enum VerificationGate {

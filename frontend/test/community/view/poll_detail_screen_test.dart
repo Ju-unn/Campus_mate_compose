@@ -8,10 +8,17 @@ import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/community/model/data/poll.dart';
 import 'package:campus_mate/community/model/data/poll_comment.dart';
-import 'package:campus_mate/community/model/data/poll_feed.dart';
+import 'package:campus_mate/community/model/data/community_item.dart';
+import 'package:campus_mate/community/model/data/feed_page.dart';
 import 'package:campus_mate/community/model/repository/community_repository_provider.dart';
 import 'package:campus_mate/community/view/comment_input_bar.dart';
+import 'package:campus_mate/community/view/community_card_parts.dart';
+import 'package:campus_mate/community/view/notice_post_card.dart';
 import 'package:campus_mate/community/view/poll_card.dart';
+import 'package:campus_mate/common/widgets/section_header.dart';
+import 'package:campus_mate/community/view/post_card.dart';
+import 'package:campus_mate/community/view/category_label.dart';
+import 'package:campus_mate/community/model/data/community_category.dart';
 import 'package:campus_mate/community/view/poll_detail_screen.dart';
 import 'package:campus_mate/community/view/poll_donut.dart';
 import 'package:campus_mate/community/view/poll_time.dart';
@@ -43,7 +50,13 @@ void main() {
   });
 
   /// [feedFirst] 면 피드 목록을 먼저 채운 뒤 피드 위에 17c 를 연다. 아니면 피드 없이 pollId 만으로 연다(푸시 알림).
-  Future<ProviderContainer> pumpDetail(WidgetTester tester, String pollId, {bool feedFirst = true}) async {
+  /// [path] 를 `/community/notices` 로 주면 공지 상세 길(할 일 21)로 연다.
+  Future<ProviderContainer> pumpDetail(
+    WidgetTester tester,
+    String pollId, {
+    bool feedFirst = true,
+    String path = '/community/polls',
+  }) async {
     final container = ProviderContainer(
       overrides: [
         communityRepositoryProvider.overrideWithValue(repository),
@@ -65,6 +78,10 @@ void main() {
           path: '/community/polls/:pollId',
           builder: (context, state) => PollDetailScreen(pollId: state.pathParameters['pollId']!),
         ),
+        GoRoute(
+          path: '/community/notices/:noticeId',
+          builder: (context, state) => PollDetailScreen(pollId: state.pathParameters['noticeId']!, isNotice: true),
+        ),
       ],
     );
     addTearDown(router.dispose);
@@ -78,7 +95,7 @@ void main() {
         ),
       ),
     );
-    unawaited(router.push('/community/polls/$pollId'));
+    unawaited(router.push('$path/$pollId'));
     await tester.pumpAndSettle();
     return container;
   }
@@ -102,14 +119,14 @@ void main() {
   }
 
   /// 피드에도 같은 글을 두고, 상세가 읽는 글도 같게 맞춘다.
-  void givenPoll(Poll poll) {
+  void givenPoll(CommunityItem poll) {
     repository
-      ..page = Success(PollPage(polls: [poll], hasMore: false))
-      ..poll = Success(poll);
+      ..page = Success(FeedPage(items: [poll], hasMore: false))
+      ..item = Success(poll);
   }
 
   void givenComments(List<PollComment> comments, {bool hasMore = false}) =>
-      repository.commentPage = Success(PollCommentPage(comments: comments, hasMore: hasMore));
+      repository.commentPage = Success(FeedPage(items: comments, hasMore: hasMore));
 
   Finder rowOf(String id) => find.byKey(ValueKey('comment-$id'));
   Finder moreOf(String id) => find.descendant(of: rowOf(id), matching: find.byTooltip('더보기'));
@@ -120,20 +137,163 @@ void main() {
     addTearDown(tester.view.reset);
   }
 
+  group('17f 게시물 상세(pen J8zeU)', () {
+    const body = '다들 첫 데이트 장소 어디로 정하세요? 너무 뻔한 데 말고 대화하기 좋은 곳 추천해 주세요. '
+        '카페는 이미 많이 가 봤고 영화관은 대화를 못 해서 별로더라고요. 산책 코스나 전시회도 괜찮을 것 같은데 '
+        '처음부터 부담스러울까요? 다들 어떻게 하셨는지 궁금해요.';
+
+    testWidgets('게시물 id 로 열면(피드 없음) 제목 "게시물" · 게시물 카드(Detail) 본문 전부 · "댓글 0" · 빈 댓글 · 입력줄', (tester) async {
+      givenPoll(postFixture(id: 't1', text: body, category: CommunityCategory.love));
+      await pumpDetail(tester, 't1', feedFirst: false);
+
+      expect(repository.fetchedItemIds, ['t1']);
+      expect(find.text('게시물'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      final card = tester.widget<PostCard>(find.byType(PostCard));
+      expect(card.detail, isTrue);
+      expect(tester.widget<Text>(find.text(body)).maxLines, isNull);
+      expect(find.descendant(of: find.byType(CategoryLabel), matching: find.text('연애')), findsOneWidget);
+      expect(find.byType(PollCard), findsNothing);
+      expect(find.widgetWithText(SectionHeader, '댓글 0'), findsOneWidget);
+      expect(find.text('첫 댓글을 남겨 보세요'), findsOneWidget);
+      expect(find.byType(CommentInputBar), findsOneWidget);
+    });
+
+    testWidgets('본문 안쪽 16 · 카드와 댓글 머리 사이 16(XHJCu)', (tester) async {
+      phone(tester);
+      givenPoll(postFixture(id: 't1'));
+      await pumpDetail(tester, 't1');
+      final card = tester.getRect(find.byType(PostCard));
+      expect((card.left, card.top), (16, 56 + 16));
+      expect(tester.getRect(find.byType(SectionHeader)).top - card.bottom, 16);
+    });
+
+    testWidgets('게시물 상세에서도 댓글을 단다 — 같은 댓글 위젯 · 같은 길', (tester) async {
+      givenPoll(postFixture(id: 't1'));
+      givenComments([commentFixture(id: 'c1', body: '저는 성수요')]);
+      await pumpDetail(tester, 't1');
+      expect(find.text('저는 성수요'), findsOneWidget);
+      expect(repository.commentRequests.first.itemId, 't1');
+    });
+
+    testWidgets('내 게시물 … → 삭제하기 → 확인 → 지우면 상세를 닫고 피드로 돌아간다', (tester) async {
+      givenPoll(postFixture(id: 't1', isMine: true));
+      await pumpDetail(tester, 't1');
+      await tester.tap(find.descendant(of: find.byType(PostCard), matching: find.byTooltip('더보기')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('삭제하기'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ElevatedButton, '삭제하기'));
+      await tester.pumpAndSettle();
+      expect(repository.deleted, ['t1']);
+      expect(find.text('피드'), findsOneWidget);
+      expect(find.byType(PostCard), findsNothing);
+    });
+
+    testWidgets('남의 게시물 … → 신고하기 → 신고 시트', (tester) async {
+      givenPoll(postFixture(id: 't1'));
+      await pumpDetail(tester, 't1');
+      await tester.tap(find.descendant(of: find.byType(PostCard), matching: find.byTooltip('더보기')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('신고하기'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ReportSheet), findsOneWidget);
+    });
+  });
+
+  group('17h 공지 상세(pen chZz8, 할 일 21)', () {
+    Future<void> openNotice(WidgetTester tester) => pumpDetail(tester, 'n1', feedFirst: false, path: '/community/notices');
+
+    testWidgets('제목 "공지사항" · 공지 카드 · "댓글 0" · 빈 댓글 · 입력줄', (tester) async {
+      repository.item = Success(CommunityItem.ofNotice(noticeFixture(title: '업데이트 안내')));
+      await openNotice(tester);
+
+      expect(repository.fetchedItemIds, ['n1']);
+      expect(find.text('공지사항'), findsOneWidget);
+      expect(find.byType(NoticePostCard), findsOneWidget);
+      expect(find.text('업데이트 안내'), findsOneWidget);
+      expect(find.byType(PostCard), findsNothing);
+      expect(find.byType(PollCard), findsNothing);
+      expect(find.widgetWithText(SectionHeader, '댓글 0'), findsOneWidget);
+      expect(find.text('첫 댓글을 남겨 보세요'), findsOneWidget);
+      expect(find.byType(CommentInputBar), findsOneWidget);
+    });
+
+    testWidgets('공지 본문에는 … · 신고가 없다(대장 판정 5)', (tester) async {
+      repository.item = Success(CommunityItem.ofNotice(noticeFixture()));
+      await openNotice(tester);
+
+      // 댓글이 없는 화면 전체에서 찾는다 — 카드가 PostCard 로 바뀌어도 ⋯ 가 잡힌다.
+      expect(find.byType(NoticePostCard), findsOneWidget);
+      expect(find.byTooltip('더보기'), findsNothing);
+      expect(find.text('신고하기'), findsNothing);
+    });
+
+    testWidgets('공지 댓글은 게시물과 같은 위젯 · 같은 신고 메뉴다', (tester) async {
+      repository.item = Success(CommunityItem.ofNotice(noticeFixture(commentCount: 1)));
+      givenComments([commentFixture(id: 'c1', body: '확인했어요')]);
+      await openNotice(tester);
+
+      expect(find.text('확인했어요'), findsOneWidget);
+      await tester.tap(moreOf('c1'));
+      await tester.pumpAndSettle();
+      expect(find.descendant(of: find.byType(BottomSheet), matching: find.text('신고하기')), findsOneWidget);
+    });
+
+    // 글을 못 받은 채(item null)여도 공지 길이면 제목이 "공지사항" 이다 — 읽는 중과 같은 갈래.
+    testWidgets('없는 공지(404)면 제목은 "공지사항" 그대로, 서버 문구 "공지를 찾을 수 없어요"', (tester) async {
+      repository.item = const FailureResult(ServerRejectedFailure('공지를 찾을 수 없어요'));
+      await openNotice(tester);
+
+      expect(find.text('공지사항'), findsOneWidget);
+      expect(find.text('공지를 찾을 수 없어요'), findsOneWidget);
+      expect(find.text('글을 찾을 수 없어요'), findsNothing);
+    });
+  });
+
   testWidgets('17c: 제목 "투표 상세", 피드 카드와 같은 크기, 질문 전문', (tester) async {
-    givenPoll(pollFixture(question: '가' * 80, myChoice: PollChoice.a));
+    givenPoll(itemFixture(question: '가' * 400, myChoice: PollChoice.a));
     await pumpDetail(tester, 'p1');
     expect(find.text('투표 상세'), findsOneWidget);
     expect(tester.getSize(find.byType(PollDonut)), const Size(96, 96));
     expect(find.text('자세히 보기'), findsNothing);
-    expect(tester.widget<Text>(find.text('가' * 80)).maxLines, isNull);
+    expect(tester.widget<Text>(find.text('가' * 400)).maxLines, isNull);
+  });
+
+  testWidgets('17c: 400자 질문 · 폰 폭(360) · 글자 2배 — 넘치지 않고 질문을 전부 보이며, 내려서 댓글까지 간다', (tester) async {
+    phone(tester);
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    final long = '가' * 400;
+    givenPoll(itemFixture(question: long));
+    await pumpDetail(tester, 'p1');
+    expect(tester.takeException(), isNull);
+    // 말줄임 없이 전부 그린다 — 질문만 화면(780)보다 길다.
+    expect(tester.widget<Text>(find.text(long)).maxLines, isNull);
+    expect(tester.getSize(find.text(long)).height, greaterThan(780));
+
+    await tester.dragUntilVisible(find.text('첫 댓글을 남겨 보세요'), find.byType(ListView).first, const Offset(0, -300));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('첫 댓글을 남겨 보세요').hitTestable(), findsOneWidget);
+  });
+
+  testWidgets('17c 투표 카드에도 그 글의 카테고리 라벨 — 머리줄 아래 12 · 질문 위 12(대장 판정 3, 피드 카드와 같은 자리)', (tester) async {
+    givenPoll(itemFixture(question: '첫 데이트 더치페이', category: CommunityCategory.career));
+    await pumpDetail(tester, 'p1');
+    final card = tester.getRect(find.byType(PollCard));
+    final label = tester.getRect(find.descendant(of: find.byType(PollCard), matching: find.byType(CategoryLabel)));
+    // 남의 글이라 머리줄에 신고 버튼(48)이 있다.
+    expect(label.topLeft - card.topLeft, const Offset(16, 16 + 48 + 12));
+    expect(tester.getRect(find.text('첫 데이트 더치페이')).top - label.bottom, 12);
+    expect(find.descendant(of: find.byType(CategoryLabel), matching: find.text('진로')), findsOneWidget);
   });
 
   testWidgets('상세에서도 투표 전이면 투표할 수 있다(사용자 결정 4)', (tester) async {
-    givenPoll(pollFixture());
+    givenPoll(itemFixture());
     repository.voteResult = Success(VoteOutcome(poll: pollFixture(myChoice: PollChoice.b), rewarded: false));
     await pumpDetail(tester, 'p1');
-    repository.poll = Success(pollFixture(myChoice: PollChoice.b));
+    repository.item = Success(itemFixture(myChoice: PollChoice.b));
     await tester.tap(find.bySemanticsLabel('반대'));
     await tester.pumpAndSettle();
     expect(repository.votes.single.choice, PollChoice.b);
@@ -141,29 +301,30 @@ void main() {
   });
 
   testWidgets('글을 읽을 수 없으면(404) 찾을 수 없다고 말한다', (tester) async {
-    repository.poll = const FailureResult(ServerRejectedFailure('질문을 찾을 수 없어요'));
+    repository.item = const FailureResult(ServerRejectedFailure('질문을 찾을 수 없어요'));
     repository.commentPage = const FailureResult(ServerRejectedFailure('질문을 찾을 수 없어요'));
     await pumpDetail(tester, 'gone', feedFirst: false);
-    expect(find.text('질문을 찾을 수 없어요'), findsOneWidget);
+    // 서버 문구가 아니라 앱 문구다(게시물 상세도 같은 문구).
+    expect(find.text('글을 찾을 수 없어요'), findsOneWidget);
     expect(find.byType(CommentInputBar), findsNothing);
   });
 
   testWidgets('알림에서 바로 들어와도(피드 없음) pollId 로 글을 읽어 보여 준다', (tester) async {
-    givenPoll(pollFixture(id: 'p9', question: '알림으로 온 질문', commentCount: 1));
+    givenPoll(itemFixture(id: 'p9', question: '알림으로 온 질문', commentCount: 1));
     givenComments([commentFixture(id: 'c1', body: '첫 댓글')]);
     await pumpDetail(tester, 'p9', feedFirst: false);
 
-    expect(repository.fetchedPollIds, ['p9']);
-    expect(repository.commentRequests.single.pollId, 'p9');
+    expect(repository.fetchedItemIds, ['p9']);
+    expect(repository.commentRequests.single.itemId, 'p9');
     expect(find.text('알림으로 온 질문'), findsOneWidget);
     expect(find.text('첫 댓글'), findsOneWidget);
   });
 
   testWidgets(
-    'pen 17c: 제목 x60 · 뒤로 arrow-left 22, 본문 안쪽 16, 카드 276(신고 버튼 48 머리줄), 카드 아래 16 뒤에 댓글 머리(bcnJx · ZR52B · y0uSd4 · Comments Section)',
+    'pen 17c: 제목 x60 · 뒤로 arrow-left 22, 본문 안쪽 16, 카드 276(신고 버튼 48 머리줄) + 카테고리 라벨 줄(라벨 + 12), 카드 아래 16 뒤에 댓글 머리(bcnJx · ZR52B · y0uSd4 · Comments Section)',
     (tester) async {
       phone(tester);
-      givenPoll(pollFixture(myChoice: PollChoice.a, commentCount: 12));
+      givenPoll(itemFixture(myChoice: PollChoice.a, commentCount: 12));
       await pumpDetail(tester, 'p1');
 
       expect(tester.getTopLeft(find.text('투표 상세')).dx, 60);
@@ -171,7 +332,9 @@ void main() {
       final card = tester.getRect(find.byType(PollCard));
       expect(card.topLeft, const Offset(16, 56 + 16));
       expect(card.width, 328);
-      expect(card.height, closeTo(276, 2));
+      // pen 17c 카드 276 에 할 일 19 의 카테고리 라벨(ffFIS 와 같은 자리)과 그 아래 12 가 더해진다.
+      final label = tester.getRect(find.byType(CategoryLabel));
+      expect(card.height, closeTo(276 + label.height + 12, 2));
       // Comments Section: 카드 아래 간격 16 → 머리 "댓글 12" 18/700 ink(렌더 높이 25, Ymhdq) → 간격 8 → 목록.
       final header = find.text('댓글 12');
       expect(tester.getRect(header).top, closeTo(card.bottom + 16, 0.5));
@@ -185,7 +348,7 @@ void main() {
   final siren = find.byWidgetPredicate((w) => w is Icon3d && w.icon == AppIcon3d.siren);
 
   testWidgets('17c 도 남의 글이면 머리줄 오른쪽 끝에 신고 버튼이 있다(A16 · uPUf3)', (tester) async {
-    givenPoll(pollFixture());
+    givenPoll(itemFixture());
     await pumpDetail(tester, 'p1');
 
     final button = tester.getRect(find.ancestor(of: siren, matching: find.byType(InkResponse)).first);
@@ -194,15 +357,47 @@ void main() {
   });
 
   testWidgets('17c 내 글이면 신고 버튼이 없다', (tester) async {
-    givenPoll(pollFixture(isMine: true));
+    givenPoll(itemFixture(isMine: true));
     await pumpDetail(tester, 'p1');
 
     expect(siren, findsNothing);
   });
 
+  // 사용자 지적 11-25: 투표 상세에도 게시물 상세(pen 17f LGDsj · LT3Ml)처럼 익명 프로필 줄이 있어야 한다.
+  group('17c 머리줄 — 게시물 상세와 같은 익명 프로필 줄(pen 17f DHPBU · yKSd4 · W37Xp)', () {
+    final header = find.descendant(of: find.byType(PollCard), matching: find.byType(CommunityCardHeader));
+    final avatarIcon = find.descendant(
+      of: header,
+      matching: find.byWidgetPredicate((w) => w is Icon3d && w.icon == AppIcon3d.userRound),
+    );
+
+    testWidgets('남의 글: 아바타 40 → 10 → "익명" · 시간, 오른쪽 끝 신고', (tester) async {
+      // 시험 시계는 14:00 — 12:00 글이면 "2시간 전"(작성 시각 · 지금 시각을 제대로 넘기는지).
+      givenPoll(itemFixture(createdAt: DateTime(2026, 9, 27, 12)));
+      await pumpDetail(tester, 'p1');
+
+      final card = tester.getRect(find.byType(PollCard));
+      expect(header, findsOneWidget);
+      // 아바타 40(위 4) 가운데에 3D 프로필 24.
+      expect(tester.getCenter(avatarIcon) - card.topLeft, const Offset(16 + 20, 16 + 24));
+      expect(tester.getTopLeft(find.descendant(of: header, matching: find.text('익명'))).dx, card.left + 16 + 40 + 10);
+      expect(find.descendant(of: header, matching: find.text('2시간 전')), findsOneWidget);
+      expect(find.descendant(of: header, matching: siren), findsOneWidget);
+    });
+
+    testWidgets('내 글: 신고 없이 아바타 · "익명" 줄은 그대로', (tester) async {
+      givenPoll(itemFixture(isMine: true));
+      await pumpDetail(tester, 'p1');
+
+      expect(avatarIcon, findsOneWidget);
+      expect(find.descendant(of: header, matching: find.text('익명')), findsOneWidget);
+    });
+  });
+
   group('댓글 목록(pen X4HnyK · S8tPtZ · CommentRow f37XJH)', () {
     testWidgets('익명N 이름, 글쓴이 댓글에는 "글쓴이" 배지, 상대 시간 — 같은 사람은 같은 번호', (tester) async {
-      givenPoll(pollFixture(commentCount: 3));
+      phone(tester); // 카드에 라벨 줄이 생겨 기본 600 높이에서는 셋째 댓글이 화면 밖이다
+      givenPoll(itemFixture(commentCount: 3));
       givenComments([
         commentFixture(id: 'c1', aliasNo: null, isPostAuthor: true, body: '글쓴이의 말', createdAt: DateTime(2026, 9, 27, 12)),
         commentFixture(id: 'c2', aliasNo: 2, body: '둘째 사람', createdAt: DateTime(2026, 9, 27, 13, 6)),
@@ -223,7 +418,7 @@ void main() {
 
     testWidgets('pen CommentRow: 폭 328 · 한 줄 본문 높이 74 · 이름 14/600 · 시간 12/500 muted · 본문 14/ink · "…" 48', (tester) async {
       phone(tester);
-      givenPoll(pollFixture(commentCount: 1));
+      givenPoll(itemFixture(commentCount: 1));
       givenComments([commentFixture(id: 'c1', aliasNo: 1, body: '한 줄 본문', createdAt: DateTime(2026, 9, 27, 13))]);
       await pumpDetail(tester, 'p1');
 
@@ -250,7 +445,7 @@ void main() {
       phone(tester);
       tester.platformDispatcher.textScaleFactorTestValue = 2;
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-      givenPoll(pollFixture(commentCount: 1));
+      givenPoll(itemFixture(commentCount: 1));
       givenComments([
         commentFixture(id: 'c1', aliasNo: null, isPostAuthor: true, canDelete: true, body: '가나다라마바사 ' * 12, createdAt: DateTime(2026, 9, 27, 13)),
       ]);
@@ -265,7 +460,7 @@ void main() {
 
     testWidgets('댓글이 없으면 "댓글 0" 머리와 "첫 댓글을 남겨 보세요"(EmptyLine)', (tester) async {
       phone(tester);
-      givenPoll(pollFixture());
+      givenPoll(itemFixture());
       await pumpDetail(tester, 'p1');
 
       expect(find.text('댓글 0'), findsOneWidget);
@@ -281,7 +476,7 @@ void main() {
     });
 
     testWidgets('첫 쪽을 못 읽으면 오류와 "다시 시도" — 누르면 다시 읽는다', (tester) async {
-      givenPoll(pollFixture());
+      givenPoll(itemFixture());
       repository.commentPage = const FailureResult(NetworkFailure());
       await pumpDetail(tester, 'p1');
 
@@ -301,14 +496,14 @@ void main() {
     int firstPageRequests() => repository.commentRequests.where((r) => r.after == null).length;
 
     testWidgets('아래로 당기면 글과 댓글 첫 쪽을 다시 읽는다 — 받는 동안 보이던 댓글 · 쓰던 글은 그대로', (tester) async {
-      givenPoll(pollFixture(commentCount: 1));
+      givenPoll(itemFixture(commentCount: 1));
       givenComments([commentFixture(id: 'c1', body: '처음 댓글')]);
       await pumpDetail(tester, 'p1');
       await tester.enterText(inputField(), '쓰는 중');
-      final polls = repository.fetchedPollIds.length;
+      final polls = repository.fetchedItemIds.length;
       final firstPages = firstPageRequests();
 
-      givenPoll(pollFixture(commentCount: 2));
+      givenPoll(itemFixture(commentCount: 2));
       givenComments([commentFixture(id: 'c1', body: '처음 댓글'), commentFixture(id: 'c2', body: '새 댓글')]);
       final hold = repository.holdFirstComments = Completer<void>();
       await tester.fling(find.byType(ListView), const Offset(0, 500), 1500);
@@ -322,7 +517,7 @@ void main() {
       hold.complete();
       await tester.pumpAndSettle();
 
-      expect(repository.fetchedPollIds.length, polls + 1);
+      expect(repository.fetchedItemIds.length, polls + 1);
       expect(firstPageRequests(), firstPages + 1);
       expect(find.text('새 댓글'), findsOneWidget);
       expect(find.text('댓글 2'), findsOneWidget);
@@ -330,7 +525,7 @@ void main() {
     });
 
     testWidgets('댓글이 한두 개라 화면을 못 채워도 당길 수 있다', (tester) async {
-      givenPoll(pollFixture());
+      givenPoll(itemFixture());
       await pumpDetail(tester, 'p1');
       final firstPages = firstPageRequests();
 
@@ -341,22 +536,22 @@ void main() {
     });
 
     testWidgets('나갔다가 다시 들어가면 글과 댓글을 서버에서 다시 읽는다 — 지난 목록을 들고 있지 않는다', (tester) async {
-      givenPoll(pollFixture(commentCount: 1));
+      givenPoll(itemFixture(commentCount: 1));
       givenComments([commentFixture(id: 'c1', body: '처음 댓글')]);
       await pumpDetail(tester, 'p1');
-      final polls = repository.fetchedPollIds.length;
+      final polls = repository.fetchedItemIds.length;
       final firstPages = firstPageRequests();
 
       await tester.tap(find.byTooltip('뒤로'));
       await tester.pumpAndSettle();
       expect(find.byType(PollDetailScreen), findsNothing);
 
-      givenPoll(pollFixture(commentCount: 2));
+      givenPoll(itemFixture(commentCount: 2));
       givenComments([commentFixture(id: 'c1', body: '처음 댓글'), commentFixture(id: 'c2', body: '나간 사이 달린 댓글')]);
       unawaited(GoRouter.of(tester.element(find.text('피드'))).push('/community/polls/p1'));
       await tester.pumpAndSettle();
 
-      expect(repository.fetchedPollIds.length, polls + 1);
+      expect(repository.fetchedItemIds.length, polls + 1);
       expect(firstPageRequests(), firstPages + 1);
       expect(find.text('나간 사이 달린 댓글'), findsOneWidget);
       expect(find.text('댓글 2'), findsOneWidget);
@@ -376,9 +571,9 @@ void main() {
 
     testWidgets('"댓글 더 보기" 버튼은 없고, 끝까지 내리면 마지막 댓글 커서(after · after_id)로 다음 쪽을 한 번 요청한다', (tester) async {
       phone(tester);
-      givenPoll(pollFixture(commentCount: 12));
+      givenPoll(itemFixture(commentCount: 12));
       givenComments(page(1, 10), hasMore: true);
-      repository.nextCommentPage = Success(PollCommentPage(comments: page(11, 2), hasMore: false));
+      repository.nextCommentPage = Success(FeedPage(items: page(11, 2), hasMore: false));
       await pumpDetail(tester, 'p1');
 
       expect(find.text('댓글 더 보기'), findsNothing);
@@ -399,7 +594,7 @@ void main() {
 
     testWidgets('has_more 가 false 면 끝까지 내려도 더 요청하지 않는다', (tester) async {
       phone(tester);
-      givenPoll(pollFixture(commentCount: 10));
+      givenPoll(itemFixture(commentCount: 10));
       givenComments(page(1, 10));
       await pumpDetail(tester, 'p1');
 
@@ -411,9 +606,9 @@ void main() {
 
     testWidgets('이어 읽는 동안 목록 끝에 작은 로딩 표시가 뜨고, 겹쳐 스크롤해도 요청은 한 번이다', (tester) async {
       phone(tester);
-      givenPoll(pollFixture(commentCount: 12));
+      givenPoll(itemFixture(commentCount: 12));
       givenComments(page(1, 10), hasMore: true);
-      repository.nextCommentPage = Success(PollCommentPage(comments: page(11, 2), hasMore: false));
+      repository.nextCommentPage = Success(FeedPage(items: page(11, 2), hasMore: false));
       await pumpDetail(tester, 'p1');
       final hold = repository.holdMoreComments = Completer<void>();
 
@@ -431,7 +626,7 @@ void main() {
 
     testWidgets('이어 읽기가 실패하면 목록 끝에 짧은 오류와 "다시 시도" — 스크롤로는 되풀이하지 않고, 누르면 이어 읽는다', (tester) async {
       phone(tester);
-      givenPoll(pollFixture(commentCount: 12));
+      givenPoll(itemFixture(commentCount: 12));
       givenComments(page(1, 10), hasMore: true);
       repository.nextCommentPage = const FailureResult(NetworkFailure());
       await pumpDetail(tester, 'p1');
@@ -442,7 +637,7 @@ void main() {
       await scrollToEnd(tester);
       expect(repository.commentRequests.where((r) => r.after != null), hasLength(1));
 
-      repository.nextCommentPage = Success(PollCommentPage(comments: page(11, 2), hasMore: false));
+      repository.nextCommentPage = Success(FeedPage(items: page(11, 2), hasMore: false));
       await tester.tap(find.text('다시 시도'));
       await tester.pumpAndSettle();
 
@@ -456,7 +651,7 @@ void main() {
   group('같은 글의 새 댓글 푸시(앱이 열려 있을 때)', () {
     testWidgets('알림으로 들어온 상세(피드 없음)도 쓰던 댓글 · 입력줄이 그대로고 스피너로 바뀌지 않는다', (tester) async {
       phone(tester);
-      givenPoll(pollFixture(commentCount: 1));
+      givenPoll(itemFixture(commentCount: 1));
       givenComments([commentFixture(id: 'c1', body: '먼저 온 댓글')]);
       final container = await pumpDetail(tester, 'p1', feedFirst: false);
       await tester.enterText(inputField(), '쓰던 중인 댓글');
@@ -465,8 +660,8 @@ void main() {
 
       // 다른 사람이 댓글을 달았다 — 서버에는 이제 댓글 2개.
       repository
-        ..poll = Success(pollFixture(commentCount: 2))
-        ..nextCommentPage = Success(PollCommentPage(comments: [commentFixture(id: 'c2', aliasNo: 2, body: '새로 온 댓글')], hasMore: false));
+        ..item = Success(itemFixture(commentCount: 2))
+        ..nextCommentPage = Success(FeedPage(items: [commentFixture(id: 'c2', aliasNo: 2, body: '새로 온 댓글')], hasMore: false));
       receivePush(container, {'route': 'poll', 'poll_id': 'p1'});
       await tester.pump();
 
@@ -488,9 +683,9 @@ void main() {
             for (var i = from; i < from + count; i++)
               commentFixture(id: 'c$i', body: '댓글 본문 $i', createdAt: DateTime(2026, 9, 27, 10).add(Duration(minutes: i))),
           ];
-      givenPoll(pollFixture(commentCount: 12));
+      givenPoll(itemFixture(commentCount: 12));
       givenComments(page(1, 10), hasMore: true);
-      repository.nextCommentPage = Success(PollCommentPage(comments: page(11, 2), hasMore: false));
+      repository.nextCommentPage = Success(FeedPage(items: page(11, 2), hasMore: false));
       final container = await pumpDetail(tester, 'p1');
       // 첫 내림이 다음 쪽을 부르고, 둘째 내림이 붙은 끝까지 간다.
       for (var i = 0; i < 2; i++) {
@@ -503,8 +698,8 @@ void main() {
       expect(find.text('댓글 본문 12'), findsOneWidget);
 
       repository
-        ..poll = Success(pollFixture(commentCount: 13))
-        ..nextCommentPage = Success(PollCommentPage(comments: page(13, 1), hasMore: false));
+        ..item = Success(itemFixture(commentCount: 13))
+        ..nextCommentPage = Success(FeedPage(items: page(13, 1), hasMore: false));
       receivePush(container, {'route': 'poll', 'poll_id': 'p1'});
       await tester.pumpAndSettle();
 
@@ -515,7 +710,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('댓글 본문 13'), findsOneWidget);
       // 머리 숫자는 목록 맨 위에 있어 화면 밖이다 — 상태로 확인한다.
-      expect(container.read(pollDetailViewModelProvider('p1')).poll?.commentCount, 13);
+      expect(container.read(pollDetailViewModelProvider('p1')).item?.commentCount, 13);
     });
   });
 
@@ -525,7 +720,7 @@ void main() {
 
     testWidgets('pen 값: 안내 "댓글을 남겨 주세요", 칸 280x48, 보내기 누름 영역은 44 이상(원은 40)', (tester) async {
       phone(tester);
-      givenPoll(pollFixture());
+      givenPoll(itemFixture());
       await pumpDetail(tester, 'p1');
 
       expect(find.text('댓글을 남겨 주세요'), findsOneWidget);
@@ -545,7 +740,7 @@ void main() {
     });
 
     testWidgets('글이 비면 보내기가 꺼져 있고, 글을 쓰면 켜진다', (tester) async {
-      givenPoll(pollFixture());
+      givenPoll(itemFixture());
       await pumpDetail(tester, 'p1');
       InkWell ink() => tester.widget<InkWell>(find.descendant(of: sendTap(), matching: find.byType(InkWell)));
 
@@ -559,7 +754,7 @@ void main() {
     });
 
     testWidgets('200자가 넘게 쓸 수 없다', (tester) async {
-      givenPoll(pollFixture());
+      givenPoll(itemFixture());
       await pumpDetail(tester, 'p1');
 
       await tester.enterText(field(), '가' * 250);
@@ -569,7 +764,7 @@ void main() {
     });
 
     testWidgets('보내면 앞뒤 공백을 떼어 서버로 가고, 목록 끝에 붙고, 헤더 숫자가 오르고, 칸이 비워진다', (tester) async {
-      givenPoll(pollFixture(commentCount: 1));
+      givenPoll(itemFixture(commentCount: 1));
       givenComments([commentFixture(id: 'c1', body: '먼저 온 댓글')]);
       repository.addCommentResult = Success(commentFixture(id: 'c2', aliasNo: 2, body: '새 댓글', isMine: true, canDelete: true));
       await pumpDetail(tester, 'p1');
@@ -579,7 +774,7 @@ void main() {
       await tester.tap(sendTap());
       await tester.pumpAndSettle();
 
-      expect(repository.addedComments.single, (pollId: 'p1', body: '새 댓글'));
+      expect(repository.addedComments.single, (itemId: 'p1', body: '새 댓글'));
       expect(find.text('새 댓글'), findsOneWidget);
       expect(find.text('댓글 2'), findsOneWidget);
       expect(tester.widget<TextField>(field()).controller!.text, isEmpty);
@@ -588,7 +783,7 @@ void main() {
     });
 
     testWidgets('하루 50개를 넘어 429 면 서버 문구를 알리고 쓴 글은 칸에 남는다', (tester) async {
-      givenPoll(pollFixture(commentCount: 0));
+      givenPoll(itemFixture(commentCount: 0));
       repository.addCommentResult = const FailureResult(RateLimitedFailure('오늘은 댓글을 더 달 수 없어요'));
       await pumpDetail(tester, 'p1');
 
@@ -603,7 +798,7 @@ void main() {
     });
 
     testWidgets('글이 사라졌으면(404) 서버 문구를 알리고 쓴 글은 칸에 남는다', (tester) async {
-      givenPoll(pollFixture());
+      givenPoll(itemFixture());
       repository.addCommentResult = const FailureResult(ServerRejectedFailure('질문을 찾을 수 없어요'));
       await pumpDetail(tester, 'p1');
 
@@ -617,7 +812,7 @@ void main() {
     });
 
     testWidgets('채팅 입력줄(1,000자)을 쓰지 않는다 — 댓글은 200자 · 안내 · 누름 영역이 다르다', (tester) async {
-      givenPoll(pollFixture());
+      givenPoll(itemFixture());
       await pumpDetail(tester, 'p1');
       expect(find.byType(ChatInputBar), findsNothing);
     });
@@ -627,7 +822,7 @@ void main() {
     Finder sheetText(String text) => find.descendant(of: find.byType(BottomSheet), matching: find.text(text));
 
     testWidgets('내 댓글 — 삭제하기 · 취소 (tWng7), 신고는 없다', (tester) async {
-      givenPoll(pollFixture(commentCount: 1));
+      givenPoll(itemFixture(commentCount: 1));
       givenComments([commentFixture(id: 'c1', isMine: true, canDelete: true)]);
       await pumpDetail(tester, 'p1');
 
@@ -643,7 +838,7 @@ void main() {
     });
 
     testWidgets('내 글에 달린 남의 댓글 — 삭제하기 · 신고하기 · 취소 (ptEjj)', (tester) async {
-      givenPoll(pollFixture(isMine: true, commentCount: 1));
+      givenPoll(itemFixture(isMine: true, commentCount: 1));
       givenComments([commentFixture(id: 'c1', canDelete: true)]);
       await pumpDetail(tester, 'p1');
 
@@ -665,7 +860,7 @@ void main() {
     });
 
     testWidgets('그 밖의 남의 댓글 — 신고하기 · 취소 (Li2Hx), 삭제는 없다', (tester) async {
-      givenPoll(pollFixture(commentCount: 1));
+      givenPoll(itemFixture(commentCount: 1));
       givenComments([commentFixture(id: 'c1')]);
       await pumpDetail(tester, 'p1');
 
@@ -678,7 +873,7 @@ void main() {
     });
 
     testWidgets('취소를 누르면 아무 일 없이 닫힌다', (tester) async {
-      givenPoll(pollFixture(commentCount: 1));
+      givenPoll(itemFixture(commentCount: 1));
       givenComments([commentFixture(id: 'c1')]);
       await pumpDetail(tester, 'p1');
 
@@ -693,7 +888,7 @@ void main() {
     });
 
     testWidgets('신고하기 → 신고 시트 → 사유를 고르고 보내면 poll_comment 대상으로 가고 댓글은 남는다', (tester) async {
-      givenPoll(pollFixture(commentCount: 1));
+      givenPoll(itemFixture(commentCount: 1));
       givenComments([commentFixture(id: 'c3', body: '신고할 댓글')]);
       await pumpDetail(tester, 'p1');
 
@@ -715,7 +910,7 @@ void main() {
 
     testWidgets('댓글 신고 완료 토스트는 입력칸과 겹치지 않고 입력줄 위에 뜬다 (360×780)', (tester) async {
       phone(tester);
-      givenPoll(pollFixture(commentCount: 1));
+      givenPoll(itemFixture(commentCount: 1));
       givenComments([commentFixture(id: 'c3')]);
       await pumpDetail(tester, 'p1');
 
@@ -736,7 +931,7 @@ void main() {
 
     testWidgets('토스트가 떠 있는 동안에도 입력칸을 눌러 포커스를 줄 수 있다 — 투명한 토스트 영역이 탭을 먹지 않는다', (tester) async {
       phone(tester);
-      givenPoll(pollFixture(commentCount: 1));
+      givenPoll(itemFixture(commentCount: 1));
       givenComments([commentFixture(id: 'c3')]);
       await pumpDetail(tester, 'p1');
       await reportCommentThrough(tester, 'c3');
@@ -751,7 +946,7 @@ void main() {
 
     testWidgets('입력이 4줄로 자라 입력줄이 80 보다 커져도 토스트는 입력칸과 겹치지 않는다', (tester) async {
       phone(tester);
-      givenPoll(pollFixture(commentCount: 1));
+      givenPoll(itemFixture(commentCount: 1));
       givenComments([commentFixture(id: 'c3')]);
       await pumpDetail(tester, 'p1');
       await tester.enterText(inputField(), '가\n나\n다\n라');
@@ -767,7 +962,7 @@ void main() {
 
     testWidgets('4줄을 쓰고 보내기에 실패해도 실패 토스트가 입력칸과 겹치지 않는다 (보낼 때 비워졌던 칸이 되돌아온 뒤의 높이로 올린다)', (tester) async {
       phone(tester);
-      givenPoll(pollFixture());
+      givenPoll(itemFixture());
       final hold = repository.holdAddComment = Completer<void>();
       repository.addCommentResult = const FailureResult(RateLimitedFailure('오늘은 댓글을 더 달 수 없어요'));
       await pumpDetail(tester, 'p1');
@@ -794,7 +989,7 @@ void main() {
       tester.view.padding = const FakeViewPadding(bottom: 34);
       tester.view.viewPadding = const FakeViewPadding(bottom: 34);
       addTearDown(tester.view.reset);
-      givenPoll(pollFixture(commentCount: 1));
+      givenPoll(itemFixture(commentCount: 1));
       givenComments([commentFixture(id: 'c3')]);
       await pumpDetail(tester, 'p1');
       expect(tester.getSize(find.byType(CommentInputBar)).height, 80 + 34);
@@ -810,7 +1005,7 @@ void main() {
 
     testWidgets('글 신고 완료 토스트도 입력줄 위에 뜬다', (tester) async {
       phone(tester);
-      givenPoll(pollFixture());
+      givenPoll(itemFixture());
       await pumpDetail(tester, 'p1');
 
       final siren = find.byWidgetPredicate((w) => w is Icon3d && w.icon == AppIcon3d.siren);
@@ -825,7 +1020,7 @@ void main() {
     });
 
     testWidgets('삭제하기 → 확인 시트(NF999) → 삭제하기를 누르면 목록에서 빠지고 헤더 숫자가 내려간다', (tester) async {
-      givenPoll(pollFixture(commentCount: 2));
+      givenPoll(itemFixture(commentCount: 2));
       givenComments([
         commentFixture(id: 'c1', body: '지울 댓글', isMine: true, canDelete: true),
         commentFixture(id: 'c2', body: '남을 댓글'),
@@ -852,7 +1047,7 @@ void main() {
     });
 
     testWidgets('확인 시트에서 취소하면 지우지 않는다', (tester) async {
-      givenPoll(pollFixture(commentCount: 1));
+      givenPoll(itemFixture(commentCount: 1));
       givenComments([commentFixture(id: 'c1', isMine: true, canDelete: true)]);
       await pumpDetail(tester, 'p1');
 
@@ -868,7 +1063,7 @@ void main() {
     });
 
     testWidgets('삭제가 실패하면 목록은 그대로고 이유를 토스트로 알린다', (tester) async {
-      givenPoll(pollFixture(commentCount: 1));
+      givenPoll(itemFixture(commentCount: 1));
       givenComments([commentFixture(id: 'c1', body: '그대로', isMine: true, canDelete: true)]);
       repository.deleteCommentResult = const FailureResult(NetworkFailure());
       await pumpDetail(tester, 'p1');
@@ -887,7 +1082,7 @@ void main() {
 
   testWidgets('낭독기는 "…" 를 48 크기의 "더보기" 버튼으로 읽는다', (tester) async {
     final handle = tester.ensureSemantics();
-    givenPoll(pollFixture(commentCount: 1));
+    givenPoll(itemFixture(commentCount: 1));
     givenComments([commentFixture(id: 'c1')]);
     await pumpDetail(tester, 'p1');
 

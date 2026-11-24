@@ -138,7 +138,7 @@ def batch_11(run):
         raise Blocked(f'기준 방 준비 실패: {before!r}')
 
     # area3_phone5._gated_batch 는 관문을 지난 다음 기준 방과 sentinel 시각을 확정하고, gcloud 를 한 번만 부른다.
-    area3_phone5._gated_batch(run, [account_a, account_b], [(match_id, timedelta(hours=50))],
+    area3_phone5._gated_batch(run, [account_a, account_b], [(match_id, area3_phone5.PASS_AGE)],
                               (sentinel_a, sentinel_b, sentinel_id))
     after = _rows(run, f'matches?id=eq.{match_id}&select=trust_passed_at,chat_closed_at')
     check.that(len(after) == 1 and after[0].get('trust_passed_at') == before[0]['trust_passed_at'],

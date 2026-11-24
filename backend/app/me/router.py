@@ -76,6 +76,8 @@ async def get_my_profile(
         "mbti": profile["mbti"],
         # 기본 정보 수정(15-6) 학번 칸을 채운다. 3c 가 받은 옛 값(2자리 밖)도 그대로 내보낸다. 옛 앱은 모르는 키를 무시한다.
         "student_number": profile["student_number"],
+        # 15-6 신분 칩을 미리 켠다. null = 아직 안 고름. 옛 앱은 모르는 키를 무시한다.
+        "academic_status": profile.get("academic_status"),
         # 기본 정보 수정(15-6)이 현재 값으로 채운다. 구버전 앱은 모르는 키를 무시한다.
         "religion": profile["religion"],
         "is_smoker": profile["is_smoker"],
@@ -227,14 +229,14 @@ async def save_photos(
     return {"ok": True}
 
 
-@router.patch("/me/profile")
+@router.patch("/me/profile", response_model=None)
 async def update_my_profile(
     body: ProfileUpdateRequest,
     caller: Caller = Depends(get_verified_caller),
     now: datetime = Depends(get_now),
     # 온보딩 라우터의 제공자를 그대로 쓴다 — 테스트가 목을 끼우는 자리가 하나여야 한다(tasks_router 와 같은 이유).
     openai_client: AsyncOpenAI = Depends(get_openai),
-) -> dict[str, bool]:
+) -> dict[str, bool] | JSONResponse:
     """15c · 15-6 저장. 온보딩 /bio 를 다시 쓰지 않는 이유 — 그쪽은 저장할 때마다 status 를 active 로 쓴다(계획서 0절)."""
     settings, client, profile_id = caller
     repo = MeRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
@@ -251,9 +253,11 @@ async def update_my_profile(
             del fields["nickname"]
         else:
             # 새로 바꾸는 닉네임만 본다 — 예전에 들어온 "aaa" 를 그대로 두고 키만 고치는 저장은 막지 않는다.
-            # 문구는 중복과 같다 — 출시된 앱(15-6)은 이 문구만 닉네임 칸 아래로 보낸다.
+            # 문구는 중복과 같다 — 출시된 앱(15-6)은 이 문구만 닉네임 칸 아래로 보낸다. code 로 1.0.7 은 "쓸 수 없는 닉네임이에요".
             if has_letter_run(fields["nickname"]) or has_banned_word(fields["nickname"]):
-                raise HTTPException(status_code=422, detail=errors.NICKNAME_TAKEN)
+                return JSONResponse(
+                    status_code=422, content={"detail": errors.NICKNAME_TAKEN, "code": errors.CODE_NICKNAME_NOT_ALLOWED}
+                )
             changed_at = current["nickname_changed_at"]
             if nickname_changeable_at(changed_at and datetime.fromisoformat(changed_at), now):
                 raise HTTPException(status_code=409, detail=errors.NICKNAME_CHANGE_TOO_SOON)

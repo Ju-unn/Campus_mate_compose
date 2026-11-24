@@ -26,7 +26,7 @@ BUNDLE = ('E-POLL-01 E-POLL-13 E-POLL-14 E-POLL-15 E-POLL-18 E-POLL-25 E-POLL-26
 POLLS = [c for c in BUNDLE if c.startswith('E-POLL')]
 PASS = {'result': 'pass'}
 THUMB = '\U0001F44D'
-DAILY_LIMIT = '오늘은 질문을 더 올릴 수 없어요'
+DAILY_LIMIT = '오늘은 글을 더 올릴 수 없어요'
 MONTHLY_LIMIT = '이번 달에는 더 인증할 수 없어요'
 SEOUL = area1.SEOUL
 
@@ -53,7 +53,7 @@ class World(Fake):
             ('POST', r'/rest/v1/rpc/grant_hearts', self.grant),
             ('GET', r'/rest/v1/entitlements', self.balance),
             ('GET', r'/rest/v1/polls', self.read_polls),
-            ('GET', r'/community/polls', self.read_feed),
+            ('GET', r'/community/feed', self.read_feed),
             ('POST', r'/storage/v1/object/list/heart-task-proofs', self.listing),
             ('POST', r'/profile-onboarding/[^/]+', self.onboarding),
             ('POST', r'/school-info', self.school_info),
@@ -106,7 +106,7 @@ class World(Fake):
         who, body = self.caller(sent), sent['body']
         question = body['question']
         a, b = body.get('option_a_label', '찬성'), body.get('option_b_label', '반대')
-        if (not 1 <= len(question) <= 80 or not question.strip() or not 1 <= len(a) <= 6 or not 1 <= len(b) <= 6
+        if (not 1 <= len(question) <= 400 or not question.strip() or not 1 <= len(a) <= 6 or not 1 <= len(b) <= 6
                 or not a.strip() or not b.strip() or a == b):
             return Reply(422, {'detail': '입력한 값을 다시 확인해 주세요'})
         if len([p for p in self.rows('polls') if p['author_id'] == who]) >= 10:
@@ -127,15 +127,15 @@ class World(Fake):
         return self._table('GET', 'polls', sent)
 
     def read_feed(self, sent):
-        """GET /community/polls — 보이는(status=visible) 글만 최신순 20개, `before` · `before_id` 커서, has_more = 20개를 꽉 채웠는가(서버와 같다)."""
+        """GET /community/feed — 보이는(status=visible) 글만 최신순 20개, `before` · `before_id` 커서, has_more = 20개를 꽉 채웠는가(서버와 같다)."""
         query = sent['query']
         if ('before' in query) != ('before_id' in query) or not re.fullmatch(r'[\d-]+T[\d:]+\+00:00', query.get('before', '2026-10-05T00:00:00+00:00')):
             return Reply(422, {'detail': '입력한 값을 다시 확인해 주세요'})  # 시각이 깨지면(`+` 가 공백이 되면) 서버도 422 다
         rows = sorted((p for p in self.rows('polls') if p['status'] == 'visible'), key=lambda p: (p['created_at'], p['id']), reverse=True)
         if 'before' in query:
             rows = [p for p in rows if (p['created_at'], p['id']) < (query['before'], query['before_id'])]
-        page = [{'id': p['id'], 'question': p['question'], 'created_at': p['created_at']} for p in rows[:20]]
-        return Reply(200, {'polls': page, 'has_more': len(page) == 20})
+        page = [{'id': p['id'], 'kind': 'poll', 'text': p['question'], 'created_at': p['created_at']} for p in rows[:20]]
+        return Reply(200, {'items': page, 'has_more': len(page) == 20})
 
     # 하트 ------------------------------------------------------------------------------------
     def submit(self, sent):
@@ -408,30 +408,30 @@ class PollPostTest(PhoneBase):
         bodies = [s['body'] for s in self.world.sent if s['method'] == 'POST' and s['path'] == '/community/polls']
         self.assertEqual(len(bodies), 4)
         lengths = sorted(len(b['question']) for b in bodies)
-        self.assertIn(81, lengths)
+        self.assertIn(401, lengths)
         self.assertTrue(any(len(b.get('option_a_label', '')) == 7 for b in bodies))
         self.assertTrue(any(not b['question'].strip() for b in bodies))
         self.assertTrue(any(b.get('option_a_label') and b.get('option_a_label') == b.get('option_b_label') for b in bodies))
 
     def test_poll_18_a_server_that_accepts_one_is_a_fail_with_its_name(self):
         def lenient(sent):
-            if len(sent['body']['question']) == 81:
+            if len(sent['body']['question']) == 401:
                 return Reply(201, {'id': self.world.add_poll(self.world.caller(sent), sent['body']['question'])['id']})
             return self.world.create_poll(sent)
         self.world.handlers.insert(0, ('POST', re.compile(r'/community/polls'), lenient))
         result, note = self.attempt('E-POLL-18')
         self.assertEqual(result, 'fail')
-        self.assertIn('질문 81자', note)
+        self.assertIn('질문 401자', note)
         self.assertIn('polls', note)
 
-    def test_poll_31_eighty_code_points_cut_at_the_thumb_pass(self):
+    def test_poll_31_four_hundred_code_points_cut_at_the_thumb_pass(self):
         app = self.app('E-POLL-31')
         self.assertEqual(self.attempt('E-POLL-31', app)[0], 'pass')
-        self.assertEqual(len(app.jobs[0]['base']), 79)
+        self.assertEqual(len(app.jobs[0]['base']), 399)
         self.assertTrue(app.jobs[0]['base'].startswith('[E2E] '))
 
-    def test_poll_31_a_stored_question_that_is_not_80_or_lost_its_thumb_fails(self):
-        for stored in ('a' * 81, 'a' * 79, 'a' * 79 + 'b'):
+    def test_poll_31_a_stored_question_that_is_not_400_or_lost_its_thumb_fails(self):
+        for stored in ('a' * 401, 'a' * 399, 'a' * 399 + 'b'):
             with self.subTest(stored[-2:] + str(len(stored))):
                 self.setUp()
                 result, note = self.attempt('E-POLL-31', App(self.world, lambda w, job, s=stored: w.add_poll('id-1', s)))
@@ -500,7 +500,7 @@ class PollReadTest(PhoneBase):
                 app = App(self.world)
                 self.assertEqual(self.attempt('E-POLL-25', app)[0], 'pass')
                 self.assertEqual(app.jobs[0]['existing'], count)
-                reads = [s for s in self.world.sent if s['method'] == 'GET' and s['path'] == '/community/polls']
+                reads = [s for s in self.world.sent if s['method'] == 'GET' and s['path'] == '/community/feed']
                 # 준비 전에 센 것 · 25개를 올린 뒤에 센 것 — 한 번에 20개씩이라 n 개면 n // 20 + 1 번(꽉 찬 끝은 빈 쪽 하나 더)
                 self.assertEqual(len(reads), (count // 20 + 1) + ((count + 25) // 20 + 1))
                 self.assertEqual(len([r for r in reads if 'before' not in r['query']]), 2)
@@ -509,11 +509,11 @@ class PollReadTest(PhoneBase):
         self.world.add_poll('id-9', '남의 글')
         self.attempt('E-POLL-25')
         first_post = next(i for i, s in enumerate(self.world.sent) if s['method'] == 'POST' and s['path'] == '/community/polls')
-        before = [s for s in self.world.sent[:first_post] if s['method'] == 'GET' and s['path'] == '/community/polls']
+        before = [s for s in self.world.sent[:first_post] if s['method'] == 'GET' and s['path'] == '/community/feed']
         self.assertEqual([s['auth'] for s in before], ['tok-1'])
 
     def test_poll_25_an_unreadable_feed_is_blocked(self):
-        self.world.handlers.insert(0, ('GET', re.compile(r'/community/polls'), Reply(500, {'detail': '서버 오류'})))
+        self.world.handlers.insert(0, ('GET', re.compile(r'/community/feed'), Reply(500, {'detail': '서버 오류'})))
         app = App(self.world)
         result, note = self.attempt('E-POLL-25', app)
         self.assertEqual(result, 'blocked')

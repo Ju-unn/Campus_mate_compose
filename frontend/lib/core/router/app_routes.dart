@@ -64,6 +64,13 @@ abstract final class AppRoutes {
 
   /// 보낸 신청 · 프로필 보기(읽기 전용, pen ig7i2, 1.0.7 #16) — 대화 탭 보낸 신청 줄의 [프로필 보기] 가 push 로 연다. `/sent-requests/:cardId`
   static const String sentRequestProfile = '/sent-requests';
+
+  /// 거절한 카드 · 프로필 보기(읽기 전용 + 다시 신청, pen hhlWE, 1.0.7 #20) — 대화 탭 [거절한 카드] 줄의 [프로필 보기] 가 push 로 연다.
+  /// `/rejected-cards/:cardId`, 받은 신청을 거절한 줄이면 `?source=acceptance`(읽는 길 · 아래 버튼이 다르다).
+  static const String rejectedCardProfile = '/rejected-cards';
+
+  /// 카드 대기 화면의 [거절한 카드 다시 보기] — 대화 탭을 [거절한 카드] 탭으로 연다.
+  static const String conversationsRejected = '$conversations?tab=rejected';
   static const String settings = '/settings';
   static const String notificationSettings = '/settings/notifications';
 
@@ -110,6 +117,8 @@ abstract final class AppRoutes {
   static const String community = '/community';
   static const String communityNew = '/community/new';
   static const String communityPoll = '/community/polls'; // `/community/polls/:pollId`
+  /// 공지(할 일 21) — 17g 목록, 17h 상세는 `/community/notices/:noticeId`.
+  static const String communityNotices = '/community/notices';
   static const String myProfile = '/me';
 
   /// 나 탭 편집(계획서 2026-09-27-me-edit.md) — 15c 자기소개·태그, 그리고 온보딩 화면을 편집 모드로 다시 띄우는 자리.

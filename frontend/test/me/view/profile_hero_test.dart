@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
+import 'package:campus_mate/auth/school_info/model/data/academic_status.dart';
 import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
@@ -45,8 +46,10 @@ MyProfile _profile({
   String? major = '경영학과',
   String? avatarUrl = _avatarUrl,
   int avatarRegenCost = 10,
+  AcademicStatus? academicStatus,
 }) =>
     MyProfile(
+      academicStatus: academicStatus,
       nickname: nickname,
       age: age,
       university: university,
@@ -245,6 +248,18 @@ void main() {
       final style = tester.widget<Text>(find.text('학교 인증')).style!;
       expect((style.fontSize, style.fontWeight, style.color), (10, FontWeight.w600, AppColors.ink));
       expect(style.letterSpacing, 0); // 옛 labelSmall 처럼 자간 없음(badge 의 +0.02em 을 끈다)
+    });
+
+    // 1.0.7 1-1 — 같은 흰 알약의 글자만 내 신분으로 바뀐다. 안 고른 사람(null)은 지금처럼 "학교 인증".
+    testWidgets('신분을 골랐으면 "학교 인증" 자리에 신분 글자를 같은 모양으로 쓴다', (tester) async {
+      await pump(tester, profile: _profile(academicStatus: AcademicStatus.graduateStudent), onRegenerate: () {});
+
+      expect(find.text('학교 인증'), findsNothing);
+      final pill = _fill(AppColors.canvas, of: find.text('대학원생')).first;
+      expect(tester.getSize(pill).height, 6 + 18 + 6);
+      expect(find.descendant(of: pill, matching: find.byType(Icon3d)), findsOneWidget);
+      final style = tester.widget<Text>(find.text('대학원생')).style!;
+      expect((style.fontSize, style.fontWeight, style.color), (10, FontWeight.w600, AppColors.ink));
     });
   });
 

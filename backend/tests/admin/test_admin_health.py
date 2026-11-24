@@ -43,7 +43,7 @@ def test_health_sends_the_threshold_windows_to_the_db(client, world):
     client.get("/admin/health", headers=ADMIN_HEADERS)
 
     assert world.rpcs == [("admin_health", {
-        "p_cards_grace_minutes": 60, "p_room_hours": 50, "p_withdrawn_days": 31, "p_avatar_hours": 24, "p_push_hours": 12})]
+        "p_cards_grace_minutes": 60, "p_room_hours": 74, "p_withdrawn_days": 31, "p_avatar_hours": 24, "p_push_hours": 12})]
 
 
 @pytest.mark.parametrize(("key", "field", "alert"), [

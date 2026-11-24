@@ -5,11 +5,15 @@ import 'package:campus_mate/billing/task/view/heart_task_row.dart';
 import 'package:campus_mate/billing/task/view/heart_task_submit_screen.dart';
 import 'package:campus_mate/billing/task/view/heart_tasks_screen.dart';
 import 'package:campus_mate/billing/task/viewmodel/heart_task_submit_view_model.dart';
+import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/trait_bar.dart';
+import 'package:campus_mate/community/model/data/community_item.dart';
+import 'package:campus_mate/community/view/category_chip.dart';
 import 'package:campus_mate/community/view/community_feed_screen.dart';
 import 'package:campus_mate/community/view/feed_poll_card.dart';
 import 'package:campus_mate/community/view/poll_card.dart';
 import 'package:campus_mate/community/view/poll_composer_screen.dart';
+import 'package:campus_mate/community/view/write_type_sheet.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_ui_state.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
@@ -31,11 +35,11 @@ import 'support.dart';
 /// 영역 2 폰 A 한 대 2차 18(투표 9 · 하트 제출 흐름 8 · 카드 상세 1). PC 쪽은 e2e/area2_phone_b.py 의 같은 번호 — 계정을 만들어
 /// 1회용 토큰을 넘기고 DB 값을 본다. 화면 글자는 시나리오가 아니라 지금 화면 코드에서 옮겼다(줄 번호는 옮긴 때 기준).
 /// 찾기는 Key 없이 화면 글자 · 툴팁 · 공용/화면 위젯 종류로 한다(이미 있는 Key — poll-question 등 · heart-task-uploader ·
-/// 15d 개선안 A 의 질문하기 알약 `CommunityFeedScreen.askButtonKey` · 결과 막대 `FeedPollCard.agreeBarKey` — 만 쓴다).
+/// 글쓰기 알약 `CommunityFeedScreen.askButtonKey` · 고르기 시트 줄 `WriteTypeSheet.rowKey` · 결과 막대 `FeedPollCard.agreeBarKey` — 만 쓴다).
 /// 인증샷은 18b 의 사진 고르기 훅(`HeartTaskSubmitViewModel.pickFromGallery`)을 앱에 든 그림으로 갈아 끼워 넣는다.
 
 // 15d 피드(개선안 A — 피드 카드는 FeedPollCard, 17c 상세 카드는 옛 PollCard) · 17b 쓰기 · 17c 상세 — frontend/lib/community/view/
-// 질문 올리기는 앱바 + 가 아니라 유리 내비 위 "질문하기" 알약(community_feed_screen.dart:33 askButtonKey)이다.
+// 투표 올리기는 유리 내비 위 "글쓰기" 알약(askButtonKey) → 고르기 시트(17 `LSCrq`) "투표" 줄 → 17b 다(할 일 19).
 const _anonymous = '익명'; // feed_poll_card.dart:166
 const _justNow = '방금 전'; // poll_time.dart:10 — 기기 시계가 서버보다 1분 넘게 앞서면 "1분 전" 이 되어 틀어진다
 const _noVotes = '0명 참여'; // feed_poll_card.dart:467(아래 줄)
@@ -43,10 +47,10 @@ const _openDetail = '자세히 보기'; // feed_poll_card.dart:483(아래 줄 �
 const _detailTitle = '투표 상세'; // poll_detail_screen.dart:42
 const _commentsSoon = '댓글 기능은 아직 준비 중이에요'; // 10-16 사용자 결정으로 화면에서 뺐다 — 다시 나오면 안 된다
 const _post = '익명으로 올리기'; // poll_composer_screen.dart:135
-const _dailyLimit = '오늘은 질문을 더 올릴 수 없어요'; // poll_composer_screen.dart:19
+const _dailyLimit = '오늘은 글을 더 올릴 수 없어요'; // 서버 429 문구 그대로(backend errors.POLL_DAILY_LIMIT)
 const _pageSize = 20; // backend POLL_PAGE_SIZE(community/repository.py:11) — 처음 읽는 개수
 const _total = 25; // PC 가 올려 두는 시험 글 수(피드에 원래 보이던 글은 job 의 existing 으로 따로 온다)
-// 👍🏻 = 코드 포인트 2개(U+1F44D U+1F3FB). 79자 뒤에 붙이면 80 에서 잘려 👍 만 남는다.
+// 👍🏻 = 코드 포인트 2개(U+1F44D U+1F3FB). 399자 뒤에 붙이면 400 에서 잘려 👍 만 남는다(1.0.7 투표 질문 400).
 const _thumbs = '\u{1F44D}\u{1F3FB}';
 const _thumb = '\u{1F44D}';
 
@@ -129,19 +133,57 @@ Future<void> _openCommunity(WidgetTester tester) async {
   }
 }
 
-/// 피드 → "질문하기" 알약 → 17b. 토스트가 떠 있는 동안 알약은 숨고 눌리지 않아(17A-2) 눌릴 수 있을 때까지 기다린다.
+/// 피드의 글쓰기 입구. 글이 있으면 "글쓰기" 알약, 전체 · 내 글 탭이 비었으면 알약은 숨고(앱 의도 — c2072261,
+/// community_feed_screen.dart `showAsk`) 빈 화면 가운데 "글쓰기" 버튼이 그 자리를 맡는다. 둘은 같이 보이지 않는다.
+Finder get communityWriteEntry => find.descendant(
+      of: find.byType(CommunityFeedScreen),
+      matching: find.byWidgetPredicate(
+        (w) => w.key == CommunityFeedScreen.askButtonKey || (w is AppButton && w.label == _emptyWrite),
+      ),
+    );
+const _emptyWrite = '글쓰기'; // ARB communityEmptyAsk — 빈 화면 버튼
+
+/// 피드 → 글쓰기 입구([communityWriteEntry]) → 고르기 시트(17 `LSCrq`) "투표" → 17b. 토스트가 떠 있는 동안 알약은 숨고
+/// 눌리지 않아(17A-2) 눌릴 수 있을 때까지 기다린다.
 Future<void> _openComposer(WidgetTester tester) async {
-  final ask = find.byKey(CommunityFeedScreen.askButtonKey);
-  await pumpUntil(tester, ask.hitTestable(), timeout: const Duration(seconds: 10));
+  final ask = communityWriteEntry.hitTestable();
+  await pumpUntil(tester, ask, timeout: const Duration(seconds: 10));
   await tap(tester, ask);
+  final pollRow = find.byKey(WriteTypeSheet.rowKey(CommunityKind.poll));
+  await pumpUntil(tester, pollRow.hitTestable(), timeout: const Duration(seconds: 5));
+  await tap(tester, pollRow);
   await pumpUntil(tester, _composer, timeout: const Duration(seconds: 5));
   await wait(tester, const Duration(milliseconds: 500)); // 넘김 애니메이션이 끝나게
 }
 
-/// 질문을 넣고 "익명으로 올리기" 를 누른다.
-Future<void> _submitQuestion(WidgetTester tester, String question) async {
+/// 질문을 넣고 카테고리(필수, 할 일 19 — 첫 칩 "자유")를 고른다. 칩을 고르지 않으면 "익명으로 올리기" 가 늘 꺼져 있어,
+/// 버튼이 꺼진 까닭이 입력 때문인지 가리려면 칩을 먼저 골라 둔다.
+Future<void> _typeAndPickCategory(WidgetTester tester, String question) async {
   await type(tester, _questionField, question);
-  must(enabled(tester, _post), '질문을 넣었는데 "$_post" 이 꺼져 있음');
+  await tap(tester, find.byType(CategoryChip).first);
+}
+
+/// "익명으로 올리기" 가 켜져 있나. 17b 는 게으른 ListView 라 키보드가 올라와 화면이 줄면 맨 아래 버튼이 아직
+/// 만들어지지 않는다(카테고리 줄이 생긴 뒤 — `enabled` 의 `.last` 가 "Bad state: No element") — 버튼까지 내린 뒤 본다.
+Future<bool> _postEnabled(WidgetTester tester) async {
+  await _revealBelow(tester, button(_post));
+  return enabled(tester, _post);
+}
+
+/// 17b 목록을 아래로 내려 [target] 이 만들어지고 보이게 한다(400자 질문 · 키보드로 아래가 아직 안 만들어졌을 때).
+Future<void> _revealBelow(WidgetTester tester, Finder target) async {
+  await tester.scrollUntilVisible(
+    target,
+    200,
+    scrollable: find.descendant(of: _composer, matching: find.byType(Scrollable)).first,
+  );
+  await tester.pump();
+}
+
+/// [_typeAndPickCategory] 뒤 "익명으로 올리기" 를 누른다.
+Future<void> _submitQuestion(WidgetTester tester, String question) async {
+  await _typeAndPickCategory(tester, question);
+  must(await _postEnabled(tester), '질문을 넣었는데 "$_post" 이 꺼져 있음');
   await tap(tester, button(_post));
 }
 
@@ -228,26 +270,30 @@ final Map<String, Area1Case> _pollCases = {
     await _firstCardIs(tester, question);
     return null;
   }),
-  // 못 올리는 입력: 공백만 · 같은 선택지는 버튼 꺼짐, 질문 81자는 80 · 선택지 7자는 6 에서 입력이 막힌다. 누르지 않는다(API 422 는 PC).
+  // 못 올리는 입력: 공백만 · 같은 선택지는 버튼 꺼짐, 질문 401자는 400 · 선택지 7자는 6 에서 입력이 막힌다. 누르지 않는다(API 422 는 PC).
+  // 카테고리를 먼저 골라 두어 버튼이 꺼진 까닭이 칩이 아니라 입력임을 본다(같은 선택지 검사 직전에 켜짐도 확인).
   'E-POLL-18': _session((tester, job) async {
     await _openCommunity(tester);
     await _openComposer(tester);
     final optionA = find.byKey(PollComposerScreen.optionAKey);
     final optionB = find.byKey(PollComposerScreen.optionBKey);
-    await type(tester, _questionField, '   ');
-    must(!enabled(tester, _post), '질문이 공백뿐인데 "$_post" 이 켜짐');
-    await type(tester, _questionField, '가' * 81);
+    await _typeAndPickCategory(tester, '   ');
+    must(!await _postEnabled(tester), '카테고리를 골랐고 질문이 공백뿐인데 "$_post" 이 켜짐');
+    await type(tester, _questionField, '가' * 401);
     final question = fieldText(tester, _questionField).runes.length;
-    must(question == 80, '질문 81자를 넣었더니 입력칸이 $question자(기대 80 에서 막힘)');
-    // 보기 입력칸은 "직접 적기" 탭에만 있다(기본은 O/X 탭, 10-08 개편).
+    must(question == 400, '질문 401자를 넣었더니 입력칸이 $question자(기대 400 에서 막힘)');
+    // 보기 입력칸은 "직접 적기" 탭에만 있다(기본은 O/X 탭, 10-08 개편). 400자 질문 상자 아래라 내려서 누른다.
+    await _revealBelow(tester, find.text('직접 적기'));
     await tap(tester, find.text('직접 적기'));
     must(optionA.evaluate().isNotEmpty, '"직접 적기" 탭을 눌렀는데 보기 입력칸이 안 나옴');
     await type(tester, optionA, 'abcdefg');
     final option = fieldText(tester, optionA).runes.length;
     must(option == 6, '선택지 7자를 넣었더니 입력칸이 $option자(기대 6 에서 막힘)');
     await type(tester, optionA, '같음');
+    await type(tester, optionB, '다름');
+    must(await _postEnabled(tester), '카테고리 · 질문 · 다른 두 선택지인데 "$_post" 이 꺼짐(아래 같음 검사의 바탕)');
     await type(tester, optionB, '같음');
-    must(!enabled(tester, _post), '두 선택지가 같은데 "$_post" 이 켜짐');
+    must(!await _postEnabled(tester), '두 선택지가 같은데 "$_post" 이 켜짐');
     return null;
   }),
   // PC 가 시험 글 25개를 얹었다(원래 보이던 글 existing 개는 그대로) — 처음 20(새 글이 최신순 맨 앞이라 모두 시험 글) → 끝까지 내리면 25 + existing,
@@ -255,19 +301,19 @@ final Map<String, Area1Case> _pollCases = {
   'E-POLL-25': _session((tester, job) async {
     final expected = _total + (job['existing'] as int);
     await _openCommunity(tester);
-    final first = _feedState(tester).polls.length;
+    final first = _feedState(tester).items.length;
     must(first == _pageSize, '처음 읽은 글 $first개(기대 $_pageSize)');
     final scroll = tester.state<ScrollableState>(find.descendant(of: _feed, matching: find.byType(Scrollable)).first);
     final watch = Stopwatch()..start();
     while (_feedState(tester).hasMore || _feedState(tester).isLoadingMore) {
-      must(watch.elapsed < const Duration(seconds: 60), '60초 안에 끝까지 못 읽음(지금 ${_feedState(tester).polls.length}개)');
+      must(watch.elapsed < const Duration(seconds: 60), '60초 안에 끝까지 못 읽음(지금 ${_feedState(tester).items.length}개)');
       final position = scroll.position;
       position.jumpTo((position.maxScrollExtent - 600).clamp(0, position.maxScrollExtent)); // 다시 바닥에 닿아야 다음 쪽을 부른다
       await tester.pump();
       position.jumpTo(position.maxScrollExtent);
       await tester.pump(const Duration(milliseconds: 500));
     }
-    final ids = _feedState(tester).polls.map((poll) => poll.id).toList();
+    final ids = _feedState(tester).items.map((item) => item.id).toList();
     must(ids.length == expected, '끝까지 내린 글 ${ids.length}개(기대 $expected = 시험 $_total + 기존 ${expected - _total})');
     must(ids.toSet().length == ids.length, '같은 id 가 ${ids.length - ids.toSet().length}번 겹침');
     final spinner = find.descendant(of: _feed, matching: find.byType(CircularProgressIndicator));
@@ -301,16 +347,16 @@ final Map<String, Area1Case> _pollCases = {
     }
     return null;
   }),
-  // 질문 79자 + 👍🏻 → 입력칸 80(코드 포인트) · 카운터 "80 / 80" · 올리기 되면 17b 가 닫히고 피드 맨 위가 79자 + 👍. 서버가 받은 글은 PC 가 본다.
+  // 질문 399자 + 👍🏻 → 입력칸 400(코드 포인트) · 카운터 "400 / 400" · 올리기 되면 17b 가 닫히고 피드 맨 위가 399자 + 👍. 서버가 받은 글은 PC 가 본다.
   'E-POLL-31': _session((tester, job) async {
     final base = job['base'] as String;
     await _openCommunity(tester);
     await _openComposer(tester);
-    await type(tester, _questionField, '$base$_thumbs');
+    await _typeAndPickCategory(tester, '$base$_thumbs');
     final length = fieldText(tester, _questionField).runes.length;
-    must(length == 80, '79자 + 👍🏻 를 넣었더니 입력칸이 $length(기대 코드 포인트 80)');
-    must(_count(find.text('80 / 80')) == 1, '카운터 "80 / 80" ${_count(find.text('80 / 80'))}개(기대 1)');
-    must(enabled(tester, _post), '80자인데 "$_post" 이 꺼짐');
+    must(length == 400, '399자 + 👍🏻 를 넣었더니 입력칸이 $length(기대 코드 포인트 400)');
+    must(_count(find.text('400 / 400')) == 1, '카운터 "400 / 400" ${_count(find.text('400 / 400'))}개(기대 1)');
+    must(await _postEnabled(tester), '400자인데 "$_post" 이 꺼짐');
     await tap(tester, button(_post));
     await _closed(tester);
     await _firstCardIs(tester, '$base$_thumb');

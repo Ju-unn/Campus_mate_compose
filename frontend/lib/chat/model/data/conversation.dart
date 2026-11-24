@@ -46,7 +46,7 @@ class Conversation {
   final int unreadCount;
   final bool trustPassed;
 
-  /// 매칭 성립 + 48시간까지 남은 시간. 0 이면 곧 목록에서 사라진다.
+  /// 매칭 성립 + 응답 기한(서버 값)까지 남은 시간. 0 이면 곧 목록에서 사라진다.
   final int remainingSeconds;
 
   /// 미리보기 한 줄. 시스템 줄("OO님이 채팅방을 나갔어요")도 그냥 마지막 메시지다.

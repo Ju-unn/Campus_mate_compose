@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:campus_mate/matching/view/rejected_card_actions.dart';
+import 'package:campus_mate/matching/model/data/rejected_card.dart';
 import 'package:campus_mate/account/model/repository/account_repository.dart';
 import 'package:campus_mate/common/widgets/app_lottie_view.dart';
 import 'package:campus_mate/common/widgets/select_chip.dart';
@@ -31,6 +33,8 @@ import 'package:campus_mate/billing/store/view/heart_store_screen.dart';
 import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/community/model/repository/community_repository_provider.dart';
+import 'package:campus_mate/community/view/notice_list_screen.dart';
+import 'package:campus_mate/community/view/poll_detail_screen.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/university_logos.dart';
@@ -672,7 +676,55 @@ void main() {
       expect(screen.bottomAction, isNull);
     });
 
-    testWidgets('/profiles/:profileId 는 그 사람의 14c 상대 프로필이다', (tester) async {
+    // 20-5 hhlWE: 거절한 카드 · 프로필 보기 — 제목 "거절한 카드" + 아래 버튼 하나. 받은 신청 출처는 받은 신청 읽기 · [수락하기].
+  testWidgets('/rejected-cards/:cardId 는 거절한 카드 읽기 전용 프로필(제목 "거절한 카드", 아래 [다시 신청하기])이다', (tester) async {
+    final router = await pumpRouter(tester);
+
+    router.go('${AppRoutes.rejectedCardProfile}/$_cardId');
+    await tester.pumpAndSettle();
+
+    final screen = tester.widget<ReadOnlyProfileScreen>(find.byType(ReadOnlyProfileScreen));
+    expect(screen.cardId, _cardId);
+    expect(screen.title, '거절한 카드');
+    expect(screen.readsAcceptance, isFalse);
+    final action = screen.bottomAction! as RejectedProfileAction;
+    expect((action.cardId, action.source), (_cardId, RejectedSource.card));
+  });
+
+  testWidgets('/rejected-cards/:cardId?source=acceptance 는 받은 신청 읽기 · [수락하기] 쪽이다', (tester) async {
+    final router = await pumpRouter(tester);
+
+    router.go('${AppRoutes.rejectedCardProfile}/$_cardId?source=acceptance');
+    await tester.pumpAndSettle();
+
+    final screen = tester.widget<ReadOnlyProfileScreen>(find.byType(ReadOnlyProfileScreen));
+    expect(screen.readsAcceptance, isTrue);
+    expect((screen.bottomAction! as RejectedProfileAction).source, RejectedSource.acceptance);
+  });
+
+  testWidgets('/conversations?tab=rejected 는 대화 탭을 [거절한 카드] 로 연다', (tester) async {
+    final router = await pumpRouter(tester);
+
+    router.go(AppRoutes.conversationsRejected);
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<ConversationsScreen>(find.byType(ConversationsScreen)).openRejected, isTrue);
+  });
+
+  testWidgets('/community/notices 는 17g 공지 목록, /community/notices/:id 는 공지 길로 연 17h 상세다(할 일 21)', (tester) async {
+    final router = await pumpRouter(tester);
+
+    router.go(AppRoutes.communityNotices);
+    await tester.pumpAndSettle();
+    expect(find.byType(NoticeListScreen), findsOneWidget);
+
+    router.go('${AppRoutes.communityNotices}/$_cardId');
+    await tester.pumpAndSettle();
+    final detail = tester.widget<PollDetailScreen>(find.byType(PollDetailScreen));
+    expect((detail.pollId, detail.isNotice), (_cardId, true));
+  });
+
+  testWidgets('/profiles/:profileId 는 그 사람의 14c 상대 프로필이다', (tester) async {
       final router = await pumpRouter(tester);
 
       router.go('${AppRoutes.partnerProfile}/$_profileId');
@@ -688,9 +740,11 @@ void main() {
       ('${AppRoutes.cardDetail}/card-1', AppRoutes.today),
       ('${AppRoutes.acceptanceDetail}/card-7', AppRoutes.conversations),
       ('${AppRoutes.sentRequestProfile}/card-8', AppRoutes.conversations),
+    ('${AppRoutes.rejectedCardProfile}/card-9', AppRoutes.conversations),
       ('${AppRoutes.partnerProfile}/p2', AppRoutes.home),
       ('${AppRoutes.partnerProfile}/${_profileId}x', AppRoutes.home),
       ('${AppRoutes.communityPoll}/p1', AppRoutes.community),
+      ('${AppRoutes.communityNotices}/n1', AppRoutes.communityNotices),
       ('${AppRoutes.friendReviewWrite}/p2', AppRoutes.home),
     ]) {
       testWidgets('UUID 가 아닌 id 의 $path 는 $fallback 로 보낸다', (tester) async {
@@ -706,6 +760,7 @@ void main() {
     for (final path in [
       '${AppRoutes.cardDetail}/$_cardId',
       '${AppRoutes.communityPoll}/${_cardId.toUpperCase()}',
+      '${AppRoutes.communityNotices}/$_cardId',
     ]) {
       testWidgets('UUID id 의 $path 는 그대로 연다', (tester) async {
         final router = await pumpRouter(tester);
@@ -1052,6 +1107,8 @@ void main() {
           // 3c 관문 화면이 읽는 학교명 · 로고(지어낸 값, 로고 없음).
           schoolNameProvider.overrideWithValue(const AsyncData('가나대학교')),
           universityLogosProvider.overrideWith((ref) => const <String, String>{}),
+          // 3c 뷰모델이 졸업생을 미리 고를지 관문 캐시의 인증 방법을 읽는다(1.0.7 1-1).
+          verificationGateRepositoryProvider.overrideWithValue(FakeVerificationGateRepository()),
           cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
           chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
           communityRepositoryProvider.overrideWithValue(FakeCommunityRepository()),

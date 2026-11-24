@@ -1,20 +1,20 @@
 """영역 4 PUSH 채팅 게이트 배치(chat-gate) 11개 — 40~48 · 79 · 80(묶음 area4-push-gate). 받는 사람 폰 한 대 + 상대·배치는 PC.
 기대값은 바탕화면 E2E_최종테스트_시나리오.md 영역 4 의 E-PUSH 줄(10-04 갱신본) — 그러나 **문구·시각은 코드가 기준**이다
-(backend/app/chat/gate.py · batch_router.py: 리마인드는 매칭 24시간 뒤 한 시간짜리 창, 실제로 보내지는 정각(올림)이 22~8시면 아침 8시로 밀림, 48시간이 지나면 알림 없이 닫힘).
+(backend/app/chat/gate.py · batch_router.py: 리마인드는 매칭 48시간 뒤(마감 24시간 전) 한 시간짜리 창, 실제로 보내지는 정각(올림)이 22~8시면 아침 8시로 밀림, 72시간이 지나면 알림 없이 닫힘).
 
 가설 하나 = 함수 하나 `(scene)`. 폰 계정(me, 알림 받는 쪽)과 상대(partner)를 만들고 둘의 매칭을 DB 로 만든 뒤, **배치를 부르기 직전에** 매칭의
 created_at 을 지금 기준으로 옮기고 `area2._batch('chat-gate')` 를 한 번 부른다. 배치 응답(reminded · closed · passed)은 gcloud 호출이라 PC 가 못 읽으니
 판정은 폰 알림창과 DB 로 한다. **배치가 돌았다는 증거(앵커)**: 새 계정 둘의 매칭에 양쪽 trust_response=accept 를 넣어 두면 배치가 trust_passed_at 도장을
 찍는다 — 안 오는 것이 "배치가 안 돌아서" 인지 "서버가 안 보내서" 인지는 이 도장으로 가른다. 도장이 안 찍히면 fail 이 아니라 blocked.
 
-안전(정직하게): 손으로 부르는 chat-gate 는 **열린 매칭 전부**를 처리한다 — 실사용자의 리마인드(정각 예약 실행이 이미 보낸 사람에게는 중복)·48시간 마감·통과 도장도
+안전(정직하게): 손으로 부르는 chat-gate 는 **열린 매칭 전부**를 처리한다 — 실사용자의 리마인드(정각 예약 실행이 이미 보낸 사람에게는 중복)·72시간 마감·통과 도장도
 같이 처리한다. 하네스가 `ensure_no_real_users` 로 실사용자 0 일 때만 돌려 실제 위험은 막혀 있다. 같은 시(時)에 두 번 부르면 리마인드가 두 번 가므로(gate.py
 needs_reminder ponytail 주석) 같은 시 두 번째 호출은 batch_gate 가 막는다(예약 실행과 겹친다 — batch_gate.py 맨 위 설명).
 
 시각 규칙(가장 중요): chat-gate 는 정각 ±5분 금지 · 같은 시(時) 두 번 금지(`area2._batch` 가 관문)이고, 게다가 예약 실행이 매시 정각에 돈다.
 리마인드 창이 한 시간이라 항상 정각 하나를 품는다. 그래서 시작은 서울 **08:06~20:48 의 hh:06~hh:48 분**에만(관측 60+30초가 다음 정각 전에 끝나고, 창이 조용한
-시간에 안 걸리게 낮 — 21시대에 시작하면 created_at+24h5m 이 21시대라 창이 22:00 정각을 품어, 서버가 그 리마인드를 다음 날 08:00 으로 밀어 폰에 안 온다) — 밖이면 계정·앱 만들기 전에 blocked("HH:MM 에 다시"), 폰 준비 뒤 배치 직전에 한 번 더 본다.
-**45 만 09:06 부터**: created_at 이 now−25h1m 이라 08시대에 시작하면 created_at+24h 가 07시대 → reminder_at 이 07시대 전체를 08:00 으로 밀어(스케줄러가 정각보다 몇 초 늦게 불러도 07시 배치에 안 걸리게) 창이 [08:00, 09:00) 이 되고,
+시간에 안 걸리게 낮 — 21시대에 시작하면 created_at+48h5m 이 21시대라 창이 22:00 정각을 품어, 서버가 그 리마인드를 다음 날 08:00 으로 밀어 폰에 안 온다) — 밖이면 계정·앱 만들기 전에 blocked("HH:MM 에 다시"), 폰 준비 뒤 배치 직전에 한 번 더 본다.
+**45 만 09:06 부터**: created_at 이 now−49h1m 이라 08시대에 시작하면 created_at+48h 가 07시대 → reminder_at 이 07시대 전체를 08:00 으로 밀어(스케줄러가 정각보다 몇 초 늦게 불러도 07시 배치에 안 걸리게) 창이 [08:00, 09:00) 이 되고,
 now 가 그 안이라 서버는 정상으로 리마인드를 보낸다(가설은 "안 온다" 라 서버가 멀쩡한데 FAIL). 09시 이후엔 창이 now−1분에 끝난다(시험이 격자로 backend gate.py 와 대조).
 가설마다 배치를 한 번 부르니 **가설 하나 = 시계의 시 하나**다(11개 = 11개 시). 같은 시의 두 번째 가설은 관문이 막아 blocked("13:06 에 다시") — 정상이다.
 
@@ -51,6 +51,7 @@ from e2e.area2_phone3 import _wait_for
 from e2e.area3_phone import _permitted
 from e2e.area3_phone3 import _screens
 from e2e.area4_push import CASE_LIMIT_SLOW, SETTLE, TOKEN_WAIT, _Scene
+from e2e.chat_clock import DEADLINE, PROMPT_AFTER
 from e2e.tools import Blocked
 
 REMINDER_TITLE = '신뢰 확인이 기다리고 있어요'  # backend/app/chat/batch_router.py run_chat_gate
@@ -62,10 +63,10 @@ CASE_LIMIT_HOUR = 4500  # 다음 정각 · 아침 8시까지 기다리는 가설
 FIRST_START_HOUR = 8  # 시작해도 되는 첫 시(08:06)
 EXPIRED_FIRST_HOUR = 9  # 45 는 09:06 부터 — 08시대는 reminder_at 이 08:00 으로 밀어 창이 [08:00, 09:00) 이라 서버가 정상으로 보낸다
 LAST_START_HOUR = 20  # 시작해도 되는 마지막 시(20:48) — 21시대는 창이 22:00 정각을 품어 서버가 다음 날 08:00 으로 밀기에 폰 알림이 안 온다
-DUE = timedelta(hours=24, minutes=5)  # 리마인드 창이 지금−5분에 시작
-DUE_FOR_TWICE = timedelta(hours=24, minutes=2)  # 46 — 다음 정각 예약 실행이 창 안에 여유 있게 들어가게
-EXPIRED = timedelta(hours=25, minutes=1)  # 창이 1분 전에 끝남
-CLOSED = timedelta(hours=49)  # 48시간 기한을 넘김
+DUE = PROMPT_AFTER + timedelta(minutes=5)  # 리마인드 창이 지금−5분에 시작
+DUE_FOR_TWICE = PROMPT_AFTER + timedelta(minutes=2)  # 46 — 다음 정각 예약 실행이 창 안에 여유 있게 들어가게
+EXPIRED = PROMPT_AFTER + timedelta(hours=1, minutes=1)  # 창이 1분 전에 끝남
+CLOSED = DEADLINE + timedelta(hours=1)  # 72시간 기한을 넘김
 SEEN = (('room', '방 화면'), ('nickname', '앱바 닉네임'))
 
 
@@ -319,7 +320,7 @@ def push_43(s):
 def push_44(s):
     anchor, match_id = _setup(s)
     first = now_seoul()
-    _set_created(s, match_id, (first - timedelta(days=1)).replace(hour=2, minute=0, second=0, microsecond=0))  # 어제 02:00 → 리마인드는 오늘 08:00
+    _set_created(s, match_id, first.replace(hour=2, minute=0, second=0, microsecond=0) - PROMPT_AFTER)  # 그저께 02:00(+48시간 = 오늘 02:00) → 리마인드는 오늘 08:00
     before = s.before()
     _fire(s, refusal=morning_refusal)  # 07시대 손 호출 한 번
     _confirm_ran(s, anchor)  # 앵커는 07시 호출 뒤에 본다
@@ -331,7 +332,7 @@ def push_44(s):
     got = _watch(s, before, eight + timedelta(minutes=3), done=bool)  # 08:00 예약 실행이 오게 두고 08:03 까지
     if not got:
         _wait_until(eight + timedelta(minutes=6))
-        _fire(s, refusal=gate_window_refusal)  # 08:06~08:48 손 호출 — created_at 은 어제 02:00 그대로
+        _fire(s, refusal=gate_window_refusal)  # 08:06~08:48 손 호출 — created_at 은 그저께 02:00 그대로
         s.notes.append('08:00 예약 실행의 알림이 08:03 까지 안 와 08시대에 손 호출 1번으로 확인')
         got = s.arrives(before, REMINDER_TITLE, REMINDER_BODY)
     s.notes.append(f'08시대 알림 {len(got)}개(예약 실행과 손 호출이 겹치면 2개일 수 있음 — 개수는 판정 사유가 아님) · 상대(B) 쪽은 못 봄')
@@ -377,7 +378,7 @@ def push_48(s):
     _fire(s, [(match_id, CLOSED)])
     _confirm_ran(s, anchor, also=lambda: _stamps(s, match_id).get('chat_closed_at'))
     _wait_for(lambda: _stamps(s, match_id).get('chat_closed_at'), SETTLE)  # 배치가 앵커를 먼저 찍고 이 매칭을 몇 초 뒤 닫을 수 있다 — 기다린 뒤에야 안 닫혔다고 본다
-    s.check.that(_stamps(s, match_id).get('chat_closed_at'), '49시간 지난 매칭에 chat_closed_at 이 안 찍힘(앵커 도장은 찍혀 배치는 돌았음)')
+    s.check.that(_stamps(s, match_id).get('chat_closed_at'), '73시간 지난 매칭에 chat_closed_at 이 안 찍힘(앵커 도장은 찍혀 배치는 돌았음)')
     s.silent(before)  # 새 알림 전부 0개 + 대조
 
 

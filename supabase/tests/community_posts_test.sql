@@ -7,7 +7,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(66);
+select plan(67);
 
 -- 준비 --------------------------------------------------------------------
 -- AU = ...b0(글쓴이) · C1 = ...b1 · C2 = ...b2 · LIM = ...b3(합산 한도) · VW = ...b4(구경꾼) · SUS = ...b5(정지될 글쓴이)
@@ -85,9 +85,14 @@ select throws_ok(
     values ('00000000-0000-0000-0000-0000000000b0', 'post', repeat('가', 501), null, null)$$,
   '23514', null, '게시물 본문은 500자를 넘을 수 없다'
 );
+-- 투표 질문은 1.0.7 에서 400(20261124190000) — 게시물 500 · 공지 2000 과 따로 경계 둘 다 본다.
+select lives_ok(
+  $$insert into public.polls (author_id, kind, question) values ('00000000-0000-0000-0000-0000000000b0', 'poll', repeat('가', 400))$$,
+  '투표 질문은 400자까지 들어간다'
+);
 select throws_ok(
-  $$insert into public.polls (author_id, kind, question) values ('00000000-0000-0000-0000-0000000000b0', 'poll', repeat('가', 81))$$,
-  '23514', null, '투표 질문은 그대로 80자를 넘을 수 없다'
+  $$insert into public.polls (author_id, kind, question) values ('00000000-0000-0000-0000-0000000000b0', 'poll', repeat('가', 401))$$,
+  '23514', null, '투표 질문은 400자를 넘을 수 없다'
 );
 select throws_ok(
   $$insert into public.polls (author_id, kind, question, option_a_label, option_b_label)

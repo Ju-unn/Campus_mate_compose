@@ -42,4 +42,12 @@ void main() {
     expect(Poll.fromJson(_json()).usesDefaultLabels, isTrue);
     expect(Poll.fromJson(_json(optionA: '짜장')).usesDefaultLabels, isFalse);
   });
+
+  test('두 보기 검사 — 빈칸 · 0폭뿐 · 6자 넘음 · 같은 값(앞뒤 공백 무시)이면 안 된다', () {
+    expect(pollOptionsAccepted('짜장', ' 짬뽕 '), isTrue);
+    expect(pollOptionsAccepted('', '짬뽕'), isFalse);
+    expect(pollOptionsAccepted('​', '짬뽕'), isFalse);
+    expect(pollOptionsAccepted('일곱글자보기다', '짬뽕'), isFalse);
+    expect(pollOptionsAccepted('짜장', ' 짜장'), isFalse);
+  });
 }

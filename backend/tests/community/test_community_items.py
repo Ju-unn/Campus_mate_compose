@@ -154,9 +154,9 @@ def test_old_create_measures_the_question_after_trimming_like_posts_and_comments
     # 투표 질문 · 게시물 본문 · 댓글은 같은 본문 검사(core/text.py body_text)를 길이만 달리해 쓴다 — 앞뒤 공백을 깎은 뒤 잰다.
     seen: list[httpx.Request] = []
     response = _wire(_routes(create_community_item=httpx.Response(200, json=ITEM_ID)), seen).post(
-        "/community/polls", json={"question": "  " + "가" * 80 + "\n"}, headers=AUTH_HEADERS)
+        "/community/polls", json={"question": "  " + "가" * 400 + "\n"}, headers=AUTH_HEADERS)
     assert response.status_code == 201
-    assert json.loads(seen[0].content)["p_text"] == "가" * 80
+    assert json.loads(seen[0].content)["p_text"] == "가" * 400
 
 
 @pytest.mark.parametrize("question", ["​​", "널\x00", "방향‮"], ids=["0폭만", "널", "방향"])

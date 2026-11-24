@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/community/model/data/community_item.dart';
 import 'package:campus_mate/community/model/data/poll.dart';
 import 'package:campus_mate/community/model/data/poll_comment.dart';
 import 'package:campus_mate/community/model/data/poll_vote_notice.dart';
 import 'package:campus_mate/community/model/repository/community_repository_provider.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
+import 'package:campus_mate/community/viewmodel/notice_list_view_model.dart';
 import 'package:campus_mate/community/viewmodel/poll_detail_ui_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -13,7 +15,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 final pollDetailViewModelProvider =
     NotifierProvider.autoDispose.family<PollDetailViewModel, PollDetailUiState, String>(PollDetailViewModel.new);
 
-/// 17c 투표 상세. **pollId 만으로 열린다** — 푸시 알림에서 피드를 거치지 않고 들어와도 `fetchPoll` 로 글을 읽는다.
+/// 17c 상세 — 투표 · 게시물(할 일 19). **id 만으로 열린다** — 푸시 알림에서 피드를 거치지 않고 들어와도 `fetchItem` 으로 글을 읽는다.
+/// 댓글 로직(읽기 · 이어 읽기 · 보내기 · 지우기 · 푸시)은 투표 · 게시물이 같다.
 /// 피드가 이미 그 글을 들고 있으면 그 값으로 먼저 그려 깜박이지 않게 하고, 뒤에서 한 번 더 읽어 댓글 수를 맞춘다.
 class PollDetailViewModel extends Notifier<PollDetailUiState> {
   PollDetailViewModel(this._pollId);
@@ -29,19 +32,26 @@ class PollDetailViewModel extends Notifier<PollDetailUiState> {
 
   @override
   PollDetailUiState build() {
-    final inFeed = _fromFeed();
+    final inFeed = _fromFeed() ?? _fromNotices();
     unawaited(Future.microtask(() async {
       // 만들자마자 버려졌으면(화면을 바로 닫음 · 로그아웃) 읽지 않는다 — 버려진 ref 를 쓰면 던진다.
       if (!ref.mounted) return;
       await (_loadPoll(), _loadComments()).wait;
     }));
-    return PollDetailUiState(poll: inFeed, isLoadingPoll: inFeed == null);
+    return PollDetailUiState(item: inFeed, isLoadingItem: inFeed == null);
   }
 
   /// 피드가 이미 떠 있을 때만 거기서 꺼낸다 — 알림 한 번에 피드 전체를 읽게 만들지 않는다.
-  Poll? _fromFeed() {
+  CommunityItem? _fromFeed() {
     if (!ref.exists(communityFeedViewModelProvider)) return null;
-    return ref.read(communityFeedViewModelProvider).polls.where((poll) => poll.id == _pollId).firstOrNull;
+    return ref.read(communityFeedViewModelProvider).items.where((item) => item.id == _pollId).firstOrNull;
+  }
+
+  /// 공지(할 일 21)는 피드에 없다 — 공지 목록이 떠 있으면 거기서 꺼낸다.
+  CommunityItem? _fromNotices() {
+    if (!ref.exists(noticeListViewModelProvider)) return null;
+    final notice = ref.read(noticeListViewModelProvider).items.where((notice) => notice.id == _pollId).firstOrNull;
+    return notice == null ? null : CommunityItem.ofNotice(notice);
   }
 
   /// 아래로 당겨 새로 고침 · 오류 화면의 "다시 시도". 글과 댓글 첫 쪽을 늘 다시 읽는다(사용자 11-11 「당기면 갱신」).
@@ -68,27 +78,27 @@ class PollDetailViewModel extends Notifier<PollDetailUiState> {
     if (state.commentsError != null || state.hasMoreComments) return;
     final result = await ref
         .read(communityRepositoryProvider)
-        .fetchComments(_pollId, after: last?.createdAt, afterId: last?.id);
+        .fetchComments(_pollId, after: last == null ? null : (createdAt: last.createdAt, id: last.id));
     if (!ref.mounted) return;
     result.when(
       onSuccess: (page) {
-        _lastFetched = page.comments.lastOrNull ?? last;
-        state = state.copyWith(hasMoreComments: page.hasMore, comments: _merge(state.comments, page.comments));
+        _lastFetched = page.items.lastOrNull ?? last;
+        state = state.copyWith(hasMoreComments: page.hasMore, comments: _merge(state.comments, page.items));
       },
       onFailure: (_) {},
     );
   }
 
   Future<void> _loadPoll() async {
-    if (state.poll == null) state = state.copyWith(isLoadingPoll: true, pollError: null);
-    final result = await ref.read(communityRepositoryProvider).fetchPoll(_pollId);
+    if (state.item == null) state = state.copyWith(isLoadingItem: true, itemError: null);
+    final result = await ref.read(communityRepositoryProvider).fetchItem(_pollId);
     if (!ref.mounted) return;
     state = result.when(
-      onSuccess: (poll) => state.copyWith(poll: poll, isLoadingPoll: false, pollError: null),
+      onSuccess: (item) => state.copyWith(item: item, isLoadingItem: false, itemError: null),
       // 글이 이미 보이면 조용히 넘어간다 — 댓글 수가 조금 낡을 뿐이다.
-      onFailure: (failure) => state.poll == null
-          ? state.copyWith(isLoadingPoll: false, pollError: failure)
-          : state.copyWith(isLoadingPoll: false),
+      onFailure: (failure) => state.item == null
+          ? state.copyWith(isLoadingItem: false, itemError: failure)
+          : state.copyWith(isLoadingItem: false),
     );
   }
 
@@ -107,12 +117,12 @@ class PollDetailViewModel extends Notifier<PollDetailUiState> {
     if (!ref.mounted) return;
     state = result.when(
       onSuccess: (page) {
-        _lastFetched = page.comments.lastOrNull;
+        _lastFetched = page.items.lastOrNull;
         // 읽는 사이 붙은 댓글(방금 보낸 것 · 이어 읽은 쪽)은 받은 첫 쪽에 없어도 남긴다 — 커서는 받은 첫 쪽 끝이라 이어 읽기가 맞춘다.
         final addedMeanwhile = state.comments.where((comment) => !before.contains(comment));
         return state.copyWith(
           isLoadingComments: false,
-          comments: _merge(page.comments, addedMeanwhile.toList()),
+          comments: _merge(page.items, addedMeanwhile.toList()),
           hasMoreComments: page.hasMore,
           moreError: null,
         );
@@ -131,15 +141,17 @@ class PollDetailViewModel extends Notifier<PollDetailUiState> {
     final last = _lastFetched;
     if (!state.hasMoreComments || state.isLoadingMoreComments || state.moreError != null || last == null) return;
     state = state.copyWith(isLoadingMoreComments: true);
-    final result = await ref.read(communityRepositoryProvider).fetchComments(_pollId, after: last.createdAt, afterId: last.id);
+    final result = await ref
+        .read(communityRepositoryProvider)
+        .fetchComments(_pollId, after: (createdAt: last.createdAt, id: last.id));
     if (!ref.mounted) return;
     state = result.when(
       onSuccess: (page) {
-        _lastFetched = page.comments.lastOrNull ?? last;
+        _lastFetched = page.items.lastOrNull ?? last;
         return state.copyWith(
           isLoadingMoreComments: false,
           hasMoreComments: page.hasMore,
-          comments: _merge(state.comments, page.comments),
+          comments: _merge(state.comments, page.items),
         );
       },
       onFailure: (failure) => state.copyWith(isLoadingMoreComments: false, moreError: failure),
@@ -207,23 +219,26 @@ class PollDetailViewModel extends Notifier<PollDetailUiState> {
     _setCommentCount(_countNow() - 1);
   }
 
-  int _countNow() => state.poll?.commentCount ?? 0;
+  int _countNow() => state.item?.commentCount ?? 0;
 
-  /// 헤더 숫자를 맞추고, 피드에 같은 글이 있으면 그 카드의 숫자도 맞춘다.
+  /// 헤더 숫자를 맞추고, 피드(투표 · 게시물) · 공지 목록에 같은 글이 있으면 그 줄의 숫자도 맞춘다.
   void _setCommentCount(int count) {
-    final poll = state.poll;
-    if (poll == null) return;
+    final item = state.item;
+    if (item == null) return;
     final next = count < 0 ? 0 : count;
-    state = state.copyWith(poll: poll.withCommentCount(next));
+    state = state.copyWith(item: item.withCommentCount(next));
     if (ref.exists(communityFeedViewModelProvider)) {
       ref.read(communityFeedViewModelProvider.notifier).updateCommentCount(_pollId, next);
+    }
+    if (ref.exists(noticeListViewModelProvider)) {
+      ref.read(noticeListViewModelProvider.notifier).updateCommentCount(_pollId, next);
     }
   }
 
   /// 투표는 피드 뷰모델이 한다(분석 이벤트 · 하트 잔액 · 실패 때 다시 읽기가 거기 있다). 끝나면 이 글을 맞춘다 —
-  /// 피드에 없던 글(알림으로 들어옴)이면 다시 읽는다.
+  /// 피드에 없던 글(알림으로 들어옴)이면 다시 읽는다. 게시물(투표 칸 없음)이면 아무것도 하지 않는다.
   Future<PollVoteNotice?> vote(PollChoice choice) async {
-    if (state.isVoting) return null;
+    if (state.isVoting || state.item?.poll == null) return null;
     state = state.copyWith(isVoting: true);
     final notice = await ref.read(communityFeedViewModelProvider.notifier).vote(_pollId, choice);
     if (!ref.mounted) return notice;
@@ -233,7 +248,7 @@ class PollDetailViewModel extends Notifier<PollDetailUiState> {
       if (!ref.mounted) return notice;
     } else {
       // 댓글 수는 이 화면이 더 새 값이다.
-      state = state.copyWith(poll: inFeed.withCommentCount(_countNow()));
+      state = state.copyWith(item: inFeed.withCommentCount(_countNow()));
     }
     state = state.copyWith(isVoting: false);
     return notice;

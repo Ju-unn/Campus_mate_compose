@@ -126,6 +126,9 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
 
   /// 앱이 화면에 보이는가(hidden · paused 가 아니다). 앱은 보이는 채로 시작한다.
   bool _appShown = true;
+  /// 마지막 복귀 뒤 화면에서 사라진 적이 있다(hide). inactive 만 거친 복귀(알림 센터 · 시스템 창 · 결제 창)는 사라진 적이 없어
+  /// 사용자 채널도 그대로 붙어 있다 — 복귀 일을 다시 하지 않고 결제 복구만 한다(1.0.7 #6).
+  bool _hiddenSinceResume = false;
   /// 스플래시를 잠깐 붙잡아 두는 임시 장치 (로고 작업 때 다시 본다).
   final SplashHold _splashHold = SplashHold();
   final List<StreamSubscription<Object>> _pushSubscriptions = [];
@@ -170,9 +173,15 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   /// 백그라운드에서 돌아오면 ① 업데이트가 필요한지 다시 묻고(오래 켜 둔 앱이 그 사이 정해진 최소 버전에 걸릴 수 있다 —
   /// 로그인 여부와 상관없어 [refreshOnResume] 의 로그인·관문 가드 밖에서 부른다) ② 대화·수락 대기를 다시 읽고
   /// ③ 실패했던 알림 토큰 등록을 다시 보내고 ④ 관문을 한 번 다시 묻는다([_refreshGateOnResume]).
+  /// 화면에서 사라지지 않았던 복귀([_hiddenSinceResume] 가 아님)는 결제 복구만 한다.
   void _onResume() {
+    final fromBackground = _hiddenSinceResume;
+    _hiddenSinceResume = false;
+    _refreshChatsOnResume(fromBackground: fromBackground);
+    if (!fromBackground) {
+      return;
+    }
     ref.invalidate(updateRequirementProvider);
-    _refreshChatsOnResume();
     _retryPushOnResume();
     _refreshGateOnResume();
   }
@@ -194,11 +203,15 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   }
 
   /// 어느 탭에 있든 돌아오면 대화 목록·수락 대기를 다시 읽는다. 로그아웃·관문 미완료 가드는 함수 안에 있다.
-  void _refreshChatsOnResume() =>
-      refreshOnResume(ref.read, isAuthenticated: _authSession.isAuthenticated, gate: _verificationGate.value);
+  void _refreshChatsOnResume({required bool fromBackground}) =>
+      refreshOnResume(ref.read, ref.exists,
+          isAuthenticated: _authSession.isAuthenticated, gate: _verificationGate.value, fromBackground: fromBackground);
 
   void _setAppShown(bool shown) {
     _appShown = shown;
+    if (!shown) {
+      _hiddenSinceResume = true;
+    }
     _syncUserChannel();
   }
 

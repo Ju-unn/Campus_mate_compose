@@ -1,3 +1,4 @@
+import 'package:campus_mate/auth/school_info/model/data/academic_status.dart';
 import 'package:campus_mate/auth/school_info/model/data/department.dart';
 import 'package:campus_mate/auth/school_info/model/data/student_number.dart';
 import 'package:campus_mate/common/failure.dart';
@@ -10,6 +11,7 @@ class SchoolInfoUiState {
     this.departmentChecked = false,
     this.studentNumberInput = '',
     this.studentNumber,
+    this.academicStatus,
     this.isSubmitting = false,
     this.error,
     this.completed = false,
@@ -35,6 +37,9 @@ class SchoolInfoUiState {
   /// 형식이 올바를 때만 값이 있다. `null` 이면 CTA 를 누를 수 없다.
   final StudentNumber? studentNumber;
 
+  /// 신분(1.0.7 1-1, 필수). `null` 이면 아직 안 골라 CTA 를 누를 수 없다. 칩을 눌러도 저장은 [다음] 때 한 번이다.
+  final AcademicStatus? academicStatus;
+
   /// 제출이 서버 응답을 기다리는 중인지.
   final bool isSubmitting;
 
@@ -50,5 +55,5 @@ class SchoolInfoUiState {
       ? const AppErrorFailure(AppError.studentNumberInvalid)
       : null;
 
-  bool get canSubmit => department != null && studentNumber != null && !isSubmitting;
+  bool get canSubmit => department != null && studentNumber != null && academicStatus != null && !isSubmitting;
 }

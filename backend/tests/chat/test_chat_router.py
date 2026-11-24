@@ -169,9 +169,23 @@ def test_room_before_the_gate_has_no_kakao_id_or_photos():
     assert body["partner"]["avatar_url"].endswith("/avatars/p2/a.png")
     assert body["gate"]["passed"] is False
     assert body["gate"]["passed_at"] is None
+    # 응답 기한은 매칭 72시간 뒤(사용자 11-24) — 화면 14f 카운트다운이 이 값을 쓴다.
+    assert body["gate"]["deadline_at"] == "2126-09-25T10:00:00+09:00"
+    # 시트가 뜨기 시작하는 시각 = 매칭 48시간 뒤(마감 24시간 전, 사용자 11-24).
+    assert body["gate"]["prompt_at"] == "2126-09-24T10:00:00+09:00"
     # 통과 전에는 키 자체가 없어야 한다 — null 로라도 내려가면 앱이 자리를 그린다.
     assert "kakao_id" not in body
     assert "photo_urls" not in body
+
+
+def test_prompt_at_is_not_moved_out_of_the_quiet_hours():
+    """prompt_at 은 앱 시트가 뜨는 시각이라 조용한 시간 보정이 없다 — 밤 23:30 매칭이면 이틀 뒤 23:30 이다.
+    푸시 리마인드(gate.reminder_at)는 다음 날 아침 8시로 밀리지만 시트까지 늦출 이유는 없다."""
+    response = _wire(_handler(_Calls(), _match(created_at="2126-09-22T23:30:00+09:00"))).get(
+        f"/chat/matches/{MATCH_ID}", headers=AUTH_HEADERS
+    )
+
+    assert response.json()["gate"]["prompt_at"] == "2126-09-24T23:30:00+09:00"
 
 
 def test_room_always_carries_my_own_kakao_id():
@@ -671,7 +685,7 @@ def test_leaving_twice_does_not_write_a_second_system_line():
 # 신뢰 확인 게이트 --------------------------------------------------------------
 
 def test_accepting_early_is_allowed_and_tells_the_partner():
-    """결정 10: 24시간을 기다리지 않는다. 수락은 시스템 줄로 상대에게 보인다."""
+    """결정 10: 시트가 뜨는 48시간을 기다리지 않는다. 수락은 시스템 줄로 상대에게 보인다."""
     calls = _Calls()
     response = _wire(_handler(calls, _match())).post(
         f"/chat/matches/{MATCH_ID}/trust", headers=AUTH_HEADERS
@@ -794,6 +808,22 @@ def test_accepting_twice_is_refused_and_writes_one_system_line():
     assert response.status_code == 409
     assert response.json()["detail"] == "이미 수락했어요"
     assert calls.messages == []
+
+
+@pytest.mark.parametrize(("created_at", "status"), [
+    ("2026-09-20T13:00:00+09:00", 200),  # 49시간째 — 시트가 뜬 뒤(48시간)도 기한 안이다
+    ("2026-09-19T14:01:00+09:00", 200),  # 71시간 59분째 — 기한 1분 전
+    ("2026-09-19T14:00:00+09:00", 409),  # 딱 72시간 — 기한
+])
+def test_accepting_is_open_until_72_hours_after_the_match(created_at, status):
+    """기한은 매칭 72시간 뒤다(사용자 11-24). 옛 48시간에서 막거나 72시간을 넘겨 받으면 여기서 깨진다(NOW = 22일 14:00)."""
+    response = _wire(_handler(_Calls(), _match(created_at=created_at))).post(
+        f"/chat/matches/{MATCH_ID}/trust", headers=AUTH_HEADERS
+    )
+
+    assert response.status_code == status, response.json()
+    if status == 409:
+        assert response.json()["detail"] == "응답 기한이 지났어요"
 
 
 def test_accepting_after_the_deadline_is_refused():

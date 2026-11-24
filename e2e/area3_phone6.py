@@ -3,16 +3,16 @@ frontend/integration_test/area3_b6.dart(로그인해 홈까지만 — 새 앱 �
 
 가설은 **실제 시각**이 규칙이라서 한 번의 실행(약 70분)이 chat-gate 를 두 번 부른다 — 07시대 한 번, 08시대 한 번. 관문(batch_gate)의 "같은 시 두 번째 금지"는
 날짜 + 시로 세므로 07시와 08시는 서로 다른 시라 막히지 않는다.
-  07:06~07:40 시작  방 created_at = 서울 어제 03:00(24시간 뒤 = 오늘 03:00 → 서버가 08:00 으로 민다) → 배치 ① → B 새 알림 0건
+  07:06~07:40 시작  방 created_at = 서울 그저께 03:00(48시간 뒤 = 오늘 03:00 → 서버가 08:00 으로 민다) → 배치 ① → B 새 알림 0건
   (대기)            방을 "지금" 으로 되돌려 젊게 해 둔다 — 매시 정각 Cloud Scheduler 의 진짜 chat-gate(`0 * * * *`, DEPLOY.md §4-1)가 08:00 에 먼저 돌아 B 에게 리마인드를
                     보내면, 08:06 의 수동 배치가 같은 시 두 번째라 08시대가 2건이 된다(chat/gate.py:65-66 알려진 한계)
-  08:07 이후        방을 다시 어제 03:00 으로 → 배치 ② → B 의 리마인드 정확히 1건
+  08:07 이후        방을 다시 그저께 03:00 으로 → 배치 ② → B 의 리마인드 정확히 1건
 
 시나리오와 다르게 도는 것(보고의 "확인 필요"):
-  방 시각      "created_at = 어제 03:00 한 방으로 계속" → 07시대 판정 뒤 08시대 직전까지 방을 젊게 해 둔다(위). 07시대 판정에는 영향 없다(서버는 배치 순간의 값만 읽는다).
+  방 시각      "created_at = 어제 03:00 한 방으로 계속"(리마인드가 48시간째로 옮겨 그저께 03:00) → 07시대 판정 뒤 08시대 직전까지 방을 젊게 해 둔다(위). 07시대 판정에는 영향 없다(서버는 배치 순간의 값만 읽는다).
   07시대 0건    약한 증거다 — 창이 아직 안 와서 안 가는 것에 더해, 설령 와도 notify() 의 조용한 시간 검사가 버린다(cards/push.py:95-98). 밤 이동(gate.reminder_at)의
                증거는 08시대 1건이다(밀지 않으면 창이 03:00~04:00 이라 08시대엔 0건).
-  "0건 · 1건" 의 믿음  배치가 돌았다 = 같은 실행이 만든 확인용 방(sentinel, 48시간 5분 지난 방)이 닫힘. 알림 길이 산다 = 07시대는 상대가 젊은 방에서 보낸 글(new_message 는 조용한 시간
+  "0건 · 1건" 의 믿음  배치가 돌았다 = 같은 실행이 만든 확인용 방(sentinel, 72시간 5분 지난 방)이 닫힘. 알림 길이 산다 = 07시대는 상대가 젊은 방에서 보낸 글(new_message 는 조용한 시간
                예외라 07시대에도 간다)이 도착. 08시대에 안 오면 같은 대조 알림이 오는지로 fail(길은 사는데 리마인드만 없음)과 blocked(1시간 놀던 FCM 이 죽었을 수 있음)를 가른다.
   A 쪽 알림    폰이 한 대라 B 만 본다(A 는 기기 토큰이 없다).
   낮에만 규칙   notify.require_daytime(08~22)을 쓰지 않는다 — 일부러 07시대에 돈다. 밤 보류 알림이 아침 배치에 섞이는 위험은 이 흐름이 보류 종류(수락 · 매칭 · 리뷰 · 학생증)를
@@ -33,6 +33,7 @@ from e2e.area3 import _match
 from e2e.area3_phone import _me, _permitted, _person
 from e2e.area3_phone5 import (BATCH_WAIT, BODY, CLOSE_AGE, NOTICE_WAIT, SETTLE, TITLE, WATCH_MORE, _ages, _batch, _closed, _own, _park, _sentinel,
                               _single_shot)
+from e2e.chat_clock import PROMPT_AFTER
 from e2e.tools import Blocked
 
 PREP_MINUTES = 14  # 준비(푸시 연결 점검 · 계정 7개 · 로그인) + 07시대 배치 기다림에 드는 시간의 넉넉한 값 — 07:40 시작이 07:54 에 끝난다
@@ -46,9 +47,9 @@ def _nap(seconds):
     time.sleep(seconds)  # 시험이 가짜 시계를 흘리는 것으로 갈아 끼우는 자리
 
 
-def _yesterday_three(now):
-    """서울 시각 [now] 의 어제 03:00(서울). 24시간 뒤 = 오늘 03:00 이 조용한 시간(<8시)에 걸려 서버가 08:00 으로 민다."""
-    return (now - timedelta(days=1)).replace(hour=3, minute=0, second=0, microsecond=0)
+def _three_am_prompt(now):
+    """리마인드 기본 시각(+ PROMPT_AFTER)이 서울 시각 [now] 의 오늘 03:00 인 매칭 시각 — 조용한 시간(<8시)에 걸려 서버가 08:00 으로 민다."""
+    return now.replace(hour=3, minute=0, second=0, microsecond=0) - PROMPT_AFTER
 
 
 def _put_time(run, match_id, at):
@@ -69,7 +70,7 @@ def _start():
 
 
 def _batch_at(run, accounts, match_id, sentinel):
-    """관문 → (통과하면) 방을 서울 어제 03:00 으로 · 확인용 방을 48시간 5분 지난 것으로 → chat-gate 한 번 → 확인용 방이 닫히길 기다림 → 나머지 방을 훑을 시간.
+    """관문 → (통과하면) 방을 [_three_am_prompt] 로 · 확인용 방을 72시간 5분 지난 것으로 → chat-gate 한 번 → 확인용 방이 닫히길 기다림 → 나머지 방을 훑을 시간.
     배치를 부른 서울 시각을 돌려준다. area3_phone5._gated_batch 는 방 시각을 "지금 − 나이" 로만 옮겨 03:00 절대 시각을 못 넣어 8줄을 따로 둔다."""
     a, b, sentinel_id = sentinel
     _own(run, *accounts, a, b)
@@ -77,12 +78,12 @@ def _batch_at(run, accounts, match_id, sentinel):
 
     def before():
         called.append(batch_gate.now_seoul())
-        _put_time(run, match_id, _yesterday_three(called[0]))
+        _put_time(run, match_id, _three_am_prompt(called[0]))
         _ages(run, [(sentinel_id, CLOSE_AGE)])
 
     _batch('chat-gate', before=before)
     if not _wait_for(lambda: _closed(run, sentinel_id), BATCH_WAIT):
-        raise Blocked(f'배치를 부른 뒤 {BATCH_WAIT}초 안에 확인용 방(이번 실행이 만든 48시간 지난 방)이 안 닫힘 — 배치가 안 돌았거나 늦음(gcloud 로그에서 200 확인)')
+        raise Blocked(f'배치를 부른 뒤 {BATCH_WAIT}초 안에 확인용 방(이번 실행이 만든 72시간 지난 방)이 안 닫힘 — 배치가 안 돌았거나 늦음(gcloud 로그에서 200 확인)')
     time.sleep(SETTLE)
     return called[0]
 
@@ -124,11 +125,11 @@ def p_chat_53(run, phone):
         _make_young(run, match_id)  # 배치는 순간의 값만 읽는다 — 08:00 예약 실행이 보기 전에 서둘러 젊게
         young = True
     finally:
-        if not young:  # 확인용 방 미닫힘 · gcloud 실패 · 위 PATCH 실패로 끊겨도 방을 어제 03:00 으로 남기지 않는다(남으면 08:00 예약 실행이 보낸다). 되돌리기 실패는 원래 오류를 가리지 않게 삼킨다
+        if not young:  # 확인용 방 미닫힘 · gcloud 실패 · 위 PATCH 실패로 끊겨도 방을 03:00 리마인드 시각으로 남기지 않는다(남으면 08:00 예약 실행이 보낸다). 되돌리기 실패는 원래 오류를 가리지 않게 삼킨다
             with contextlib.suppress(Exception):
                 _make_young(run, match_id)
     if batch_gate.now_seoul().hour >= 8:
-        raise Blocked(f'07시대 배치({at7:%H:%M})를 마친 시각이 08:00 을 넘음 — 08:00 예약 실행이 어제 03:00 방을 이미 봤을 수 있어 08시대 "정확히 1건" 을 판정할 수 없음')
+        raise Blocked(f'07시대 배치({at7:%H:%M})를 마친 시각이 08:00 을 넘음 — 08:00 예약 실행이 03:00 리마인드 방을 이미 봤을 수 있어 08시대 "정확히 1건" 을 판정할 수 없음')
     seven = notify.expect_none(phone.serial, before, seconds=NOTICE_WAIT)
     check.that(not seven, f'07시대({at7:%H:%M} 배치)에 B 알림이 {len(seven)}건 옴(기대 0): {notice_memo(seven)}')
     seven_said = f'07시대({at7:%H:%M} 배치) ' + ('0건' if not seven else f'{len(seven)}건(fail)')

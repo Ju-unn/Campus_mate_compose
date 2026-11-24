@@ -1,75 +1,158 @@
+import 'dart:async';
+
 import 'package:campus_mate/common/widgets/icon_3d.dart';
-import 'package:campus_mate/community/model/data/poll_feed.dart';
+import 'package:campus_mate/community/model/data/community_category.dart';
+import 'package:campus_mate/community/model/data/community_feed_tab.dart';
+import 'package:campus_mate/community/view/community_category_look.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/tour/view/app_tour_steps.dart';
 import 'package:campus_mate/tour/view/tour_target.dart';
+import 'package:campus_mate/tour/viewmodel/app_tour_view_model.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// 15d 탭 줄(pen `VEZ2l` StoryStrip): 폭 꽉 · 안쪽 [4,16,12,16] · 탭 4개(`XfcKQ` 72×86) 양끝 맞춤(space_between) ·
+/// 15d 탭 줄(pen 17 `J0vMj5` > StoryStrip `qZ5qm`): 폭 꽉 · 안쪽 [4,16,12,16] · 탭 7개(`XfcKQ` 72×86) 사이 4 ·
 /// 바탕 투명(뒤 canvas 흰) · 아래 구분선 없음. 앱바 `bottom` 에 꽂아 목록과 같이 스크롤되지 않는다 — 높이는 [heightFor].
-/// 글자를 키워 화면보다 넓어지면 가로로 민다(사용자 결정, 조사 보고 추천안).
-class PollFeedTabs extends StatelessWidget {
+/// 합 528 이 화면보다 넓어 가로로 민다 — 360 폭에서 5번째 탭이 반쯤 보이는 것이 pen 의도다.
+/// 밀 수 있다는 안내(19-3, pen 25-F1 `MUBW9` · `RXFHp`): 커뮤니티에 들어올 때마다 [hintDelay] 뒤 한 번
+/// 끝까지 갔다가 돌아온다(왕복 [hintRoundTrip], 사용자 결정 11-25). 손이 닿으면 그 자리에 멈추고, 동작 줄이기 ·
+/// 앱 투어 중 · 밀 것이 없으면 움직이지 않는다.
+class PollFeedTabs extends ConsumerStatefulWidget {
   const PollFeedTabs({required this.selected, required this.onSelected, super.key});
 
-  final PollFeedTab selected;
-  final ValueChanged<PollFeedTab> onSelected;
+  /// 안내 움직임 왕복 시간(가기 절반 · 오기 절반). 폰에서 보고 빠르기를 고치면 이 한 줄만 바꾼다.
+  static const Duration hintRoundTrip = Duration(seconds: 4);
+
+  /// 화면이 뜨고 움직임이 시작되기까지(탭 전환이 끝난 뒤 보이게).
+  static const Duration hintDelay = Duration(milliseconds: 400);
+
+  /// 안내 움직임을 켤지. E2E 진입점(`integration_test/e2e_test.dart`)이 `app.main()` 전에 끈다 —
+  /// 하네스는 가설마다 새 계정이라 움직이는 줄을 누르면 중간에 멈춰 다음 탭 찾기가 빗나갈 수 있다.
+  static bool hintEnabled = true;
+
+  final CommunityFeedTab selected;
+  final ValueChanged<CommunityFeedTab> onSelected;
 
   /// 탭 하나의 누름 영역(72×86 전체). 시험이 자리 · 누름을 잰다.
-  static Key tabKey(PollFeedTab tab) => Key('poll-feed-tab-${tab.name}');
+  static Key tabKey(CommunityFeedTab tab) => Key('poll-feed-tab-${tab.name}');
 
   /// 탭의 고리(64). 시험이 선택 테두리를 본다.
-  static Key ringKey(PollFeedTab tab) => Key('poll-feed-tab-ring-${tab.name}');
+  static Key ringKey(CommunityFeedTab tab) => Key('poll-feed-tab-ring-${tab.name}');
 
   static const EdgeInsets _padding = EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xxs, AppSpacing.md, AppSpacing.sm);
 
-  /// 글자 2배처럼 탭이 넓어져 서로 붙을 때만 드러나는 최소 틈. **pen 에 없는 값** —
-  /// 1배 360 폭의 틈은 (328 − 72 × 4) / 3 ≈ 13.3 이라 이 값이 배치를 바꾸지 않는다.
-  static const double _minGap = AppSpacing.xs;
+  /// pen StoryStrip gap 4.
+  static const double _gap = AppSpacing.xxs;
 
   /// 앱바 `bottom` 높이 — 위 4 + 탭(고리 + 6 + 글자 한 줄) + 아래 12. 1배면 102(pen `VEZ2l`).
   static double heightFor(TextScaler textScaler) => _padding.vertical + PollRingTab.heightFor(textScaler);
 
-  static (String, AppIcon3d) _look(AppLocalizations l10n, PollFeedTab tab) => switch (tab) {
-        PollFeedTab.all => (l10n.communityTabAll, AppIcon3d.vote), // 3D 투표 `x5QLa`
-        PollFeedTab.popular => (l10n.communityTabPopular, AppIcon3d.sparkles), // 3D 반짝임 `ulHL7`
-        PollFeedTab.mine => (l10n.communityTabMine, AppIcon3d.userRound), // 3D 프로필 `PkqpC`
-        PollFeedTab.voted => (l10n.communityTabVoted, AppIcon3d.badgeCheck), // 3D 인증 `Trtii`
+  /// 탭 줄에 보이는 탭 — 7개 전부, enum 순서가 pen 순서(전체 · 인기 · 내 글 · 내 투표 · 자유 · 진로 · 연애)다.
+  static const List<CommunityFeedTab> shownTabs = CommunityFeedTab.values;
+
+  static (String, AppIcon3d) _look(AppLocalizations l10n, CommunityFeedTab tab) => switch (tab) {
+        CommunityFeedTab.all => (l10n.communityTabAll, AppIcon3d.vote), // 3D 투표 `x5QLa`
+        CommunityFeedTab.popular => (l10n.communityTabPopular, AppIcon3d.sparkles), // 3D 반짝임 `ulHL7`
+        CommunityFeedTab.mine => (l10n.communityTabMyPosts, AppIcon3d.userRound), // 3D 프로필 `PkqpC`
+        CommunityFeedTab.voted => (l10n.communityTabVoted, AppIcon3d.badgeCheck), // 3D 인증 `Trtii`
+        CommunityFeedTab.free => _category(l10n, CommunityCategory.free),
+        CommunityFeedTab.career => _category(l10n, CommunityCategory.career),
+        CommunityFeedTab.love => _category(l10n, CommunityCategory.love),
       };
+
+  /// 카테고리 탭 글자 · 그림은 칩 · 라벨과 같은 한 곳([CommunityCategoryLook])에서 온다.
+  static (String, AppIcon3d) _category(AppLocalizations l10n, CommunityCategory category) =>
+      (category.label(l10n), category.icon);
+
+  @override
+  ConsumerState<PollFeedTabs> createState() => _PollFeedTabsState();
+}
+
+class _PollFeedTabsState extends ConsumerState<PollFeedTabs> with SingleTickerProviderStateMixin {
+  final ScrollController _scroll = ScrollController();
+  late final AnimationController _hint = AnimationController(vsync: this, duration: PollFeedTabs.hintRoundTrip);
+  Timer? _start;
+
+  /// 손이 한 번이라도 닿았다 — 그 뒤로는 이 화면에서 움직이지 않는다.
+  bool _touched = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _start = Timer(PollFeedTabs.hintDelay, _play);
+  }
+
+  @override
+  void dispose() {
+    _start?.cancel();
+    _hint.dispose();
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _play() {
+    if (!mounted || !PollFeedTabs.hintEnabled) return;
+    if (_touched ||
+        // 로그인 전(계정 모름)이면 커뮤니티가 아니다. 이 값을 덮지 않는 위젯 시험에서도 움직이지 않게 된다.
+        ref.read(tourAccountIdProvider)() == null ||
+        MediaQuery.disableAnimationsOf(context) ||
+        ref.read(appTourViewModelProvider).active ||
+        !_scroll.hasClients ||
+        _scroll.position.maxScrollExtent <= 0) {
+      return;
+    }
+    final end = _scroll.position.maxScrollExtent;
+    final there = CurveTween(curve: AppMotion.floatCurve);
+    final path = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: end).chain(there), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: end, end: 0.0).chain(there), weight: 1),
+    ]).animate(_hint);
+    path.addListener(() {
+      if (_scroll.hasClients) _scroll.jumpTo(path.value);
+    });
+    unawaited(_hint.forward().orCancel.catchError((_) {}));
+  }
+
+  /// 손이 닿으면 그 자리에서 멈춘다(되돌리지 않는다). 시작 전이면 이 화면에선 시작하지 않는다.
+  void _stop(PointerDownEvent _) {
+    _touched = true;
+    _start?.cancel();
+    _hint.stop();
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return LayoutBuilder(
-      builder: (context, constraints) => SingleChildScrollView(
+    final selected = widget.selected;
+    return Listener(
+      onPointerDown: _stop,
+      child: SingleChildScrollView(
+        controller: _scroll,
         scrollDirection: Axis.horizontal,
-        padding: _padding,
-        child: ConstrainedBox(
-          // 넓으면 남는 폭을 탭 사이에 똑같이 나누고(space_between), 모자라면 그대로 이어 붙여 가로로 민다.
-          constraints: BoxConstraints(minWidth: constraints.maxWidth - _padding.horizontal),
-          // 앱 투어 3단계가 이 줄(탭 4개)을 가리킨다 — 표식은 자리 · 크기를 바꾸지 않는다.
-          child: TourTarget(
+        padding: PollFeedTabs._padding,
+        // 앱 투어 3단계가 이 줄을 가리킨다 — 표식은 자리 · 크기를 바꾸지 않는다.
+        child: TourTarget(
             id: TourTargetId.communityTabs,
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              spacing: _minGap,
+              spacing: PollFeedTabs._gap,
               children: [
-                for (final tab in PollFeedTab.values)
+                for (final tab in PollFeedTabs.shownTabs)
                   PollRingTab(
-                    tapKey: tabKey(tab),
-                    ringKey: ringKey(tab),
-                    label: _look(l10n, tab).$1,
-                    icon: _look(l10n, tab).$2,
+                    tapKey: PollFeedTabs.tabKey(tab),
+                    ringKey: PollFeedTabs.ringKey(tab),
+                    label: PollFeedTabs._look(l10n, tab).$1,
+                    icon: PollFeedTabs._look(l10n, tab).$2,
                     selected: tab == selected,
-                    onTap: () => onSelected(tab),
+                    onTap: () => widget.onSelected(tab),
                   ),
               ],
             ),
-          ),
         ),
       ),
     );

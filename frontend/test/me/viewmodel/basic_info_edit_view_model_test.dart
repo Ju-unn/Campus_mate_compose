@@ -1,11 +1,13 @@
 import 'dart:async';
 
+import 'package:campus_mate/auth/school_info/model/data/academic_status.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/viewmodel/basic_info_edit_view_model.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
+import 'package:campus_mate/profile/basic/model/data/nickname_availability.dart';
 import 'package:campus_mate/profile/basic/model/repository/basic_info_repository_provider.dart';
 import 'package:campus_mate/profile/basic/viewmodel/basic_info_ui_state.dart';
 import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
@@ -39,6 +41,7 @@ MyProfile _profile({
   AnimalType? animalType = AnimalType.dog,
   ImpressionType? impressionType = ImpressionType.arab,
   String? studentNumber = '21',
+  AcademicStatus? academicStatus,
 }) =>
     MyProfile(
       nickname: nickname,
@@ -54,6 +57,7 @@ MyProfile _profile({
       birthYear: 2001,
       gender: 'male',
       studentNumber: studentNumber,
+      academicStatus: academicStatus,
       avatarUrl: null,
       preferredAgeMin: null,
       preferredAgeMax: null,
@@ -154,12 +158,23 @@ void main() {
 
     testWidgets('중복이면 칸 아래 오류이고 저장이 꺼진다', (tester) async {
       await open(_profile());
-      nicknames.nextAvailabilityResult = const Success(false);
+      nicknames.nextAvailabilityResult = const Success(NicknameAvailability.taken);
 
       viewModel().changeNickname('호랑이');
       await tester.pump(const Duration(milliseconds: 350));
 
       expect(state().nicknameError, _kind(AppError.nicknameTaken));
+      expect(state().canSave, isFalse);
+    });
+
+    testWidgets('서버가 금지어(reason)라고 하면 "쓸 수 없는 닉네임" 이고 저장이 꺼진다', (tester) async {
+      await open(_profile());
+      nicknames.nextAvailabilityResult = const Success(NicknameAvailability.notAllowed);
+
+      viewModel().changeNickname('관리자');
+      await tester.pump(const Duration(milliseconds: 350));
+
+      expect(state().nicknameError, _kind(AppError.nicknameNotAllowed));
       expect(state().canSave, isFalse);
     });
 
@@ -197,7 +212,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 350));
       expect(edit(), onboarding(NicknameCheck.invalid));
 
-      nicknames.nextAvailabilityResult = const Success(false);
+      nicknames.nextAvailabilityResult = const Success(NicknameAvailability.taken);
       viewModel().changeNickname('호랑이');
       await tester.pump(const Duration(milliseconds: 350));
       expect(edit(), onboarding(NicknameCheck.taken));
@@ -489,6 +504,19 @@ void main() {
   });
 
   group('저장 실패 — 오류 자리(B5)', () {
+    testWidgets('서버 422 code NICKNAME_NOT_ALLOWED 는 닉네임 칸 아래 "쓸 수 없는 닉네임" — 저장이 꺼진다', (tester) async {
+      await open(_profile());
+      viewModel().changeNickname('호랑이');
+      await tester.pump(const Duration(milliseconds: 350));
+      me.updateResult = const FailureResult(ServerRejectedFailure(_nicknameTaken, code: 'NICKNAME_NOT_ALLOWED'));
+
+      await viewModel().save();
+
+      expect(state().nicknameError, _kind(AppError.nicknameNotAllowed));
+      expect(state().error, isNull);
+      expect(state().canSave, isFalse);
+    });
+
     for (final message in [_nicknameTaken, _nicknameTooSoon]) {
       testWidgets('서버 409 "$message" 는 닉네임 칸 아래 — 저장이 꺼지고, 닉네임을 고치면 지운다', (tester) async {
         await open(_profile());
@@ -690,6 +718,45 @@ void main() {
 
         expect(me.updates, [
           {'is_smoker': true},
+        ]);
+      });
+    });
+
+    // 1.0.7 1-1 — 안 고른 사람(null)은 칩이 모두 꺼진 채 열린다. 고친 때만 보내고 "안 고름" 으로 되돌리는 길은 없다.
+    group('신분', () {
+      test('서버 값으로 열리고, 서버 null 이면 아무것도 안 고른 채 바뀐 것이 없다', () async {
+        await open(_profile(academicStatus: AcademicStatus.alumni));
+        expect(state().academicStatus, AcademicStatus.alumni);
+
+        await open(_profile());
+        expect(state().academicStatus, isNull);
+        expect(state().canSave, isFalse);
+      });
+
+      test('신분만 바꾸면 신분만 보낸다 — 원래 값으로 돌리면 꺼진다', () async {
+        await open(_profile(academicStatus: AcademicStatus.undergraduate));
+
+        viewModel().changeAcademicStatus(AcademicStatus.graduateStudent);
+        expect(state().canSave, isTrue);
+        viewModel().changeAcademicStatus(AcademicStatus.undergraduate);
+        expect(state().canSave, isFalse);
+        viewModel().changeAcademicStatus(AcademicStatus.graduateStudent);
+        await viewModel().save();
+
+        expect(me.updates, [
+          {'academic_status': 'graduate_student'},
+        ]);
+      });
+
+      test('신분을 안 건드리고 다른 칸만 고치면 academic_status 를 보내지 않는다', () async {
+        // 서버 값이 있는 사람으로 연다 — null 이면 고장 난 코드도 보낼 값이 없어 이 시험이 잡지 못한다(검토 권고 1).
+        await open(_profile(academicStatus: AcademicStatus.alumni));
+
+        viewModel().changeReligion(Religion.catholic);
+        await viewModel().save();
+
+        expect(me.updates, [
+          {'religion': 'catholic'},
         ]);
       });
     });

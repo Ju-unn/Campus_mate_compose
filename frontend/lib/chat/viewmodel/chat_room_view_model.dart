@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:campus_mate/chat/model/data/chat_errors.dart';
 import 'package:campus_mate/chat/model/data/chat_room.dart';
+import 'package:campus_mate/chat/model/data/client_message_id.dart';
 import 'package:campus_mate/chat/model/data/message.dart';
 import 'package:campus_mate/chat/model/data/message_page.dart';
 import 'package:campus_mate/chat/model/data/user_event.dart';
@@ -20,7 +21,7 @@ final chatRoomViewModelProvider =
 );
 
 /// 채팅방 화면이 게이트 단계(배너·시트)를 가를 때 쓰는 시계. 테스트가 갈아끼운다
-/// (`verifyCodeNowProvider` 와 같은 방식) — 24시간 경계를 실제 시계 없이 넘기려고(백로그 22).
+/// (`verifyCodeNowProvider` 와 같은 방식) — 시트 시각 경계를 실제 시계 없이 넘기려고(백로그 22).
 final chatRoomNowProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 
 /// 방이 보이는 동안 상대가 내 줄을 읽었는지 묻는 주기(카톡식 '1', 사용자 결정 10-13, 같은 날 사용자 요청으로 5초 → 2초) —
@@ -46,6 +47,10 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
   /// 끊긴 채널은 닫는 데 시간이 걸려서 닫히기를 기다리지 않고 새로 건다.
   int _generation = 0;
   bool _alive = true;
+
+  /// 서버가 받았다고 확인해 주지 않은 글(보내는 중 · 실패해 입력바로 돌아간 글)과 그때 실은 client id. 같은 글을 다시 보내면 같은 id 를 실어
+  /// 서버가 이미 저장한 줄이면 처음 줄을 돌려받는다(1.0.7 #8). 앱 메모리에만 두고 방을 떠나면 함께 버려진다.
+  ({String body, String clientId})? _unsent;
 
   /// 방이 화면에 보이는가. 화면이 앱 생명주기와 덮인 화면으로 알려 준다([setVisible]).
   bool _visible = true;
@@ -322,27 +327,44 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
     if (state.isSending) {
       return false;
     }
-    state = state.copyWith(isSending: true, error: null);
-    final result = await _repository.sendMessage(_matchId, body);
+    final clientId = _startSending(body);
+    final result = await _repository.sendMessage(_matchId, body, clientId: clientId);
     if (!_alive) {
       return false;
     }
     state = state.copyWith(isSending: false);
-    return result.when(
-      // 서버는 INSERT 를 끝내고 닉네임 조회·푸시까지 한 뒤에 응답한다 — 구독 줄이 응답보다
-      // 먼저 오는 것이 정상이다. 응답 줄도 같은 id 가드에 태워 두 번 그리지 않는다.
-      onSuccess: (message) {
-        if (message != null) {
-          _receive(message);
-        }
-        return true;
-      },
-      onFailure: (failure) {
-        state = state.copyWith(error: chatFailure(failure));
-        return false;
-      },
-    );
+    return result.when(onSuccess: _sent, onFailure: _sendFailed);
   }
+
+  /// 보내는 중으로 바꾸고, 이 글을 서버 확인 전 글로 기억한 뒤 실을 client id 를 돌려준다.
+  String _startSending(String body) {
+    state = state.copyWith(isSending: true, error: null);
+    final clientId = _clientIdFor(body);
+    _unsent = (body: body, clientId: clientId);
+    return clientId;
+  }
+
+  /// 서버는 INSERT 를 끝내고 닉네임 조회·푸시까지 한 뒤에 응답한다 — 구독 줄이 응답보다
+  /// 먼저 오는 것이 정상이다. 응답 줄도 같은 id 가드에 태워 두 번 그리지 않는다.
+  bool _sent(Message? message) {
+    _unsent = null;
+    if (message != null) {
+      _receive(message);
+    }
+    return true;
+  }
+
+  /// [_unsent] 는 그대로 남아 같은 글을 다시 보내면 같은 client id 가 실린다.
+  bool _sendFailed(Failure failure) {
+    state = state.copyWith(error: chatFailure(failure));
+    return false;
+  }
+
+  /// 실패했던 글을 그대로 다시 보내면 그때의 id, 글이 바뀌었거나 처음이면 새 id.
+  String _clientIdFor(String body) => switch (_unsent) {
+        (body: final unsentBody, :final clientId) when unsentBody == body => clientId,
+        _ => newClientMessageId(),
+      };
 
   /// 방에 들어올 때(목록 뱃지도 같이 내린다). 실패해도 화면에 문구를 띄우지 않는다 —
   /// 읽음 표시 하나가 안 찍힌 것으로 사용자가 할 수 있는 일이 없다.

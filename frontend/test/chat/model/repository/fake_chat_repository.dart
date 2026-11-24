@@ -21,6 +21,9 @@ class FakeChatRepository implements ChatRepository {
   Result<TrustAcceptOutcome> trustResult = const Success(TrustAcceptOutcome(passed: false));
 
   final List<String> sent = [];
+
+  /// 보낼 때마다 실린 client id — 다시 보낸 같은 글이 같은 id 를 싣는지 볼 때 쓴다.
+  final List<String> sentClientIds = [];
   final List<({DateTime? before, String? beforeId})> pages = [];
   int readCount = 0;
   int leaveCount = 0;
@@ -86,8 +89,9 @@ class FakeChatRepository implements ChatRepository {
   }
 
   @override
-  Future<Result<Message?>> sendMessage(String matchId, String body) async {
+  Future<Result<Message?>> sendMessage(String matchId, String body, {required String clientId}) async {
     sent.add(body);
+    sentClientIds.add(clientId);
     await holdSend?.future;
     return sendResult;
   }
@@ -138,6 +142,10 @@ ChatRoom roomFixture({
   // 실제 라우터로 14c 를 여는 시험은 UUID 상대가 필요하다(경로 id 검사).
   String partnerProfileId = partnerId,
   String? avatarUrl,
+  // 매칭 → 응답 기한 길이. 앱은 이 값을 갖지 않고 서버 두 시각에서 읽는다 — 시험만 방을 만들 때 고른다.
+  Duration gateDeadline = const Duration(hours: 48),
+  // 매칭 → 확인 시트 시각(서버 prompt_at). 비우면 키가 없는 옛 서버 — 앱이 매칭 + 24시간으로 대신한다.
+  Duration? promptAfter,
 }) {
   final created = createdAt ?? DateTime.now();
   return ChatRoom(
@@ -148,7 +156,8 @@ ChatRoom roomFixture({
       passed: passed,
       passedAt: passedAt,
       partnerLeft: partnerLeft,
-      deadlineAt: created.add(trustGateDeadline),
+      deadlineAt: created.add(gateDeadline),
+      promptAt: promptAfter == null ? null : created.add(promptAfter),
       myResponse: myResponse,
     ),
     kakaoId: kakaoId,

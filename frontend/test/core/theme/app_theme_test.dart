@@ -1,10 +1,39 @@
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  // 실폰(커뮤니티 글쓰기): 키보드로 본문이 앱바 밑으로 밀리면 M3 scrolledUnder 가 앱바를 분홍으로 물들였다.
+  // pen 앱바는 늘 흰색 — 화면마다 막지 않고 테마 한 곳에서 막는다.
+  for (final (name, appBar) in [
+    ('색을 안 정한 앱바', AppBar(title: const Text('제목'))),
+    ('캔버스 색을 정한 앱바', AppBar(backgroundColor: AppColors.canvas, title: const Text('제목'))),
+  ]) {
+    testWidgets('$name 는 본문이 밑으로 스크롤돼도 흰색 그대로다(물듦 · 그림자 없음)', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        theme: AppTheme.light(),
+        home: Scaffold(
+          appBar: appBar,
+          body: ListView(children: [for (var i = 0; i < 60; i++) SizedBox(height: 40, child: Text('줄 $i'))]),
+        ),
+      ));
+      await tester.drag(find.byType(ListView), const Offset(0, -600));
+      await tester.pumpAndSettle();
+
+      final material = tester.widget<Material>(find.descendant(of: find.byType(AppBar), matching: find.byType(Material)).first);
+      final shown = ElevationOverlay.applySurfaceTint(material.color!, material.surfaceTintColor, material.elevation);
+      expect(shown, AppColors.canvas);
+      expect(material.elevation, 0);
+      // 누가 앱바에 높이를 줘도 분홍으로 물들지 않게 물듦 색 자체를 끈다.
+      expect(material.surfaceTintColor, Colors.transparent);
+    });
+  }
+
   test('라이트 테마는 Material 3 를 쓰고 캔버스 배경을 쓴다', () {
     final theme = AppTheme.light();
 

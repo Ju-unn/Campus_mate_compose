@@ -1,5 +1,4 @@
 import 'package:campus_mate/billing/task/view/heart_task_row.dart';
-import 'package:campus_mate/community/view/community_feed_screen.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
 import 'package:campus_mate/matching/view/daily_card_summary.dart';
@@ -11,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'area1.dart';
+import 'area2_b.dart' show communityWriteEntry;
 import 'area4.dart' show area4Cases;
 import 'regen_pick.dart';
 import 'support.dart';
@@ -184,8 +184,9 @@ final Map<String, Area1Case> area2cCases = {
     await arrive(tester, 'home');
     await _cut(tester);
     await tap(tester, navTab('커뮤니티'));
-    // 옛 앱바 + 대신 "질문하기" 알약(15d 개선안 A). 복구 판정은 예전처럼 아래 _gone(오류 글)이 한다 — 알약도 + 처럼 실패 화면에 있다.
-    await _failedThenRecovered(tester, find.byKey(CommunityFeedScreen.askButtonKey));
+    // 옛 앱바 + 대신 "글쓰기" 알약(15d 개선안 A). 복구 판정은 예전처럼 아래 _gone(오류 글)이 한다 — 알약도 + 처럼 실패 화면에 있다.
+    // 복구 뒤 전체 탭에 글이 없으면 알약은 숨고 빈 화면 "글쓰기" 버튼이 선다(앱 의도) — 둘 중 하나를 본다.
+    await _failedThenRecovered(tester, communityWriteEntry);
     return null;
   }),
   'E-HEART-26': _session((tester, job) async {

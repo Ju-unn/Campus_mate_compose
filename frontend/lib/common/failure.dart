@@ -178,7 +178,6 @@ enum AppError {
   friendCodeTryLater,
   friendReviewAlreadyWritten,
   reportLimited,
-  pollDailyLimit,
   chatGateOver,
 
   /// 닉네임 · 키 · 번호 칸 아래 빨간 한 줄(04-1 · 15-6). 서버 422 · 409 문구와 글자가 같다.

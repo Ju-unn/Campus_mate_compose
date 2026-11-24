@@ -94,30 +94,27 @@ class BioViewModel extends Notifier<BioUiState> {
       if (!ref.mounted) return;
       reportIfOnboardingBlocked(ref, result);
       state = result.when(
-        onSuccess: (_) => state.copyWith(isSubmitting: false, completed: true),
+        // 보내는 중을 그대로 둔다 — 단계를 다시 물은 뒤에 완료한다([_complete]).
+        onSuccess: (_) => state,
         onFailure: (failure) => state.copyWith(isSubmitting: false, error: failure),
       );
     } catch (_) {
       state = state.copyWith(isSubmitting: false, error: const UnknownFailure());
       return;
     }
-    _discardDraftIfCompleted();
-    _refreshOnboardingStepIfCompleted();
+    if (state.isSubmitting) {
+      await _complete();
+    }
   }
 
-  /// 단계를 끝냈으면 이 화면의 임시 저장 값을 지운다 — 다음에 다시 열 일이 없다.
-  void _discardDraftIfCompleted() {
-    if (!state.completed) {
-      return;
-    }
+  /// 저장 성공 — 이 화면의 임시 저장 값을 지우고(다시 열 일이 없다) 서버 단계를 다시 물은 **뒤에** 완료한다.
+  /// 화면은 따로 묻지 않고 이 완료를 기다려 아바타 확인 화면으로 옮긴다 — 그때 단계 캐시(avatar · complete)는 이미 새 값이다
+  /// (1.0.7 #6, 전에는 뷰모델과 화면이 같은 순간 2번 물었다). 화면이 먼저 떠났어도 단계 캐시는 여기서 맞춰진다.
+  Future<void> _complete() async {
     unawaited(ref.read(draftStoreProvider).clear(DraftScreen.bio));
-  }
-
-  /// 저장이 끝나면 화면이 단계 캐시(avatar · complete)를 확인한 뒤 아바타 확인 화면으로 옮긴다 — 그 화면 · 20 · 20d 는 온보딩 목록 밖이라 머문다.
-  void _refreshOnboardingStepIfCompleted() {
-    if (!state.completed) {
-      return;
-    }
-    unawaited(ref.read(onboardingStepListenableProvider).refresh());
+    await ref.read(onboardingStepListenableProvider).refresh();
+    // 묻는 사이 로그아웃으로 버려졌으면 상태를 건드리지 않는다.
+    if (!ref.mounted) return;
+    state = state.copyWith(isSubmitting: false, completed: true);
   }
 }

@@ -22,10 +22,14 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/matching/model/data/rejected_card.dart';
 import 'package:campus_mate/matching/view/acceptance_row.dart';
+import 'package:campus_mate/matching/view/rejected_card_actions.dart';
+import 'package:campus_mate/matching/view/rejected_card_row.dart';
 import 'package:campus_mate/matching/view/sent_request_row.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_ui_state.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_view_model.dart';
+import 'package:campus_mate/matching/viewmodel/rejected_cards_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/sent_requests_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -72,20 +76,26 @@ const double _bodyTop = 12 - AppTabBar.extraHitHeight;
 /// shortcut: 서버 페이지 나누기 없이 목록 전체를 한 번에 받는다 — 보낸 신청 · 대화 수가 작다(신청은 주기마다 몇 장). 한 사람이
 /// 수백 줄을 갖게 되면 서버에 커서를 더하고 목록 끝에서 다음 쪽을 읽는다.
 class ConversationsScreen extends ConsumerStatefulWidget {
-  const ConversationsScreen({super.key});
+  const ConversationsScreen({this.openRejected = false, super.key});
+
+  /// [거절한 카드] 탭으로 연다(카드 대기 화면의 [거절한 카드 다시 보기], `AppRoutes.conversationsRejected`).
+  final bool openRejected;
 
   @override
   ConsumerState<ConversationsScreen> createState() => _ConversationsScreenState();
 }
 
-/// 탭 순서(pen 값표: 대화 · 보낸 신청).
-enum _Tab { chats, sent }
+/// 탭 순서(pen 25-G lmwl8 `tQDAD` 3칸: 대화 · 보낸 신청 · 거절한 카드, 대장 판정 2 — 거절한 카드가 없어도 3칸).
+enum _Tab { chats, sent, rejected }
 
 class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
   _Tab _tab = _Tab.chats;
 
   /// [보낸 신청] 탭을 이 화면에서 한 번이라도 열었다 — 열기 전에는 그 목록을 만들지도 읽지도 않는다.
   bool _sentShown = false;
+
+  /// [거절한 카드] 탭을 한 번이라도 열었다 — 보낸 신청과 같이 열 때 만든다(카드 대기 화면이 먼저 읽어 두었을 수 있다).
+  bool _rejectedShown = false;
 
   Timer? _pollTimer;
 
@@ -111,6 +121,12 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
       _pollTimer = null;
       _syncPolling();
     });
+    // 카드 대기 화면의 [거절한 카드 다시 보기] — 그 탭으로 연다. 뷰모델이 만들어질 때 읽고, 이미 있으면 조용히 다시 읽는다.
+    if (widget.openRejected) {
+      _tab = _Tab.rejected;
+      _rejectedShown = true;
+      unawaited(ref.read(rejectedCardsViewModelProvider.notifier).refresh(quiet: true));
+    }
     // 신청 직후 — announceSent 가 이미 읽기 시작했다. 탭만 옮기고 토스트를 띄운다.
     if (ref.read(sentRequestsViewModelProvider.notifier).takeJustSent()) {
       _tab = _Tab.sent;
@@ -161,8 +177,17 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
     setState(() {
       _tab = tab;
       if (tab == _Tab.sent) _sentShown = true;
+      if (tab == _Tab.rejected) _rejectedShown = true;
     });
     if (tab == _Tab.sent) unawaited(ref.read(sentRequestsViewModelProvider.notifier).open());
+    if (tab == _Tab.rejected) unawaited(ref.read(rejectedCardsViewModelProvider.notifier).refresh(quiet: true));
+  }
+
+  /// 거절한 카드에 다시 신청했다 — 10b 에서 신청할 때와 같은 안내: [보낸 신청] 탭 + "신청을 보냈어요" 토스트(pen `Q1322I`).
+  void _showReapplied() {
+    if (!mounted) return;
+    _select(_Tab.sent.index);
+    _showSentToast(ScaffoldMessenger.of(context), context.l10n.matchingConversationsSentToast);
   }
 
   // 매칭 성사(12)로 보내는 일은 받은 신청 · 프로필 보기(`acceptance_detail_screen.dart`)가 한다 — 2026-10-16 부터
@@ -184,7 +209,11 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
           children: [
             // 탭 이름: "대화"(앱바 제목과 같은 글) · "보낸 신청"(옛 섹션 머리와 같은 글). 수는 붙이지 않는다(pen 값표).
             AppTabBar(
-              labels: [l10n.matchingConversationsTitle, l10n.matchingConversationsSentSection],
+              labels: [
+                l10n.matchingConversationsTitle,
+                l10n.matchingConversationsSentSection,
+                l10n.matchingConversationsRejectedSection,
+              ],
               selected: _tab.index,
               onSelected: _select,
             ),
@@ -194,6 +223,7 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
                 children: [
                   const _ChatsTab(),
                   if (_sentShown) const _SentTab() else const SizedBox.shrink(),
+                  if (_rejectedShown) _RejectedTab(onReapplied: _showReapplied) else const SizedBox.shrink(),
                 ],
               ),
             ),
@@ -402,6 +432,99 @@ class _SentTab extends ConsumerWidget {
   }
 }
 
+/// [거절한 카드] 탭(pen 25-G lmwl8, 빈 상태 msLC2). 목록 여백 [12,16,0,16] · 세로 gap 14(`vw2SI`):
+/// 맨 위 안내 한 줄(`rqQv1` caption muted, 대장 판정 4 의 lmwl8 문구) → 줄(pdOvf) · 줄 사이 14 + 선 1 hairline-soft + 14.
+/// 무엇을 보일지 · 남은 날 · 순서는 서버 목록 그대로다(7일 지난 줄은 서버가 뺀다 — 앱은 날짜로 거르지 않는다).
+class _RejectedTab extends ConsumerWidget {
+  const _RejectedTab({required this.onReapplied});
+
+  /// 다시 신청을 보냈다(줄에서든 프로필 보기에서든) — 화면이 [보낸 신청] 탭으로 옮겨 안내한다.
+  final VoidCallback onReapplied;
+
+  /// pen `vw2SI` 세로 gap 14. 간격 토큰(12 · 16) 사이 값이다.
+  static const double _gap = 14;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(rejectedCardsViewModelProvider);
+    if (state.isLoading) {
+      return const _SkeletonRows();
+    }
+    final error = state.error;
+    final navInset = MediaQuery.paddingOf(context).bottom;
+    final cards = state.cards.toList();
+    if (cards.isEmpty) {
+      // pen msLC2: 마스코트(남자 · 파란 목도리) 120 + 제목만 — 부제 · 버튼은 꺼져 있다.
+      return Padding(
+        padding: EdgeInsets.only(bottom: navInset),
+        child: _EmptyState(
+          mascot: 'assets/images/mascot-male.webp',
+          title: context.l10n.matchingRejectedEmptyTitle,
+          error: error,
+        ),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: () => ref.read(rejectedCardsViewModelProvider.notifier).refresh(),
+      child: CustomScrollView(
+        slivers: [
+          const SliverToBoxAdapter(child: SizedBox(height: _bodyTop)),
+          if (error != null) SliverToBoxAdapter(child: _ErrorLine(failure: error)),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            sliver: SliverList.separated(
+              itemCount: cards.length + 1,
+              separatorBuilder: (_, index) => index == 0 ? const SizedBox(height: _gap) : _divider,
+              // 줄을 보낸 뒤 그 줄은 목록에서 빠진다 — 이동 · 토스트는 줄이 아니라 이 탭의 context 로 한다.
+              itemBuilder: (_, index) => index == 0
+                  ? Text(
+                      context.l10n.matchingRejectedGuide,
+                      style: AppTypography.caption.copyWith(color: AppColors.muted),
+                    )
+                  : _row(context, ref, cards[index - 1], state.submittingCardId),
+            ),
+          ),
+          SliverToBoxAdapter(child: SizedBox(height: AppSpacing.md + navInset)),
+        ],
+      ),
+    );
+  }
+
+  static const Widget _divider = Padding(
+    padding: EdgeInsets.symmetric(vertical: _gap),
+    child: Divider(height: 1, thickness: 1, color: AppColors.hairlineSoft),
+  );
+
+  /// 하나라도 보내는 중이면 다른 줄의 오른쪽 버튼도 끈다(연타 방지는 뷰모델도 한다).
+  Widget _row(BuildContext context, WidgetRef ref, RejectedCard card, String? submitting) {
+    return RejectedCardRow(
+      key: ValueKey(card.cardId),
+      card: card,
+      isSubmitting: submitting == card.cardId,
+      onViewProfile: () => unawaited(_openProfile(context, card)),
+      onAction: submitting != null ? null : () => unawaited(_act(context, ref, card)),
+    );
+  }
+
+  /// 읽기 전용 프로필(pen hhlWE). 거기서 다시 신청하고 돌아오면 참이 온다.
+  Future<void> _openProfile(BuildContext context, RejectedCard card) async {
+    final query = card.source == RejectedSource.acceptance ? '?source=${RejectedSource.acceptance.name}' : '';
+    final sent = await context.push<bool>('${AppRoutes.rejectedCardProfile}/${card.cardId}$query');
+    if (sent ?? false) onReapplied();
+  }
+
+  /// [다시 신청하기] → 확인 팝업 → 보냈으면 안내. [수락하기] → 매칭되면 받은 신청 수락과 같은 매칭 화면(12).
+  /// 실패는 뷰모델 오류 칸 → 위 오류 줄이 보인다.
+  Future<void> _act(BuildContext context, WidgetRef ref, RejectedCard card) async {
+    if (card.source == RejectedSource.card) {
+      if (await confirmAndReapply(context, ref, card.cardId) ?? false) onReapplied();
+      return;
+    }
+    final matched = await undoRejection(context, ref, card.cardId);
+    if (matched != null && context.mounted) unawaited(context.push(AppRoutes.matchMade, extra: matched));
+  }
+}
+
 /// 섹션 헤더(pen `Ymhdq`·`Yjs6e`). 우측은 "N명" — §8.6 은 "3 / 5" 같은 분수 표기를 금지한다.
 /// pen 머리(`P5A282` · `Yjs6e`)는 제목 글자 칸(25)이 그대로 머리 칸이다 — 위아래 빈칸을 두지 않는다(2026-11-16 검토, 옛 최소 44).
 /// 높이를 박지 않아 글자를 키우면 같이 늘어난다. 누르는 곳이 아니라 44 누름 칸 규칙은 해당하지 않는다.
@@ -428,10 +551,18 @@ class _SectionHeader extends StatelessWidget {
 
 /// 탭마다 빈 화면 — [대화] 는 "아직 시작된 대화가 없어요", [보낸 신청] 은 "아직 보낸 신청이 없어요"(pen 값표).
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.title, required this.description, this.error});
+  const _EmptyState({
+    required this.title,
+    this.description,
+    this.mascot = 'assets/images/mascot-female.webp',
+    this.error,
+  });
 
   final String title;
-  final String description;
+  final String? description;
+
+  /// 그림(120). [대화] · [보낸 신청] 은 여자 마스코트, [거절한 카드](msLC2)는 남자 마스코트.
+  final String mascot;
   final Failure? error;
 
   @override
@@ -439,7 +570,7 @@ class _EmptyState extends StatelessWidget {
     final failure = error;
     // pen `LD7Kb` = Empty `TVc8b`: 마스코트 120 → 24 → 제목 → 8 → 설명. 실패하면 설명 아래 16 에 한 줄이 붙는다.
     return EmptyNotice(
-      image: Image.asset('assets/images/mascot-female.webp'),
+      image: Image.asset(mascot),
       title: title,
       description: description,
       action: failure == null ? null : _ErrorLine(failure: failure),

@@ -97,4 +97,63 @@ void main() {
       expect(ChatRoom.fromJson(roomJson()).partnerFaceUrl(), isNull);
     });
   });
+
+  // 안내 글의 "N시간" 은 글자에 박지 않고 서버 두 시각의 차이에서 만든다 — 서버 기한이 바뀌어도 글자가 늘 맞다.
+  group('응답 기한 길이(시간) — 서버 deadline_at − created_at', () {
+    Map<String, dynamic> gate(String deadlineAt) => {'passed': false, 'partner_left': false, 'deadline_at': deadlineAt};
+
+    test('48시간 방은 48', () {
+      expect(ChatRoom.fromJson(roomJson()).gateHours, 48);
+    });
+
+    test('72시간 방은 72', () {
+      expect(ChatRoom.fromJson(roomJson({'gate': gate('2026-10-16T05:00:00Z')})).gateHours, 72);
+    });
+
+    test('두 시각의 자릿수 차이로 1초 안쪽이 모자라도 71 이 아니라 72 다(분 단위 반올림)', () {
+      final room = ChatRoom.fromJson(roomJson({
+        'created_at': '2026-10-13T05:00:00.999999Z',
+        'gate': gate('2026-10-16T05:00:00Z'),
+      }));
+      expect(room.gateHours, 72);
+    });
+  });
+
+  // 확인 시트가 뜨는 시각은 서버 gate.prompt_at 이다(사용자 확정 11-24 — 48시간째 시트 · 72시간 마감).
+  // 키가 없는 옛 서버는 옛 규칙(매칭 + 24시간)과 같아야 한다.
+  group('확인 시트 시각 — 서버 prompt_at, 없으면 매칭 + 24시간', () {
+    final created = DateTime.parse('2026-10-13T05:00:00Z');
+    final newServer = roomJson({
+      'gate': {
+        'passed': false,
+        'partner_left': false,
+        'prompt_at': '2026-10-15T05:00:00Z',
+        'deadline_at': '2026-10-16T05:00:00Z',
+      },
+    });
+
+    test('prompt_at 이 있으면 그 시각 — 48시간 뒤 물어본다', () {
+      final room = ChatRoom.fromJson(newServer);
+      expect(room.promptAt.toUtc(), DateTime.parse('2026-10-15T05:00:00Z'));
+      expect(room.askHours, 48);
+      expect(room.isReminderDue(created.add(const Duration(hours: 30))), isFalse);
+      expect(room.isReminderDue(created.add(const Duration(hours: 48)).subtract(const Duration(seconds: 1))), isFalse);
+      expect(room.isReminderDue(created.add(const Duration(hours: 48))), isTrue);
+    });
+
+    test('prompt_at 이 없으면(옛 서버) 매칭 + 24시간', () {
+      final room = ChatRoom.fromJson(roomJson());
+      expect(room.promptAt.toUtc(), created.add(const Duration(hours: 24)));
+      expect(room.askHours, 24);
+      expect(room.isReminderDue(created.add(const Duration(hours: 24))), isTrue);
+    });
+
+    test('물어보는 시간도 분 단위 반올림이다 — 47 이 아니라 48', () {
+      final room = ChatRoom.fromJson(roomJson({
+        'created_at': '2026-10-13T05:00:00.999999Z',
+        'gate': {'passed': false, 'partner_left': false, 'prompt_at': '2026-10-15T05:00:00Z', 'deadline_at': '2026-10-16T05:00:00Z'},
+      }));
+      expect(room.askHours, 48);
+    });
+  });
 }

@@ -8,9 +8,9 @@
               batch_gate.peek 로 "지금 · 준비가 끝날 즈음(PREP_MINUTES 분 뒤)" 이 금지 시간인지 기록 없이 먼저 본다 — 준비를 다 하고서야 막히면 시간이 낭비된다.
               낮 10~20시가 필요한 가설(50 · 51 · 52)은 notify.require_daytime(08~22)이 아니라 [_midday](시나리오가 말한 10~20)를 관문 앞에서 본다.
   시각 확정   matches.created_at 은 관문을 통과한 직후 gcloud 를 부르기 바로 앞(`_batch(before=…)`)에서 PC 가 마지막으로 옮긴다. 준비 중에 옮기면 리마인드 창(한 시간) ·
-              48시간 경계가 준비 시간만큼 밀리고, 관문에서 막히면 아무 방도 옮겨지지 않은 채 남는다.
+              72시간 경계가 준비 시간만큼 밀리고, 관문에서 막히면 아무 방도 옮겨지지 않은 채 남는다.
   판정 범위   배치는 열린 방 전부를 훑지만, 판정은 이번 실행이 만든 방 · 계정(area2._guard)만 본다. 다른 실제 매칭은 읽지도 바꾸지도 않는다.
-  배치 증거   gcloud 호출은 끝을 알려 주지 않는다. 그래서 같은 실행이 만든 "확인용 방"(sentinel — 48시간 5분 지난 방 하나)이 닫히기를 BATCH_WAIT(시나리오 "1~2분")초
+  배치 증거   gcloud 호출은 끝을 알려 주지 않는다. 그래서 같은 실행이 만든 "확인용 방"(sentinel — 72시간 5분 지난 방 하나)이 닫히기를 BATCH_WAIT(시나리오 "1~2분")초
               까지 DB 로 기다리고, 닫히면 SETTLE 초 더 기다려 나머지 방까지 훑게 둔 뒤 판정한다. 안 닫히면 blocked — "알림 0건 · 방 그대로" 같은 안 바뀜 가설이
               배치가 안 돈 것을 모르고 헛통과하지 않는다.
 
@@ -23,7 +23,7 @@
              눌러서 열릴 방에 보일 글 한 줄은 상대가 DB 로 넣는다(푸시가 안 간다).
   E-CHAT-55  "둘 다 목록 새로고침" — A 의 목록은 API(GET /chat/conversations), B 의 목록은 배치 뒤 앱을 새로 켜서 본다. 앱 목록이 아직 안 그려졌을 때 "방 없음" 으로
              헛통과하지 않게, 닫히지 않는 다른 방 하나(control)가 그려질 때까지 기다린 뒤 본다.
-  E-CHAT-57  "A 가 방을 연 상태" — 방을 만든 그대로(젊은 방) 앱이 열고 step 에서 멈춘 사이에 PC 가 방을 48시간 5분 지난 것으로 옮기고 배치를 돈다. 앱 방은 옛 상태(젊은 방)
+  E-CHAT-57  "A 가 방을 연 상태" — 방을 만든 그대로(젊은 방) 앱이 열고 step 에서 멈춘 사이에 PC 가 방을 72시간 5분 지난 것으로 옮기고 배치를 돈다. 앱 방은 옛 상태(젊은 방)
              그대로라 14f 시트가 안 가린다. 문구는 처음 뜬 오류(시트 · 방 다시 읽기가 오류 줄을 지울 수 있다)로 본다.
   E-CHAT-65  "B: HOME → 목록" — 알림은 로그인 판 + 프로세스 죽임으로 지켜보고, 목록은 배치 뒤 앱을 새로 켜서 본다(55 와 같은 control).
   E-CHAT-66  "둘 다 방 열기" — B 는 앱 방의 "신뢰 확인 완료" 카드, A 는 API 방 머리말의 gate.passed(그 값이 카드를 그린다). A 화면 자체는 못 본다.
@@ -44,16 +44,17 @@ from e2e.area2_phone3 import _wait_for, notice_memo
 from e2e.area3 import _as_user, _count, _match, _messages, _send
 from e2e.area3_phone import MISSING, _me, _ok, _permitted, _person
 from e2e.area3_phone3 import APP_WAIT, NOTICE_WAIT, SEEN, TOKEN_WAIT, _screens
+from e2e.chat_clock import DEADLINE, PROMPT_AFTER
 from e2e.tools import Blocked
 
 TITLE, BODY = '신뢰 확인이 기다리고 있어요', '카카오톡 아이디를 공유할지 정해 주세요'  # chat/batch_router.py:60-61
 GATE_OVER = '응답 기한이 지나 이 대화는 종료됐어요'  # chat_errors.dart:11
 ROOM_LINE = 'E2E-0'  # area3._messages 의 첫 본문 — 알림을 눌러 열린 방에서 앱이 찾는 글
-REMIND_AGE = timedelta(hours=24, minutes=5)  # 리마인드 창(24~25시간) 안
-MISSED_AGE = timedelta(hours=25, minutes=5)  # 리마인드 창을 지남
-CLOSE_AGE = timedelta(hours=48, minutes=5)  # 48시간 기한을 지남
-PASS_AGE = timedelta(hours=50)
-OLD_AGE = timedelta(hours=72)
+REMIND_AGE = PROMPT_AFTER + timedelta(minutes=5)  # 리마인드 창(48~49시간) 안
+MISSED_AGE = PROMPT_AFTER + timedelta(hours=1, minutes=5)  # 리마인드 창을 지남
+CLOSE_AGE = DEADLINE + timedelta(minutes=5)  # 72시간 기한을 지남
+PASS_AGE = DEADLINE + timedelta(hours=2)  # 기한을 넘겼지만 둘 다 수락 — 닫지 않고 도장
+OLD_AGE = DEADLINE + timedelta(hours=24)  # 통과한 방은 기한 하루 뒤에도 안 닫힌다
 WITHDRAWN_AGE = timedelta(days=31)
 DAY = (10, 20)  # 시나리오 "낮 10~20시" — 방해 금지(22~08시)에 리마인드가 걸리지 않게
 PREP_MINUTES = 8  # 준비(계정 · 앱 · 알림)에 드는 시간의 넉넉한 값 — 이만큼 뒤에도 관문이 열려 있어야 시작한다
@@ -114,7 +115,7 @@ def _own(run, *accounts):
 
 
 def _sentinel(run):
-    """배치가 돌았다는 증거 — 이번 실행이 만든 두 계정 사이의 방 하나. 배치가 닫으면(48시간 5분 지남) 돈 것이다."""
+    """배치가 돌았다는 증거 — 이번 실행이 만든 두 계정 사이의 방 하나. 배치가 닫으면(72시간 5분 지남) 돈 것이다."""
     return area3._pair(run)
 
 
@@ -142,7 +143,7 @@ def _gated_batch(run, accounts, aged, sentinel):
     _own(run, *accounts, a, b)
     _batch('chat-gate', before=lambda: _ages(run, [*aged, (sentinel_id, CLOSE_AGE)]))
     if not _wait_for(lambda: _closed(run, sentinel_id), BATCH_WAIT):
-        raise Blocked(f'배치를 부른 뒤 {BATCH_WAIT}초 안에 확인용 방(이번 실행이 만든 48시간 지난 방)이 안 닫힘 — 배치가 안 돌았거나 늦음(gcloud 로그에서 200 확인)')
+        raise Blocked(f'배치를 부른 뒤 {BATCH_WAIT}초 안에 확인용 방(이번 실행이 만든 72시간 지난 방)이 안 닫힘 — 배치가 안 돌았거나 늦음(gcloud 로그에서 200 확인)')
     time.sleep(SETTLE)
 
 
@@ -174,7 +175,7 @@ def _list_said(check, said, nickname, present):
     check.that(shown == present, f"B 목록에 그 방이 {'없음(기대 있음)' if present else '남아 있음(기대 없음)'}")
 
 
-# ── 리마인드(24시간) ─────────────────────────────────────────────────────────────────────────────────
+# ── 리마인드(48시간) ─────────────────────────────────────────────────────────────────────────────────
 
 def _remind(run, phone, age, accepts, switch_off, arrives):
     """E-CHAT-50 · 51 · 52 — 폰 계정 B 가 홈까지 켠 뒤 프로세스를 죽이고, 배치를 한 번 돌려 B 알림이 [arrives] 면 1건(눌러 방 열기까지) 아니면 0건."""
@@ -199,7 +200,7 @@ def _remind(run, phone, age, accepts, switch_off, arrives):
         return check.result()
     want = (TITLE, BODY)
     new = notify.wait_new(phone.serial, before, seconds=NOTICE_WAIT, match=lambda n: (n.title, n.text) == want)
-    if any((n.title, n.text) == want for n in new):  # 한 번만 왔는지(24시간 창은 한 시간짜리인데 두 번 가는 한계가 있다) — 도착 뒤 더 지켜본다
+    if any((n.title, n.text) == want for n in new):  # 한 번만 왔는지(리마인드 창은 한 시간짜리인데 두 번 가는 한계가 있다) — 도착 뒤 더 지켜본다
         new = notify.wait_new(phone.serial, before, count=999, seconds=WATCH_MORE)
     arrived = [n for n in new if (n.title, n.text) == want]
     check.that(len(arrived) == 1, f'B 알림 "{TITLE} / {BODY}" {len(arrived)}건(기대 1) — 새 알림 {len(new)}건: {notice_memo(new)}')
@@ -230,7 +231,7 @@ def p_chat_52(run, phone):
     return _remind(run, phone, REMIND_AGE, accepts=True, switch_off=True, arrives=False)
 
 
-# ── 닫기 · 통과 · 건너뛰기(48시간) ───────────────────────────────────────────────────────────────────
+# ── 닫기 · 통과 · 건너뛰기(72시간) ───────────────────────────────────────────────────────────────────
 
 def p_chat_55(run, phone):
     _start()
@@ -263,7 +264,7 @@ def p_chat_57(run, phone):
     match_id = _match(run, me, partner)
     _messages(run, match_id, partner, 10)
 
-    def close_while_open(said):  # 앱이 방을 연 채 step 에서 멈춘 사이 — 방이 48시간 5분 지난 것이 되고 배치가 닫는다
+    def close_while_open(said):  # 앱이 방을 연 채 step 에서 멈춘 사이 — 방이 72시간 5분 지난 것이 되고 배치가 닫는다
         _gated_batch(run, [me, partner], [(match_id, CLOSE_AGE)], sentinel)
         check.that(_closed(run, match_id), 'matches.chat_closed_at 이 안 채워짐 — 배치가 방을 안 닫음')
 

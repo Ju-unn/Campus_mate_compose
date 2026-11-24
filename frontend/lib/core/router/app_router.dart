@@ -15,6 +15,7 @@ import 'package:campus_mate/billing/store/view/heart_store_screen.dart';
 import 'package:campus_mate/billing/task/view/heart_tasks_screen.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/community/view/community_feed_screen.dart';
+import 'package:campus_mate/community/view/notice_list_screen.dart';
 import 'package:campus_mate/community/view/poll_composer_screen.dart';
 import 'package:campus_mate/community/view/poll_detail_screen.dart';
 import 'package:campus_mate/core/analytics/analytics_values.dart';
@@ -36,12 +37,14 @@ import 'package:campus_mate/home/view/event_coming_screen.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/inquiry/view/inquiry_screen.dart';
 import 'package:campus_mate/matching/model/data/acceptance.dart';
+import 'package:campus_mate/matching/model/data/rejected_card.dart';
 import 'package:campus_mate/matching/view/acceptance_detail_screen.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/matching/view/match_made_screen.dart';
 import 'package:campus_mate/matching/view/notification_settings_screen.dart';
 import 'package:campus_mate/matching/view/read_only_profile_screen.dart';
+import 'package:campus_mate/matching/view/rejected_card_actions.dart';
 import 'package:campus_mate/matching/view/settings_screen.dart';
 import 'package:campus_mate/matching/view/today_cards_screen.dart';
 import 'package:campus_mate/me/view/basic_info_edit_screen.dart';
@@ -270,7 +273,10 @@ abstract final class AppRouter {
       ),
       _TabRoute(
         path: AppRoutes.conversations,
-        builder: (context, state) => const BackExitScope(child: ConversationsScreen()),
+        // `?tab=rejected` 는 카드 대기 화면의 [거절한 카드 다시 보기](AppRoutes.conversationsRejected).
+        builder: (context, state) => BackExitScope(
+          child: ConversationsScreen(openRejected: state.uri.queryParameters['tab'] == 'rejected'),
+        ),
       ),
       // 받은 신청 · 프로필 보기(pen `o4QqYR`) — 대화 탭 받은 신청 행의 "프로필 보기" 가 push 로 연다.
       _PlatformRoute(
@@ -286,6 +292,25 @@ abstract final class AppRouter {
           cardId: state.pathParameters['cardId']!,
           title: context.l10n.matchingConversationsSentSection,
         ),
+      ),
+      // 거절한 카드 · 프로필 보기(읽기 전용 + 아래 버튼 하나, pen hhlWE) — 대화 탭 [거절한 카드] 줄의 [프로필 보기] 가 push 로 연다.
+      // `?source=acceptance` 면 받은 신청을 거절한 줄이다 — 받은 신청 읽기 · [수락하기]. 그 밖의 값은 내 카드 거절로 본다.
+      _PlatformRoute(
+        path: '${AppRoutes.rejectedCardProfile}/:cardId',
+        redirect: _uuidOr('cardId', AppRoutes.conversations),
+        builder: (context, state) {
+          final cardId = state.pathParameters['cardId']!;
+          final fromAcceptance = state.uri.queryParameters['source'] == RejectedSource.acceptance.name;
+          return ReadOnlyProfileScreen(
+            cardId: cardId,
+            title: context.l10n.matchingConversationsRejectedSection,
+            readsAcceptance: fromAcceptance,
+            bottomAction: RejectedProfileAction(
+              cardId: cardId,
+              source: fromAcceptance ? RejectedSource.acceptance : RejectedSource.card,
+            ),
+          );
+        },
       ),
       _PlatformRoute(
         path: AppRoutes.matchMade,
@@ -316,6 +341,13 @@ abstract final class AppRouter {
         path: '${AppRoutes.communityPoll}/:pollId',
         redirect: _uuidOr('pollId', AppRoutes.community),
         builder: (context, state) => PollDetailScreen(pollId: state.pathParameters['pollId']!),
+      ),
+      // 할 일 21 공지 — 피드 띠가 17g 목록을, 목록 줄이 17h 상세(17c 와 같은 화면, 공지 길 표시)를 push 로 연다.
+      _PlatformRoute(path: AppRoutes.communityNotices, builder: (context, state) => const NoticeListScreen()),
+      _PlatformRoute(
+        path: '${AppRoutes.communityNotices}/:noticeId',
+        redirect: _uuidOr('noticeId', AppRoutes.communityNotices),
+        builder: (context, state) => PollDetailScreen(pollId: state.pathParameters['noticeId']!, isNotice: true),
       ),
       _TabRoute(
         path: AppRoutes.myProfile,

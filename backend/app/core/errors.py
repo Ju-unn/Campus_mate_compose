@@ -72,6 +72,8 @@ PROFILE_NOT_FOUND = "프로필을 찾을 수 없어요"
 PROFILE_INCOMPLETE = "프로필을 먼저 완성해 주세요"
 NICKNAME_TAKEN = "이미 있는 닉네임이에요"
 NICKNAME_CHANGE_TOO_SOON = "닉네임은 30일에 한 번 바꿀 수 있어요"
+# 금지어 · 연속 글자 닉네임의 기계용 값 — detail 은 NICKNAME_TAKEN 그대로 두고 옆에 붙인다(가입 확인 reason · 저장 422 code).
+CODE_NICKNAME_NOT_ALLOWED = "NICKNAME_NOT_ALLOWED"
 # 온보딩을 마친 뒤 POST /profile-onboarding/basic-info 를 다시 부름(409) — 성별 · 출생연도 잠금 · 닉네임 30일 규칙 우회 차단.
 BASIC_INFO_LOCKED = "가입을 마친 뒤에는 내 프로필에서 고쳐 주세요"
 PHONE_NUMBER_INVALID = "올바른 휴대폰 번호를 입력해 주세요"
@@ -153,7 +155,7 @@ INQUIRY_DAILY_LIMIT = "오늘은 더 문의할 수 없어요"
 # 커뮤니티
 POLL_NOT_FOUND = "질문을 찾을 수 없어요"
 POLL_ALREADY_VOTED = "이미 투표했어요"
-POLL_DAILY_LIMIT = "오늘은 질문을 더 올릴 수 없어요"
+POLL_DAILY_LIMIT = "오늘은 글을 더 올릴 수 없어요"
 POLL_COMMENT_NOT_FOUND = "댓글을 찾을 수 없어요"
 POLL_COMMENT_DAILY_LIMIT = "오늘은 댓글을 더 달 수 없어요"
 # 도배 막기(11-12 사용자 결정): 최근 1분 안 5개 넘으면 429, 같은 글에서 바로 전 댓글과 같은 본문이면 409.

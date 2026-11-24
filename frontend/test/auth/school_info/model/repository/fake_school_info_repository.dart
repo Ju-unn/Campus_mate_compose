@@ -1,3 +1,4 @@
+import 'package:campus_mate/auth/school_info/model/data/academic_status.dart';
 import 'package:campus_mate/auth/school_info/model/data/department.dart';
 import 'package:campus_mate/auth/school_info/model/data/student_number.dart';
 import 'package:campus_mate/auth/school_info/model/repository/school_info_repository.dart';
@@ -15,10 +16,12 @@ class FakeSchoolInfoRepository implements SchoolInfoRepository {
   /// 서버로 실제 제출이 갔는지 확인하는 용도.
   final List<Department> submittedDepartments = [];
   final List<StudentNumber> submittedStudentNumbers = [];
+  final List<AcademicStatus> submittedStatuses = [];
 
   @override
-  Future<Result<void>> submit(Department department, StudentNumber studentNumber) {
+  Future<Result<void>> submit(Department department, StudentNumber studentNumber, AcademicStatus status) {
     submittedDepartments.add(department);
+    submittedStatuses.add(status);
     submittedStudentNumbers.add(studentNumber);
     final error = nextSubmitError;
     if (error != null) {

@@ -49,7 +49,6 @@ String appErrorKindText(AppLocalizations l10n, AppError error) => switch (error)
       AppError.friendCodeTryLater => l10n.errorFriendCodeTryLater,
       AppError.friendReviewAlreadyWritten => l10n.errorFriendReviewAlreadyWritten,
       AppError.reportLimited => l10n.errorReportLimited,
-      AppError.pollDailyLimit => l10n.errorPollDailyLimit,
       AppError.chatGateOver => l10n.errorChatGateOver,
       AppError.nicknameInvalid => l10n.errorNicknameInvalid,
       AppError.nicknameNotAllowed => l10n.errorNicknameNotAllowed,

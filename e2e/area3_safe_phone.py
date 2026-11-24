@@ -713,7 +713,7 @@ def p_safe_53(run, phone):
     review = _review_post(run, partner, me)
     check.that(review[0] in (404, 409), f'정지된 사람에게 리뷰 {review[0]}(기대 404/409)')
     check.that(_count(run, f"friend_reviews?reviewee_id=eq.{me['id']}") == 0, 'friend_reviews 새 행이 생김')
-    _gated_batch(run, [me, partner], [(match_id, REMIND_AGE)], sentinel)  # 정지만 아니면 리마인드가 갈 방(24시간 5분, A 미수락)
+    _gated_batch(run, [me, partner], [(match_id, REMIND_AGE)], sentinel)  # 정지만 아니면 리마인드가 갈 방(48시간 5분, A 미수락)
     new = notify.expect_none(phone.serial, before, seconds=NOTICE_WAIT)
     check.that(not new, f'정지 계정에 알림이 {len(new)}건 옴(기대 0): {notice_memo(new)}')
     texts = _count(run, f'messages?match_id=eq.{match_id}&sender_id=eq.{partner["id"]}&kind=eq.text')

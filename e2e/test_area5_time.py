@@ -42,7 +42,7 @@ class TimeBase(Base5):
         super().setUp()
         self.files = {bucket: set() for bucket in BUCKETS}
         self.withdraws = []
-        self.gate_sees_withdrawn = True  # False: 탈퇴한 사람이 있는 방을 48시간에 닫는 chat-gate(spec §2.6 문단대로)
+        self.gate_sees_withdrawn = True  # False: 탈퇴한 사람이 있는 방을 기한(72시간)에 닫는 chat-gate(spec §2.6 문단대로)
         self.cleanup_drops_files = True
         self.cleanup_drops_users = True
         self.fake.on('POST', r'/account/withdraw', self.withdraw)
@@ -164,7 +164,9 @@ class RegistryTest(unittest.TestCase):
 
     def test_the_gate_code_still_skips_a_room_with_anyone_gone(self):
         batch = (tools.ROOT / 'backend' / 'app' / 'chat' / 'batch_router.py').read_text(encoding='utf-8')
-        self.assertIn('if any(gate.is_gone(p) for p in participants):\n            continue', batch.replace('\r\n', '\n'))
+        # 건너뛴 방을 세는 줄(gone += 1 등)이 사이에 끼어도 된다 — 같은 if 안에서 continue 로 끝나면 된다.
+        self.assertRegex(batch.replace('\r\n', '\n'),
+                         r'if any\(gate\.is_gone\(p\) for p in participants\):\n(?:            [^\n]*\n)*?            continue\n')
         gate = (tools.ROOT / 'backend' / 'app' / 'chat' / 'gate.py').read_text(encoding='utf-8')
         self.assertIn('status in ("suspended", "withdrawn")', gate)
 
@@ -187,7 +189,7 @@ class Wd10Test(TimeBase):
         self.assertEqual(self.withdraws, ['id-2'])  # 탈퇴는 상대(A) 한 번
         target = self.target()
         self.assertIsNone(target.get('chat_closed_at'))
-        self.assertAge(target, timedelta(hours=49))
+        self.assertAge(target, timedelta(hours=73))
         self.assertIsNotNone(self.matches()[0].get('chat_closed_at'))  # 확인용 방은 닫혔다 — 배치가 돌았다
         self.assertEqual(phone.jobs[-1]['nickname'], self.nick(2))
 

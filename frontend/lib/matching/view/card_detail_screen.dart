@@ -126,18 +126,22 @@ class DetailMessage extends StatelessWidget {
 /// 카드 안 섹션 사이 간격. 토큰 sm(12)·md(16) 사이 pen 실측값이다.
 const double _sectionGap = 13;
 
-/// DESIGN.md §8.5 문항 표의 양 끝 라벨. 순서는 05-01 활동성 … 05-09 새로움이다.
+/// DESIGN.md §8.5 문항 표의 줄 이름과 양 끝 라벨. 순서는 05-01 활동성 … 05-09 새로움이다.
 /// 10b 는 바가 좁아 **짧은 말**을 쓴다 — 04-5 설문(입력)의 긴 문장과 일부러 다르다.
-List<({String left, String right})> _axisLabels(AppLocalizations l10n) => [
-      (left: l10n.matchingAxisActivityLeft, right: l10n.matchingAxisActivityRight),
-      (left: l10n.matchingAxisShynessLeft, right: l10n.matchingAxisShynessRight),
-      (left: l10n.matchingAxisPlanningLeft, right: l10n.matchingAxisPlanningRight),
-      (left: l10n.matchingAxisContactLeft, right: l10n.matchingAxisContactRight),
-      (left: l10n.matchingAxisExpressionLeft, right: l10n.matchingAxisExpressionRight),
-      (left: l10n.matchingAxisDrinkingLeft, right: l10n.matchingAxisDrinkingRight),
-      (left: l10n.matchingAxisExerciseLeft, right: l10n.matchingAxisExerciseRight),
-      (left: l10n.matchingAxisPaceLeft, right: l10n.matchingAxisPaceRight),
-      (left: l10n.matchingAxisNoveltyLeft, right: l10n.matchingAxisNoveltyRight),
+List<({String name, String left, String right})> _axisLabels(AppLocalizations l10n) => [
+      (name: l10n.matchingAxisActivityName, left: l10n.matchingAxisActivityLeft, right: l10n.matchingAxisActivityRight),
+      (name: l10n.matchingAxisShynessName, left: l10n.matchingAxisShynessLeft, right: l10n.matchingAxisShynessRight),
+      (name: l10n.matchingAxisPlanningName, left: l10n.matchingAxisPlanningLeft, right: l10n.matchingAxisPlanningRight),
+      (name: l10n.matchingAxisContactName, left: l10n.matchingAxisContactLeft, right: l10n.matchingAxisContactRight),
+      (
+        name: l10n.matchingAxisExpressionName,
+        left: l10n.matchingAxisExpressionLeft,
+        right: l10n.matchingAxisExpressionRight,
+      ),
+      (name: l10n.matchingAxisDrinkingName, left: l10n.matchingAxisDrinkingLeft, right: l10n.matchingAxisDrinkingRight),
+      (name: l10n.matchingAxisExerciseName, left: l10n.matchingAxisExerciseLeft, right: l10n.matchingAxisExerciseRight),
+      (name: l10n.matchingAxisPaceName, left: l10n.matchingAxisPaceLeft, right: l10n.matchingAxisPaceRight),
+      (name: l10n.matchingAxisNoveltyName, left: l10n.matchingAxisNoveltyLeft, right: l10n.matchingAxisNoveltyRight),
     ];
 
 class _DetailBody extends StatelessWidget {
@@ -229,11 +233,12 @@ class ProfileCard extends StatelessWidget {
           _SectionLabel(l10n.matchingCardSectionTraits),
           for (var axis = 0; axis < axisLabels.length; axis += 1)
             Padding(
-              // 줄 사이에만 8 — 마지막 줄 뒤는 섹션 간격 13 하나만 남긴다(pen `TORAs`).
+              // 묶음 사이에만 12 — 마지막 줄 뒤는 섹션 간격 13 하나만 남긴다(pen TraitLine `G9dS3S`).
               padding: EdgeInsets.only(
-                bottom: axis == axisLabels.length - 1 ? 0 : AppSpacing.xs,
+                bottom: axis == axisLabels.length - 1 ? 0 : AppSpacing.sm,
               ),
               child: TraitBar(
+                name: axisLabels[axis].name,
                 leftLabel: axisLabels[axis].left,
                 rightLabel: axisLabels[axis].right,
                 value: axis < detail.survey.length ? detail.survey[axis] : 0,

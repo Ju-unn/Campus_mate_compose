@@ -1,7 +1,9 @@
-import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/community/model/data/community_category.dart';
 import 'package:campus_mate/community/model/data/poll.dart';
+import 'package:campus_mate/community/view/category_label.dart';
+import 'package:campus_mate/community/view/community_card_parts.dart';
 import 'package:campus_mate/community/view/poll_card.dart';
-import 'package:campus_mate/community/view/poll_time.dart';
+import 'package:campus_mate/community/view/post_card.dart';
 import 'package:campus_mate/community/view/vote_option.dart';
 import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -14,9 +16,6 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 
 // 카드 그림자(pen `IFUWA`)는 AppElevation.homeTileLow(#00000014 (0,1) 8), VS 배지 그림자(pen `UMCB0`)는 AppElevation.pollBadge 다.
-
-/// pen 머리줄 간격 10(`yKSd4` gap) — 간격 토큰 xs(8) · sm(12) 사이 값이라 토큰으로 갈음하지 않는다.
-const double _headerGap = 10;
 
 /// pen 아래 줄 · 점수 줄의 작은 간격(`OXJyX` gap 6 · `V8FlM` gap 6). 토큰 xxs(4) · xs(8) 사이 값.
 const double _smallGap = 6;
@@ -31,9 +30,11 @@ const double _barGap = 4;
 /// 회색 피드 위 흰 큰 카드(모서리 24): 익명 아바타 머리줄 → 질문 18/700 → 투표 전 O/X 알약 + VS · 투표 뒤 큰 퍼센트 + 쪼개짐
 /// 막대 → 구분선 → 참여자 수 · 말풍선 "댓글 N" · "자세히 보기". **방금 이 카드에서 투표했을 때만** 결과가 0 에서 차오른다(220ms).
 /// 말풍선 · "댓글 N" 과 "자세히 보기"(pen 댓글 버튼 `G4zmKC` 자리) 모두 17c 상세로 간다(사용자 11-11).
+/// 카드 빈 곳을 눌러도 17c 다(1.0.7, 게시물 카드와 같다) — 투표 줄은 투표만 받는다.
 class FeedPollCard extends StatefulWidget {
   const FeedPollCard({
     required this.poll,
+    required this.category,
     required this.now,
     required this.isVoting,
     required this.onVote,
@@ -44,6 +45,9 @@ class FeedPollCard extends StatefulWidget {
   });
 
   final Poll poll;
+
+  /// 글의 카테고리 — 머리줄 아래 라벨(pen `ffFIS` > `xc5kR`, 대장 판정 3: 투표 카드에도 전부).
+  final CommunityCategory category;
   final DateTime now;
 
   /// 응답을 기다리는 중이면 버튼을 끈다 — 되돌릴 수 없는 투표가 두 번 가지 않게.
@@ -87,101 +91,53 @@ class _FeedPollCardState extends State<FeedPollCard> {
   @override
   Widget build(BuildContext context) {
     final poll = widget.poll;
-    final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg));
-    // 색 · 그림자는 바깥 DecoratedBox, 눌림 효과는 안쪽 투명 Material 이 받는다(COMMON §4-2).
-    return DecoratedBox(
-      decoration: ShapeDecoration(color: AppColors.canvas, shape: shape, shadows: AppElevation.homeTileLow),
-      child: Material(
-        type: MaterialType.transparency,
-        shape: shape,
-        clipBehavior: Clip.antiAlias,
-        child: Padding(
-          // pen 아래 줄 44 + 아래 안쪽 16 = 60 을 누름 48 + 안쪽 12 로 나눈다 — 카드 높이는 pen 그대로.
-          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.sm),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _Header(poll: poll, now: widget.now, onMore: widget.onMore, onReport: widget.onReport),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                poll.question,
-                // pen `UkAVk` 18/700 lh1.4 자간 -0.18 — 목록이라 2줄 말줄임(DESIGN §8.11).
-                style: AppTypography.label.copyWith(height: 1.4, color: AppColors.ink),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              if (poll.myChoice == null)
-                _BeforeVote(poll: poll, enabled: !widget.isVoting, onVote: widget.onVote)
-              else
-                _Result(poll: poll, animate: _justVoted),
-              const SizedBox(height: AppSpacing.sm),
-              // pen `X93Ip` Separator `CqBWB` 1 #EBEBEB.
-              const ColoredBox(
-                key: FeedPollCard.separatorKey,
-                color: AppColors.hairlineSoft,
-                child: SizedBox(height: 1),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              _Footer(total: poll.total, commentCount: poll.commentCount, onOpen: widget.onOpen),
-            ],
+    // 바깥 모양 · 눌림 효과 가두기는 게시물 카드와 같은 틀(pen `ffFIS` = `WHqdP` 바깥 모양).
+    return CommunityCardFrame(
+      // pen 아래 줄 44 + 아래 안쪽 16 = 60 을 누름 48 + 안쪽 12 로 나눈다 — 카드 높이는 pen 그대로.
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.sm),
+      // 카드 빈 곳을 누르면 17c(게시물 카드와 같다, 1.0.7). 버튼 · "자세히 보기" · "댓글 N" 은 안쪽 누름이 먼저 받는다.
+      onTap: widget.onOpen,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          CommunityCardHeader(
+            avatarKey: FeedPollCard.avatarKey,
+            createdAt: poll.createdAt,
+            now: widget.now,
+            trailing: _trailing(),
           ),
-        ),
+          const SizedBox(height: AppSpacing.sm),
+          CategoryLabel(category: widget.category),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            poll.question,
+            // pen `UkAVk` 18/700 lh1.4 자간 -0.18 — 목록이라 게시물 카드와 같은 줄 수로 말줄임(1.0.7 사용자, 상세는 전부).
+            style: AppTypography.label.copyWith(height: 1.4, color: AppColors.ink),
+            maxLines: PostCard.feedMaxLines,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          if (poll.myChoice == null)
+            _BeforeVote(poll: poll, enabled: !widget.isVoting, onVote: widget.onVote)
+          else
+            _Result(poll: poll, animate: _justVoted),
+          const SizedBox(height: AppSpacing.sm),
+          // pen `X93Ip` Separator `CqBWB` 1 #EBEBEB.
+          const CommunityCardSeparator(key: FeedPollCard.separatorKey),
+          const SizedBox(height: AppSpacing.sm),
+          _Footer(total: poll.total, commentCount: poll.commentCount, onOpen: widget.onOpen),
+        ],
       ),
     );
   }
-}
 
-class _Header extends StatelessWidget {
-  const _Header({required this.poll, required this.now, required this.onMore, required this.onReport});
-
-  final Poll poll;
-  final DateTime now;
-  final VoidCallback? onMore;
-  final VoidCallback? onReport;
-
-  @override
-  Widget build(BuildContext context) {
-    // pen `yKSd4`: 가로 · 간격 10 · 세로 가운데. 신고 · … 가 48 이라 머리줄이 48.
-    return Row(
-      children: [
-        // pen `W37Xp` Avatar `eNFmA` 40(원 #FFF0F2) + 3D 프로필 `PkqpC` 24. 작성자는 익명이라 사진 · 학교가 없다.
-        Container(
-          key: FeedPollCard.avatarKey,
-          width: 40,
-          height: 40,
-          alignment: Alignment.center,
-          decoration: const BoxDecoration(color: AppColors.primaryWash, shape: BoxShape.circle),
-          child: const Icon3d(AppIcon3d.userRound, size: 24),
-        ),
-        const SizedBox(width: _headerGap),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // pen `l169Bi` 14/600 ink · `zxZNL` 12/500 muted — 둘 다 줄높이 속성 없음, 렌더 19 · 16.
-              Text(context.l10n.communityAnonymous, style: AppTypography.labelSmall.copyWith(height: 19 / 14, color: AppColors.ink)),
-              Text(
-                relativeTimeLabel(context.l10n, poll.createdAt, now),
-                style: AppTypography.caption.copyWith(fontWeight: FontWeight.w500, height: 16 / 12, color: AppColors.muted),
-              ),
-            ],
-          ),
-        ),
-        if (onMore != null) ...[
-          const SizedBox(width: _headerGap),
-          // pen `C7Bsuy` MoreButton `B8pl1`(터치 48 · ellipsis 20 muted) — 신고 버튼 자리.
-          IconButton(
-            tooltip: context.l10n.commonMore,
-            icon: const Icon(AppIcons.ellipsis, size: 20, color: AppColors.muted),
-            onPressed: onMore,
-          ),
-        ] else if (onReport != null) ...[
-          const SizedBox(width: _headerGap),
-          PollReportButton(onPressed: onReport!),
-        ],
-      ],
-    );
+  /// 내 글은 … (pen `C7Bsuy`), 남의 글은 신고(`U6b2tA` = `OaLnA`) — 같은 자리.
+  Widget? _trailing() {
+    final onMore = widget.onMore;
+    final onReport = widget.onReport;
+    if (onMore != null) return CommunityMoreButton(onPressed: onMore);
+    if (onReport != null) return PollReportButton(onPressed: onReport);
+    return null;
   }
 }
 
@@ -208,19 +164,26 @@ class _BeforeVote extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Stack(
-          alignment: Alignment.center,
-          children: [
-            Row(
-              children: [
-                Expanded(child: buttons[0]),
-                const SizedBox(width: AppSpacing.xs),
-                Expanded(child: buttons[1]),
-              ],
-            ),
-            // 꾸밈이라 누름 · 낭독을 가로채지 않는다(두 버튼이 이미 "찬성" · "반대" 로 읽힌다).
-            const IgnorePointer(child: ExcludeSemantics(child: _VsBadge())),
-          ],
+        // 투표 줄은 투표만 — 꺼진 버튼(응답 기다리는 중)이나 두 버튼 사이를 눌러도 카드(17c)로 새지 않는다.
+        // 켜진 버튼은 더 안쪽이라 누름을 먼저 받는다. 낭독에는 아무것도 더하지 않는다.
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          excludeFromSemantics: true,
+          onTap: () {},
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Row(
+                children: [
+                  Expanded(child: buttons[0]),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(child: buttons[1]),
+                ],
+              ),
+              // 꾸밈이라 누름 · 낭독을 가로채지 않는다(두 버튼이 이미 "찬성" · "반대" 로 읽힌다).
+              const IgnorePointer(child: ExcludeSemantics(child: _VsBadge())),
+            ],
+          ),
         ),
         // 투표 전에도 결과를 보인다(사용자 결정 4 · 4-1). pen `IFUWA` 에는 이 줄이 없다 — 보고에 "결정 필요".
         // 참여자 수는 아래 줄로 옮겨 여기서는 비율만. 아무도 안 눌렀으면 "0%" 두 개가 결과처럼 읽혀 줄을 뺀다.

@@ -198,11 +198,12 @@ def test_taken_nickname_is_409():
 
 @pytest.mark.parametrize("nickname", ["aaa", "AAa", "가가가", "abc", "Abcd", "cba", "ADMIN", "Staff", "관리자", "개발자", "시발"])
 def test_junk_nickname_is_422_with_the_taken_text(nickname):
-    """출시된 앱(15-6)은 이 문구만 닉네임 칸 아래로 보낸다 — 다른 문구면 '저장하지 못했어요' 가 된다."""
+    """출시된 앱(15-6)은 이 문구만 닉네임 칸 아래로 보낸다 — 다른 문구면 '저장하지 못했어요' 가 된다.
+    1.0.7 은 code 를 보고 "쓸 수 없는 닉네임이에요" 로 보인다(진짜 중복 409 에는 code 가 없다 — test_taken_nickname_is_409)."""
     seen = []
     response = _patch({"nickname": nickname}, seen=seen)
     assert response.status_code == 422
-    assert response.json() == {"detail": "이미 있는 닉네임이에요"}
+    assert response.json() == {"detail": "이미 있는 닉네임이에요", "code": "NICKNAME_NOT_ALLOWED"}
     assert _profile_patches(seen) == []
 
 
@@ -369,7 +370,7 @@ def test_junk_nickname_still_blocks_a_save_that_also_carries_a_good_student_numb
     seen = []
     response = _patch({"student_number": "21", "nickname": "aaa"}, seen=seen)
     assert response.status_code == 422
-    assert response.json() == {"detail": "이미 있는 닉네임이에요"}
+    assert response.json() == {"detail": "이미 있는 닉네임이에요", "code": "NICKNAME_NOT_ALLOWED"}
     assert _profile_patches(seen) == []
 
 
@@ -379,3 +380,20 @@ def test_log_names_the_student_number_field_but_never_its_value(caplog):
     messages = " ".join(record.getMessage() for record in caplog.records)
     assert "student_number" in messages
     assert "21" not in messages
+
+
+# ---- 신분(1.0.7 1-1) — 15-6 에서 언제든 바꾼다. "안 고름" 으로 되돌리는 길은 없다(대장 11-24) ----
+
+@pytest.mark.parametrize("status", ["undergraduate", "graduate_student", "alumni"])
+def test_academic_status_is_saved(status):
+    seen = []
+    assert _patch({"academic_status": status}, seen=seen).status_code == 200
+    assert _profile_patches(seen) == [{"academic_status": status}]
+    assert _vector_saves(seen) == []
+
+
+@pytest.mark.parametrize("status", [None, "professor", "", "ALUMNI"])
+def test_null_or_unknown_academic_status_is_422_and_writes_nothing(status):
+    seen = []
+    assert _patch({"academic_status": status}, seen=seen).status_code == 422
+    assert _profile_patches(seen) == []

@@ -4,6 +4,7 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/community/model/repository/community_repository_provider.dart';
+import 'package:campus_mate/community/view/category_chip.dart';
 import 'package:campus_mate/community/view/poll_composer_screen.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
@@ -12,13 +13,14 @@ import 'package:campus_mate/community/view/vote_option.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
-import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:campus_mate/community/model/data/community_category.dart';
+import 'package:campus_mate/community/model/data/community_item.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:campus_mate/community/model/data/poll_feed.dart';
+import 'package:campus_mate/community/model/data/community_feed_tab.dart';
 
 import '../../core/analytics/fake_analytics_service.dart';
 import '../model/repository/fake_community_repository.dart';
@@ -32,7 +34,7 @@ void main() {
     analytics = FakeAnalyticsService();
   });
 
-  Future<void> pump(WidgetTester tester) async {
+  Future<void> pump(WidgetTester tester, {String location = '/community/new'}) async {
     final router = GoRouter(
       initialLocation: '/community',
       routes: [
@@ -50,12 +52,19 @@ void main() {
         child: MaterialApp.router(localizationsDelegates: AppLocalizations.localizationsDelegates, supportedLocales: AppLocalizations.supportedLocales, routerConfig: router),
       ),
     );
-    unawaited(router.push('/community/new'));
+    unawaited(router.push(location));
     await tester.pumpAndSettle();
   }
 
+  /// 카테고리 칩(필수)을 고른다 — 고르기 전에는 올리기가 꺼져 있다.
+  Future<void> pickCategory(WidgetTester tester, [String label = '자유']) async {
+    await tester.ensureVisible(find.text(label));
+    await tester.tap(find.text(label));
+    await tester.pump();
+  }
+
   ElevatedButton submit(WidgetTester tester) =>
-      tester.widget<ElevatedButton>(find.widgetWithText(ElevatedButton, '익명으로 올리기'));
+      tester.widget<ElevatedButton>(find.widgetWithText(ElevatedButton, '익명으로 올리기', skipOffstage: false));
 
   /// pen 화면 폭 360 × 780 — 칸 폭(164 · 158 · 328)은 이 폭에서 잰다.
   void phone(WidgetTester tester) {
@@ -74,6 +83,8 @@ void main() {
   }
 
   const oxGuide = 'O = 찬성, X = 반대로 투표를 받아요';
+  // 서버 429 detail — 화면은 앱 문구로 바꾸지 않고 그대로 보인다.
+  const serverLimit = '서버가 보낸 한도 문구';
   const customGuide = '보기 글자는 1~6자, 서로 달라야 해요';
 
   Color? fillOf(WidgetTester tester, Finder option) {
@@ -87,18 +98,74 @@ void main() {
 
     await tester.enterText(find.byKey(PollComposerScreen.questionKey), '깻잎을 먼저 집으면 안 되나?');
     await tester.pump();
+    expect(submit(tester).onPressed, isNull); // 카테고리를 아직 안 골랐다(필수)
+    await pickCategory(tester);
     expect(submit(tester).onPressed, isNotNull);
 
+    if (submit(tester).onPressed == null) await pickCategory(tester);
+    await tester.ensureVisible(find.text('익명으로 올리기'));
     await tester.tap(find.text('익명으로 올리기'));
     await tester.pumpAndSettle();
-    expect(repository.created.single, (question: '깻잎을 먼저 집으면 안 되나?', optionA: '찬성', optionB: '반대'));
+    expect(repository.created.single, (category: CommunityCategory.free, question: '깻잎을 먼저 집으면 안 되나?', optionA: '찬성', optionB: '반대'));
+  });
+
+  group('카테고리 · 게시물(할 일 19, pen EcZyq · Efyv9 · YuHSq)', () {
+    testWidgets('카테고리 칩 셋(자유 · 진로 · 연애)은 처음 모두 Off, 고른 것 하나만 On — 고른 카테고리로 보낸다', (tester) async {
+      await pump(tester);
+      expect(find.byType(CategoryChip), findsNWidgets(3));
+      bool on(String label) => tester.widget<CategoryChip>(find.widgetWithText(CategoryChip, label)).selected;
+      expect([on('자유'), on('진로'), on('연애')], [false, false, false]);
+      await pickCategory(tester, '연애');
+      expect([on('자유'), on('진로'), on('연애')], [false, false, true]);
+      await tester.enterText(find.byKey(PollComposerScreen.questionKey), '밥값은 반반?');
+      await tester.pump();
+      await tester.ensureVisible(find.text('익명으로 올리기'));
+      await tester.tap(find.text('익명으로 올리기'));
+      await tester.pumpAndSettle();
+      expect(repository.created.single.category, CommunityCategory.love);
+    });
+
+    testWidgets('게시물(?kind=post): 제목 "익명으로 글쓰기" · 라벨 "내용" · 안내 · "0 / 500" · 상자 220 · 투표 방식 없음', (tester) async {
+      phone(tester);
+      await pump(tester, location: PollComposerScreen.location(CommunityKind.post));
+      expect(find.text('익명으로 글쓰기'), findsOneWidget);
+      expect(find.text('내용'), findsOneWidget);
+      expect(find.text('자유롭게 이야기해 보세요'), findsOneWidget);
+      expect(find.text('0 / 500'), findsOneWidget);
+      expect(find.text('투표 방식'), findsNothing);
+      final box = tester.getRect(
+        find.ancestor(of: find.byKey(PollComposerScreen.questionKey), matching: find.byType(Container)).first,
+      );
+      expect(box.height, 220);
+      expect(submit(tester).onPressed, isNull);
+    });
+
+    testWidgets('게시물: 본문 + 카테고리를 채우면 켜지고, 게시물 길로 보낸 뒤 닫는다', (tester) async {
+      await pump(tester, location: PollComposerScreen.location(CommunityKind.post));
+      await tester.enterText(find.byKey(PollComposerScreen.questionKey), '  첫 데이트 장소 추천해 주세요  ');
+      await pickCategory(tester, '연애');
+      expect(submit(tester).onPressed, isNotNull);
+      await tester.ensureVisible(find.text('익명으로 올리기'));
+      await tester.tap(find.text('익명으로 올리기'));
+      await tester.pumpAndSettle();
+      expect(repository.createdPosts.single, (category: CommunityCategory.love, body: '첫 데이트 장소 추천해 주세요'));
+      expect(repository.created, isEmpty);
+      expect(find.text('피드'), findsOneWidget);
+    });
+
+    testWidgets('게시물: 500자에서 더 받지 않는다', (tester) async {
+      await pump(tester, location: PollComposerScreen.location(CommunityKind.post));
+      await tester.enterText(find.byKey(PollComposerScreen.questionKey), '가' * 520);
+      await tester.pump();
+      expect(find.text('500 / 500'), findsOneWidget);
+    });
   });
 
   testWidgets('직접 적기 탭: 보기 둘이 비었거나 같으면 올리기가 꺼져 있다', (tester) async {
     await pump(tester);
     await openCustom(tester);
     await tester.enterText(find.byKey(PollComposerScreen.questionKey), '짜장 vs 짬뽕');
-    await tester.pump();
+    await pickCategory(tester);
     expect(submit(tester).onPressed, isNull); // 보기가 비어 있다
 
     await tester.enterText(find.byKey(PollComposerScreen.optionAKey), '짜장');
@@ -126,7 +193,7 @@ void main() {
     expect(find.byType(PollRingTab), findsNWidgets(2));
     // 옛 밑줄 탭의 아래 선(#EBEBEB 1)은 없다.
     final underline = find.byWidgetPredicate((widget) =>
-        widget is DecoratedBox && (widget.decoration as BoxDecoration?)?.border?.bottom.color == AppColors.hairlineSoft);
+        widget is DecoratedBox && widget.decoration is BoxDecoration && (widget.decoration as BoxDecoration).border?.bottom.color == AppColors.hairlineSoft);
     expect(find.descendant(of: find.byKey(PollComposerScreen.modeTabsKey), matching: underline), findsNothing);
     expect(tester.widget(find.byKey(PollComposerScreen.modeTabsKey)), isNot(isA<DecoratedBox>()));
   });
@@ -223,9 +290,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(PollComposerScreen.questionKey), '뭐 먹지?');
     await tester.pump();
+    if (submit(tester).onPressed == null) await pickCategory(tester);
+    await tester.ensureVisible(find.text('익명으로 올리기'));
     await tester.tap(find.text('익명으로 올리기'));
     await tester.pumpAndSettle();
-    expect(repository.created.single, (question: '뭐 먹지?', optionA: '찬성', optionB: '반대'));
+    expect(repository.created.single, (category: CommunityCategory.free, question: '뭐 먹지?', optionA: '찬성', optionB: '반대'));
   });
 
   testWidgets('탭을 오가도 직접 적던 보기는 그대로 남는다', (tester) async {
@@ -238,12 +307,12 @@ void main() {
     expect(tester.widget<TextField>(find.byKey(PollComposerScreen.optionAKey)).controller!.text, '짜장');
   });
 
-  testWidgets('카운터는 상자 안에서 "n / 80"', (tester) async {
+  testWidgets('카운터는 상자 안에서 "n / 400"', (tester) async {
     await pump(tester);
-    expect(find.text('0 / 80'), findsOneWidget);
+    expect(find.text('0 / 400'), findsOneWidget);
     await tester.enterText(find.byKey(PollComposerScreen.questionKey), '짜장');
     await tester.pump();
-    expect(find.text('2 / 80'), findsOneWidget);
+    expect(find.text('2 / 400'), findsOneWidget);
   });
 
   testWidgets('앞뒤 공백을 깎아 보내고 피드로 돌아가 새로 읽는다', (tester) async {
@@ -253,10 +322,12 @@ void main() {
     await tester.enterText(find.byKey(PollComposerScreen.optionAKey), ' 짜장 ');
     await tester.enterText(find.byKey(PollComposerScreen.optionBKey), '짬뽕');
     await tester.pump();
+    if (submit(tester).onPressed == null) await pickCategory(tester);
+    await tester.ensureVisible(find.text('익명으로 올리기'));
     await tester.tap(find.text('익명으로 올리기'));
     await tester.pumpAndSettle();
 
-    expect(repository.created.single, (question: '짜장 vs 짬뽕', optionA: '짜장', optionB: '짬뽕'));
+    expect(repository.created.single, (category: CommunityCategory.free, question: '짜장 vs 짬뽕', optionA: '짜장', optionB: '짬뽕'));
     expect(find.text('피드'), findsOneWidget);
     expect(repository.pageRequests, isNotEmpty);
   });
@@ -264,15 +335,17 @@ void main() {
   testWidgets('내 질문 탭에서 왔어도 올리면 피드는 전체 탭으로 옮겨 새로 받는다(사용자 결정)', (tester) async {
     await pump(tester);
     final container = ProviderScope.containerOf(tester.element(find.byType(PollComposerScreen)));
-    await container.read(communityFeedViewModelProvider.notifier).selectTab(PollFeedTab.mine);
+    await container.read(communityFeedViewModelProvider.notifier).selectTab(CommunityFeedTab.mine);
     await tester.enterText(find.byKey(PollComposerScreen.questionKey), '짜장 vs 짬뽕');
     await tester.pump();
 
+    if (submit(tester).onPressed == null) await pickCategory(tester);
+    await tester.ensureVisible(find.text('익명으로 올리기'));
     await tester.tap(find.text('익명으로 올리기'));
     await tester.pumpAndSettle();
 
-    expect(container.read(communityFeedViewModelProvider).tab, PollFeedTab.all);
-    expect(repository.pageRequests.last.tab, PollFeedTab.all);
+    expect(container.read(communityFeedViewModelProvider).tab, CommunityFeedTab.all);
+    expect(repository.pageRequests.last.tab, CommunityFeedTab.all);
   });
 
   testWidgets('올리는 중(17b UqasS): 버튼이 꺼지고 스피너는 없다', (tester) async {
@@ -280,6 +353,8 @@ void main() {
     await pump(tester);
     await tester.enterText(find.byKey(PollComposerScreen.questionKey), '짜장 vs 짬뽕');
     await tester.pump();
+    if (submit(tester).onPressed == null) await pickCategory(tester);
+    await tester.ensureVisible(find.text('익명으로 올리기'));
     await tester.tap(find.text('익명으로 올리기'));
     await tester.pump();
     expect(submit(tester).onPressed, isNull);
@@ -291,20 +366,22 @@ void main() {
     expect(find.text('피드'), findsOneWidget);
   });
 
-  testWidgets('하루 10개를 넘기면(429) 한도 문구를 보이고 화면에 남는다', (tester) async {
-    repository.createResult = const FailureResult(RateLimitedFailure());
+  testWidgets('하루 10개를 넘기면(429) 서버가 준 문구를 그대로 보이고 화면에 남는다', (tester) async {
+    repository.createResult = const FailureResult(RateLimitedFailure(serverLimit));
     await pump(tester);
     await tester.enterText(find.byKey(PollComposerScreen.questionKey), '열한 번째');
     await tester.pump();
+    if (submit(tester).onPressed == null) await pickCategory(tester);
+    await tester.ensureVisible(find.text('익명으로 올리기'));
     await tester.tap(find.text('익명으로 올리기'));
     await tester.pumpAndSettle();
 
-    expect(find.text(AppLocalizationsKo().errorPollDailyLimit), findsOneWidget);
+    expect(find.text(serverLimit), findsOneWidget);
     expect(find.text('피드'), findsNothing);
 
     // pen 17b 올리기 실패 `u4UOb`: 오류 글 error 색, 안내 글 아래 20 · 버튼 위 8, 버튼은 다시 켜진다.
     // 글 높이는 보지 않는다 — bodySmall lh1.55(21.7)와 pen 렌더 23 이 다르다(줄높이 있는 글은 토큰을 따른다).
-    final error = find.text(AppLocalizationsKo().errorPollDailyLimit);
+    final error = find.text(serverLimit);
     expect(tester.widget<Text>(error).style!.color, AppColors.error);
     final guide = tester.getRect(find.text(oxGuide));
     final errorRect = tester.getRect(error);
@@ -315,24 +392,26 @@ void main() {
     expect(button.height, 52); // HE8FZ 2026-10-01 개편
   });
 
-  testWidgets('pen 17b 올리기 실패 `u4UOb` — 적은 질문 · "22 / 80" 은 그대로, 안내 상자 328×40, 오류 글 14 error · 버튼 위 8, 버튼 328×52 켜짐', (tester) async {
+  testWidgets('pen 17b 올리기 실패 `u4UOb` — 적은 질문 · "22 / 400" 은 그대로, 안내 상자 328×40, 오류 글 14 error · 버튼 위 8, 버튼 328×52 켜짐', (tester) async {
     phone(tester);
-    repository.createResult = const FailureResult(RateLimitedFailure());
+    repository.createResult = const FailureResult(RateLimitedFailure(serverLimit));
     await pump(tester);
     const question = '깻잎을 먼저 집으면 안 되는 거 아니야?'; // pen `nPZJM` 본문
     await tester.enterText(find.byKey(PollComposerScreen.questionKey), question);
     await tester.pump();
+    if (submit(tester).onPressed == null) await pickCategory(tester);
+    await tester.ensureVisible(find.text('익명으로 올리기'));
     await tester.tap(find.text('익명으로 올리기'));
     await tester.pumpAndSettle();
 
     // 오류는 토스트가 아니라 버튼 위 한 줄(`ZbV4R`)이고, 적은 글은 지우지 않는다.
     expect(tester.widget<TextField>(find.byKey(PollComposerScreen.questionKey)).controller!.text, question);
-    expect(find.text('22 / 80'), findsOneWidget);
+    expect(find.text('22 / 400'), findsOneWidget);
     expect(find.byType(SnackBar), findsNothing);
     // 안내 `c9ch1w` 328×40 = 안쪽 12 + 자물쇠 16 + 12.
     final notice = tester.getRect(find.ancestor(of: find.byIcon(AppIcons.lock), matching: find.byType(Container)).first);
     expect(notice.size, const Size(328, 40));
-    final error = find.text(AppLocalizationsKo().errorPollDailyLimit);
+    final error = find.text(serverLimit);
     final style = tester.widget<Text>(error).style!;
     expect((style.fontSize, style.color), (14.0, AppColors.error));
     final button = tester.getRect(find.widgetWithText(ElevatedButton, '익명으로 올리기'));
@@ -341,13 +420,13 @@ void main() {
     expect(submit(tester).onPressed, isNotNull);
   });
 
-  testWidgets('입력칸은 80자 · 6자에서 더 받지 않는다', (tester) async {
+  testWidgets('입력칸은 400자 · 6자에서 더 받지 않는다', (tester) async {
     await pump(tester);
     await openCustom(tester);
-    await tester.enterText(find.byKey(PollComposerScreen.questionKey), '가' * 90);
+    await tester.enterText(find.byKey(PollComposerScreen.questionKey), '가' * 450);
     await tester.enterText(find.byKey(PollComposerScreen.optionAKey), '가' * 15);
     await tester.pump();
-    expect(tester.widget<TextField>(find.byKey(PollComposerScreen.questionKey)).controller!.text.length, 80);
+    expect(tester.widget<TextField>(find.byKey(PollComposerScreen.questionKey)).controller!.text.length, 400);
     expect(tester.widget<TextField>(find.byKey(PollComposerScreen.optionAKey)).controller!.text.length, 6);
   });
 
@@ -359,15 +438,16 @@ void main() {
     expect(tester.widget<TextField>(find.byKey(PollComposerScreen.optionAKey)).controller!.text.runes.length, 6);
   });
 
-  testWidgets('폰 폭(360)에서 글자 2배 · 80자 질문에도 넘치거나 잘리지 않는다', (tester) async {
+  testWidgets('폰 폭(360)에서 글자 2배 · 400자 질문에도 넘치거나 잘리지 않는다', (tester) async {
     tester.view.physicalSize = const Size(360, 780);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     tester.platformDispatcher.textScaleFactorTestValue = 2.0;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await pump(tester);
-    await tester.enterText(find.byKey(PollComposerScreen.questionKey), '가' * 80);
+    await tester.enterText(find.byKey(PollComposerScreen.questionKey), '가' * 400);
     await tester.pump();
+    expect(find.text('400 / 400'), findsOneWidget);
 
     // 넘침 오류는 Flex 만 낸다 — 고정 상자에 갇힌 글자(라벨 · 카운터 · 안내 · 버튼)는 오류 없이 잘린다.
     List<String> clippedTexts() => [
@@ -379,12 +459,14 @@ void main() {
     ];
     expect(tester.takeException(), isNull);
     final clipped = clippedTexts();
-    await tester.drag(find.byType(ListView), const Offset(0, -2000));
+    // 400자 · 글자 2배면 질문 상자만 화면 두 배가 넘는다 — 끝까지 내린다.
+    await tester.drag(find.byType(ListView), const Offset(0, -6000));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     clipped.addAll(clippedTexts());
 
-    await tester.drag(find.byType(ListView), const Offset(0, 2000));
+    // 긴 질문 상자 아래의 투표 방식 탭은 맨 위로 올리면 목록이 아직 만들지 않는다 — 탭이 보이는 자리까지만 올린다.
+    await tester.dragUntilVisible(find.text('직접 적기'), find.byType(ListView), const Offset(0, 300));
     await tester.pumpAndSettle();
     await openCustom(tester);
     await tester.enterText(find.byKey(PollComposerScreen.optionAKey), '가나다라마바');
@@ -392,13 +474,29 @@ void main() {
     await tester.pump();
     expect(tester.takeException(), isNull);
     clipped.addAll(clippedTexts());
-    await tester.drag(find.byType(ListView), const Offset(0, -2000));
+    await tester.drag(find.byType(ListView), const Offset(0, -6000));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     clipped.addAll(clippedTexts());
     // 보기 안내 글("보기 1" · "보기 2")은 글자를 적으면 투명해진다. 테스트 글꼴(Ahem)은 글자가 모두 정사각형이라 실제보다 넓게 나온다.
     clipped.removeWhere((text) => text.startsWith('보기 '));
     expect(clipped, isEmpty);
+  });
+
+  testWidgets('키보드가 올라와도(아래 300 가림) 400자 질문 화면이 넘치지 않고, 끝까지 내려 올리기를 누를 수 있다', (tester) async {
+    phone(tester); // view.reset 이 viewInsets 도 되돌린다
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await pump(tester);
+    await tester.enterText(find.byKey(PollComposerScreen.questionKey), '가' * 400);
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -3000));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('400 / 400'), findsOneWidget);
+    final button = tester.getRect(find.widgetWithText(ElevatedButton, '익명으로 올리기'));
+    expect(button.bottom, lessThanOrEqualTo(780 - 300));
   });
 
   testWidgets('pen 앱바: 뒤로 arrow-left 22 · 제목 x60(jrUTh · g58njs · RKulj)', (tester) async {
@@ -416,7 +514,7 @@ void main() {
     final box = tester.getRect(
       find.ancestor(of: find.byKey(PollComposerScreen.questionKey), matching: find.byType(Container)).first,
     );
-    final counter = tester.getRect(find.text('0 / 80'));
+    final counter = tester.getRect(find.text('0 / 400'));
     final voteLabel = tester.getRect(find.text('투표 방식'));
     final tabs = tester.getRect(find.byKey(PollComposerScreen.modeTabsKey));
     final options = find.byType(VoteOption);
@@ -425,7 +523,13 @@ void main() {
 
     expect(notice.top, 56 + 16);
     expect(notice.left, 16);
-    expect(label.top - notice.bottom, 20);
+    // CategorySection: 라벨 "카테고리" 20 → 8 → 보이는 칩 32 → 20. 누름 44 는 보이는 간격을 바꾸지 않는다.
+    final categoryLabel = tester.getRect(find.text('카테고리'));
+    final chip = tester.getRect(find.byKey(CategoryChip.surfaceKey).first);
+    expect(categoryLabel.top - notice.bottom, 20);
+    expect(chip.top - categoryLabel.bottom, 8);
+    expect(chip.height, 32);
+    expect(label.top - chip.bottom, 20);
     expect(label.height, 20); // `BxeOU/VCwQo` 14/600, 줄 높이 속성 없음 · 렌더 20
     expect(box.top - label.bottom, 8); // TextInput 라벨~상자 8
     expect(box.height, 100); // 17b 질문 상자 100(대장 10-08, 옛 104)
@@ -452,7 +556,9 @@ void main() {
       await tester.enterText(find.byKey(PollComposerScreen.questionKey), '깻잎을 먼저 집으면 안 되나?');
       await tester.pump();
 
-      await tester.tap(find.text('익명으로 올리기'));
+      if (submit(tester).onPressed == null) await pickCategory(tester);
+    await tester.ensureVisible(find.text('익명으로 올리기'));
+    await tester.tap(find.text('익명으로 올리기'));
       await tester.pumpAndSettle();
 
       expect(analytics.calls, ['poll_create']);
@@ -460,12 +566,14 @@ void main() {
     });
 
     testWidgets('서버가 막으면(하루 한도 등) 남기지 않는다', (tester) async {
-      repository.createResult = const FailureResult(RateLimitedFailure());
+      repository.createResult = const FailureResult(RateLimitedFailure(serverLimit));
       await pump(tester);
       await tester.enterText(find.byKey(PollComposerScreen.questionKey), '깻잎을 먼저 집으면 안 되나?');
       await tester.pump();
 
-      await tester.tap(find.text('익명으로 올리기'));
+      if (submit(tester).onPressed == null) await pickCategory(tester);
+    await tester.ensureVisible(find.text('익명으로 올리기'));
+    await tester.tap(find.text('익명으로 올리기'));
       await tester.pumpAndSettle();
 
       expect(analytics.calls, isEmpty);

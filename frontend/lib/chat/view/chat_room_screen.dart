@@ -59,7 +59,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   late final AppLifecycleListener _lifecycle;
   bool _sheetShown = false;
 
-  /// 24시간 경계에 한 번 울린다(백로그 22). 시트는 상태가 바뀔 때만, 배너는 그릴 때만 시각을
+  /// 시트 시각(`ChatRoom.promptAt`) 경계에 한 번 울린다(백로그 22). 시트는 상태가 바뀔 때만, 배너는 그릴 때만 시각을
   /// 보니 방에 머무는 동안 경계를 넘으면 아무것도 바뀌지 않았다.
   Timer? _reminderTimer;
 
@@ -212,6 +212,8 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                 controller: _scroll,
                 intro: state.showsIntroCardAt(_now())
                     ? ChatIntroCard(
+                        hours: state.room!.gateHours,
+                        askHours: state.room!.askHours,
                         expanded: _introExpanded,
                         onToggle: () => setState(() => _introExpanded = !_introExpanded),
                       )
@@ -235,7 +237,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   /// 그때는 [_maybeShowSheet] 가 바로 판단한다.
   void _scheduleReminder(ChatRoom room) {
     _reminderTimer?.cancel();
-    final wait = room.createdAt.add(trustGateReminderAfter).difference(_now());
+    final wait = room.promptAt.difference(_now());
     if (wait <= Duration.zero) {
       return;
     }
@@ -248,13 +250,14 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
     });
   }
 
-  /// 24시간이 지났고 아직 수락하지 않았으면 **방에 들어올 때마다** 시트가 뜬다(설계 §2.5).
+  /// 시트 시각(`ChatRoom.promptAt`)이 지났고 아직 수락하지 않았으면 **방에 들어올 때마다** 시트가 뜬다(설계 §2.5).
   void _maybeShowSheet(ChatRoomUiState state) {
     if (_sheetShown || state.stageAt(_now()) != TrustGateStage.sheet) {
       return;
     }
     _sheetShown = true;
     final deadlineAt = state.room!.gate.deadlineAt;
+    final gateHours = state.room!.gateHours;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) {
         return;
@@ -266,6 +269,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         builder: (sheetContext) => Consumer(
           builder: (_, sheetRef, _) => TrustGateSheet(
             deadlineAt: deadlineAt,
+            gateHours: gateHours,
             myKakaoId: sheetRef.watch(chatRoomViewModelProvider(widget.matchId).select((s) => s.room?.myKakaoId)),
             onChangeKakaoId: _changeKakaoId,
             onAccept: () {
@@ -417,7 +421,7 @@ class _Banner extends StatelessWidget {
       case TrustGateStage.preAccept:
         return TrustBanner(
           title: context.l10n.chatBannerPreAcceptTitle,
-          caption: context.l10n.chatBannerPreAcceptCaption,
+          caption: context.l10n.chatBannerPreAcceptCaption(askHours: room.askHours, hours: room.gateHours),
           actionLabel: context.l10n.chatAccept,
           onAction: () => unawaited(onAccept()),
         );

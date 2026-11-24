@@ -42,9 +42,11 @@ import '../../../notifications/model/repository/fake_notifications_repository.da
 class _StepRepository implements OnboardingRepository {
   OnboardingStep step = OnboardingStep.bio;
   Completer<void>? hold;
+  int fetchCount = 0;
 
   @override
   Future<Result<OnboardingStep>> fetchNextStep() async {
+    fetchCount++;
     await hold?.future;
     return Success(step);
   }
@@ -138,6 +140,31 @@ void main() {
 
     expect(find.byType(AvatarGenerationScreen), findsOneWidget);
     expect(find.byType(HomeScreen), findsNothing);
+  });
+
+  // 1.0.7 #6: 뷰모델과 화면이 같은 순간 따로 묻던 것(2번)을 뷰모델 한 번으로 줄였다.
+  testWidgets('06-3 저장 끝에 next-step 은 한 번만 묻는다', (tester) async {
+    final steps = _StepRepository();
+    await _pumpAtBio(tester, steps);
+    final before = steps.fetchCount;
+    steps.step = OnboardingStep.complete;
+
+    await tester.tap(find.text('다음'));
+    await tester.pumpAndSettle();
+
+    expect(steps.fetchCount - before, 1);
+    expect(find.byType(AvatarGenerationScreen), findsOneWidget);
+  });
+
+  testWidgets('저장이 실패하면 next-step 을 묻지 않는다', (tester) async {
+    final steps = _StepRepository();
+    await _pumpAtBio(tester, steps, bio: FakeBioRepository()..nextSubmitResult = const FailureResult(NetworkFailure()));
+    final before = steps.fetchCount;
+
+    await tester.tap(find.text('다음'));
+    await tester.pumpAndSettle();
+
+    expect(steps.fetchCount - before, 0);
   });
 
   testWidgets('저장이 실패하면 06-3 에 머문다', (tester) async {

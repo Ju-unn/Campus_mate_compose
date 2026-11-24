@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from e2e import area2_batch_admin as mod
+from e2e import chat_clock
 from e2e.tools import Blocked, Reply
 
 RUN = SimpleNamespace(cfg={'API_BASE_URL': 'https://api.test', 'SUPABASE_ANON_KEY': 'anon-jwt'}, key='service')
@@ -176,6 +177,9 @@ class Batch11Test(unittest.TestCase):
         self.assertEqual(result, 'pass')
         self.assertIn('두 번째 POST', note)
         gated.assert_called_once()
+        [(match_id, age)] = gated.call_args.args[2]
+        self.assertEqual(match_id, 'match')
+        self.assertGreater(age, chat_clock.DEADLINE)  # 기한을 넘긴 통과 방 — 그래도 닫지도 다시 찍지도 않는다
 
     def test_batch11_refuses_if_gate_window_is_closed_before_preparation(self):
         with mock.patch.object(mod.area3_phone5.batch_gate, 'peek', side_effect=Blocked('닫힘')):

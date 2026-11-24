@@ -1,7 +1,10 @@
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/community/model/data/community_category.dart';
 import 'package:campus_mate/community/model/data/poll.dart';
+import 'package:campus_mate/community/view/category_label.dart';
 import 'package:campus_mate/community/view/feed_poll_card.dart';
 import 'package:campus_mate/community/view/poll_donut.dart';
+import 'package:campus_mate/community/view/post_card.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -28,6 +31,7 @@ void main() {
     VoidCallback? onOpen,
     VoidCallback? onMore,
     bool withReport = true,
+    CommunityCategory category = CommunityCategory.free,
   }) {
     return tester.pumpWidget(
       MaterialApp(
@@ -40,6 +44,7 @@ void main() {
                 width: width,
                 child: FeedPollCard(
                   poll: poll,
+                  category: category,
                   now: now,
                   isVoting: isVoting,
                   onVote: onVote ?? (_) {},
@@ -56,6 +61,9 @@ void main() {
   }
 
   Rect card(WidgetTester tester) => tester.getRect(find.byType(FeedPollCard));
+
+  /// 카드를 누를 수 있어(1.0.7) 버튼이 아닌 글자는 카드 노드 하나로 모여 읽힌다(게시물 카드와 같다) — 점수 한쪽은 그 안의 한 줄이다.
+  RegExp scoreLine(String line) => RegExp('^${RegExp.escape(line)}\$', multiLine: true);
 
   group('카드 틀 · 머리줄', () {
     testWidgets('흰 바탕 · 모서리 24(radius.lg) · 그림자 #00000014 (0,1) 8', (tester) async {
@@ -110,14 +118,83 @@ void main() {
       expect(opened, 1);
     });
 
-    testWidgets('질문 18/700 줄높이 1.4 · 자간 -0.18 · ink, 머리줄 아래 12, 목록은 2줄 말줄임(UkAVk)', (tester) async {
-      await pumpCard(tester, pollFixture(question: '가' * 80));
-      final question = tester.widget<Text>(find.text('가' * 80));
+    testWidgets('질문 18/700 줄높이 1.4 · 자간 -0.18 · ink, 머리줄 아래 12, 목록은 게시물 카드와 같은 4줄 말줄임(UkAVk · 1.0.7 사용자)', (tester) async {
+      final long = '가' * 400;
+      await pumpCard(tester, pollFixture(question: long));
+      final question = tester.widget<Text>(find.text(long));
       final style = question.style!;
       expect((style.fontSize, style.fontWeight, style.height, style.letterSpacing, style.color),
           (18, FontWeight.w700, 1.4, -0.18, AppColors.ink));
-      expect((question.maxLines, question.overflow), (2, TextOverflow.ellipsis));
-      expect(tester.getRect(find.text('가' * 80)).top - card(tester).top, 16 + 48 + 12);
+      // 줄 수는 게시물 카드와 한 곳(PostCard.feedMaxLines)을 같이 쓴다 — 4 를 두 번 쓰지 않는다.
+      expect(PostCard.feedMaxLines, 4);
+      expect((question.maxLines, question.overflow), (PostCard.feedMaxLines, TextOverflow.ellipsis));
+      // 400자여도 4줄(18 × 1.4 × 4)만 그리고 "…" 로 끝난다.
+      expect(tester.getSize(find.text(long)).height, closeTo(18 * 1.4 * 4, 1.5));
+      expect(tester.getRect(find.text(long)).top - card(tester).top, closeTo(16 + 48 + 12 + 26 + 12, 0.5));
+    });
+
+    testWidgets('머리줄 아래 12 에 그 글의 카테고리 라벨(ffFIS · xc5kR, 대장 판정 3 — 투표 카드에도 전부)', (tester) async {
+      await pumpCard(tester, pollFixture(), category: CommunityCategory.career);
+      final label = tester.getRect(find.byType(CategoryLabel));
+      expect(label.topLeft - card(tester).topLeft, const Offset(16, 16 + 48 + 12));
+      expect(find.descendant(of: find.byType(CategoryLabel), matching: find.text('진로')), findsOneWidget);
+    });
+  });
+
+  group('카드 누름(1.0.7 사용자 「이 아이템 클릭시 상세로」 — 게시물 카드와 같게)', () {
+    testWidgets('카드 빈 곳(질문 · 머리줄 · 카테고리 · 결과)을 누르면 17c(onOpen), 투표는 가지 않는다', (tester) async {
+      var opened = 0;
+      final votes = <PollChoice>[];
+      await pumpCard(tester, pollFixture(), onOpen: () => opened++, onVote: votes.add);
+      await tester.tap(find.text('첫 데이트 더치페이'));
+      await tester.tap(find.text('익명'));
+      await tester.tap(find.byType(CategoryLabel));
+      expect(opened, 3);
+      expect(votes, isEmpty);
+
+      await pumpCard(tester, pollFixture(id: 'p2', aCount: 5, bCount: 3, myChoice: PollChoice.a), onOpen: () => opened++);
+      await tester.tap(find.text('63%'));
+      expect(opened, 4);
+    });
+
+    testWidgets('찬성 · 반대 버튼은 투표만 — 누름이 카드로 새지 않는다(투표 중으로 꺼져 있어도)', (tester) async {
+      var opened = 0;
+      final votes = <PollChoice>[];
+      await pumpCard(tester, pollFixture(), onOpen: () => opened++, onVote: votes.add);
+      await tester.tap(find.byIcon(AppIcons.circle));
+      await tester.tap(find.byIcon(AppIcons.x));
+      expect(votes, [PollChoice.a, PollChoice.b]);
+      expect(opened, 0);
+
+      // 응답을 기다리는 동안 한 번 더 누르면(꺼진 버튼) 상세로 넘어가지 않는다.
+      await pumpCard(tester, pollFixture(), isVoting: true, onOpen: () => opened++, onVote: votes.add);
+      await tester.tap(find.byIcon(AppIcons.circle));
+      await tester.tap(find.byIcon(AppIcons.x));
+      expect(opened, 0);
+      expect(votes, [PollChoice.a, PollChoice.b]);
+    });
+
+    testWidgets('"자세히 보기" · "댓글 N" 은 한 번씩만 연다, 신고는 상세로 가지 않는다', (tester) async {
+      var opened = 0;
+      await pumpCard(tester, pollFixture(), onOpen: () => opened++);
+      await tester.tap(find.text('자세히 보기'));
+      expect(opened, 1);
+      await tester.tap(find.text('댓글 0'));
+      expect(opened, 2);
+      await tester.tap(reportButton());
+      expect(opened, 2);
+    });
+
+    testWidgets('낭독기: 질문 · 버튼 이름을 한 번씩만 읽고, 카드를 눌러 상세로 갈 수 있다', (tester) async {
+      final semantics = tester.ensureSemantics();
+      const question = '첫 데이트 더치페이';
+      await pumpCard(tester, pollFixture(aCount: 0, bCount: 0));
+      // 카드 노드가 버튼 이름을 끌어 모아 같은 말을 두 번 읽지 않는다 — 글자를 담은 노드가 하나씩.
+      for (final label in [question, '찬성', '반대', '자세히 보기', '댓글 0']) {
+        expect(find.bySemanticsLabel(RegExp(RegExp.escape(label))), findsOneWidget, reason: label);
+      }
+      expect(tester.getSemantics(find.text(question)).getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+      semantics.dispose();
     });
   });
 
@@ -191,7 +268,7 @@ void main() {
       final box = card(tester);
       final line = tester.getRect(find.byKey(FeedPollCard.separatorKey));
       expect((line.left, line.right, line.height), (box.left + 16, box.right - 16, 1));
-      expect(tester.widget<ColoredBox>(find.byKey(FeedPollCard.separatorKey)).color, AppColors.hairlineSoft);
+      expect(tester.widget<ColoredBox>(find.descendant(of: find.byKey(FeedPollCard.separatorKey), matching: find.byType(ColoredBox))).color, AppColors.hairlineSoft);
       expect(line.top - tester.getRect(find.widgetWithIcon(FilledButton, AppIcons.circle)).bottom, 12);
 
       final people = tester.getRect(find.byIcon(AppIcons.users));
@@ -206,10 +283,10 @@ void main() {
       // 줄은 누름 48 — pen 44 + 아래 안쪽 16 = 48 + 12 로 카드 높이는 pen 과 같다.
       expect(caption.center.dy - line.bottom, 12 + 24);
       expect(box.bottom - (line.bottom + 12 + 48), 12);
-      // 질문 1줄(18 × 1.4 = 25.2, 시험 글꼴은 25 로 반올림) 카드: 16 + 48 + 12 + 질문 + 12 + 56 + 12 + 1 + 12 + 48 + 12.
+      // 질문 1줄(18 × 1.4 = 25.2, 시험 글꼴은 25 로 반올림) 카드: 16 + 48 + 12 + 라벨 26 + 12 + 질문 + 12 + 56 + 12 + 1 + 12 + 48 + 12.
       final question = tester.getSize(find.text('첫 데이트 더치페이')).height;
       expect(question, closeTo(25.2, 0.5));
-      expect(box.height, closeTo(16 + 48 + 12 + question + 12 + 56 + 12 + 1 + 12 + 48 + 12, 0.01));
+      expect(box.height, closeTo(16 + 48 + 12 + 26 + 12 + question + 12 + 56 + 12 + 1 + 12 + 48 + 12, 0.5));
     });
 
     testWidgets('"N명 참여" 옆에 말풍선 16 + "댓글 N" 12/500 muted — 앞 간격 8, 말풍선과 글자 사이 4 (Qzv5q · lsvu8 · uNX9X)', (tester) async {
@@ -359,8 +436,8 @@ void main() {
     testWidgets('낭독: 쪽마다 "이름 퍼센트" + 내 쪽은 ", 내 선택" — 색만으로 가르지 않는다', (tester) async {
       final semantics = tester.ensureSemantics();
       await pumpCard(tester, voted);
-      expect(find.bySemanticsLabel('찬성 63%, 내 선택'), findsOneWidget);
-      expect(find.bySemanticsLabel('반대 37%'), findsOneWidget);
+      expect(find.bySemanticsLabel(scoreLine('찬성 63%, 내 선택')), findsOneWidget);
+      expect(find.bySemanticsLabel(scoreLine('반대 37%')), findsOneWidget);
       semantics.dispose();
     });
   });
@@ -398,7 +475,7 @@ void main() {
       final semantics = tester.ensureSemantics();
       await pumpCard(tester, before());
       await pumpCard(tester, after());
-      expect(find.bySemanticsLabel('찬성 63%, 내 선택'), findsOneWidget);
+      expect(find.bySemanticsLabel(scoreLine('찬성 63%, 내 선택')), findsOneWidget);
       await tester.pumpAndSettle();
       semantics.dispose();
     });
@@ -454,7 +531,7 @@ void main() {
     ];
 
     for (final poll in [
-      pollFixture(question: '가' * 80),
+      pollFixture(question: '가' * 400),
       pollFixture(optionA: '가나다라마바', optionB: '바마라다나가'),
       pollFixture(optionA: '가나다라마바', optionB: '바마라다나가', aCount: 100, bCount: 3, myChoice: PollChoice.a),
       pollFixture(isMine: true, aCount: 5, bCount: 300, myChoice: PollChoice.b),

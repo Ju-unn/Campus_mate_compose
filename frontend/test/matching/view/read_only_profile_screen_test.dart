@@ -44,9 +44,11 @@ void main() {
     Result<CardDetail>? card,
     Widget? bottomAction,
     Completer<void>? hold,
+    Result<CardDetail>? acceptance,
   }) async {
     final repository = FakeCardRepository()
       ..card = card ?? Success(_detail)
+      ..acceptanceDetail = acceptance
       ..holdCard = hold;
     final container = ProviderContainer(
       overrides: [
@@ -61,7 +63,12 @@ void main() {
         child: MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
-          home: ReadOnlyProfileScreen(cardId: 'card-1', title: '보낸 신청', bottomAction: bottomAction),
+          home: ReadOnlyProfileScreen(
+            cardId: 'card-1',
+            title: '보낸 신청',
+            bottomAction: bottomAction,
+            readsAcceptance: acceptance != null,
+          ),
         ),
       ),
     );
@@ -149,5 +156,37 @@ void main() {
     await tester.pump();
 
     expect(find.byType(ProfileCard), findsOneWidget);
+  });
+
+  // 20-5: 받은 신청을 거절한 줄은 카드 주인이 상대라 `GET /cards/{id}` 가 404 다 — 받은 신청 읽기(`GET /cards/acceptances/{id}`)로 연다.
+  group('받은 신청 읽기(readsAcceptance)', () {
+    testWidgets('카드 읽기가 아니라 받은 신청 읽기로 그린다', (tester) async {
+      await pump(tester, card: const FailureResult(NotFoundFailure()), acceptance: Success(_detail));
+      await tester.pump();
+
+      expect(find.byType(ProfileCard), findsOneWidget);
+      expect(find.byType(DetailMessage), findsNothing);
+    });
+
+    testWidgets('연결 실패면 RetryNotice, 다시 시도하면 받은 신청을 다시 읽어 그린다', (tester) async {
+      final repository = await pump(tester, acceptance: const FailureResult(NetworkFailure()));
+      await tester.pump();
+      expect(find.byType(RetryNotice), findsOneWidget);
+
+      repository.acceptanceDetail = Success(_detail);
+      await tester.tap(find.text('다시 시도'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byType(ProfileCard), findsOneWidget);
+    });
+
+    testWidgets('서버 거절(이미 답함 · 기한 지남)은 회색 글자만', (tester) async {
+      await pump(tester, acceptance: const FailureResult(ServerRejectedFailure('이미 답한 수락이에요')));
+      await tester.pump();
+
+      expect(find.byType(DetailMessage), findsOneWidget);
+      expect(find.byType(RetryNotice), findsNothing);
+    });
   });
 }

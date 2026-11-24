@@ -71,6 +71,16 @@ void main() {
     ]);
   });
 
+  // 확인 시트가 매칭 48시간째로 옮겨졌다(사용자 확정 11-24) — 이 화면은 방 정보가 없어 숫자를 글자에 둔다.
+  testWidgets('신뢰 확인 알림 설명은 매칭 48시간 뒤다', (tester) async {
+    tester.view.physicalSize = const Size(360, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await pump(tester);
+
+    expect(find.text('매칭 48시간 뒤 확인 안내'), findsOneWidget);
+  });
+
   testWidgets('맨 아래에 조용한 시간 예외 안내가 있다', (tester) async {
     await pump(tester);
 

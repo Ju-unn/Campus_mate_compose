@@ -12,6 +12,11 @@ import 'package:campus_mate/community/model/repository/community_repository_prov
 import 'package:campus_mate/community/model/data/poll.dart';
 import 'package:campus_mate/community/view/community_feed_screen.dart';
 import 'package:campus_mate/community/view/feed_poll_card.dart';
+import 'package:campus_mate/community/view/notice_banner.dart';
+import 'package:campus_mate/community/view/category_label.dart';
+import 'package:campus_mate/community/view/post_card.dart';
+import 'package:campus_mate/community/view/write_type_sheet.dart';
+import 'package:campus_mate/community/model/data/community_category.dart';
 import 'package:campus_mate/community/view/poll_donut.dart';
 import 'package:campus_mate/community/view/poll_feed_tabs.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
@@ -29,7 +34,8 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:campus_mate/community/model/data/poll_feed.dart';
+import 'package:campus_mate/community/model/data/community_feed_tab.dart';
+import 'package:campus_mate/community/model/data/feed_page.dart';
 
 import '../../chat/model/repository/fake_chat_repository.dart';
 import '../../matching/model/repository/fake_card_repository.dart';
@@ -50,11 +56,12 @@ void main() {
       initialLocation: '/community',
       routes: [
         GoRoute(path: '/community', builder: (context, state) => const CommunityFeedScreen()),
-        GoRoute(path: '/community/new', builder: (context, state) => const Text('쓰기')),
+        GoRoute(path: '/community/new', builder: (context, state) => Text('쓰기 ${state.uri.queryParameters['kind']}')),
         GoRoute(
           path: '/community/polls/:pollId',
           builder: (context, state) => Text('상세 ${state.pathParameters['pollId']}'),
         ),
+        GoRoute(path: '/community/notices', builder: (context, state) => const Text('공지 목록')),
       ],
     );
     addTearDown(router.dispose);
@@ -82,9 +89,9 @@ void main() {
       addTearDown(tester.view.reset);
     }
 
-    testWidgets('피드는 알약 뒤로 이어지고, 끝까지 내리면 마지막 글이 질문하기 버튼 위 12 에 멈춘다(가리지 않게)', (tester) async {
+    testWidgets('피드는 알약 뒤로 이어지고, 끝까지 내리면 마지막 글이 글쓰기 버튼 위 12 에 멈춘다(가리지 않게)', (tester) async {
       penFrame(tester);
-      repository.page = Success(PollPage(polls: [for (var i = 0; i < 6; i++) pollFixture(id: 'p$i')], hasMore: false));
+      repository.page = Success(FeedPage(items: [for (var i = 0; i < 6; i++) itemFixture(id: 'p$i')], hasMore: false));
       await pump(tester);
 
       expect(tester.widget<Scaffold>(find.byType(Scaffold)).extendBody, isTrue);
@@ -97,9 +104,9 @@ void main() {
       expect(ask.top - tester.getBottomLeft(find.byType(FeedPollCard).last).dy, 12);
     });
 
-    testWidgets('질문하기 알약(dDWPl): 높이 52 · 오른쪽 16 · 유리 내비 위 12 · primary · 끝까지 둥글게 · plus 20 → 8 → "질문하기" 16/700 흰', (tester) async {
+    testWidgets('글쓰기 알약(dDWPl): 높이 52 · 오른쪽 16 · 유리 내비 위 12 · primary · 끝까지 둥글게 · plus 20 → 8 → "글쓰기" 16/700 흰', (tester) async {
       penFrame(tester);
-      repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));
+      repository.page = Success(FeedPage(items: [itemFixture()], hasMore: false));
       await pump(tester);
 
       final ask = find.byKey(CommunityFeedScreen.askButtonKey);
@@ -113,7 +120,7 @@ void main() {
       expect(style.shape!.resolve({}), const StadiumBorder());
       final plus = tester.widget<Icon>(find.descendant(of: ask, matching: find.byIcon(AppIcons.plus)));
       expect((plus.size, plus.color), (20, AppColors.onPrimary));
-      final label = find.descendant(of: ask, matching: find.text('질문하기'));
+      final label = find.descendant(of: ask, matching: find.text('글쓰기'));
       final labelStyle = tester.widget<Text>(label).style!;
       expect((labelStyle.fontSize, labelStyle.fontWeight, labelStyle.color), (16, FontWeight.w700, AppColors.onPrimary));
       // padding [0,20] · gap 8 — 버튼 폭 = 20 + 20 + 8 + 글자 + 20.
@@ -126,7 +133,7 @@ void main() {
 
     testWidgets('스크롤을 내리면 동그라미 52 로 접히고(220ms), 올리면 다시 펼친다', (tester) async {
       penFrame(tester);
-      repository.page = Success(PollPage(polls: [for (var i = 0; i < 6; i++) pollFixture(id: 'p$i')], hasMore: false));
+      repository.page = Success(FeedPage(items: [for (var i = 0; i < 6; i++) itemFixture(id: 'p$i')], hasMore: false));
       await pump(tester);
       final ask = find.byKey(CommunityFeedScreen.askButtonKey);
 
@@ -136,12 +143,12 @@ void main() {
       expect(tester.getSize(ask).width, inExclusiveRange(52, 127)); // 접히는 중
       await tester.pumpAndSettle();
       expect(tester.getSize(ask), const Size(52, 52));
-      expect(find.descendant(of: ask, matching: find.text('질문하기')), findsNothing);
+      expect(find.descendant(of: ask, matching: find.text('글쓰기')), findsNothing);
       expect(tester.getRect(ask).right, 360 - 16);
 
       await tester.drag(find.byType(Scrollable).first, const Offset(0, 100));
       await tester.pumpAndSettle();
-      expect(find.descendant(of: ask, matching: find.text('질문하기')), findsOneWidget);
+      expect(find.descendant(of: ask, matching: find.text('글쓰기')), findsOneWidget);
       expect(tester.getSize(ask).width, greaterThan(52));
     });
 
@@ -149,7 +156,7 @@ void main() {
       penFrame(tester);
       tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
       addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
-      repository.page = Success(PollPage(polls: [for (var i = 0; i < 6; i++) pollFixture(id: 'p$i')], hasMore: false));
+      repository.page = Success(FeedPage(items: [for (var i = 0; i < 6; i++) itemFixture(id: 'p$i')], hasMore: false));
       await pump(tester);
 
       await tester.drag(find.byType(Scrollable).first, const Offset(0, -300));
@@ -159,26 +166,28 @@ void main() {
       expect(tester.getSize(find.byKey(CommunityFeedScreen.askButtonKey)), const Size(52, 52));
     });
 
-    testWidgets('접혀도 낭독기는 "질문하기" 버튼으로 읽고, 누르면 17b 로 간다', (tester) async {
+    testWidgets('접혀도 낭독기는 "글쓰기" 버튼으로 읽고, 누르면 17b 로 간다', (tester) async {
       penFrame(tester);
       final semantics = tester.ensureSemantics();
-      repository.page = Success(PollPage(polls: [for (var i = 0; i < 6; i++) pollFixture(id: 'p$i')], hasMore: false));
+      repository.page = Success(FeedPage(items: [for (var i = 0; i < 6; i++) itemFixture(id: 'p$i')], hasMore: false));
       await pump(tester);
       await tester.drag(find.byType(Scrollable).first, const Offset(0, -300));
       await tester.pumpAndSettle();
 
       final ask = find.byKey(CommunityFeedScreen.askButtonKey);
-      expect(tester.getSemantics(ask), matchesSemantics(label: '질문하기', isButton: true, hasTapAction: true, isEnabled: true, hasEnabledState: true, isFocusable: true, hasFocusAction: true));
+      expect(tester.getSemantics(ask), matchesSemantics(label: '글쓰기', isButton: true, hasTapAction: true, isEnabled: true, hasEnabledState: true, isFocusable: true, hasFocusAction: true));
       await tester.tap(ask);
       await tester.pumpAndSettle();
-      expect(find.text('쓰기'), findsOneWidget);
+      await tester.tap(find.text('투표'));
+      await tester.pumpAndSettle();
+      expect(find.text('쓰기 poll'), findsOneWidget);
       semantics.dispose();
     });
 
     testWidgets('토스트가 떠 있는 동안 알약은 숨고(17A-2 O8hjge), 토스트가 사라지면 다시 보인다', (tester) async {
       penFrame(tester);
       repository
-        ..page = Success(PollPage(polls: [pollFixture()], hasMore: false))
+        ..page = Success(FeedPage(items: [itemFixture()], hasMore: false))
         ..voteResult = Success(VoteOutcome(poll: pollFixture(myChoice: PollChoice.a), rewarded: true));
       await pump(tester);
       AnimatedOpacity fade() => tester.widget<AnimatedOpacity>(
@@ -201,7 +210,7 @@ void main() {
 
     // 투표 글 신고는 차단하지 않는다(서버 #191) — 차단 안내가 없어야 한다(대장 전달 2026-11-16).
     testWidgets('투표 글 신고 시트에는 차단 안내가 없다', (tester) async {
-      repository.page = Success(PollPage(polls: [pollFixture(id: 'p2')], hasMore: false));
+      repository.page = Success(FeedPage(items: [itemFixture(id: 'p2')], hasMore: false));
       await pump(tester);
 
       final siren = find.byWidgetPredicate((w) => w is Icon3d && w.icon == AppIcon3d.siren);
@@ -214,7 +223,7 @@ void main() {
 
     testWidgets('신고 · 삭제 토스트도 알약을 가린 채 두지 않는다', (tester) async {
       penFrame(tester);
-      repository.page = Success(PollPage(polls: [pollFixture(id: 'mine', isMine: true), pollFixture(id: 'p2')], hasMore: false));
+      repository.page = Success(FeedPage(items: [itemFixture(id: 'mine', isMine: true), itemFixture(id: 'p2')], hasMore: false));
       await pump(tester);
       AnimatedOpacity fade() => tester.widget<AnimatedOpacity>(
             find.ancestor(of: find.byKey(CommunityFeedScreen.askButtonKey), matching: find.byType(AnimatedOpacity)),
@@ -248,7 +257,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     repository.page = Success(
-      PollPage(polls: [pollFixture(), pollFixture(id: 'p2', myChoice: PollChoice.a)], hasMore: false),
+      FeedPage(items: [itemFixture(), itemFixture(id: 'p2', myChoice: PollChoice.a)], hasMore: false),
     );
     await pump(tester);
 
@@ -267,9 +276,9 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     repository
-      ..page = Success(PollPage(polls: [
-        pollFixture(aCount: 4, bCount: 3),
-        pollFixture(id: 'p2', aCount: 5, bCount: 3, myChoice: PollChoice.b),
+      ..page = Success(FeedPage(items: [
+        itemFixture(aCount: 4, bCount: 3),
+        itemFixture(id: 'p2', aCount: 5, bCount: 3, myChoice: PollChoice.b),
       ], hasMore: false))
       ..voteResult = Success(VoteOutcome(poll: pollFixture(aCount: 5, bCount: 3, myChoice: PollChoice.a), rewarded: false));
     await pump(tester);
@@ -287,15 +296,15 @@ void main() {
       penFrame(tester);
       await pump(tester);
 
-      final empty = find.ancestor(of: find.text('아직 질문이 없어요'), matching: find.byType(Center)).first;
+      final empty = find.ancestor(of: find.text('아직 올라온 글이 없어요'), matching: find.byType(Center)).first;
       final pillTop = tester.getRect(find.byType(GlassBottomNav)).top;
       expect(tester.getCenter(empty).dy, closeTo((56 + 102 + pillTop) / 2, 0.5));
     });
   });
 
   group('탭 줄(pen VEZ2l · 탭 XfcKQ)', () {
-    Finder tab(PollFeedTab value) => find.byKey(PollFeedTabs.tabKey(value));
-    PollFeedTab selectedTab(WidgetTester tester) => tester.widget<PollFeedTabs>(find.byType(PollFeedTabs)).selected;
+    Finder tab(CommunityFeedTab value) => find.byKey(PollFeedTabs.tabKey(value));
+    CommunityFeedTab selectedTab(WidgetTester tester) => tester.widget<PollFeedTabs>(find.byType(PollFeedTabs)).selected;
 
     void phone(WidgetTester tester) {
       tester.view.physicalSize = const Size(360, 780);
@@ -305,7 +314,7 @@ void main() {
 
     testWidgets('앱바 아래 56 에 고정 — 목록을 내려도 따라 올라가지 않는다', (tester) async {
       phone(tester);
-      repository.page = Success(PollPage(polls: [for (var i = 0; i < 6; i++) pollFixture(id: 'p$i')], hasMore: false));
+      repository.page = Success(FeedPage(items: [for (var i = 0; i < 6; i++) itemFixture(id: 'p$i')], hasMore: false));
       await pump(tester);
 
       expect(tester.getRect(find.byType(PollFeedTabs)), const Rect.fromLTWH(0, 56, 360, 102));
@@ -319,16 +328,16 @@ void main() {
 
     testWidgets('처음은 전체 탭이 선택돼 있고, 다른 탭을 누르면 그 탭을 새로 받고 선택이 옮겨 간다', (tester) async {
       repository
-        ..page = Success(PollPage(polls: [pollFixture()], hasMore: false))
-        ..pageByTab[PollFeedTab.popular] = Success(PollPage(polls: [pollFixture(id: 'hot', question: '인기 글')], hasMore: false));
+        ..page = Success(FeedPage(items: [itemFixture()], hasMore: false))
+        ..pageByTab[CommunityFeedTab.popular] = Success(FeedPage(items: [itemFixture(id: 'hot', question: '인기 글')], hasMore: false));
       await pump(tester);
-      expect(selectedTab(tester), PollFeedTab.all);
+      expect(selectedTab(tester), CommunityFeedTab.all);
 
-      await tester.tap(tab(PollFeedTab.popular));
+      await tester.tap(tab(CommunityFeedTab.popular));
       await tester.pumpAndSettle();
 
-      expect(repository.pageRequests.last.tab, PollFeedTab.popular);
-      expect(selectedTab(tester), PollFeedTab.popular);
+      expect(repository.pageRequests.last.tab, CommunityFeedTab.popular);
+      expect(selectedTab(tester), CommunityFeedTab.popular);
       expect(find.text('인기 글'), findsOneWidget);
       expect(find.text('첫 데이트 더치페이'), findsNothing);
     });
@@ -336,13 +345,13 @@ void main() {
     testWidgets('아래로 내린 뒤 탭을 바꾸면 새 탭 목록은 맨 위부터 보인다', (tester) async {
       phone(tester);
       repository
-        ..page = Success(PollPage(polls: [for (var i = 0; i < 6; i++) pollFixture(id: 'p$i')], hasMore: false))
-        ..pageByTab[PollFeedTab.mine] = Success(PollPage(polls: [for (var i = 0; i < 6; i++) pollFixture(id: 'm$i', isMine: true)], hasMore: false));
+        ..page = Success(FeedPage(items: [for (var i = 0; i < 6; i++) itemFixture(id: 'p$i')], hasMore: false))
+        ..pageByTab[CommunityFeedTab.mine] = Success(FeedPage(items: [for (var i = 0; i < 6; i++) itemFixture(id: 'm$i', isMine: true)], hasMore: false));
       await pump(tester);
       await tester.drag(find.byType(ListView), const Offset(0, -600));
       await tester.pumpAndSettle();
 
-      await tester.tap(tab(PollFeedTab.mine));
+      await tester.tap(tab(CommunityFeedTab.mine));
       await tester.pumpAndSettle();
 
       expect(tester.getRect(find.byType(FeedPollCard).first).top, 56 + 102 + 12);
@@ -350,13 +359,13 @@ void main() {
 
     testWidgets('불러오는 중 · 실패 · 빈 상태로 바뀌어도 탭 줄은 그대로 있다', (tester) async {
       repository
-        ..page = Success(PollPage(polls: [pollFixture()], hasMore: false))
-        ..pageByTab[PollFeedTab.voted] = const Success(PollPage(polls: [], hasMore: false))
-        ..pageByTab[PollFeedTab.mine] = const FailureResult(ServerUnavailableFailure());
+        ..page = Success(FeedPage(items: [itemFixture()], hasMore: false))
+        ..pageByTab[CommunityFeedTab.voted] = const Success(FeedPage(items: [], hasMore: false))
+        ..pageByTab[CommunityFeedTab.mine] = const FailureResult(ServerUnavailableFailure());
       await pump(tester);
 
       repository.holdPage = Completer<void>();
-      await tester.tap(tab(PollFeedTab.voted));
+      await tester.tap(tab(CommunityFeedTab.voted));
       await tester.pump();
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(find.byType(PollFeedTabs), findsOneWidget);
@@ -366,48 +375,50 @@ void main() {
       expect(find.text('아직 투표한 질문이 없어요'), findsOneWidget);
       expect(find.byType(PollFeedTabs), findsOneWidget);
 
-      await tester.tap(tab(PollFeedTab.mine));
+      await tester.tap(tab(CommunityFeedTab.mine));
       await tester.pumpAndSettle();
       expect(find.text('잠시 후 다시 시도해 주세요'), findsOneWidget);
-      expect(selectedTab(tester), PollFeedTab.mine);
+      expect(selectedTab(tester), CommunityFeedTab.mine);
     });
 
-    testWidgets('인기 빈 상태: "최근 7일 동안 인기 있는 질문이 아직 없어요" 제목만 — 설명 · 버튼 없음, 올릴 길이 없으니 질문하기 알약은 보인다(사용자 결정)', (tester) async {
+    testWidgets('인기 빈 상태: "최근 7일 동안 인기 있는 글이 아직 없어요" 제목만 — 설명 · 버튼 없음, 올릴 길이 없으니 글쓰기 알약은 보인다(사용자 결정)', (tester) async {
       await pump(tester);
-      await tester.tap(tab(PollFeedTab.popular));
+      await tester.tap(tab(CommunityFeedTab.popular));
       await tester.pumpAndSettle();
 
-      expect(find.text('최근 7일 동안 인기 있는 질문이 아직 없어요'), findsOneWidget);
-      expect(find.text('아직 질문이 없어요'), findsNothing);
-      expect(find.text('궁금한 걸 익명으로 물어보고\n캠퍼스 사람들의 생각을 들어 보세요.'), findsNothing);
-      expect(find.text('질문 올리기'), findsNothing);
+      expect(find.text('최근 7일 동안 인기 있는 글이 아직 없어요'), findsOneWidget);
+      expect(find.text('아직 올라온 글이 없어요'), findsNothing);
+      expect(find.text('익명으로 글이나 투표를 올리고\n캠퍼스 사람들의 생각을 들어 보세요.'), findsNothing);
+      expect(find.widgetWithText(ElevatedButton, '글쓰기'), findsNothing); // 알약(FilledButton)도 "글쓰기" 라 빈 상태 버튼 종류로 본다
       expect(find.byKey(CommunityFeedScreen.askButtonKey), findsOneWidget);
     });
 
-    testWidgets('내 투표 빈 상태: "아직 투표한 질문이 없어요" 제목만 — 설명 · 버튼 없음, 올릴 길이 없으니 질문하기 알약은 보인다(사용자 결정)', (tester) async {
+    testWidgets('내 투표 빈 상태: "아직 투표한 질문이 없어요" 제목만 — 설명 · 버튼 없음, 올릴 길이 없으니 글쓰기 알약은 보인다(사용자 결정)', (tester) async {
       await pump(tester);
-      await tester.tap(tab(PollFeedTab.voted));
+      await tester.tap(tab(CommunityFeedTab.voted));
       await tester.pumpAndSettle();
 
       expect(find.text('아직 투표한 질문이 없어요'), findsOneWidget);
-      expect(find.text('궁금한 걸 익명으로 물어보고\n캠퍼스 사람들의 생각을 들어 보세요.'), findsNothing);
-      expect(find.text('질문 올리기'), findsNothing);
+      expect(find.text('익명으로 글이나 투표를 올리고\n캠퍼스 사람들의 생각을 들어 보세요.'), findsNothing);
+      expect(find.widgetWithText(ElevatedButton, '글쓰기'), findsNothing); // 알약(FilledButton)도 "글쓰기" 라 빈 상태 버튼 종류로 본다
       expect(find.byKey(CommunityFeedScreen.askButtonKey), findsOneWidget);
     });
 
-    testWidgets('내 질문 빈 상태: "아직 올린 질문이 없어요" + 질문 올리기 버튼(전체 빈 상태와 같은 버튼) → 17b, 알약은 없다', (tester) async {
+    testWidgets('내 글 빈 상태: "아직 쓴 글이 없어요" + 글쓰기 버튼(전체 빈 상태와 같은 버튼) → 17b, 알약은 없다', (tester) async {
       await pump(tester);
-      await tester.tap(tab(PollFeedTab.mine));
+      await tester.tap(tab(CommunityFeedTab.mine));
       await tester.pumpAndSettle();
 
-      expect(find.text('아직 올린 질문이 없어요'), findsOneWidget);
+      expect(find.text('아직 쓴 글이 없어요'), findsOneWidget);
       expect(find.byKey(CommunityFeedScreen.askButtonKey), findsNothing);
-      final button = tester.getRect(find.widgetWithText(ElevatedButton, '질문 올리기'));
-      expect(button.width, closeTo(tester.getRect(find.text('질문 올리기')).width + 40, 0.5));
+      final button = tester.getRect(find.widgetWithText(ElevatedButton, '글쓰기'));
+      expect(button.width, closeTo(tester.getRect(find.text('글쓰기')).width + 40, 0.5));
       expect(button.height, 52);
-      await tester.tap(find.text('질문 올리기'));
+      await tester.tap(find.text('글쓰기'));
       await tester.pumpAndSettle();
-      expect(find.text('쓰기'), findsOneWidget);
+      await tester.tap(find.text('투표'));
+      await tester.pumpAndSettle();
+      expect(find.text('쓰기 poll'), findsOneWidget);
     });
 
     testWidgets('폰 폭(360) · 글자 2배: 탭 줄 · 탭별 빈 상태가 넘치거나 잘리지 않는다', (tester) async {
@@ -426,7 +437,7 @@ void main() {
                 p.text.toPlainText(),
           ];
       final found = <String>[...clipped()];
-      for (final value in [PollFeedTab.popular, PollFeedTab.mine, PollFeedTab.voted]) {
+      for (final value in [CommunityFeedTab.popular, CommunityFeedTab.mine, CommunityFeedTab.voted]) {
         // 2배면 탭 줄이 화면보다 넓다 — 가로로 밀어 보이게 한 뒤 누른다.
         await tester.ensureVisible(tab(value));
         await tester.pumpAndSettle();
@@ -441,17 +452,19 @@ void main() {
 
   testWidgets('글이 없으면 빈 상태(n2tqZ)', (tester) async {
     await pump(tester);
-    expect(find.text('아직 질문이 없어요'), findsOneWidget);
-    expect(find.text('궁금한 걸 익명으로 물어보고\n캠퍼스 사람들의 생각을 들어 보세요.'), findsOneWidget);
-    await tester.tap(find.text('질문 올리기'));
+    expect(find.text('아직 올라온 글이 없어요'), findsOneWidget);
+    expect(find.text('익명으로 글이나 투표를 올리고\n캠퍼스 사람들의 생각을 들어 보세요.'), findsOneWidget);
+    await tester.tap(find.text('글쓰기'));
     await tester.pumpAndSettle();
-    expect(find.text('쓰기'), findsOneWidget);
+    await tester.tap(find.text('투표'));
+    await tester.pumpAndSettle();
+    expect(find.text('쓰기 poll'), findsOneWidget);
   });
 
   testWidgets('빈 상태 버튼 폭은 글자 + 좌우 20(pen l8vOF · Button HE8FZ padding [0,20]), 높이 52(2026-10-01 개편)', (tester) async {
     await pump(tester);
-    final button = tester.getRect(find.widgetWithText(ElevatedButton, '질문 올리기'));
-    final label = tester.getRect(find.text('질문 올리기'));
+    final button = tester.getRect(find.widgetWithText(ElevatedButton, '글쓰기'));
+    final label = tester.getRect(find.text('글쓰기'));
     expect(button.width, closeTo(label.width + 40, 0.5));
     expect(button.height, 52);
   });
@@ -460,33 +473,35 @@ void main() {
     repository.page = const FailureResult(ServerUnavailableFailure());
     await pump(tester);
     expect(find.text('잠시 후 다시 시도해 주세요'), findsOneWidget);
-    expect(find.text('아직 질문이 없어요'), findsNothing);
+    expect(find.text('아직 올라온 글이 없어요'), findsNothing);
     // B3: 공통 RetryNotice — 문구 body → muted, 문구와 버튼 사이 0 → 12.
     expect(tester.widget<Text>(find.text('잠시 후 다시 시도해 주세요')).style!.color, AppColors.muted);
     expect(tester.getRect(find.byType(ElevatedButton)).top - tester.getRect(find.text('잠시 후 다시 시도해 주세요')).bottom, 12);
 
-    repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));
+    repository.page = Success(FeedPage(items: [itemFixture()], hasMore: false));
     await tester.tap(find.text('다시 시도'));
     await tester.pumpAndSettle();
     expect(find.byType(FeedPollCard), findsOneWidget);
   });
 
-  testWidgets('불러오기 실패 화면에도 질문하기 버튼이 있다(앱바 + 가 빠진 자리)', (tester) async {
+  testWidgets('불러오기 실패 화면에도 글쓰기 버튼이 있다(앱바 + 가 빠진 자리)', (tester) async {
     repository.page = const FailureResult(ServerUnavailableFailure());
     await pump(tester);
     await tester.tap(find.byKey(CommunityFeedScreen.askButtonKey));
     await tester.pumpAndSettle();
-    expect(find.text('쓰기'), findsOneWidget);
+    await tester.tap(find.text('투표'));
+    await tester.pumpAndSettle();
+    expect(find.text('쓰기 poll'), findsOneWidget);
   });
 
-  testWidgets('빈 상태에는 질문하기 알약이 없다 — 빈 상태 버튼이 같은 일을 한다', (tester) async {
+  testWidgets('빈 상태에는 글쓰기 알약이 없다 — 빈 상태 버튼이 같은 일을 한다', (tester) async {
     await pump(tester);
-    expect(find.text('아직 질문이 없어요'), findsOneWidget);
+    expect(find.text('아직 올라온 글이 없어요'), findsOneWidget);
     expect(find.byKey(CommunityFeedScreen.askButtonKey), findsNothing);
   });
 
   testWidgets('투표 전: O·X 버튼과 그 아래 결과 한 줄(사용자 결정 4-1), 참여자 수는 아래 줄', (tester) async {
-    repository.page = Success(PollPage(polls: [pollFixture(aCount: 5, bCount: 3)], hasMore: false));
+    repository.page = Success(FeedPage(items: [itemFixture(aCount: 5, bCount: 3)], hasMore: false));
     await pump(tester);
     expect(find.bySemanticsLabel('찬성'), findsOneWidget);
     expect(find.bySemanticsLabel('반대'), findsOneWidget);
@@ -495,7 +510,7 @@ void main() {
   });
 
   testWidgets('커스텀 라벨이면 글자 버튼', (tester) async {
-    repository.page = Success(PollPage(polls: [pollFixture(optionA: '짜장', optionB: '짬뽕')], hasMore: false));
+    repository.page = Success(FeedPage(items: [itemFixture(optionA: '짜장', optionB: '짬뽕')], hasMore: false));
     await pump(tester);
     expect(find.widgetWithText(FilledButton, '짜장'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, '짬뽕'), findsOneWidget);
@@ -506,7 +521,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     repository.page = Success(
-      PollPage(polls: [pollFixture(optionA: '가나다라마바', optionB: '짬뽕')], hasMore: false),
+      FeedPage(items: [itemFixture(optionA: '가나다라마바', optionB: '짬뽕')], hasMore: false),
     );
     await pump(tester);
     final buttonFinder = find.widgetWithText(FilledButton, '가나다라마바');
@@ -526,7 +541,7 @@ void main() {
   });
 
   testWidgets('O·X 칸은 직접 적은 칸과 같은 알약 56 · 같은 파랑/빨강(hvoFP · mrayI)', (tester) async {
-    repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));
+    repository.page = Success(FeedPage(items: [itemFixture()], hasMore: false));
     await pump(tester);
     final blue = find.widgetWithIcon(FilledButton, AppIcons.circle);
     final red = find.widgetWithIcon(FilledButton, AppIcons.x);
@@ -538,7 +553,7 @@ void main() {
   testWidgets('투표 후: 큰 숫자 두 개 · 쪼개짐 막대 · 내 선택 칩 · 참여자 수, 버튼과 도넛은 없다(M3OFZ)', (tester) async {
     // A 3 · B 5 → A = round(37.5) = 38, B = 100 − 38 = 62.
     repository.page = Success(
-      PollPage(polls: [pollFixture(aCount: 3, bCount: 5, myChoice: PollChoice.a)], hasMore: false),
+      FeedPage(items: [itemFixture(aCount: 3, bCount: 5, myChoice: PollChoice.a)], hasMore: false),
     );
     await pump(tester);
     expect(find.text('38%'), findsOneWidget);
@@ -550,11 +565,11 @@ void main() {
     expect(find.bySemanticsLabel('찬성'), findsNothing);
   });
 
-  testWidgets('pen 앱바(JJAzV · AppBar · Tab): 제목 x20 20/700, 오른쪽 + 는 없다 — 질문하기 알약이 대신한다', (tester) async {
+  testWidgets('pen 앱바(JJAzV · AppBar · Tab): 제목 x20 20/700, 오른쪽 + 는 없다 — 글쓰기 알약이 대신한다', (tester) async {
     tester.view.physicalSize = const Size(360, 780);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));
+    repository.page = Success(FeedPage(items: [itemFixture()], hasMore: false));
     await pump(tester);
     expect(tester.getTopLeft(find.text('커뮤니티').first).dx, 20);
     expect(tester.widget<AppBar>(find.byType(AppBar)).actions, isNull);
@@ -562,7 +577,7 @@ void main() {
   });
 
   testWidgets('글이 한두 개라 화면을 못 채워도 아래로 당기면 새로 불러온다', (tester) async {
-    repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));
+    repository.page = Success(FeedPage(items: [itemFixture()], hasMore: false));
     await pump(tester);
     expect(repository.pageRequests.length, 1);
     await tester.fling(find.byType(ListView), const Offset(0, 500), 1500);
@@ -572,7 +587,7 @@ void main() {
 
   testWidgets('불러오기 실패와 빈 목록을 가른다 — 두 번째 쪽 실패는 목록을 지우지 않는다', (tester) async {
     repository
-      ..page = Success(PollPage(polls: [for (var i = 0; i < 20; i++) pollFixture(id: 'p$i')], hasMore: true))
+      ..page = Success(FeedPage(items: [for (var i = 0; i < 20; i++) itemFixture(id: 'p$i')], hasMore: true))
       ..nextPage = const FailureResult(NetworkFailure());
     await pump(tester);
     await tester.drag(find.byType(ListView), const Offset(0, -20000));
@@ -583,7 +598,7 @@ void main() {
 
   testWidgets('O 를 누르면 a 로 투표하고 보상이면 토스트(15d-3)', (tester) async {
     repository
-      ..page = Success(PollPage(polls: [pollFixture()], hasMore: false))
+      ..page = Success(FeedPage(items: [itemFixture()], hasMore: false))
       ..voteResult = Success(VoteOutcome(poll: pollFixture(myChoice: PollChoice.a), rewarded: true));
     await pump(tester);
     await tester.tap(find.bySemanticsLabel('찬성'));
@@ -596,7 +611,7 @@ void main() {
 
   testWidgets('보상 토스트는 하단 내비 위 16 에 뜬다(pen NDZnK)', (tester) async {
     repository
-      ..page = Success(PollPage(polls: [pollFixture()], hasMore: false))
+      ..page = Success(FeedPage(items: [itemFixture()], hasMore: false))
       ..voteResult = Success(VoteOutcome(poll: pollFixture(myChoice: PollChoice.a), rewarded: true));
     await pump(tester);
     await tester.tap(find.bySemanticsLabel('찬성'));
@@ -606,51 +621,133 @@ void main() {
     expect(toast.center.dx, 400); // 가운데(기본 테스트 화면 폭 800)
   });
 
-  testWidgets('질문하기 알약은 17b 로 간다', (tester) async {
-    repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));
+  testWidgets('글쓰기 알약은 17b 로 간다', (tester) async {
+    repository.page = Success(FeedPage(items: [itemFixture()], hasMore: false));
     await pump(tester);
-    await tester.tap(find.text('질문하기'));
+    await tester.tap(find.text('글쓰기'));
     await tester.pumpAndSettle();
-    expect(find.text('쓰기'), findsOneWidget);
+    await tester.tap(find.text('투표'));
+    await tester.pumpAndSettle();
+    expect(find.text('쓰기 poll'), findsOneWidget);
+  });
+
+  group('게시물 · 카테고리(할 일 19, pen 17 J0vMj5)', () {
+    Finder tab(CommunityFeedTab value) => find.byKey(PollFeedTabs.tabKey(value));
+    CommunityFeedTab selectedTab(WidgetTester tester) => tester.widget<PollFeedTabs>(find.byType(PollFeedTabs)).selected;
+
+    testWidgets('게시물 줄은 게시물 카드(WHqdP) — 카테고리 라벨 · 본문 · "댓글 N", 누르면 17f 상세로 간다', (tester) async {
+      repository.page = Success(FeedPage(items: [postFixture(commentCount: 4, category: CommunityCategory.love)], hasMore: false));
+      await pump(tester);
+      expect(find.byType(PostCard), findsOneWidget);
+      expect(find.descendant(of: find.byType(CategoryLabel), matching: find.text('연애')), findsOneWidget);
+      expect(find.text('댓글 4'), findsOneWidget);
+      await tester.tap(find.text('취업 준비 다들 어떻게 해요?'));
+      await tester.pumpAndSettle();
+      expect(find.text('상세 t1'), findsOneWidget);
+    });
+
+    testWidgets('투표 카드에도 그 글의 카테고리 라벨이 붙는다(대장 판정 3)', (tester) async {
+      repository.page = Success(FeedPage(items: [itemFixture(category: CommunityCategory.career)], hasMore: false));
+      await pump(tester);
+      expect(find.descendant(of: find.byType(FeedPollCard), matching: find.text('진로')), findsOneWidget);
+    });
+
+    testWidgets('남의 게시물 … → 신고하기 → 신고 시트(글 신고와 같은 대상)', (tester) async {
+      repository.page = Success(FeedPage(items: [postFixture()], hasMore: false));
+      await pump(tester);
+      await tester.tap(find.byTooltip('더보기'));
+      await tester.pumpAndSettle();
+      expect(find.text('삭제하기'), findsNothing);
+      await tester.tap(find.text('신고하기'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ReportSheet), findsOneWidget);
+    });
+
+    testWidgets('내 게시물 … → 삭제하기 → 확인 → 지우면 목록에서 빠진다', (tester) async {
+      repository.page = Success(FeedPage(items: [postFixture(isMine: true)], hasMore: false));
+      await pump(tester);
+      await tester.tap(find.byTooltip('더보기'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('삭제하기'));
+      await tester.pumpAndSettle();
+      expect(find.text('이 글을 삭제할까요?'), findsOneWidget);
+      expect(find.text('삭제한 글은 되돌릴 수 없어요.'), findsOneWidget);
+      expect(find.text('질문과 받은 투표가 모두 사라지고 되돌릴 수 없어요.'), findsNothing);
+      await tester.tap(find.widgetWithText(ElevatedButton, '삭제하기'));
+      await tester.pumpAndSettle();
+      expect(find.byType(PostCard), findsNothing);
+      expect(find.text('삭제했어요'), findsOneWidget);
+    });
+
+    testWidgets('카테고리 탭(자유)을 누르면 그 탭을 받고, 비었으면 카테고리 빈 화면 제목 + 글쓰기 알약', (tester) async {
+      await pump(tester);
+      await tester.ensureVisible(tab(CommunityFeedTab.free));
+      await tester.tap(tab(CommunityFeedTab.free));
+      await tester.pumpAndSettle();
+      expect(selectedTab(tester), CommunityFeedTab.free);
+      expect(find.text('아직 이 카테고리에 올라온 글이 없어요'), findsOneWidget);
+      expect(find.text('아직 올라온 글이 없어요'), findsNothing);
+      expect(find.byKey(CommunityFeedScreen.askButtonKey), findsOneWidget);
+    });
+
+    testWidgets('글쓰기 알약 → 고르기 시트(LSCrq) → 게시물을 고르면 게시물 글쓰기로 간다', (tester) async {
+      repository.page = Success(FeedPage(items: [itemFixture()], hasMore: false));
+      await pump(tester);
+      await tester.tap(find.byKey(CommunityFeedScreen.askButtonKey));
+      await tester.pumpAndSettle();
+      expect(find.byType(WriteTypeSheet), findsOneWidget);
+      await tester.tap(find.text('게시물'));
+      await tester.pumpAndSettle();
+      expect(find.text('쓰기 post'), findsOneWidget);
+    });
   });
 
   testWidgets('"자세히 보기" 는 17c 로 간다', (tester) async {
-    repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));
+    repository.page = Success(FeedPage(items: [itemFixture()], hasMore: false));
     await pump(tester);
     await tester.tap(find.text('자세히 보기'));
     await tester.pumpAndSettle();
     expect(find.text('상세 p1'), findsOneWidget);
   });
 
+  testWidgets('투표 카드 빈 곳(질문)을 눌러도 17c 로 간다 — 게시물 카드와 같다(1.0.7)', (tester) async {
+    repository.page = Success(FeedPage(items: [itemFixture()], hasMore: false));
+    await pump(tester);
+    await tester.tap(find.text('첫 데이트 더치페이'));
+    await tester.pumpAndSettle();
+    expect(find.text('상세 p1'), findsOneWidget);
+    expect(repository.votes, isEmpty);
+  });
+
   testWidgets('"자세히 보기" 누르는 영역은 48 이다', (tester) async {
-    repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));
+    repository.page = Success(FeedPage(items: [itemFixture()], hasMore: false));
     await pump(tester);
     final ink = find.ancestor(of: find.text('자세히 보기'), matching: find.byType(InkWell)).first;
     expect(tester.getSize(ink).height, greaterThanOrEqualTo(48));
   });
 
   testWidgets('"자세히 보기" 눌림 효과는 카드 안에 그려진다(COMMON §4-2)', (tester) async {
-    repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));
+    repository.page = Success(FeedPage(items: [itemFixture()], hasMore: false));
     await pump(tester);
     final ink = find.ancestor(of: find.text('자세히 보기'), matching: find.byType(InkWell)).first;
     final material = find.ancestor(of: ink, matching: find.byType(Material)).first;
     expect(tester.getSize(material), tester.getSize(find.byType(FeedPollCard)));
   });
 
-  testWidgets('폰 폭(360)에서 글자 2배 · 80자 질문 · 6자 라벨에도 넘치거나 잘리지 않는다', (tester) async {
+  testWidgets('폰 폭(360)에서 글자 2배 · 400자 질문 · 6자 라벨에도 넘치거나 잘리지 않는다', (tester) async {
     // 기본 800 폭에서는 버튼 한 칸이 넓어 6자 라벨이 한 줄로 들어간다 — 실기기 폭 144 로 줄여야 잡힌다.
     tester.view.physicalSize = const Size(360, 780);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     tester.platformDispatcher.textScaleFactorTestValue = 2.0;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-    repository.page = Success(PollPage(polls: [
-      pollFixture(question: '가' * 80, optionA: '가나다라마바', optionB: '바마라다나가'),
-      pollFixture(id: 'p2', optionA: '가나다라마바', optionB: '바마라다나가', myChoice: PollChoice.b),
+    repository.page = Success(FeedPage(items: [
+      itemFixture(question: '가' * 400, optionA: '가나다라마바', optionB: '바마라다나가'),
+      itemFixture(id: 'p2', optionA: '가나다라마바', optionB: '바마라다나가', myChoice: PollChoice.b),
     ], hasMore: false));
 
     // 넘침 오류는 Flex 만 낸다 — 고정 상자에 갇힌 글자는 오류 없이 잘린다. 화면 전체(앱바 · 내비 포함)를 본다.
-    // 일부러 말줄임한 글자(목록 질문 2줄 · 내비 "커뮤니티")는 뺀다.
+    // 일부러 말줄임한 글자(목록 질문 4줄 · 내비 "커뮤니티")는 뺀다.
     List<String> clippedTexts() => [
       for (final element in find.byType(RichText).evaluate())
         if (element.renderObject case final RenderParagraph p
@@ -677,13 +774,13 @@ void main() {
   });
 
   testWidgets('내 글에만 … 가 있다', (tester) async {
-    repository.page = Success(PollPage(polls: [pollFixture(isMine: true), pollFixture(id: 'p2')], hasMore: false));
+    repository.page = Success(FeedPage(items: [itemFixture(isMine: true), itemFixture(id: 'p2')], hasMore: false));
     await pump(tester);
     expect(find.byTooltip('더보기'), findsOneWidget);
   });
 
   testWidgets('pen "…": 터치 48 이 머리줄 오른쪽 끝(신고 버튼 자리), 내 글 머리줄은 48(mc9mW · 10-01 개편)', (tester) async {
-    repository.page = Success(PollPage(polls: [pollFixture(isMine: true)], hasMore: false));
+    repository.page = Success(FeedPage(items: [itemFixture(isMine: true)], hasMore: false));
     await pump(tester);
     // 툴팁은 버튼 몸체(40)만 감싼다 — 누르는 영역(48)은 IconButton 전체다.
     final more = tester.getRect(find.ancestor(of: find.byTooltip('더보기'), matching: find.byType(IconButton)));
@@ -692,12 +789,12 @@ void main() {
     expect(more.size, const Size(48, 48));
     expect(more.right, card.right - 16);
     expect(more.center.dy, avatar.center.dy);
-    // 머리줄 48 → 질문은 카드 위 안쪽 16 + 48 + 12 아래.
-    expect(tester.getRect(find.text('첫 데이트 더치페이')).top - card.top, 16 + 48 + 12);
+    // 머리줄 48 → 12 → 카테고리 라벨 26 → 12 → 질문(ffFIS).
+    expect(tester.getRect(find.text('첫 데이트 더치페이')).top - card.top, closeTo(16 + 48 + 12 + 26 + 12, 0.5));
   });
 
   testWidgets('… → 삭제하기 → 확인 창(15d-2) 삭제하기 를 누르면 지우고 목록에서 뺀다', (tester) async {
-    repository.page = Success(PollPage(polls: [pollFixture(isMine: true)], hasMore: false));
+    repository.page = Success(FeedPage(items: [itemFixture(isMine: true)], hasMore: false));
     await pump(tester);
     await tester.tap(find.byTooltip('더보기'));
     await tester.pumpAndSettle();
@@ -724,7 +821,7 @@ void main() {
   // 사용자 2026-11-16 「빨간 버튼 + 돌아가는 표시」 — 옛 EIEFb(꺼진 회색, 도는 표시 없음)를 바꿨다.
   testWidgets('삭제 중: 확인 팝업이 열린 채 "삭제하기" 가 빨강 그대로 흰 도는 표시가 되고, 끝나면 닫히며 "삭제했어요"', (tester) async {
     repository
-      ..page = Success(PollPage(polls: [pollFixture(isMine: true)], hasMore: false))
+      ..page = Success(FeedPage(items: [itemFixture(isMine: true)], hasMore: false))
       ..holdDelete = Completer<void>();
     await pump(tester);
     await openDeleteConfirm(tester);
@@ -757,7 +854,7 @@ void main() {
 
   testWidgets('지우기 실패(15d-6 f6fXkA · 토스트 ANlRW): 시트는 닫히고 카드는 남고, 내비 위 16 · 높이 40 경고 토스트', (tester) async {
     repository
-      ..page = Success(PollPage(polls: [pollFixture(isMine: true)], hasMore: false))
+      ..page = Success(FeedPage(items: [itemFixture(isMine: true)], hasMore: false))
       ..deleteResult = const FailureResult(UnknownFailure());
     await pump(tester);
     await openDeleteConfirm(tester);
@@ -778,7 +875,7 @@ void main() {
 
   testWidgets('지우는 중 "취소" 로 닫아도 요청이 끝나면 "삭제했어요" 를 알린다(서버에서는 지워졌다)', (tester) async {
     repository
-      ..page = Success(PollPage(polls: [pollFixture(isMine: true)], hasMore: false))
+      ..page = Success(FeedPage(items: [itemFixture(isMine: true)], hasMore: false))
       ..holdDelete = Completer<void>();
     await pump(tester);
     await openDeleteConfirm(tester);
@@ -798,7 +895,7 @@ void main() {
 
   testWidgets('시트가 닫히는 도중(애니메이션)에 지우기가 끝나도 아래 화면까지 닫지 않는다', (tester) async {
     repository
-      ..page = Success(PollPage(polls: [pollFixture(isMine: true)], hasMore: false))
+      ..page = Success(FeedPage(items: [itemFixture(isMine: true)], hasMore: false))
       ..holdDelete = Completer<void>();
     await pump(tester);
     await openDeleteConfirm(tester);
@@ -814,7 +911,7 @@ void main() {
   });
 
   testWidgets('"삭제했어요" 토스트는 하단 내비 위 16 · 높이 40 · 가운데(pen SKQgV 97×40)', (tester) async {
-    repository.page = Success(PollPage(polls: [pollFixture(isMine: true)], hasMore: false));
+    repository.page = Success(FeedPage(items: [itemFixture(isMine: true)], hasMore: false));
     await pump(tester);
     await openDeleteConfirm(tester);
     await tester.tap(find.widgetWithText(ElevatedButton, '삭제하기'));
@@ -833,7 +930,7 @@ void main() {
     addTearDown(tester.view.reset);
     tester.platformDispatcher.textScaleFactorTestValue = 2.0;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-    repository.page = Success(PollPage(polls: [pollFixture(isMine: true)], hasMore: false));
+    repository.page = Success(FeedPage(items: [itemFixture(isMine: true)], hasMore: false));
     await pump(tester);
     await openDeleteConfirm(tester);
     await tester.tap(find.widgetWithText(ElevatedButton, '삭제하기'));
@@ -847,7 +944,7 @@ void main() {
   });
 
   testWidgets('확인 창에서 취소하면 지우지 않는다', (tester) async {
-    repository.page = Success(PollPage(polls: [pollFixture(isMine: true)], hasMore: false));
+    repository.page = Success(FeedPage(items: [itemFixture(isMine: true)], hasMore: false));
     await pump(tester);
     await tester.tap(find.byTooltip('더보기'));
     await tester.pumpAndSettle();
@@ -861,7 +958,7 @@ void main() {
 
   // 15d-2 확인은 공용 확인 팝업(위험)으로 바뀌었다(대장 전달 2026-11-16) — 버튼 둘 다 52.
   testWidgets('pen 시트 높이: 메뉴 157(15d-1 ofjwb) · 행 52, 확인 팝업 버튼 52/52', (tester) async {
-    repository.page = Success(PollPage(polls: [pollFixture(isMine: true)], hasMore: false));
+    repository.page = Success(FeedPage(items: [itemFixture(isMine: true)], hasMore: false));
     await pump(tester);
     await tester.tap(find.byTooltip('더보기'));
     await tester.pumpAndSettle();
@@ -882,7 +979,7 @@ void main() {
     addTearDown(tester.view.reset);
     tester.platformDispatcher.textScaleFactorTestValue = 2.0;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-    repository.page = Success(PollPage(polls: [pollFixture(isMine: true)], hasMore: false));
+    repository.page = Success(FeedPage(items: [itemFixture(isMine: true)], hasMore: false));
 
     List<String> clippedInSheet() => [
       for (final element in find
@@ -910,7 +1007,7 @@ void main() {
   });
 
   testWidgets('메뉴 행 눌림 효과는 시트 밖이 아니라 그 행에 그려진다(COMMON §4-2)', (tester) async {
-    repository.page = Success(PollPage(polls: [pollFixture(isMine: true)], hasMore: false));
+    repository.page = Success(FeedPage(items: [itemFixture(isMine: true)], hasMore: false));
     await pump(tester);
     await tester.tap(find.byTooltip('더보기'));
     await tester.pumpAndSettle();
@@ -923,8 +1020,8 @@ void main() {
 
   testWidgets('끝까지 내리면 다음 쪽을 부른다', (tester) async {
     repository
-      ..page = Success(PollPage(polls: [for (var i = 0; i < 20; i++) pollFixture(id: 'p$i')], hasMore: true))
-      ..nextPage = const Success(PollPage(polls: [], hasMore: false));
+      ..page = Success(FeedPage(items: [for (var i = 0; i < 20; i++) itemFixture(id: 'p$i')], hasMore: true))
+      ..nextPage = const Success(FeedPage(items: [], hasMore: false));
     await pump(tester);
     await tester.drag(find.byType(ListView), const Offset(0, -20000));
     await tester.pumpAndSettle();
@@ -937,7 +1034,7 @@ void main() {
     Finder reportButton() => find.ancestor(of: siren, matching: find.byType(InkResponse)).first;
 
     testWidgets('남의 글에만 있고, 내 글에는 신고 대신 … 만', (tester) async {
-      repository.page = Success(PollPage(polls: [pollFixture(isMine: true), pollFixture(id: 'p2')], hasMore: false));
+      repository.page = Success(FeedPage(items: [itemFixture(isMine: true), itemFixture(id: 'p2')], hasMore: false));
       await pump(tester);
 
       final cards = find.byType(FeedPollCard);
@@ -948,7 +1045,7 @@ void main() {
     });
 
     testWidgets('터치 48 · 머리줄 오른쪽 끝, 사이렌 22 → 2 → "신고하기" 10/600 #6E5861 (OaLnA · E6FpN · Wwsmw)', (tester) async {
-      repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));
+      repository.page = Success(FeedPage(items: [itemFixture()], hasMore: false));
       await pump(tester);
 
       final card = tester.getRect(find.byType(FeedPollCard));
@@ -966,12 +1063,12 @@ void main() {
       expect(style.letterSpacing, 0); // badge 의 +0.02em 을 끈다
       // 아이콘 22 + 2 + 글자 10 = 34 가 48 가운데.
       expect(icon.top - button.top, 7.0);
-      // 머리줄 48 → 질문은 카드 위 안쪽 16 + 48 + 12 아래.
-      expect(tester.getRect(find.text('첫 데이트 더치페이')).top - card.top, 16 + 48 + 12);
+      // 머리줄 48 → 12 → 카테고리 라벨 26 → 12 → 질문(ffFIS).
+      expect(tester.getRect(find.text('첫 데이트 더치페이')).top - card.top, closeTo(16 + 48 + 12 + 26 + 12, 0.5));
     });
 
     testWidgets('누르면 신고 시트 → 사유 고르고 신고하기 → poll 대상으로 보내고 카드는 남는다', (tester) async {
-      repository.page = Success(PollPage(polls: [pollFixture(id: 'p2')], hasMore: false));
+      repository.page = Success(FeedPage(items: [itemFixture(id: 'p2')], hasMore: false));
       await pump(tester);
 
       await tester.tap(reportButton());
@@ -991,7 +1088,7 @@ void main() {
 
     testWidgets('낭독기는 "신고하기" 버튼 하나로 읽는다', (tester) async {
       final semantics = tester.ensureSemantics();
-      repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));
+      repository.page = Success(FeedPage(items: [itemFixture()], hasMore: false));
       await pump(tester);
 
       expect(tester.getSemantics(reportButton()), matchesSemantics(label: '신고하기', isButton: true, hasTapAction: true, isFocusable: true, hasFocusAction: true));
@@ -1004,7 +1101,7 @@ void main() {
       addTearDown(tester.view.reset);
       tester.platformDispatcher.textScaleFactorTestValue = 2.0;
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-      repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));
+      repository.page = Success(FeedPage(items: [itemFixture()], hasMore: false));
       await pump(tester);
 
       expect(tester.takeException(), isNull);
@@ -1013,6 +1110,101 @@ void main() {
       );
       expect(p.getMaxIntrinsicHeight(p.size.width), lessThanOrEqualTo(p.size.height + 0.5));
       expect(p.getMinIntrinsicWidth(double.infinity), lessThanOrEqualTo(p.size.width + 0.5));
+    });
+  });
+
+  group('공지 띠(할 일 21 · pen 17 `ahtJd`)', () {
+    testWidgets('공지가 있으면 피드 맨 위(첫 카드 위 12)에 가장 최근 공지 띠가 있다', (tester) async {
+      repository
+        ..noticePage = Success(FeedPage(
+          items: [noticeFixture(id: 'n2', title: '새 공지', isNew: true), noticeFixture(title: '옛 공지')],
+          hasMore: false,
+        ))
+        ..page = Success(FeedPage(items: [itemFixture()], hasMore: false));
+      await pump(tester);
+
+      expect(find.byType(NoticeBanner), findsOneWidget);
+      expect(find.text('새 공지'), findsOneWidget);
+      expect(find.text('옛 공지'), findsNothing);
+      final banner = tester.getRect(find.byType(NoticeBanner));
+      expect(tester.getTopLeft(find.byType(FeedPollCard)).dy - banner.bottom, 12);
+    });
+
+    testWidgets('띠를 누르면 공지 목록으로 간다', (tester) async {
+      repository
+        ..noticePage = Success(FeedPage(items: [noticeFixture()], hasMore: false))
+        ..page = Success(FeedPage(items: [itemFixture()], hasMore: false));
+      await pump(tester);
+
+      await tester.tap(find.byType(NoticeBanner));
+      await tester.pumpAndSettle();
+
+      expect(find.text('공지 목록'), findsOneWidget);
+    });
+
+    testWidgets('공지가 없으면 띠가 없다', (tester) async {
+      repository.page = Success(FeedPage(items: [itemFixture()], hasMore: false));
+      await pump(tester);
+
+      expect(find.byType(NoticeBanner), findsNothing);
+      expect(find.byType(FeedPollCard), findsOneWidget);
+    });
+
+    testWidgets('글이 없어도(빈 상태) 공지가 있으면 맨 위에 띠가 있고 빈 안내도 그대로다', (tester) async {
+      repository.noticePage = Success(FeedPage(items: [noticeFixture(title: '첫 공지')], hasMore: false));
+      await pump(tester);
+
+      expect(find.byType(NoticeBanner), findsOneWidget);
+      expect(find.text('첫 공지'), findsOneWidget);
+      expect(find.text('아직 올라온 글이 없어요'), findsOneWidget);
+      expect(
+        tester.getRect(find.byType(NoticeBanner)).bottom,
+        lessThan(tester.getRect(find.text('아직 올라온 글이 없어요')).top),
+      );
+      await tester.tap(find.byType(NoticeBanner));
+      await tester.pumpAndSettle();
+      expect(find.text('공지 목록'), findsOneWidget);
+    });
+
+    testWidgets('빈 상태에 공지도 없으면 띠가 없다', (tester) async {
+      await pump(tester);
+
+      expect(find.text('아직 올라온 글이 없어요'), findsOneWidget);
+      expect(find.byType(NoticeBanner), findsNothing);
+    });
+
+    testWidgets('피드를 못 읽은 화면(다시 시도)에는 공지가 있어도 띠가 없다', (tester) async {
+      repository
+        ..noticePage = Success(FeedPage(items: [noticeFixture()], hasMore: false))
+        ..page = const FailureResult(NetworkFailure());
+      await pump(tester);
+
+      expect(find.text('다시 시도'), findsOneWidget);
+      expect(find.byType(NoticeBanner), findsNothing);
+    });
+
+    testWidgets('공지를 못 읽어도 피드는 그대로 보이고 띠만 없다', (tester) async {
+      repository
+        ..noticePage = const FailureResult(NetworkFailure())
+        ..page = Success(FeedPage(items: [itemFixture()], hasMore: false));
+      await pump(tester);
+
+      expect(find.byType(NoticeBanner), findsNothing);
+      expect(find.byType(FeedPollCard), findsOneWidget);
+      expect(find.text('다시 시도'), findsNothing);
+    });
+
+    testWidgets('아래로 당기면 공지도 다시 읽는다', (tester) async {
+      repository
+        ..noticePage = Success(FeedPage(items: [noticeFixture()], hasMore: false))
+        ..page = Success(FeedPage(items: [itemFixture()], hasMore: false));
+      await pump(tester);
+      expect(repository.noticeRequests, hasLength(1));
+
+      await tester.fling(find.byType(ListView), const Offset(0, 500), 1500);
+      await tester.pumpAndSettle();
+
+      expect(repository.noticeRequests, hasLength(2));
     });
   });
 }

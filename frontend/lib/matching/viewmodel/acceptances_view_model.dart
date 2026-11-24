@@ -2,6 +2,7 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/matching/model/data/card_decision.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_ui_state.dart';
+import 'package:campus_mate/matching/viewmodel/rejected_cards_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final acceptancesViewModelProvider =
@@ -100,6 +101,8 @@ class AcceptancesViewModel extends Notifier<AcceptancesUiState> {
     // 성공이든 실패든(410 만료 포함) 목록은 서버 기준으로 다시 맞춘다.
     await refresh();
     if (!ref.mounted) return;
+    // 받은 신청 거절은 [거절한 카드] 줄이 된다 — 카드 대기 입구가 낡지 않게.
+    if (decision == CardDecision.reject && responseError == null) refreshRejectedCardsIfRead(ref.read, ref.exists);
     // 목록 읽기가 성공하면 오류 문구를 지우니, 읽어야 할 응답 실패 문구는 갱신 뒤에 다시 올린다.
     // (갱신 자체가 실패해 그 문구가 올라와 있으면 그대로 둔다.)
     final failure = responseError;

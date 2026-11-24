@@ -11,7 +11,7 @@
   E-CHAT-25 망은 `svc wifi/data` 가 아니라 비행기 모드(notify.airplane)로 끊는다 — 영역 4 의 망 끊기 가설과 같은 길이고, 폰 USB 를 타는
             우편함은 끊기지 않는다.
   E-CHAT-43 "배너 · 시트 둘 다" 는 방 상태 둘(`variant`)이다 — banner = 방금 만든 방의 "수락하기" 배너 → 확인 창 "수락",
-            sheet = 25시간 지난 방의 14f 시트 "수락하고 공유하기"(시트는 확인 창이 없다).
+            sheet = 49시간 지난 방의 14f 시트 "수락하고 공유하기"(시트는 확인 창이 없다).
             배너 판은 확인 창이 닫히는 중이라 두 번째 누름이 요청으로 나가지 않을 수 있다 — 폰에서 두 번째 요청이 나갔는지 눈으로 본다.
 """
 
@@ -21,6 +21,7 @@ from e2e import area1, area3, area4, tools
 from e2e.area1 import Check, _api, _app, _rows
 from e2e.area3 import _count, _link, _match, _patch, _review, _review_post, _send
 from e2e.area3_phone import ALREADY, MISSING, THREE_TAGS, _me, _ok, _permitted, _person
+from e2e.chat_clock import PROMPT_AFTER
 
 LIMIT = 1000  # 채팅 글 상한(코드포인트) — chat_input_bar.dart messageMaxLength
 COMMENT_LIMIT = 100  # 리뷰 한마디 상한 — friend_review_tags.dart friendReviewCommentMaxLength
@@ -117,13 +118,13 @@ def p_chat_25(run, phone):
 
 
 def p_chat_43(run, phone):
-    """판 둘 — banner(방금 만든 방) · sheet(25시간 지난 방). 판마다 계정을 새로 만들어 앱을 한 번씩 켠다."""
+    """판 둘 — banner(방금 만든 방) · sheet(49시간 지난 방). 판마다 계정을 새로 만들어 앱을 한 번씩 켠다."""
     check = Check()
     notes = []
     for variant in ('banner', 'sheet'):
         me, token, partner, match_id = _room(run)
-        if variant == 'sheet':  # 24시간 뒤부터 시트, 48시간 안이라 아직 수락할 수 있다
-            _patch(run, f'matches?id=eq.{match_id}', {'created_at': (datetime.now(timezone.utc) - timedelta(hours=25)).isoformat()})
+        if variant == 'sheet':  # 48시간 뒤부터 시트, 72시간 안이라 아직 수락할 수 있다
+            _patch(run, f'matches?id=eq.{match_id}', {'created_at': (datetime.now(timezone.utc) - PROMPT_AFTER - timedelta(hours=1)).isoformat()})
         part = Check()
         said = _app(part, phone(token_hash=token, nickname=partner['nickname'], variant=variant), variant)
         part.that(said.get('error', MISSING) is None, f"화면 오류 문구 {said.get('error', MISSING)!r}(기대 없음)")

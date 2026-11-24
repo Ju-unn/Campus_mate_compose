@@ -58,6 +58,73 @@ void main() {
     expect(find.text('수락하기'), findsOneWidget);
   });
 
+  // 기한 길이는 서버 값(deadline_at − created_at)에서 만든다(대장 판단 11-24) — 서버가 48 이든 72 든 글자가 맞다.
+  for (final hours in [48, 72]) {
+    testWidgets('기한 $hours시간 방 — 미리 수락 배너 설명이 $hours시간', (tester) async {
+      repository.room = Success(roomFixture(createdAt: hoursAgo(1), gateDeadline: Duration(hours: hours)));
+
+      await pump(tester);
+
+      expect(find.text('24시간 뒤에 물어봐요. 매칭 후 $hours시간 안에 둘 다 수락하지 않으면 대화가 종료돼요'), findsOneWidget);
+    });
+
+    testWidgets('기한 $hours시간 방 — 시트 설명이 $hours시간', (tester) async {
+      repository.room = Success(roomFixture(createdAt: hoursAgo(25), gateDeadline: Duration(hours: hours)));
+
+      await pump(tester);
+
+      expect(
+        find.text('둘 다 수락하면 카카오톡 아이디와 실제 사진이 서로 공개돼요. 매칭 후 $hours시간 안에 둘 다 수락하지 않으면 이 대화는 종료돼요.'),
+        findsOneWidget,
+      );
+    });
+  }
+
+  // 새 규칙(사용자 확정 11-24): 자유 대화 48시간 → 48시간째 시트(서버 prompt_at) → 72시간 마감.
+  group('시트 시각 48 · 마감 72 인 방', () {
+    ChatRoom newRuleRoom(DateTime createdAt) =>
+        roomFixture(createdAt: createdAt, promptAfter: const Duration(hours: 48), gateDeadline: const Duration(hours: 72));
+
+    testWidgets('30시간째에는 시트가 아니라 미리 수락 배너 — "48시간 뒤에 물어봐요 … 72시간"', (tester) async {
+      repository.room = Success(newRuleRoom(hoursAgo(30)));
+
+      await pump(tester);
+
+      expect(find.byType(TrustGateSheet), findsNothing);
+      expect(find.text('48시간 뒤에 물어봐요. 매칭 후 72시간 안에 둘 다 수락하지 않으면 대화가 종료돼요'), findsOneWidget);
+    });
+
+    testWidgets('48시간이 지나면 시트가 뜬다', (tester) async {
+      repository.room = Success(newRuleRoom(hoursAgo(49)));
+
+      await pump(tester);
+
+      expect(find.byType(TrustGateSheet), findsOneWidget);
+    });
+
+    testWidgets('방에 머무는 중 48시간 경계를 넘으면 그 자리에서 시트가 뜬다', (tester) async {
+      var now = DateTime(2026, 9, 22, 12);
+      repository.room = Success(newRuleRoom(now.subtract(const Duration(hours: 48)).add(const Duration(minutes: 1))));
+      await pump(tester, now: () => now);
+
+      expect(find.byType(TrustGateSheet), findsNothing);
+
+      now = now.add(const Duration(minutes: 1));
+      await tester.pump(const Duration(minutes: 1));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TrustGateSheet), findsOneWidget);
+    });
+  });
+
+  testWidgets('prompt_at 이 없는 옛 서버 방은 24시간째에 시트가 뜬다', (tester) async {
+    repository.room = Success(roomFixture(createdAt: hoursAgo(24), gateDeadline: const Duration(hours: 72)));
+
+    await pump(tester);
+
+    expect(find.byType(TrustGateSheet), findsOneWidget);
+  });
+
   testWidgets('배너 수락은 확인 다이얼로그를 거쳐야 서버로 간다', (tester) async {
     repository.room = Success(roomFixture(createdAt: hoursAgo(1)));
     await pump(tester);
@@ -134,7 +201,7 @@ void main() {
     expect((notice.style!.fontSize, notice.style!.fontWeight, notice.style!.color), (14, FontWeight.w700, AppColors.ink));
     expect(
       tester.getTopLeft(find.text('수락은 취소할 수 없어요')).dy,
-      greaterThan(tester.getBottomLeft(find.text(AppLocalizationsKo().chatGateBody)).dy),
+      greaterThan(tester.getBottomLeft(find.text(AppLocalizationsKo().chatGateBody(hours: 48))).dy),
     );
     final accept = tester.getRect(find.widgetWithText(AppButton, '수락하고 공유하기'));
     final later = tester.getRect(find.widgetWithText(AppButton, '조금 더 대화해 볼게요'));
@@ -246,6 +313,7 @@ void main() {
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: TrustGateSheet(
+            gateHours: 48,
             deadlineAt: DateTime.now().add(const Duration(hours: 20)),
             myKakaoId: 'fox_rain_me',
             onAccept: () {},
@@ -301,6 +369,7 @@ void main() {
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: TrustGateSheet(
+              gateHours: 48,
               deadlineAt: DateTime.now().add(const Duration(hours: 20)),
               myKakaoId: 'campus_fox_rain_2026',
               onAccept: () {},

@@ -1,6 +1,7 @@
 import 'package:campus_mate/auth/gate/model/data/verification_gate.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/graduate/model/data/verification_method.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -77,6 +78,19 @@ void main() {
 
     expect(listenable.value, VerificationGate.unknown);
     expect(notifyCount, 2);
+  });
+
+  test('조회한 인증 방법을 들고 있다가 reset 하면 지운다(3c 졸업생 미리 고르기, 1.0.7 1-1)', () async {
+    repository
+      ..nextResult = const Success(VerificationGate.needsSchoolInfo)
+      ..nextMethod = VerificationMethod.graduateCertificate;
+    await listenable.refresh();
+
+    expect(listenable.verificationMethod, VerificationMethod.graduateCertificate);
+
+    listenable.reset();
+
+    expect(listenable.verificationMethod, isNull);
   });
 
   test('이미 기본값이면 reset 해도 알리지 않는다', () {

@@ -19,9 +19,7 @@ class EditAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     return AppBar(
       toolbarHeight: 56,
-      // 스크롤 아래로 본문이 지나가도 앱바 색이 바뀌지 않는다(pen 에 그런 모양이 없다 — 온보딩 앱바와 같다).
       backgroundColor: AppColors.canvas,
-      scrolledUnderElevation: 0,
       automaticallyImplyLeading: false,
       leadingWidth: AppSpacing.sm + 48,
       titleSpacing: AppSpacing.xxs,

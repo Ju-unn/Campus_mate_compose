@@ -29,7 +29,7 @@ class TrustBanner extends StatelessWidget {
   final IconData? icon;
 
   /// 미리 수락 배너에만 버튼이 있다. 거절 버튼은 두지 않는다 —
-  /// 24시간 전의 거절은 되돌릴 수 없는데 얻는 게 없다(시트에서 충분히 고민한 뒤에 하면 된다).
+  /// 시트 시각 전의 거절은 되돌릴 수 없는데 얻는 게 없다(시트에서 충분히 고민한 뒤에 하면 된다).
   final String? actionLabel;
   final VoidCallback? onAction;
 
