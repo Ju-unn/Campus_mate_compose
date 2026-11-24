@@ -1,4 +1,3 @@
-import 'package:campus_mate/auth/school_info/model/data/academic_status.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/academic_status_chips.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
@@ -120,9 +119,15 @@ class _BasicInfoEditScreenState extends ConsumerState<BasicInfoEditScreen> {
                       },
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    _AcademicStatusField(
-                      selected: state.academicStatus,
-                      onSelect: viewModel.changeAcademicStatus,
+                    // 신분(1.0.7 1-1, pen `a6Wd1J`) — 키와 학번 사이. 라벨은 "내 MBTI" 와 같은 모양이고 "· 필수" 는 붙이지 않는다.
+                    // 아래 간격은 바깥 md 가 맡아 isLast 로 구역 아래 여백(lg)을 끈다.
+                    _Section(
+                      label: context.l10n.meBasicAcademicStatusLabel,
+                      isLast: true,
+                      child: AcademicStatusChips(
+                        selected: state.academicStatus,
+                        onSelect: viewModel.changeAcademicStatus,
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.md),
                     // 3c 와 같은 2자리 검사. 잘라 내거나 걸러 내지 않고(조용히 고쳐 쓰지 않게) 안내로 막는다 — 옛 값(4 · 7 · 8자리)은
@@ -213,26 +218,6 @@ final _valueStyle = AppTypography.body.copyWith(height: 23 / 16);
 
 /// helper 12/400 — 줄높이 속성 없음 · 렌더 17(pen `XATaU`).
 final _noteStyle = AppTypography.caption.copyWith(height: 17 / 12);
-
-/// 신분(1.0.7 1-1, pen `a6Wd1J`) — 키와 학번 사이. 라벨은 "내 MBTI" 와 같은 14/600 body 이고 "· 필수" 는 붙이지 않는다.
-class _AcademicStatusField extends StatelessWidget {
-  const _AcademicStatusField({required this.selected, required this.onSelect});
-
-  final AcademicStatus? selected;
-  final ValueChanged<AcademicStatus> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(context.l10n.meBasicAcademicStatusLabel, style: _labelStyle),
-        const SizedBox(height: AppSpacing.xs),
-        AcademicStatusChips(selected: selected, onSelect: onSelect),
-      ],
-    );
-  }
-}
 
 /// 지름 14 · 선 2 의 도는 원 — 04-1 "확인 중…" 과 저장 중 안내(pen `sMuCd` 14)가 쓴다.
 class _Spinner14 extends StatelessWidget {
