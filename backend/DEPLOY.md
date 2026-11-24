@@ -1788,6 +1788,21 @@ DB 칸 · 제약은 1/3 DB PR(#789, `messages.client_id` + `messages_client_id_u
 | 옛 앱 | 1.0.6 이하는 `client_id` 없이 보내고 지금과 똑같이 저장 · 방송 · 푸시된다. compat 표식 `backend/app/chat/router.py`(`MessageRequest.client_id`) · `backend/app/chat/repository.py`(`insert_message`): `# compat(1.0.6): client_id 없는 채팅 전송 — MIN_APP_VERSION 1.0.7 뒤 삭제` |
 | 시험 | `backend/tests/chat/test_chat_repository.py` · `test_chat_router.py` (겹침 · 되읽기 · 방송 · 푸시 한 번 · 1.0.6 응답 모양) |
 
+## 닉네임 금지어 안내 — 확인 reason · 저장 code (1.0.7 #2, 브랜치 `feat/nickname-not-allowed`) — **아직 merge 전 · 서버 미배포**
+
+§4-34 닉네임 줄의 세 거절 응답에 기계용 값만 덧붙인다. 문구(`NICKNAME_TAKEN` "이미 있는 닉네임이에요")와 상태 코드는 그대로다.
+
+| 항목 | 값 |
+| --- | --- |
+| 닉네임 확인 | `GET /profile-onboarding/nickname-availability` 가 금지어 · 연속 글자면 200 `{"available": false, "reason": "NICKNAME_NOT_ALLOWED"}`. 진짜 중복은 `{"available": false}`, 사용 가능은 `{"available": true}` — reason 칸이 없다(`response_model_exclude_none`) |
+| 저장 | `POST /profile-onboarding/basic-info` · `PATCH /me/profile` 의 금지어 · 연속 글자 422 가 `{"detail": "이미 있는 닉네임이에요", "code": "NICKNAME_NOT_ALLOWED"}`. 진짜 중복 409 는 `{"detail": …}` 그대로(code 없음) |
+| 상수 | `backend/app/core/errors.py` `CODE_NICKNAME_NOT_ALLOWED` (한 줄 추가, 2026-11-24 사용자 허락) |
+| 옛 앱 | 1.0.6 은 `available` 과 `detail` 만 읽어 지금과 똑같이 "이미 있는 닉네임이에요" 를 보인다. 따로 남길 옛 길이 없어 compat 표식은 없다 |
+| 앱 1.0.7 | reason · code 를 보고 "쓸 수 없는 닉네임이에요"(ARB `errorNicknameNotAllowed`)를 닉네임 칸 아래에 보이고 다음 · 저장 버튼을 끈다 |
+| 순서 | 서버 먼저 나가도 옛 앱 영향 없음. 앱이 먼저 나가면 옛 서버 응답(reason · code 없음)을 지금처럼 중복으로 보인다 |
+| 참고 | 닉네임 확인 길에 요청 제한이 없다 — reason 으로 금지어 여부가 갈려 목록을 하나씩 캐 볼 수 있다. 학교 인증 사용자만 부르고 금지어가 짐작하기 쉬운 낱말이라 피해는 작다(검토 "참고") |
+| 시험 | `backend/tests/profile_onboarding/test_onboarding_router.py` · `backend/tests/me/test_me_profile_update.py` |
+
 ## 5. 현재 배포 상태 (아래 표는 2026-11-14 새벽 기준 — 2026-11-16 개정은 개정 5 바로 아래 네 문단(종전 서술: "첫 네 문단", 그 앞 "첫 세 문단"), 2026-11-17 개정 5 는 개정 6 바로 아래 문단, 2026-11-18 개정 6 은 개정 7 바로 아래 문단, 지금 운영은 2026-11-18 개정 7 — 맨 위 문단)
 
 **2026-11-18 개정 7(낮, 대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다): 운영 트래픽 100% 는 `campus-mate-backend-00141-wew`(태그 `l1118`, main `28b800cb` 기준)다. 바로 앞 운영은 `campus-mate-backend-00139-lit`(태그 `v1118`)이고 이것이 되돌림 대상이다(§2 (다)).** 오늘 올린 세 리비전(모두 asia-northeast3, §2 고정 3단계): `00137-wiz`(태그 `i1118`, 서버 PR #775 입력 검사, 되돌림 `00135-haz`) → `00139-lit`(태그 `v1118`, **`MIN_APP_VERSION` 을 `1.0.3` 에서 `1.0.6` 으로**, env 만 바꾼 배포 · env 33개 그대로, 되돌림 `00137-wiz`) → `00141-wew`(태그 `l1118`, 서버 PR #776 구글 모니터링 실패 로그에 상태 코드, 되돌림 `00139-lit`). 내용 · 되돌림 영향은 §4-34. 새 시크릿 · 마이그레이션 · job 은 없다. **개정 6 의 "운영 100% 는 `00135-haz`" 는 이 개정으로 대체됐다.** 아래 표 "설정" 줄과 열려 있는 것 6 · 12 의 `MIN_APP_VERSION=1.0.3` 은 종전 값이라 지우지 않는다 — 지금 운영 값은 `1.0.6` 이다(두 스토어 공개 확인, 사용자 요청). 개정 6 이하와 표는 종전 서술이다.
