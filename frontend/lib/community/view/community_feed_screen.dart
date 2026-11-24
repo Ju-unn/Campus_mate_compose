@@ -174,68 +174,80 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
     if (state.items.isEmpty && state.error != null) {
       return aboveNav(RetryNotice(message: context.errorText(state.error!), onRetry: viewModel.refresh));
     }
-    // 공지 띠는 목록 맨 위 한 칸 — 탭과 상관없이 같은 띠다. 공지 목록 화면과 같은 상태를 본다(요청 하나).
+    // 공지 띠는 탭 줄 바로 아래 고정 — 목록 밖이라 스크롤해도 남는다(사용자 11-25). 탭과 상관없이 같은 띠다.
+    // 공지 목록 화면과 같은 상태를 본다(요청 하나).
     // 불러오는 중 · 실패 화면에는 없고, 빈 상태에는 있다(출시 직후 글이 없을 때 공지가 가장 필요하다 — 대장 11-24).
     final notice = ref.watch(noticeListViewModelProvider).latest;
     if (state.items.isEmpty) return aboveNav(_emptyWithBanner(state.tab, notice));
     final now = ref.read(communityNowProvider)();
-    final bannerCount = notice == null ? 0 : 1;
     // pen `eFFQi`: surface-soft 바탕, 위 12 · 좌우 16, 카드 사이 12. 탭 줄 아래 12 와 합쳐 탭에서 첫 카드까지 24.
     return ColoredBox(
       color: AppColors.surfaceSoft,
-      child: NotificationListener<UserScrollNotification>(
-        onNotification: _onUserScroll,
-        child: RefreshIndicator(
-          // 당기면 공지 띠도 다시 읽는다. 공지 읽기 실패는 띠만 없앨 뿐 피드 새로 고침을 막지 않는다.
-          onRefresh: () async {
-            await (viewModel.refresh(), ref.read(noticeListViewModelProvider.notifier).refresh()).wait;
-          },
-          child: ListView.separated(
-            // 탭마다 새 목록 — 응답이 다음 화면 그리기보다 빨리 오면 같은 목록이 남아 앞 탭에서 내린 자리를 이어받는다.
-            key: ValueKey(state.tab),
-            controller: _scroll,
-            // 글이 한두 개라 화면을 못 채워도 아래로 당겨 새로 고칠 수 있게 — 기본 물리는 짧은 목록의 당김을 막는다.
-            physics: const AlwaysScrollableScrollPhysics(),
-            // 아래는 유리 내비 + 띄움 12 + 글쓰기 52 + 12 — 끝까지 내려도 마지막 글의 "자세히 보기" 가 알약에 가리지 않는다.
-            // (pen Feed 아래 174 = 유리 내비 자리 98 + 12 + 52 + 12 와 같은 셈이다.)
-            padding: EdgeInsets.fromLTRB(
-              AppSpacing.md,
-              AppSpacing.sm,
-              AppSpacing.md,
-              navInset + _askLift + _askHeight + AppSpacing.sm,
-            ),
-            itemCount: bannerCount + state.items.length + (state.isLoadingMore ? 1 : 0),
-            separatorBuilder: (context, index) => const SizedBox(height: AppSpacing.sm),
-            // 화면 context 를 쓴다 — 마지막 글을 지우면 목록이 빈 화면으로 바뀌어 항목 쪽 context 는 사라진다(삭제 뒤 토스트).
-            itemBuilder: (_, position) {
-              if (notice != null && position == 0) {
-                return _banner(notice);
-              }
-              final index = position - bannerCount;
-              if (index == state.items.length) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              final item = state.items[index];
-              final poll = item.poll;
-              if (poll == null) return _postCard(item, now);
-              return FeedPollCard(
-                // 카드 상태(방금 투표했는지)가 글 id 에 붙어 있게 — 위 글이 지워져 자리가 밀려도 섞이지 않는다.
-                key: ValueKey(poll.id),
-                poll: poll,
-                category: item.category,
-                now: now,
-                isVoting: state.votingIds.contains(poll.id),
-                onVote: (choice) => _vote(poll.id, choice),
-                onOpen: () => context.push('${AppRoutes.communityPoll}/${poll.id}'),
-                onMore: poll.isMine ? () => showItemMenu(context, ref, item).then(_track) : null,
-                onReport: poll.isMine ? null : () => reportPoll(context, poll.id).then(_track),
-              );
-            },
+      child: Column(
+        children: [
+          if (notice != null) _pinnedBanner(notice),
+          Expanded(child: _list(state, now, navInset)),
+        ],
+      ),
+    );
+  }
+
+  Widget _list(CommunityFeedUiState state, DateTime now, double navInset) {
+    final viewModel = ref.read(communityFeedViewModelProvider.notifier);
+    return NotificationListener<UserScrollNotification>(
+      onNotification: _onUserScroll,
+      child: RefreshIndicator(
+        // 당기면 공지 띠도 다시 읽는다. 공지 읽기 실패는 띠만 없앨 뿐 피드 새로 고침을 막지 않는다.
+        onRefresh: () async {
+          await (viewModel.refresh(), ref.read(noticeListViewModelProvider.notifier).refresh()).wait;
+        },
+        child: ListView.separated(
+          // 탭마다 새 목록 — 응답이 다음 화면 그리기보다 빨리 오면 같은 목록이 남아 앞 탭에서 내린 자리를 이어받는다.
+          key: ValueKey(state.tab),
+          controller: _scroll,
+          // 글이 한두 개라 화면을 못 채워도 아래로 당겨 새로 고칠 수 있게 — 기본 물리는 짧은 목록의 당김을 막는다.
+          physics: const AlwaysScrollableScrollPhysics(),
+          // 아래는 유리 내비 + 띄움 12 + 글쓰기 52 + 12 — 끝까지 내려도 마지막 글의 "자세히 보기" 가 알약에 가리지 않는다.
+          // (pen Feed 아래 174 = 유리 내비 자리 98 + 12 + 52 + 12 와 같은 셈이다.)
+          padding: EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.sm,
+            AppSpacing.md,
+            navInset + _askLift + _askHeight + AppSpacing.sm,
           ),
+          itemCount: state.items.length + (state.isLoadingMore ? 1 : 0),
+          separatorBuilder: (context, index) => const SizedBox(height: AppSpacing.sm),
+          // 화면 context 를 쓴다 — 마지막 글을 지우면 목록이 빈 화면으로 바뀌어 항목 쪽 context 는 사라진다(삭제 뒤 토스트).
+          itemBuilder: (_, index) {
+            if (index == state.items.length) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final item = state.items[index];
+            final poll = item.poll;
+            if (poll == null) return _postCard(item, now);
+            return FeedPollCard(
+              // 카드 상태(방금 투표했는지)가 글 id 에 붙어 있게 — 위 글이 지워져 자리가 밀려도 섞이지 않는다.
+              key: ValueKey(poll.id),
+              poll: poll,
+              category: item.category,
+              now: now,
+              isVoting: state.votingIds.contains(poll.id),
+              onVote: (choice) => _vote(poll.id, choice),
+              onOpen: () => context.push('${AppRoutes.communityPoll}/${poll.id}'),
+              onMore: poll.isMine ? () => showItemMenu(context, ref, item).then(_track) : null,
+              onReport: poll.isMine ? null : () => reportPoll(context, poll.id).then(_track),
+            );
+          },
         ),
       ),
     );
   }
+
+  /// 목록 · 빈 상태 위 같은 자리(위 12 · 좌우 16)의 띠.
+  Widget _pinnedBanner(Notice notice) => Padding(
+        padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+        child: _banner(notice),
+      );
 
   Widget _banner(Notice notice) => NoticeBanner(
         key: const ValueKey('notice-banner'),
@@ -247,15 +259,7 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
   Widget _emptyWithBanner(CommunityFeedTab tab, Notice? notice) {
     final empty = _EmptyFeed(tab: tab, onWrite: _write);
     if (notice == null) return empty;
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
-          child: _banner(notice),
-        ),
-        Expanded(child: empty),
-      ],
-    );
+    return Column(children: [_pinnedBanner(notice), Expanded(child: empty)]);
   }
 
   /// 게시물 카드(pen `WHqdP`) — 누르면 17f 상세(투표와 같은 길, id 로 연다), … 는 내 글 삭제 · 남의 글 신고.

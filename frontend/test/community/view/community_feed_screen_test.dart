@@ -1130,6 +1130,38 @@ void main() {
       expect(tester.getTopLeft(find.byType(FeedPollCard)).dy - banner.bottom, 12);
     });
 
+    // 사용자 11-25 「공지사항은 전체 인기 내글 처럼 위에 고정시켜 스크롤 해도 안 없어지게」.
+    testWidgets('띠는 탭 줄 바로 아래(12)에 고정 — 목록을 끝까지 내려도 같은 자리에 남고 누를 수 있다', (tester) async {
+      repository
+        ..noticePage = Success(FeedPage(items: [noticeFixture(title: '고정 공지')], hasMore: false))
+        ..page = Success(FeedPage(items: [for (var i = 0; i < 10; i++) itemFixture(id: 'p$i')], hasMore: false));
+      await pump(tester);
+
+      final tabsBottom = tester.getRect(find.byType(PollFeedTabs)).bottom;
+      final before = tester.getRect(find.byType(NoticeBanner));
+      expect(before.top - tabsBottom, 12);
+      expect(find.descendant(of: find.byType(ListView), matching: find.byType(NoticeBanner)), findsNothing);
+
+      await tester.drag(find.byType(ListView), const Offset(0, -5000));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('p0')), findsNothing);
+      expect(tester.getRect(find.byType(NoticeBanner)), before);
+      await tester.tap(find.byType(NoticeBanner));
+      await tester.pumpAndSettle();
+      expect(find.text('공지 목록'), findsOneWidget);
+    });
+
+    testWidgets('공지가 없으면 빈 자리 없이 첫 카드가 탭 줄 아래 12 에서 시작한다', (tester) async {
+      repository.page = Success(FeedPage(items: [itemFixture()], hasMore: false));
+      await pump(tester);
+
+      expect(
+        tester.getTopLeft(find.byType(FeedPollCard)).dy - tester.getRect(find.byType(PollFeedTabs)).bottom,
+        12,
+      );
+    });
+
     testWidgets('띠를 누르면 공지 목록으로 간다', (tester) async {
       repository
         ..noticePage = Success(FeedPage(items: [noticeFixture()], hasMore: false))
