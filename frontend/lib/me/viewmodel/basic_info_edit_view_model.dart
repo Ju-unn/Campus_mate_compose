@@ -101,7 +101,7 @@ class BasicInfoEditViewModel extends Notifier<BasicInfoEditUiState> {
     // 확인 자체가 실패하면(네트워크) 아무 말도 하지 않는다 — 저장 때 서버가 다시 본다(04-1 과 같다).
     state = state.copyWith(
       nicknameCheck: result.when(
-        onSuccess: (available) => available ? NicknameCheck.available : NicknameCheck.taken,
+        onSuccess: BasicInfoUiState.nicknameCheckOf,
         onFailure: (_) => NicknameCheck.none,
       ),
     );

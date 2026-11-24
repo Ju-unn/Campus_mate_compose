@@ -1,9 +1,10 @@
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/profile/basic/model/data/basic_info_submission.dart';
+import 'package:campus_mate/profile/basic/model/data/nickname_availability.dart';
 import 'package:campus_mate/profile/basic/model/data/phone_code_sent.dart';
 
 abstract interface class BasicInfoRepository {
-  Future<Result<bool>> checkNicknameAvailability(String nickname);
+  Future<Result<NicknameAvailability>> checkNicknameAvailability(String nickname);
   Future<Result<void>> submit(BasicInfoSubmission submission);
 
   /// 휴대폰 인증번호 문자를 보낸다. [phoneDigits] 는 하이픈 없는 숫자다.

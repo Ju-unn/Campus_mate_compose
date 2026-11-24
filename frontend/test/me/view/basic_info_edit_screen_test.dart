@@ -18,6 +18,7 @@ import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/view/locked_fact_row.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/profile/appearance/view/appearance_pickers.dart';
+import 'package:campus_mate/profile/basic/model/data/nickname_availability.dart';
 import 'package:campus_mate/profile/basic/model/repository/basic_info_repository_provider.dart';
 import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
 import 'package:flutter/material.dart';
@@ -543,7 +544,7 @@ void main() {
     testWidgets('닉네임 중복 — 닉네임 칸 아래, 테두리 error 2, 저장 꺼짐', (tester) async {
       usePenFrame(tester);
       await pump(tester);
-      nicknames.nextAvailabilityResult = const Success(false);
+      nicknames.nextAvailabilityResult = const Success(NicknameAvailability.taken);
 
       await typeNickname(tester, '호랑이');
 

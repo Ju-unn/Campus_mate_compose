@@ -116,8 +116,7 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
       return; // 조회가 끝나기 전에 입력이 또 바뀌었으면 낡은 결과를 반영하지 않는다.
     }
     result.when(
-      onSuccess: (available) =>
-          state = _copyWith(nicknameCheck: available ? NicknameCheck.available : NicknameCheck.taken),
+      onSuccess: (answer) => state = _copyWith(nicknameCheck: BasicInfoUiState.nicknameCheckOf(answer)),
       // 확인 자체가 실패하면(네트워크) 아무 말도 하지 않는다 — 틀렸다고 단정할 근거가 없고, 제출 때 서버가 다시 본다.
       // 다만 도는 표시는 반드시 내린다. 안 내리면 "확인 중…" 이 영영 남는다.
       onFailure: (_) => state = _copyWith(nicknameCheck: NicknameCheck.none),

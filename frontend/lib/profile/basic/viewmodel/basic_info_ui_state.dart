@@ -3,6 +3,7 @@ import 'package:campus_mate/common/input_rules.dart';
 import 'package:campus_mate/common/phone_number_formatter.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/profile/basic/model/data/mbti_poles.dart';
+import 'package:campus_mate/profile/basic/model/data/nickname_availability.dart';
 import 'package:campus_mate/profile/basic/model/data/signup_phone_number.dart';
 import 'package:campus_mate/profile/basic/viewmodel/phone_verify_ui_state.dart';
 
@@ -86,6 +87,13 @@ class BasicInfoUiState {
         NicknameFormat.invalid => NicknameCheck.invalid,
         NicknameFormat.notAllowed => NicknameCheck.notAllowed,
         NicknameFormat.valid => null,
+      };
+
+  /// 서버 닉네임 확인 답을 칸 상태로(04-1 · 15-6 같이 쓴다).
+  static NicknameCheck nicknameCheckOf(NicknameAvailability answer) => switch (answer) {
+        NicknameAvailability.available => NicknameCheck.available,
+        NicknameAvailability.taken => NicknameCheck.taken,
+        NicknameAvailability.notAllowed => NicknameCheck.notAllowed,
       };
 
   /// 오류색으로 입력칸 바로 아래 한 줄(DESIGN §8.5)의 종류. 글자는 view 가 `context.errorText` 로 만든다.

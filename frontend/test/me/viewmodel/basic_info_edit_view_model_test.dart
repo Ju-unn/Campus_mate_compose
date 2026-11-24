@@ -6,6 +6,7 @@ import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/viewmodel/basic_info_edit_view_model.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
+import 'package:campus_mate/profile/basic/model/data/nickname_availability.dart';
 import 'package:campus_mate/profile/basic/model/repository/basic_info_repository_provider.dart';
 import 'package:campus_mate/profile/basic/viewmodel/basic_info_ui_state.dart';
 import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
@@ -154,7 +155,7 @@ void main() {
 
     testWidgets('중복이면 칸 아래 오류이고 저장이 꺼진다', (tester) async {
       await open(_profile());
-      nicknames.nextAvailabilityResult = const Success(false);
+      nicknames.nextAvailabilityResult = const Success(NicknameAvailability.taken);
 
       viewModel().changeNickname('호랑이');
       await tester.pump(const Duration(milliseconds: 350));
@@ -197,7 +198,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 350));
       expect(edit(), onboarding(NicknameCheck.invalid));
 
-      nicknames.nextAvailabilityResult = const Success(false);
+      nicknames.nextAvailabilityResult = const Success(NicknameAvailability.taken);
       viewModel().changeNickname('호랑이');
       await tester.pump(const Duration(milliseconds: 350));
       expect(edit(), onboarding(NicknameCheck.taken));
