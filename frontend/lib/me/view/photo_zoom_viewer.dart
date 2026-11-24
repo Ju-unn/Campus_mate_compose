@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 
 // 15-7 사진 수정에서 사진 칸을 누르면 여는 전체 화면 확대 뷰어(pen `ZExxs` "내 사진 수정 · 사진 확대 (초안)").
 // 사용자 결정 2026-10-16 — 내 사진 수정에서만 연다. 저장 · 공유 버튼은 두지 않는다(그림은 이미 받은 메모리 캐시만 쓴다).
+// 사용자 결정 11-25(B) — 공지 상세 그림도 이 뷰어로 크게 본다(`community/view/notice_parts.dart`).
 
 /// 바탕 `ITtLC` — ink 알파 .9(#222222E6). 토큰에 없는 값이라 이 파일 상수로 둔다(DESIGN §12, `core/theme` 는 공유 파일).
 final Color _backdrop = AppColors.ink.withAlpha(0xE6);
