@@ -130,6 +130,8 @@ def _gate_state(match: dict, mine: dict, partner: dict, now: datetime) -> dict:
         # 정지된 상대도 나간 것처럼 보인다(조각 6, 계획서 B7). left_at 은 찍지 않는다.
         "partner_left": gate.is_gone(partner),
         "deadline_at": gate.deadline_at(created_at).isoformat(),
+        # 14f 시트가 뜨기 시작하는 시각(마감 24시간 전). 푸시(gate.reminder_at)와 달리 조용한 시간 보정이 없다.
+        "prompt_at": (created_at + gate.GATE_REMINDER_AFTER).isoformat(),
         "remaining_seconds": max(0, int(gate.remaining(created_at, now).total_seconds())),
     }
 
@@ -328,7 +330,7 @@ async def leave_chat(match_id: str, wiring: _Wiring = Depends(_wire)) -> dict:
 async def accept_trust_gate(match_id: str, wiring: _Wiring = Depends(_wire)) -> dict:
     """신뢰 확인 수락(화면 14f). **수락 전용이다** — 거절은 /leave 로 간다(결정 11).
 
-    매칭 순간부터 부를 수 있고, 양쪽이 수락하면 48시간을 기다리지 않고 그 자리에서 공개된다(결정 10)."""
+    매칭 순간부터 부를 수 있고, 양쪽이 수락하면 마감(매칭 72시간 뒤)을 기다리지 않고 그 자리에서 공개된다(결정 10)."""
     now = wiring.now
 
     match = await wiring.repo.fetch_match(match_id, wiring.profile_id)
@@ -343,7 +345,7 @@ async def accept_trust_gate(match_id: str, wiring: _Wiring = Depends(_wire)) -> 
 
     # **통과 도장이 수락 바로 다음이다.** 사이에 시스템 줄이나 푸시를 끼우면, 그 한 번이 끊겼을 때
     # trust_response=accept 인데 trust_passed_at 은 비어 있는 방이 남는다. 다시 눌러도 409 고
-    # 48시간 배치가 그 방을 닫아 버려 되살릴 길이 없다.
+    # 마감 배치가 그 방을 닫아 버려 되살릴 길이 없다.
     # 상대 값은 **저장한 뒤에 다시 읽는다.** 맨 처음 읽은 partner 를 쓰면, 수락이 수십 ms 안에 겹친 두 요청이
     # 서로 저장 전 값을 읽고 둘 다 "상대 미응답" 이라 판정해 도장이 안 찍힌다(E-CHAT-44). 나중에 저장한 쪽은
     # 반드시 상대의 수락을 보므로, 두 요청 중 적어도 하나는 통과를 알아챈다.
