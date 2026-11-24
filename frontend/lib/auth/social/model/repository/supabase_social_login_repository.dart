@@ -2,6 +2,7 @@ import 'package:campus_mate/auth/social/model/data/social_provider.dart';
 import 'package:campus_mate/auth/social/model/repository/social_login_repository.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/http/http_send.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -11,6 +12,9 @@ const _tooManyRequests = '429';
 /// 공급자 게이트웨이에서 받은 ID 토큰을 Supabase `signInWithIdToken` 으로 세션과 바꾼다.
 ///
 /// 세션이 생기면 `AuthSessionListenable` → 게이트 → 라우터가 다음 화면으로 보낸다 — 여기서 화면을 밀지 않는다.
+///
+/// 서버로 가는 GoTrue 호출만 앱 쓰기 상한([writeTimeout])에서 끊는다. 공급자 창(게이트웨이)은 사용자가 시간을 쓰는 단계라
+/// 끊지 않는다. 상한 뒤 늦게 성공하면 GoTrue 가 세션을 저장해 세션 리스너가 그대로 다음 화면으로 보낸다(실패 문구 뒤 로그인).
 class SupabaseSocialLoginRepository implements SocialLoginRepository {
   const SupabaseSocialLoginRepository(this._auth, this._gateways);
 
@@ -35,7 +39,7 @@ class SupabaseSocialLoginRepository implements SocialLoginRepository {
   @override
   Future<Result<void>> signInWithPassword(String email, String password) async {
     try {
-      await _auth.signInWithPassword(email: email, password: password);
+      await _auth.signInWithPassword(email: email, password: password).timeout(writeTimeout);
       return const Success(null);
     } on Object catch (error) {
       // 이메일 · 비밀번호는 남기지 않는다 — 오류 종류 이름만.
@@ -56,7 +60,7 @@ class SupabaseSocialLoginRepository implements SocialLoginRepository {
 
   Future<Result<void>> _exchange(SocialCredential credential, SocialProvider provider) async {
     try {
-      await credential.signInTo(_auth, provider);
+      await credential.signInTo(_auth, provider).timeout(writeTimeout);
       return const Success(null);
     } on Object catch (error) {
       // 토큰 · 이메일은 남기지 않는다 — 오류 종류 이름만.

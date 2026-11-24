@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:campus_mate/auth/social/model/data/login_nonce.dart';
@@ -7,6 +8,7 @@ import 'package:campus_mate/auth/social/model/repository/social_login_repository
 import 'package:campus_mate/auth/social/model/repository/supabase_social_login_repository.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/http/http_send.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -291,4 +293,68 @@ void main() {
       expect(logs.join(), isNot(contains(email)));
     });
   });
+
+  // 망이 끊겨 GoTrue 응답이 끝내 오지 않아도 로그인 버튼이 "진행 중" 에 묶이지 않게 앱 쓰기 상한(writeTimeout)에서 끊는다.
+  // 카카오 · 구글 · 애플 창(게이트웨이)은 사용자가 시간을 쓰는 단계라 상한을 걸지 않는다. testWidgets 의 가짜 시계로 건너뛴다.
+  group('Supabase 응답이 끝내 오지 않으면 쓰기 상한에서 끊는다', () {
+    /// [call] 을 시작해 상한 1초 전에는 아직 기다리고, 상한을 넘기면 끝났는지 본다. 끝난 결과의 실패를 돌려준다.
+    Future<Failure?> failureAfterTimeout(WidgetTester tester, Future<Result<void>> Function() call) async {
+      Result<void>? result;
+      unawaited(call().then((value) => result = value));
+      await tester.pump(writeTimeout - const Duration(seconds: 1));
+      expect(result, isNull, reason: '상한 전에는 기다린다');
+      await tester.pump(const Duration(seconds: 2));
+      expect(result, isNotNull, reason: '상한을 넘기면 끝난다');
+      return _failureOf(result!);
+    }
+
+    testWidgets('ID 토큰 교환(signInWithIdToken)이 안 끝나면 로그인 실패다', (tester) async {
+      when(() => auth.signInWithIdToken(
+            provider: any(named: 'provider'),
+            idToken: any(named: 'idToken'),
+            nonce: any(named: 'nonce'),
+          )).thenAnswer((_) => Completer<AuthResponse>().future);
+
+      final failure = await failureAfterTimeout(tester, () => repository.signIn(SocialProvider.kakao));
+
+      expect(failure, isA<SocialLoginFailure>());
+    });
+
+    testWidgets('심사원 로그인(signInWithPassword)이 안 끝나면 로그인 실패다', (tester) async {
+      when(() => auth.signInWithPassword(email: any(named: 'email'), password: any(named: 'password')))
+          .thenAnswer((_) => Completer<AuthResponse>().future);
+
+      final failure = await failureAfterTimeout(tester, () => repository.signInWithPassword('a@example.test', 'pw'));
+
+      expect(failure, isA<SocialLoginFailure>());
+    });
+
+    testWidgets('공급자 창에서 상한보다 오래 머물러도 끊지 않고 로그인한다', (tester) async {
+      stubSignIn();
+      final slow = _SlowGateway();
+      final withSlow = SupabaseSocialLoginRepository(auth, {SocialProvider.kakao: slow});
+      Result<void>? result;
+      unawaited(withSlow.signIn(SocialProvider.kakao).then((value) => result = value));
+
+      await tester.pump(writeTimeout * 3);
+      expect(result, isNull, reason: '창이 열려 있는 동안은 기다린다');
+      slow.finish(const Success(SocialCredential('kakao-id-token', _rawNonce)));
+      await tester.pump();
+
+      expect(_failureOf(result!), isNull);
+    });
+  });
+}
+
+/// 사용자가 공급자 창(카카오 · 구글 · 애플)에 오래 머무는 것을 흉내 낸다 — [finish] 를 부를 때까지 답하지 않는다.
+class _SlowGateway implements IdTokenGateway {
+  final _answer = Completer<Result<SocialCredential>>();
+
+  void finish(Result<SocialCredential> result) => _answer.complete(result);
+
+  @override
+  Future<Result<SocialCredential>> obtainCredential() => _answer.future;
+
+  @override
+  Future<void> signOut() async {}
 }
