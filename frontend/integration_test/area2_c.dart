@@ -184,7 +184,7 @@ final Map<String, Area1Case> area2cCases = {
     await arrive(tester, 'home');
     await _cut(tester);
     await tap(tester, navTab('커뮤니티'));
-    // 옛 앱바 + 대신 "질문하기" 알약(15d 개선안 A). 복구 판정은 예전처럼 아래 _gone(오류 글)이 한다 — 알약도 + 처럼 실패 화면에 있다.
+    // 옛 앱바 + 대신 "글쓰기" 알약(15d 개선안 A). 복구 판정은 예전처럼 아래 _gone(오류 글)이 한다 — 알약도 + 처럼 실패 화면에 있다.
     await _failedThenRecovered(tester, find.byKey(CommunityFeedScreen.askButtonKey));
     return null;
   }),

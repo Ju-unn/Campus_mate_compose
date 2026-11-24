@@ -61,7 +61,7 @@ def _titled(text):
 
 
 def p_poll_01(run, phone):
-    """커뮤니티 → "질문하기" 알약 → 입력 → "익명으로 올리기". 앱이 올린 글이 DB 에 한 줄, 선택지는 기본값."""
+    """커뮤니티 → "글쓰기" 알약 → 시트 투표 → 입력 → "익명으로 올리기". 앱이 올린 글이 DB 에 한 줄, 선택지는 기본값."""
     check = Check()
     account, token = _signed_in(run, 'home')
     question = _titled('첫 질문')
@@ -153,18 +153,19 @@ def p_poll_18(run, phone):
     return check.result()
 
 
-def _visible_polls(run, token):
-    """지금 피드에 실제로 보이는 글 수 — GET /community/polls 를 커서(before · before_id)로 끝까지 읽어 센다.
-    DB polls 행 수는 가려진(blinded) 글 · 정지 · 탈퇴 작성자 글까지 세므로 쓰지 않는다. 읽기 GET 이라 끊김은 기본 재시도에 맡긴다."""
+def _visible_feed(run, token):
+    """지금 피드에 실제로 보이는 글(투표 + 게시물) 수 — 앱과 같은 GET /community/feed({items, has_more})를
+    커서(before · before_id)로 끝까지 읽어 센다. DB polls 행 수는 가려진(blinded) 글 · 정지 · 탈퇴 작성자 글까지 세고
+    게시물은 빠지므로 쓰지 않는다. 읽기 GET 이라 끊김은 기본 재시도에 맡긴다."""
     total, query = 0, ''
     while True:
-        status, body = _api(run, 'GET', f'/community/polls{query}', token)
+        status, body = _api(run, 'GET', f'/community/feed{query}', token)
         if status != 200:
             raise Blocked(f'피드 읽기 {status} {_detail(body)}')
-        total += len(body['polls'])
-        if not body['has_more'] or not body['polls']:
+        total += len(body['items'])
+        if not body['has_more'] or not body['items']:
             return total
-        last = body['polls'][-1]
+        last = body['items'][-1]
         query = '?' + urlencode({'before': last['created_at'], 'before_id': last['id']})  # 시각의 `+` 를 %2B 로
 
 
@@ -173,14 +174,14 @@ def p_poll_25(run, phone):
     글은 계정 셋이 10 · 10 · 5 로 올린다. 피드를 읽을 수 없거나 올린 뒤 보이는 수가 어긋나면 blocked."""
     check = Check()
     first, token = _signed_in(run, 'home')
-    existing = _visible_polls(run, first['token'])  # 시험 글을 올리기 전에
+    existing = _visible_feed(run, first['token'])  # 시험 글을 올리기 전에
     others = [run.account('home'), run.account('home')]
     authors = [first, *others]
     with _cleaned(run, *authors):
         for who, count in zip(authors, (10, 10, 5)):
             for i in range(count):
                 _poll(run, who, f'페이지 {authors.index(who) + 1}-{i + 1}')
-        total = _visible_polls(run, first['token'])
+        total = _visible_feed(run, first['token'])
         if total != 25 + existing:
             raise Blocked(f'준비한 뒤 피드에 글 {total}개(기대 25 + 기존 {existing})')
         _app(check, phone(token_hash=token, existing=existing))
