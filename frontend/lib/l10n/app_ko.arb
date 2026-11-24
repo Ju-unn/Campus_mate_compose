@@ -579,7 +579,6 @@
   "homeHeroPendingLine1": "결정 대기 카드가",
   "homeHeroPendingLine2": "{count}장 남아 있어요",
   "@homeHeroPendingLine2": {"placeholders": {"count": {"type": "int"}}},
-  "homeMosaicEmpty": "아직 비어 있어요",
   "homeNotifyLabel": "알림",
   "homeNotifyUnreadLabel": "알림 {count}개",
   "@homeNotifyUnreadLabel": {"placeholders": {"count": {"type": "int"}}},

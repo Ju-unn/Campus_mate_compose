@@ -1707,6 +1707,22 @@ INFO 를 켠 로거는 핸들러를 직접 달아서 같은 로거의 WARNING �
 | 옛 앱(1.0.6) 영향 | 없음 — 옛 앱은 `student_number` 를 보내지 않고 모르는 응답 키를 무시한다. 순서는 서버 먼저 → 앱 1.0.7 |
 | 시험 | `backend/tests/me/test_me_profile_update.py`(학번 절) · `test_me_profile.py` |
 
+## 커뮤니티 게시물 + 카테고리 (할 일 19, 브랜치 `feat/community-posts`) (PR #793) — **아직 merge 전 · DB 미적용 · 서버 미배포**
+
+설계 `docs/superpowers/specs/2026-11-24-community-posts-design.md`(A안: `polls` 한 표에 투표 · 게시물). 마이그레이션 `20261123155829_community_posts_category`, 시험 `supabase/tests/community_posts_test.sql` · `backend/tests/community/test_community_items.py`.
+
+**배포 순서: DB → 서버 → 1.0.7 앱.** 새 서버는 DB 함수 `create_community_item` · `community_feed` 를 부르므로 DB 보다 먼저 올리면 글 올리기(옛 `POST /community/polls` 포함)와 새 피드가 500 이다. DB 만 먼저 올라간 동안 옛 서버는 그대로 돈다(`poll_feed` · `cast_poll_vote` 는 인자 · 반환이 같고 게시물만 거르며, `create_poll` 은 인자 · 반환 그대로 `create_community_item` 에 넘긴다). 서버를 되돌려도 `poll_feed` 가 게시물을 걸러 1.0.6 화면에 게시물이 섞이지 않는다.
+
+| 길 | 계약 |
+| --- | --- |
+| `GET /community/feed?tab=&before=&before_id=` | `{items, has_more}`. 줄 = `{id, kind, category, text, created_at, is_mine, comment_count, poll}`, `poll` = `{option_a_label, option_b_label, a_count, b_count, my_choice}` 또는 게시물이면 null. **작성자 칸 없음.** 탭 `all` · `popular` · `mine` · `voted` · `free` · `career` · `love`(그 밖 422). 인기는 최근 7일 · 참여(표 + 보이는 댓글) 순 한 쪽이라 커서를 받지 않는다(422) |
+| `GET /community/items/{id}` | `{item}`. 없음 · 가려짐 · 떠난 글쓴이 404 "글을 찾을 수 없어요" |
+| `POST /community/posts` | `{category, body}` → 201 `{id}`. 본문 여러 줄 · 앞뒤 공백 자름 · 1~500자 · 보이는 글자 필수 · 널 · 제어 · 글 방향 문자 거절. 카테고리 세 값만(그 밖 · 없음 422). 하루 10개는 **투표 + 게시물 합산** — 넘으면 429 "오늘은 글을 더 올릴 수 없어요" |
+| `DELETE /community/items/{id}` · `GET` · `POST /community/items/{id}/comments` | 옛 `/community/polls/…` 와 같은 처리 함수. 없음 404 문구만 "글을 찾을 수 없어요", 댓글 푸시 제목은 투표 · 게시물 모두 "내 글에 새 댓글이 달렸어요" |
+| 옛 `GET /community/polls` · `/community/polls/{id}` | 투표만, 응답 모양 그대로(1.0.6) |
+| 옛 `POST /community/polls` | `category` **선택 칸**을 더했다 — 없으면 `free`, 세 값 밖이면 422. 하루 한도는 게시물과 합산되지만 문구는 그대로 "오늘은 질문을 더 올릴 수 없어요". 옛 `/community/polls/…` 의 404 · 푸시 제목도 그대로 |
+| 신고 `POST /reports` | `target_type` 은 게시물도 `poll`. 게시물이면 스냅샷에 `kind` · `category` 가 더해지고 선택지는 null(관리자 웹은 "—" 로 그린다) |
+
 ## 1.0.7 거절 되돌리기 — 거절한 카드 다시 신청 · 받은 신청 거절 되돌리기 (할 일 #20, 브랜치 `feat/card-reapply`) — **아직 merge 전 · 운영 DB 미적용 · 서버 미배포** (PR #796)
 
 DB 마이그레이션 1개(`20261123161541_card_decisions_rejected_at` — `card_decisions` · `acceptance_responses` 에 `rejected_at timestamptz null`, RLS · grant 변경 없음)와 서버 코드. 새 env · 시크릿 · job 은 없다. 규칙은 `backend/app/cards/reapply.py` 한 곳에 있다: 기한은 **내가 거절한 시각부터 7일(`REAPPLY_WINDOW_DAYS`), 서버 시계**, 카드 `expires_at` 은 보지 않고 하트도 쓰지 않는다. **한 장에 한 번만**(2026-11-24 사용자 확정) — 되돌리면 그 행의 `decision` 이 `accept` 가 되어 "아직 거절" 조건에 다시 걸리지 않는다. 저장은 "아직 거절 · 7일 안" 을 조건으로 건 PATCH 하나라 연타 · 동시 요청의 두 번째는 0행 → 409 이고 알림 · 매칭이 없다(받은 신청 되돌리기는 매칭이 생긴 뒤 다시 누르면 숨김 관문에서 404). 되돌린 행의 `decided_at` 이 되돌린 시각으로 바뀌어 `match_candidates` 의 90일 쉬기 기준도 그 시각으로 밀린다.

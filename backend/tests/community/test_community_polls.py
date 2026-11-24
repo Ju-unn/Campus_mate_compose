@@ -191,12 +191,13 @@ def _routes(**responses: httpx.Response) -> Callable[[httpx.Request], httpx.Resp
 
 def test_create_trims_and_defaults_labels():
     seen: list[httpx.Request] = []
-    response = _wire(_routes(create_poll=httpx.Response(200, json=POLL_ID)), seen).post(
+    response = _wire(_routes(create_community_item=httpx.Response(200, json=POLL_ID)), seen).post(
         "/community/polls", json={"question": "  짜장 vs 짬뽕  "}, headers=AUTH_HEADERS)
     assert response.status_code == 201
     assert response.json() == {"id": POLL_ID}
     assert json.loads(seen[0].content) == {
-        "p_author": PROFILE_ID, "p_question": "짜장 vs 짬뽕", "p_option_a": "찬성", "p_option_b": "반대"}
+        "p_author": PROFILE_ID, "p_kind": "poll", "p_category": "free", "p_text": "짜장 vs 짬뽕",
+        "p_option_a": "찬성", "p_option_b": "반대"}
 
 
 @pytest.mark.parametrize("body", [
@@ -208,14 +209,14 @@ def test_create_trims_and_defaults_labels():
 ])
 def test_create_rejects_bad_input_before_db(body):
     seen: list[httpx.Request] = []
-    response = _wire(_routes(create_poll=httpx.Response(200, json=POLL_ID)), seen).post(
+    response = _wire(_routes(create_community_item=httpx.Response(200, json=POLL_ID)), seen).post(
         "/community/polls", json=body, headers=AUTH_HEADERS)
     assert response.status_code == 422
     assert seen == []
 
 
 def test_create_daily_limit_is_429():
-    response = _wire(_routes(create_poll=httpx.Response(400, json={"code": "CM429", "message": "poll daily limit"}))).post(
+    response = _wire(_routes(create_community_item=httpx.Response(400, json={"code": "CM429", "message": "poll daily limit"}))).post(
         "/community/polls", json={"question": "열한 번째"}, headers=AUTH_HEADERS)
     assert response.status_code == 429
     assert response.json()["detail"] == errors.POLL_DAILY_LIMIT

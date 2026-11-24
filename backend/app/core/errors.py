@@ -160,6 +160,11 @@ POLL_COMMENT_DAILY_LIMIT = "오늘은 댓글을 더 달 수 없어요"
 # 앱은 둘 다 detail 을 글자 그대로 입력칸 위 토스트로 보인다(앱 수정 없음).
 POLL_COMMENT_TOO_FAST = "댓글을 너무 빨리 달고 있어요. 잠시 후 다시 달아 주세요"
 POLL_COMMENT_SAME_AS_LAST = "방금 단 댓글과 같은 내용이에요"
+# 게시물 + 카테고리(할 일 19) 새 길(/community/feed · /items · /posts)만 쓴다. 옛 길(/community/polls)은 위 문구 그대로.
+# 문구는 사용자 확정(2026-11-24).
+COMMUNITY_ITEM_NOT_FOUND = "글을 찾을 수 없어요"
+# 하루 10개는 투표 + 게시물 합산이다(DB create_community_item).
+COMMUNITY_DAILY_LIMIT = "오늘은 글을 더 올릴 수 없어요"
 
 # 지인 리뷰
 FRIEND_REVIEW_NOT_FOUND = "리뷰를 찾을 수 없어요"
