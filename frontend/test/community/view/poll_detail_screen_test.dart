@@ -12,6 +12,7 @@ import 'package:campus_mate/community/model/data/community_item.dart';
 import 'package:campus_mate/community/model/data/feed_page.dart';
 import 'package:campus_mate/community/model/repository/community_repository_provider.dart';
 import 'package:campus_mate/community/view/comment_input_bar.dart';
+import 'package:campus_mate/community/view/community_card_parts.dart';
 import 'package:campus_mate/community/view/notice_post_card.dart';
 import 'package:campus_mate/community/view/poll_card.dart';
 import 'package:campus_mate/common/widgets/section_header.dart';
@@ -360,6 +361,35 @@ void main() {
     await pumpDetail(tester, 'p1');
 
     expect(siren, findsNothing);
+  });
+
+  // 사용자 지적 11-25: 투표 상세에도 게시물 상세(pen 17f LGDsj · LT3Ml)처럼 익명 프로필 줄이 있어야 한다.
+  group('17c 머리줄 — 게시물 상세와 같은 익명 프로필 줄(pen 17f DHPBU · yKSd4 · W37Xp)', () {
+    final header = find.descendant(of: find.byType(PollCard), matching: find.byType(CommunityCardHeader));
+    final avatarIcon = find.descendant(
+      of: header,
+      matching: find.byWidgetPredicate((w) => w is Icon3d && w.icon == AppIcon3d.userRound),
+    );
+
+    testWidgets('남의 글: 아바타 40 → 10 → "익명" · 시간, 오른쪽 끝 신고', (tester) async {
+      givenPoll(itemFixture());
+      await pumpDetail(tester, 'p1');
+
+      final card = tester.getRect(find.byType(PollCard));
+      expect(header, findsOneWidget);
+      // 아바타 40(위 4) 가운데에 3D 프로필 24.
+      expect(tester.getCenter(avatarIcon) - card.topLeft, const Offset(16 + 20, 16 + 24));
+      expect(tester.getTopLeft(find.descendant(of: header, matching: find.text('익명'))).dx, card.left + 16 + 40 + 10);
+      expect(find.descendant(of: header, matching: siren), findsOneWidget);
+    });
+
+    testWidgets('내 글: 신고 없이 아바타 · "익명" 줄은 그대로', (tester) async {
+      givenPoll(itemFixture(isMine: true));
+      await pumpDetail(tester, 'p1');
+
+      expect(avatarIcon, findsOneWidget);
+      expect(find.descendant(of: header, matching: find.text('익명')), findsOneWidget);
+    });
   });
 
   group('댓글 목록(pen X4HnyK · S8tPtZ · CommentRow f37XJH)', () {
