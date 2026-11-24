@@ -130,6 +130,8 @@ def _gate_state(match: dict, mine: dict, partner: dict, now: datetime) -> dict:
         # 정지된 상대도 나간 것처럼 보인다(조각 6, 계획서 B7). left_at 은 찍지 않는다.
         "partner_left": gate.is_gone(partner),
         "deadline_at": gate.deadline_at(created_at).isoformat(),
+        # 14f 시트가 뜨기 시작하는 시각(마감 24시간 전). 푸시(gate.reminder_at)와 달리 조용한 시간 보정이 없다.
+        "prompt_at": (created_at + gate.GATE_REMINDER_AFTER).isoformat(),
         "remaining_seconds": max(0, int(gate.remaining(created_at, now).total_seconds())),
     }
 
