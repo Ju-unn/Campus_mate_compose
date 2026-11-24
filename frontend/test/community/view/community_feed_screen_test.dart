@@ -710,6 +710,15 @@ void main() {
     expect(find.text('상세 p1'), findsOneWidget);
   });
 
+  testWidgets('투표 카드 빈 곳(질문)을 눌러도 17c 로 간다 — 게시물 카드와 같다(1.0.7)', (tester) async {
+    repository.page = Success(FeedPage(items: [itemFixture()], hasMore: false));
+    await pump(tester);
+    await tester.tap(find.text('첫 데이트 더치페이'));
+    await tester.pumpAndSettle();
+    expect(find.text('상세 p1'), findsOneWidget);
+    expect(repository.votes, isEmpty);
+  });
+
   testWidgets('"자세히 보기" 누르는 영역은 48 이다', (tester) async {
     repository.page = Success(FeedPage(items: [itemFixture()], hasMore: false));
     await pump(tester);
@@ -725,7 +734,7 @@ void main() {
     expect(tester.getSize(material), tester.getSize(find.byType(FeedPollCard)));
   });
 
-  testWidgets('폰 폭(360)에서 글자 2배 · 80자 질문 · 6자 라벨에도 넘치거나 잘리지 않는다', (tester) async {
+  testWidgets('폰 폭(360)에서 글자 2배 · 400자 질문 · 6자 라벨에도 넘치거나 잘리지 않는다', (tester) async {
     // 기본 800 폭에서는 버튼 한 칸이 넓어 6자 라벨이 한 줄로 들어간다 — 실기기 폭 144 로 줄여야 잡힌다.
     tester.view.physicalSize = const Size(360, 780);
     tester.view.devicePixelRatio = 1;
@@ -733,12 +742,12 @@ void main() {
     tester.platformDispatcher.textScaleFactorTestValue = 2.0;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     repository.page = Success(FeedPage(items: [
-      itemFixture(question: '가' * 80, optionA: '가나다라마바', optionB: '바마라다나가'),
+      itemFixture(question: '가' * 400, optionA: '가나다라마바', optionB: '바마라다나가'),
       itemFixture(id: 'p2', optionA: '가나다라마바', optionB: '바마라다나가', myChoice: PollChoice.b),
     ], hasMore: false));
 
     // 넘침 오류는 Flex 만 낸다 — 고정 상자에 갇힌 글자는 오류 없이 잘린다. 화면 전체(앱바 · 내비 포함)를 본다.
-    // 일부러 말줄임한 글자(목록 질문 2줄 · 내비 "커뮤니티")는 뺀다.
+    // 일부러 말줄임한 글자(목록 질문 4줄 · 내비 "커뮤니티")는 뺀다.
     List<String> clippedTexts() => [
       for (final element in find.byType(RichText).evaluate())
         if (element.renderObject case final RenderParagraph p

@@ -251,12 +251,30 @@ void main() {
   });
 
   testWidgets('17c: 제목 "투표 상세", 피드 카드와 같은 크기, 질문 전문', (tester) async {
-    givenPoll(itemFixture(question: '가' * 80, myChoice: PollChoice.a));
+    givenPoll(itemFixture(question: '가' * 400, myChoice: PollChoice.a));
     await pumpDetail(tester, 'p1');
     expect(find.text('투표 상세'), findsOneWidget);
     expect(tester.getSize(find.byType(PollDonut)), const Size(96, 96));
     expect(find.text('자세히 보기'), findsNothing);
-    expect(tester.widget<Text>(find.text('가' * 80)).maxLines, isNull);
+    expect(tester.widget<Text>(find.text('가' * 400)).maxLines, isNull);
+  });
+
+  testWidgets('17c: 400자 질문 · 폰 폭(360) · 글자 2배 — 넘치지 않고 질문을 전부 보이며, 내려서 댓글까지 간다', (tester) async {
+    phone(tester);
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    final long = '가' * 400;
+    givenPoll(itemFixture(question: long));
+    await pumpDetail(tester, 'p1');
+    expect(tester.takeException(), isNull);
+    // 말줄임 없이 전부 그린다 — 질문만 화면(780)보다 길다.
+    expect(tester.widget<Text>(find.text(long)).maxLines, isNull);
+    expect(tester.getSize(find.text(long)).height, greaterThan(780));
+
+    await tester.dragUntilVisible(find.text('첫 댓글을 남겨 보세요'), find.byType(ListView).first, const Offset(0, -300));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('첫 댓글을 남겨 보세요').hitTestable(), findsOneWidget);
   });
 
   testWidgets('17c 투표 카드에도 그 글의 카테고리 라벨 — 머리줄 아래 12 · 질문 위 12(대장 판정 3, 피드 카드와 같은 자리)', (tester) async {
