@@ -5,6 +5,7 @@ import 'package:campus_mate/auth/school_info/viewmodel/school_info_view_model.da
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/common/widgets/retry_notice.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/core/l10n/error_text.dart';
@@ -116,11 +117,13 @@ class _SchoolInfoForm extends StatelessWidget {
     return [
       _SchoolConfirmedRow(schoolName: schoolName),
       const SizedBox(height: AppSpacing.lg),
-      _LabeledTextField(
+      // 오류 줄(빨간 테두리 2 + circle-alert + 글)이 있는 공용 PccKZ 칸을 쓴다(할 일 3). 학번 칸은 다른 작업이 맡아 그대로 둔다.
+      LabeledField(
         label: context.l10n.authSchoolInfoDepartmentLabel,
         placeholder: context.l10n.authSchoolInfoDepartmentPlaceholder,
         initialValue: state.departmentInput,
         onChanged: viewModel.changeDepartment,
+        errorText: state.departmentError == null ? null : context.errorText(state.departmentError!),
       ),
       const SizedBox(height: AppSpacing.md),
       _LabeledTextField(
