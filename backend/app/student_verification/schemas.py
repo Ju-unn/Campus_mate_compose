@@ -37,13 +37,9 @@ class SchoolInfoRequest(BaseModel):
     # 프론트 Department·StudentNumber 값 객체(frontend/lib/auth/school_info/model/data/department.dart·student_number.dart,
     # 2026-09-20 분석담당 리뷰)와 상한을 맞춘다 — department 30자, student_number 20자.
     department: str = Field(min_length=1, max_length=30)
-    student_number: str = Field(min_length=1, max_length=20)
-
-    def has_valid_student_number(self) -> bool:
-        # compat(1.0.6): 3c 학번 1~3자리 허용(옛 앱 입력) — MIN_APP_VERSION 1.0.7 뒤 삭제하고 me/schemas.py is_valid_student_number(2자리) 하나로 합친다
-        # 학번은 숫자 1~3자리(10-29 사용자 결정, 예: 21). [0-9] 로 쓴다 — \d 는 전각 숫자(２１)도 받는다.
-        # pattern 으로 걸면 422 detail 이 목록이라 앱이 "알 수 없는 오류"를 띄워 라우터에서 문자열로 거절한다.
-        return re.fullmatch(r"[0-9]{1,3}", self.student_number) is not None
+    # 형식(2자리)은 라우터가 me/schemas.py is_valid_student_number 로 보고 문자열 detail 로 거절한다 — 빈 값도 그 문구로 가게
+    # min_length 를 두지 않는다(pydantic 422 는 detail 이 목록이라 앱이 "알 수 없는 오류" 를 띄운다).
+    student_number: str = Field(max_length=20)
 
 
 def is_valid_department(department: str) -> bool:

@@ -8,6 +8,7 @@ from app.graduate_verification.applicant_router import router as graduate_applic
 from app.graduate_verification.repository import GraduateRequestRepository, attempts_used
 from app.graduate_verification.messages import MAX_ATTEMPTS
 from app.graduate_verification.settings import graduate_enabled
+from app.me.schemas import is_valid_student_number
 from app.student_verification.current_user import reject_suspended, require_school_email
 from app.student_verification.repository import StudentVerificationRepository
 from app.student_verification.schemas import GraduateState, SchoolInfoRequest, VerificationStatusResponse, is_valid_department
@@ -78,7 +79,8 @@ async def save_school_info(body: SchoolInfoRequest, caller: Caller = Depends(get
     # 결정 9(B6, 10-01): 정지 계정은 학과 · 학번을 바꾸지 못한다. 인증 상태 조회 · 동의 · 탈퇴는 열어 둔다.
     reject_suspended(gate.get("status"))
     require_school_email(gate)
-    if not body.has_valid_student_number():
+    # 학번 규칙은 PATCH /me/profile 학번 칸과 한 곳(2자리, 할 일 #9). 1.0.6 은 3c 에서 3자리를 보낼 수 있다 — 배포 순서는 DEPLOY.md §4.
+    if not is_valid_student_number(body.student_number):
         raise HTTPException(status_code=422, detail=errors.STUDENT_NUMBER_INVALID)
     # 학번처럼 문자열 detail 로 거절한다 — 앱(3c)이 입력 칸 아래에 그대로 띄운다(목록 detail 이면 "알 수 없는 오류").
     if not is_valid_department(body.department):
