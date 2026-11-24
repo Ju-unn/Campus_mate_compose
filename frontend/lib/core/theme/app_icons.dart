@@ -147,6 +147,12 @@ enum AppIcon3d {
   calendarCheck('ui-3d-calendar-check'),
   /// 일정 `H62oC`
   calendar('ui-3d-calendar'),
+  /// 커뮤니티 카테고리 · 진로(할 일 19, 대장 전달 그림 — pen 탭 `UY6hz` 자리)
+  categoryCareer('ui-3d-category-career'),
+  /// 커뮤니티 카테고리 · 자유(pen 탭 `GdxXY` 자리)
+  categoryFree('ui-3d-category-free'),
+  /// 커뮤니티 카테고리 · 연애(pen 탭 `k1bhXS` 자리)
+  categoryLove('ui-3d-category-love'),
   /// 시간 `oq6tX`
   clock('ui-3d-clock'),
   /// 연락처 `gTMRB`
