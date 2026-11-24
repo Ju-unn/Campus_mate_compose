@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/input_rules.dart';
 import 'package:campus_mate/common/phone_number_formatter.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/profile/basic/model/data/mbti_poles.dart';
@@ -7,7 +8,7 @@ import 'package:campus_mate/profile/basic/viewmodel/phone_verify_ui_state.dart';
 
 /// 닉네임 한 줄 안내의 상태(DESIGN.md §8.5 `nickname-field` "인라인 중복확인 상태").
 /// 입력이 바뀌면 [none] 으로 돌아가고, 디바운스가 끝난 뒤 형식·중복 확인 결과로 채워진다.
-enum NicknameCheck { none, invalid, checking, available, taken }
+enum NicknameCheck { none, invalid, notAllowed, checking, available, taken }
 
 /// 기본 정보 화면(DESIGN.md 화면 04-1)의 상태.
 class BasicInfoUiState {
@@ -79,14 +80,19 @@ class BasicInfoUiState {
     return (value != null && value >= 120 && value <= 230) ? value : null;
   }
 
-  /// 보낼 수 있는 닉네임의 형식. 입력 단계에서 자모(ㄱ·ㅏ)는 통과시키지만(한글 입력기가 조합 중에
-  /// 자모를 먼저 넣는다) 보낼 값은 완성형이어야 한다 — 그 마지막 관문이 여기다.
-  static final RegExp nicknamePattern = RegExp(r'^[가-힣a-zA-Z]{2,5}$');
+  /// 서버에 묻기 전에 앱이 먼저 보는 닉네임 모양(규칙은 `common/input_rules.dart` 한 곳, 15-6 도 같이 쓴다).
+  /// 보낼 수 있는 모양이면 null — 중복 · 금지어는 서버가 본다.
+  static NicknameCheck? nicknameFormatCheck(String nickname) => switch (NicknameFormat.of(nickname)) {
+        NicknameFormat.invalid => NicknameCheck.invalid,
+        NicknameFormat.notAllowed => NicknameCheck.notAllowed,
+        NicknameFormat.valid => null,
+      };
 
   /// 오류색으로 입력칸 바로 아래 한 줄(DESIGN §8.5)의 종류. 글자는 view 가 `context.errorText` 로 만든다.
   /// 같은 자리의 성공색(사용 가능) · 회색(확인 중) 한 줄은 view 가 [nicknameCheck] 로 고른다 — 오류가 있으면 그쪽이 먼저다.
   Failure? get nicknameError => switch (nicknameCheck) {
     NicknameCheck.invalid => const AppErrorFailure(AppError.nicknameInvalid),
+    NicknameCheck.notAllowed => const AppErrorFailure(AppError.nicknameNotAllowed),
     NicknameCheck.taken => const AppErrorFailure(AppError.nicknameTaken),
     _ => null,
   };
@@ -180,7 +186,7 @@ class BasicInfoUiState {
 
   /// 확인이 실패했거나(네트워크) 아직 안 끝났어도 막지 않는다 — 제출 때 서버가 다시 본다.
   bool get _isNicknameValid {
-    return nicknamePattern.hasMatch(nicknameInput) && nicknameCheck != NicknameCheck.taken;
+    return nicknameFormatCheck(nicknameInput) == null && nicknameCheck != NicknameCheck.taken;
   }
 
   bool get canSubmit {

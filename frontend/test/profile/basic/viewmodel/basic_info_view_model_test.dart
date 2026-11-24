@@ -25,6 +25,7 @@ import '../model/repository/fake_basic_info_repository.dart';
 import '../../onboarding/model/repository/fake_onboarding_repository.dart';
 import '../../../core/analytics/fake_analytics_service.dart';
 import '../../../core/draft/fake_draft_store.dart';
+import '../../../common/input_rules_cases.dart';
 
 const _thisYear = 2026;
 
@@ -102,6 +103,44 @@ void main() {
     expect(state.nicknameError, _kind(AppError.nicknameInvalid));
     expect(state.nicknameCheck, isNot(NicknameCheck.available));
     expect(repository.checkedNicknames, isEmpty);
+  });
+
+  // 서버 `has_letter_run` 과 같은 표 — 서버는 이 닉네임에 available=false 를 주고 출시된 앱은 "이미 있는 닉네임" 으로 보였다.
+  group('연속 글자 닉네임(서버와 같은 표)', () {
+    for (final nickname in inputRuleCases('nickname', 'letter_run')) {
+      testWidgets('$nickname 은 서버에 묻지 않고 "쓸 수 없는 닉네임" 을 알리고 "다음" 을 끈다', (tester) async {
+        final vm = container.read(basicInfoViewModelProvider.notifier);
+        vm.changeBirthYear('2002');
+        vm.changeHeight('175');
+        vm.changePhoneNumber('01001352468');
+        vm.changeGender('male');
+        await _verifyPhone(vm);
+        vm.changeNickname(nickname);
+        expect(container.read(basicInfoViewModelProvider).canSubmit, isFalse, reason: '디바운스 전에도 꺼져 있어야 한다');
+
+        await tester.pump(const Duration(milliseconds: 350));
+        final state = container.read(basicInfoViewModelProvider);
+        expect(state.nicknameError, _kind(AppError.nicknameNotAllowed));
+        expect(state.canSubmit, isFalse);
+        expect(repository.checkedNicknames, isEmpty);
+      });
+    }
+    for (final nickname in inputRuleCases('nickname', 'pattern_invalid')) {
+      testWidgets('패턴 밖 $nickname 은 종전대로 형식 오류다', (tester) async {
+        container.read(basicInfoViewModelProvider.notifier).changeNickname(nickname);
+        await tester.pump(const Duration(milliseconds: 350));
+        expect(container.read(basicInfoViewModelProvider).nicknameError, _kind(AppError.nicknameInvalid));
+        expect(repository.checkedNicknames, isEmpty);
+      });
+    }
+    for (final nickname in inputRuleCases('nickname', 'accept')) {
+      testWidgets('서버가 받는 $nickname 은 서버에 중복을 묻는다', (tester) async {
+        container.read(basicInfoViewModelProvider.notifier).changeNickname(nickname);
+        await tester.pump(const Duration(milliseconds: 350));
+        expect(container.read(basicInfoViewModelProvider).nicknameError, isNull);
+        expect(repository.checkedNicknames, [nickname]);
+      });
+    }
   });
 
   testWidgets('쓸 수 있는 닉네임이면 성공 문구를 보여준다', (tester) async {
