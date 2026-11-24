@@ -108,14 +108,15 @@ void main() {
       expect(harness.gateRepository.fetchCount, 2);
     });
 
-    testWidgets('앱이 다시 앞으로 오면 곧바로 한 번 묻는다', (tester) async {
+    // 1.0.7 #6: 복귀 때는 앱 루트가 관문을 묻는다(main_call_count_test) — 화면까지 물으면 같은 순간 2번이다.
+    testWidgets('앱이 다시 앞으로 와도 화면은 따로 묻지 않는다', (tester) async {
       await pump(tester);
 
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pump();
 
-      expect(harness.gateRepository.fetchCount, 1);
+      expect(harness.gateRepository.fetchCount, 0);
     });
 
     testWidgets('화면을 떠나면 타이머가 풀려 더 묻지 않는다', (tester) async {
