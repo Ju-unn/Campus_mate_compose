@@ -362,23 +362,29 @@ class AdminApi {
     String path, {
     Map<String, Object?>? body,
     Map<String, String>? query,
-  }) async {
-    final token = _accessToken();
-    if (token == null) {
-      // 세션이 없으면 보내지 않는다 — 서버가 줄 답(401)과 같은 모양으로 돌려준다.
-      return const AdminApiResponse(statusCode: 401);
-    }
-    final request = http.Request(method, _uri(path, query))
-      ..headers['Authorization'] = 'Bearer $token'
-      ..headers['Accept'] = 'application/json';
+  }) {
+    final request = http.Request(method, _uri(path, query));
     if (body != null) {
       request
         ..headers['Content-Type'] = 'application/json'
         ..body = jsonEncode(body);
     }
+    return _exchange(request);
+  }
+
+  /// 토큰을 붙여 보낸다(JSON · multipart 공통). 조회(GET)만 [readTimeout] 으로 끊는다.
+  Future<AdminApiResponse> _exchange(http.BaseRequest request) async {
+    final token = _accessToken();
+    if (token == null) {
+      // 세션이 없으면 보내지 않는다 — 서버가 줄 답(401)과 같은 모양으로 돌려준다.
+      return const AdminApiResponse(statusCode: 401);
+    }
+    request.headers
+      ..['Authorization'] = 'Bearer $token'
+      ..['Accept'] = 'application/json';
     try {
       final pending = _client.send(request).then(http.Response.fromStream);
-      final response = await (method == 'GET' ? pending.timeout(readTimeout) : pending);
+      final response = await (request.method == 'GET' ? pending.timeout(readTimeout) : pending);
       final decoded = _decode(response.bodyBytes);
       return AdminApiResponse(statusCode: response.statusCode, body: decoded, reason: _reasonOf(decoded));
     } on Exception {
