@@ -379,3 +379,20 @@ def test_log_names_the_student_number_field_but_never_its_value(caplog):
     messages = " ".join(record.getMessage() for record in caplog.records)
     assert "student_number" in messages
     assert "21" not in messages
+
+
+# ---- 신분(1.0.7 1-1) — 15-6 에서 언제든 바꾼다. "안 고름" 으로 되돌리는 길은 없다(대장 11-24) ----
+
+@pytest.mark.parametrize("status", ["undergraduate", "graduate_student", "alumni"])
+def test_academic_status_is_saved(status):
+    seen = []
+    assert _patch({"academic_status": status}, seen=seen).status_code == 200
+    assert _profile_patches(seen) == [{"academic_status": status}]
+    assert _vector_saves(seen) == []
+
+
+@pytest.mark.parametrize("status", [None, "professor", "", "ALUMNI"])
+def test_null_or_unknown_academic_status_is_422_and_writes_nothing(status):
+    seen = []
+    assert _patch({"academic_status": status}, seen=seen).status_code == 422
+    assert _profile_patches(seen) == []

@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, StrictBool, field_validator, model_valida
 
 from app.core.text import visible
 from app.matching.sentences import ANIMAL_LABELS, IMPRESSION_PHRASES
-from app.profile_onboarding.schemas import NICKNAME_PATTERN, RELIGIONS, FreeText
+from app.profile_onboarding.schemas import NICKNAME_PATTERN, RELIGIONS, AcademicStatus, FreeText
 
 # DB check profiles_mbti_format 과 같다. 온보딩 /basic-info 는 이 검사가 없다(DB 가 막는다).
 MBTI_PATTERN = r"^[EI][NS][TF][JP]$"
@@ -44,6 +44,8 @@ class ProfileUpdateRequest(BaseModel):
     impression_type: str | None = None
     # 형식(2자리)은 라우터가 문자열 detail 로 거절한다(is_valid_student_number). 상한은 3c SchoolInfoRequest 와 같은 20자 안전판.
     student_number: str | None = Field(default=None, max_length=20)
+    # 신분(1.0.7 1-1). null 명시는 아래 _something_to_change 가 막는다 — "안 고름" 으로 되돌리는 길은 없다(대장 11-24).
+    academic_status: AcademicStatus | None = None
 
     @field_validator("religion")
     @classmethod

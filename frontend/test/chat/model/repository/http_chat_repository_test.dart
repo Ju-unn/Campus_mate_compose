@@ -189,6 +189,7 @@ void main() {
   });
 
   test('보낸 줄을 그대로 돌려받는다', () async {
+    const clientId = '3f1c2d4e-5a6b-4c7d-8e9f-0a1b2c3d4e5f';
     late String body;
     final client = MockClient((request) async {
       expect(request.url.toString(), 'https://api.test/chat/matches/m1/messages');
@@ -201,9 +202,10 @@ void main() {
       }, 201);
     });
 
-    final result = await buildRepository(client).sendMessage('m1', '안녕하세요');
+    final result = await buildRepository(client).sendMessage('m1', '안녕하세요', clientId: clientId);
 
-    expect(jsonDecode(body), {'body': '안녕하세요'});
+    // client_id 는 다시 보낸 같은 글을 서버가 한 줄로 알아보는 표다(1.0.7 #8).
+    expect(jsonDecode(body), {'body': '안녕하세요', 'client_id': clientId});
     expect(result.when(onSuccess: (m) => m?.kind, onFailure: (_) => null), MessageKind.text);
   });
 
@@ -305,7 +307,7 @@ void main() {
       final client = MockClient((request) => Completer<http.Response>().future);
       Object? outcome;
       unawaited(buildRepository(client)
-          .sendMessage('m1', '안녕하세요')
+          .sendMessage('m1', '안녕하세요', clientId: '3f1c2d4e-5a6b-4c7d-8e9f-0a1b2c3d4e5f')
           .then((result) => outcome = result.when(onSuccess: (m) => m?.body, onFailure: (f) => f)));
 
       await tester.pump(writeTimeout - const Duration(milliseconds: 1));

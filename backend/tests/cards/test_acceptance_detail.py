@@ -125,6 +125,7 @@ def test_the_receiver_sees_the_accepter_like_a_card_detail(world):
         "profile_id": ACCEPTER, "nickname": "여우비", "age": datetime.now().year - 2003 + 1,
         "university": "테스트대학교", "major": "컴퓨터공학과",
         "avatar_url": f"{SUPABASE_URL}/storage/v1/object/public/avatars/{ACCEPTER}/a.png",
+        "academic_status": None,  # 신분 배지 재료(1.0.7 1-1) — 빈 값이면 "학교 인증"
     }
     assert body["survey"] == [0.5, 0, 0, 0, 0, 0, 0, 0, 0]
     assert body["bio"] == "주말엔 산책해요"

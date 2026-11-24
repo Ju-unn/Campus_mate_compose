@@ -310,3 +310,43 @@ def test_a_suspended_account_can_still_read_its_verification_status():
 
     assert response.status_code == 200
     assert response.json()["status"] == "verified"
+
+
+# ---- 신분(1.0.7 1-1, 사용자 결정 11-24 「대학생 · 대학원생 · 졸업생」) ----
+
+
+@pytest.mark.parametrize("status", ["undergraduate", "graduate_student", "alumni"])
+def test_school_info_saves_the_chosen_academic_status(status):
+    sent = _wire(_gate_row("verified"))
+
+    response = TestClient(app).post(
+        "/school-info",
+        json={"department": "컴퓨터공학과", "student_number": "21", "academic_status": status},
+        headers=AUTH_HEADERS,
+    )
+
+    assert response.status_code == 200
+    patch = json.loads(_calls(sent, "PATCH", "/rest/v1/profiles")[0].content)
+    assert patch == {"major": "컴퓨터공학과", "student_number": "21", "academic_status": status}
+
+
+def test_school_info_from_an_old_app_without_academic_status_leaves_it_alone():
+    """옛 앱(1.0.6)은 칸을 모른다 — 성공하고, 칸을 쓰지 않아 null(= "학교 인증" 배지) 그대로다."""
+    sent = _wire(_gate_row("verified"))
+
+    assert _post_school_info().status_code == 200
+    assert "academic_status" not in json.loads(_calls(sent, "PATCH", "/rest/v1/profiles")[0].content)
+
+
+@pytest.mark.parametrize("status", ["professor", "", "Alumni", None])
+def test_school_info_turns_away_an_unknown_academic_status(status):
+    sent = _wire(_gate_row("verified"))
+
+    response = TestClient(app).post(
+        "/school-info",
+        json={"department": "컴퓨터공학과", "student_number": "21", "academic_status": status},
+        headers=AUTH_HEADERS,
+    )
+
+    assert response.status_code == 422
+    assert _calls(sent, "PATCH", "/rest/v1/profiles") == []

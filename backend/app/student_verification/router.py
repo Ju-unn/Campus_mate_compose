@@ -84,5 +84,5 @@ async def save_school_info(body: SchoolInfoRequest, caller: Caller = Depends(get
     if not is_valid_department(body.department):
         raise HTTPException(status_code=422, detail=errors.INVALID_INPUT)
 
-    await repo.save_school_info(profile_id, body.department.strip(), body.student_number)
+    await repo.save_school_info(profile_id, body.department.strip(), body.student_number, body.academic_status)
     return {"ok": True}

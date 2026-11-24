@@ -410,6 +410,7 @@ def test_no_partner_id_or_raw_avatar_path_in_the_response(world):
         "nickname": "여우비", "age": NOW.year - 2003 + 1, "university": "테스트대학교",
         "major": "컴퓨터공학과",
         "avatar_url": f"{SUPABASE_URL}/storage/v1/object/public/avatars/{target}/new.png",
+        "academic_status": None,  # 신분 배지 재료(1.0.7 1-1) — 빈 값이면 "학교 인증"
     }
     text = json.dumps(item)
     assert "profile_id" not in text

@@ -552,6 +552,16 @@ def test_rejected_list_item_shape(world):
     assert "profile_id" not in item["profile"]
 
 
+def test_rejected_list_carries_the_partners_academic_status(world):
+    """거절 목록(`GET /cards/rejected`)도 같은 `_card_profile` 로 신분을 싣는다(1.0.7 1-1)."""
+    world.card("card-1", "t1", decision="reject", ago=timedelta(days=2))
+    world.profiles["t1"]["academic_status"] = "graduate_student"
+
+    [item] = _rejected()
+
+    assert item["profile"]["academic_status"] == "graduate_student"
+
+
 @pytest.mark.parametrize(("ago", "days_left"), [
     (timedelta(hours=1), 7),               # 6일 23시간 남음 → 올려서 7
     (timedelta(days=1), 6),                # 딱 6일 남음
