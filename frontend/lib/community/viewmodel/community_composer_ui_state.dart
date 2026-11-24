@@ -2,6 +2,7 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/community/model/data/community_category.dart';
 import 'package:campus_mate/community/model/data/community_item.dart';
 import 'package:campus_mate/community/model/data/poll.dart';
+import 'package:campus_mate/community/model/data/server_text.dart';
 
 /// 17b 글쓰기 상태 — 투표 · 게시물(할 일 19). 앱 검사([canSubmit])는 미리 보여 주기만이고 기준은 서버다.
 class CommunityComposerUiState {
@@ -38,7 +39,7 @@ class CommunityComposerUiState {
 
   /// 보낼 투표 보기 — O/X 탭이면 기본값, 직접 적기면 앞뒤 공백을 뗀 입력값.
   (String, String) pollOptions() =>
-      usesDefaultOptions ? (defaultOptionA, defaultOptionB) : (optionA.trim(), optionB.trim());
+      usesDefaultOptions ? (defaultOptionA, defaultOptionB) : (serverStripped(optionA), serverStripped(optionB));
 
   bool get canSubmit => !isSubmitting && category != null && kind.accepts(text) && _optionsFit();
 

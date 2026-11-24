@@ -14,7 +14,7 @@ const int pollOptionMaxLength = 6;
 bool pollOptionsAccepted(String optionA, String optionB) =>
     fitsServerText(optionA, pollOptionMaxLength) &&
     fitsServerText(optionB, pollOptionMaxLength) &&
-    optionA.trim() != optionB.trim();
+    serverStripped(optionA) != serverStripped(optionB);
 
 enum PollChoice { a, b }
 

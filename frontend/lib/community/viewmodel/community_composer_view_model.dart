@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/community/model/data/community_category.dart';
 import 'package:campus_mate/community/model/data/community_item.dart';
+import 'package:campus_mate/community/model/data/server_text.dart';
 import 'package:campus_mate/community/model/repository/community_repository_provider.dart';
 import 'package:campus_mate/community/viewmodel/community_composer_ui_state.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
@@ -60,7 +61,7 @@ class CommunityComposerViewModel extends Notifier<CommunityComposerUiState> {
 
   Future<Result<void>> _send(CommunityCategory category) {
     final repository = ref.read(communityRepositoryProvider);
-    final text = state.text.trim();
+    final text = serverStripped(state.text);
     if (state.kind == CommunityKind.post) return repository.createPost(category: category, body: text);
     final (optionA, optionB) = state.pollOptions();
     return repository.createPoll(category: category, question: text, optionA: optionA, optionB: optionB);
