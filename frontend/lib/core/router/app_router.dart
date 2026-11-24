@@ -15,6 +15,7 @@ import 'package:campus_mate/billing/store/view/heart_store_screen.dart';
 import 'package:campus_mate/billing/task/view/heart_tasks_screen.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/community/view/community_feed_screen.dart';
+import 'package:campus_mate/community/view/notice_list_screen.dart';
 import 'package:campus_mate/community/view/poll_composer_screen.dart';
 import 'package:campus_mate/community/view/poll_detail_screen.dart';
 import 'package:campus_mate/core/analytics/analytics_values.dart';
@@ -340,6 +341,13 @@ abstract final class AppRouter {
         path: '${AppRoutes.communityPoll}/:pollId',
         redirect: _uuidOr('pollId', AppRoutes.community),
         builder: (context, state) => PollDetailScreen(pollId: state.pathParameters['pollId']!),
+      ),
+      // 할 일 21 공지 — 피드 띠가 17g 목록을, 목록 줄이 17h 상세(17c 와 같은 화면, 공지 길 표시)를 push 로 연다.
+      _PlatformRoute(path: AppRoutes.communityNotices, builder: (context, state) => const NoticeListScreen()),
+      _PlatformRoute(
+        path: '${AppRoutes.communityNotices}/:noticeId',
+        redirect: _uuidOr('noticeId', AppRoutes.communityNotices),
+        builder: (context, state) => PollDetailScreen(pollId: state.pathParameters['noticeId']!, isNotice: true),
       ),
       _TabRoute(
         path: AppRoutes.myProfile,

@@ -117,6 +117,8 @@ abstract final class AppRoutes {
   static const String community = '/community';
   static const String communityNew = '/community/new';
   static const String communityPoll = '/community/polls'; // `/community/polls/:pollId`
+  /// 공지(할 일 21) — 17g 목록, 17h 상세는 `/community/notices/:noticeId`.
+  static const String communityNotices = '/community/notices';
   static const String myProfile = '/me';
 
   /// 나 탭 편집(계획서 2026-09-27-me-edit.md) — 15c 자기소개·태그, 그리고 온보딩 화면을 편집 모드로 다시 띄우는 자리.

@@ -33,6 +33,8 @@ import 'package:campus_mate/billing/store/view/heart_store_screen.dart';
 import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/community/model/repository/community_repository_provider.dart';
+import 'package:campus_mate/community/view/notice_list_screen.dart';
+import 'package:campus_mate/community/view/poll_detail_screen.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/university_logos.dart';
@@ -709,6 +711,19 @@ void main() {
     expect(tester.widget<ConversationsScreen>(find.byType(ConversationsScreen)).openRejected, isTrue);
   });
 
+  testWidgets('/community/notices 는 17g 공지 목록, /community/notices/:id 는 공지 길로 연 17h 상세다(할 일 21)', (tester) async {
+    final router = await pumpRouter(tester);
+
+    router.go(AppRoutes.communityNotices);
+    await tester.pumpAndSettle();
+    expect(find.byType(NoticeListScreen), findsOneWidget);
+
+    router.go('${AppRoutes.communityNotices}/$_cardId');
+    await tester.pumpAndSettle();
+    final detail = tester.widget<PollDetailScreen>(find.byType(PollDetailScreen));
+    expect((detail.pollId, detail.isNotice), (_cardId, true));
+  });
+
   testWidgets('/profiles/:profileId 는 그 사람의 14c 상대 프로필이다', (tester) async {
       final router = await pumpRouter(tester);
 
@@ -729,6 +744,7 @@ void main() {
       ('${AppRoutes.partnerProfile}/p2', AppRoutes.home),
       ('${AppRoutes.partnerProfile}/${_profileId}x', AppRoutes.home),
       ('${AppRoutes.communityPoll}/p1', AppRoutes.community),
+      ('${AppRoutes.communityNotices}/n1', AppRoutes.communityNotices),
       ('${AppRoutes.friendReviewWrite}/p2', AppRoutes.home),
     ]) {
       testWidgets('UUID 가 아닌 id 의 $path 는 $fallback 로 보낸다', (tester) async {
@@ -744,6 +760,7 @@ void main() {
     for (final path in [
       '${AppRoutes.cardDetail}/$_cardId',
       '${AppRoutes.communityPoll}/${_cardId.toUpperCase()}',
+      '${AppRoutes.communityNotices}/$_cardId',
     ]) {
       testWidgets('UUID id 의 $path 는 그대로 연다', (tester) async {
         final router = await pumpRouter(tester);
