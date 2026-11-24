@@ -1,0 +1,37 @@
+{
+  "_about": "입력 검사 통과 · 거절 예시 한 곳. 서버 시험(backend/tests/input_rules_cases.py 가 읽음)과 앱 시험(frontend/test/common/input_rules_cases.dart 가 읽음)이 같은 파일을 본다 — 앱이 통과시키고 서버가 거절하면 가입이 막혀서다(보안 기준 2). 규칙의 기준은 서버 코드(core/junk_text.py · core/text.py · student_verification/schemas.py · profile_onboarding/schemas.py). 특수 문자는 \\u 로 적는다.",
+  "letter_run": {
+    "_about": "has_letter_run(text) — 같은 글자 3번 연속 또는 알파벳 순서 오름 · 내림 3글자, 대소문자 무시",
+    "run": ["aaa", "AAa", "가가가", "abbb", "abc", "XYZ", "cba", "Abcd", "컴공..."],
+    "not_run": ["진진", "복복", "땅땅이", "양아아", "hy", "가나", "abd", "Computer Science", "AI융합학부"]
+  },
+  "nickname": {
+    "_about": "NICKNAME_PATTERN(한글 완성 · 영문 2~5자) + has_letter_run. 금지어(has_banned_word)는 서버만 본다 — 앱은 서버 답(available=false)으로 알린다",
+    "pattern_invalid": ["a", "가", "민지하늘이다", "민지1", "민 지", "ㅋㅋ", "민지!"],
+    "letter_run": ["aaa", "AAa", "가가가", "abbb", "abc", "Abcd", "cba", "XYZ"],
+    "accept": ["진진", "땅땅이", "hy", "양아아", "민지", "Jun", "하늘이", "Mina"]
+  },
+  "department": {
+    "_about": "is_valid_department — 앞뒤 공백 뺀 2~30자(하한은 0폭 문자 뺀 길이), 완성 한글 · 영문 하나 이상, 자모 낱자 · 제어 문자 · 글 방향 문자 없음, 같은 글자 3번 없음(알파벳 순서는 안 봄). 빈 값 · 31자 이상은 서버 모델 검사(목록 detail)가 먼저 막아 여기 넣지 않는다",
+    "reject": [
+      "...", "123", "-_-", "컴공\n", "ㄱ경영", "ㅋㅋ", ".", "..", "가", "aaa", "aaa학과", "   ", "경영\t학과", "ㆍ경영",
+      "가​", "﻿가", "경영‮학과", "경영⁦학과", "컴공\u0000"
+    ],
+    "accept": [
+      "컴공", "경영학과", "Computer Science", "AI융합학부", "컴퓨터공학과(야간)", "aa학과",
+      "Korean Studies", "International Studies", "Defense", "First Aid"
+    ]
+  },
+  "kakao_id": {
+    "_about": "is_valid_kakao_id — 앞뒤 공백 정리, 2~64자, 안쪽 공백 · 줄바꿈 · 제어 문자 · 글 방향 문자 · 0폭 문자 · 자모 낱자 없음. 같은 글자 3번은 막지 않는다",
+    "reject": [
+      "", "a", "my id", "fox\nrain", "fox\train", "fox\u0000rain", "ㅋㅋfox", "ㅏfox", "  ",
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "fox​", "﻿fox_rain", "fox‍rain", "fox⁠rain", "fox‮rain", "fox⁦rain", "fox　rain"
+    ],
+    "accept": [
+      "fox_rain", "aaa.bbb", "ab", "Fox.Rain-01", "여우비",
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ]
+  }
+}
