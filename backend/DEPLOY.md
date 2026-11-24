@@ -1767,7 +1767,7 @@ DB 칸 · 제약은 1/3 DB PR(#789, `messages.client_id` + `messages_client_id_u
 | 옛 앱 | 1.0.6 이하는 `client_id` 없이 보내고 지금과 똑같이 저장 · 방송 · 푸시된다. compat 표식 `backend/app/chat/router.py`(`MessageRequest.client_id`) · `backend/app/chat/repository.py`(`insert_message`): `# compat(1.0.6): client_id 없는 채팅 전송 — MIN_APP_VERSION 1.0.7 뒤 삭제` |
 | 시험 | `backend/tests/chat/test_chat_repository.py` · `test_chat_router.py` (겹침 · 되읽기 · 방송 · 푸시 한 번 · 1.0.6 응답 모양) |
 
-## 3c 학번 2자리 — `POST /school-info` 를 `/me/profile` 학번 칸과 같은 규칙으로 (할 일 #9 A-2, 브랜치 `feat/school-info-student-number-two-digits`) (PR #미정) — **draft · 1.0.7 두 스토어 공개 + `MIN_APP_VERSION=1.0.7` 뒤에만 merge · 배포**
+## 3c 학번 2자리 — `POST /school-info` 를 `/me/profile` 학번 칸과 같은 규칙으로 (할 일 #9 A-2, 브랜치 `feat/school-info-student-number-two-digits`) (PR #806) — **draft · 1.0.7 두 스토어 공개 + `MIN_APP_VERSION=1.0.7` 뒤에만 merge · 배포**
 
 마이그레이션 · env · 시크릿 · job 없음. §4-35 의 "3c 는 그대로 1~3자리" 를 끝낸다.
 
