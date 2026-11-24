@@ -13,7 +13,9 @@ void main() {
   });
 
   test('30자를 넘으면 null', () {
-    expect(Department.tryParse('가' * 31), isNull);
+    // 같은 글자 3번 규칙(#775)에 먼저 걸리지 않게 반복 없는 값으로 길이만 넘긴다.
+    expect(Department.tryParse('컴퓨터공학과' * 5), isNotNull);
+    expect(Department.tryParse('${'컴퓨터공학과' * 5}부'), isNull);
   });
 
   // 서버 `is_valid_department` 와 같은 표 — 앱이 받고 서버가 거절하면 3c 에서 "다음" 이 켜진 채 막힌다.
