@@ -1,4 +1,4 @@
-"""영역 5 시간조작 2개(묶음 area5-time) — E-WD-10(게이트 미통과 방에서 한쪽 탈퇴 → 48시간이 지나도 chat-gate 가 안 닫음) ·
+"""영역 5 시간조작 2개(묶음 area5-time) — E-WD-10(게이트 미통과 방에서 한쪽 탈퇴 → 기한(72시간)이 지나도 chat-gate 가 안 닫음) ·
 E-WD-11(탈퇴 30일 뒤 정리 배치가 파일 · auth 사용자 · 딸린 행을 지움). 기대값은 바탕화면 E2E_시나리오_조각/5_나탭_탈퇴_경계.md 5-2 표의 그 줄을
 지금 코드와 대조한 것이다. 앱 쪽은 frontend/integration_test/area5_time.dart 의 같은 번호(area5.dart 가 묶는다).
 
@@ -11,6 +11,7 @@ chat-gate 는 관문을 지난 직후 방 시각을 확정해 한 번(_gated_bat
   두 기기 → 폰 한 대  시나리오 기기 칸은 "둘다" 지만 A 의 화면은 보지 않는다(A 는 탈퇴해 화면이 02 뿐이다) — A 탈퇴는 API, B 화면은 폰.
   E-WD-10  ⚠ 문서↔코드 다름: spec §2.6 "30일 동안" 문단은 게이트 실패로 닫힌다지만 코드(chat/batch_router.py:29-38 · gate.is_gone)는 한쪽이라도
            나감 · 정지 · 탈퇴면 통째로 건너뛴다 — 코드 기준(chat_closed_at null 그대로)으로 본다. 응답의 closed 개수는 gcloud 가 안 보여 못 읽는다(DB 로 본다).
+           방 나이는 시나리오 "49시간 전" 대신 73시간(기한 72시간 + 1시간) — 49시간이면 기한 전이라 "안 닫음" 이 이유 없이 맞는다.
            "나간 방 안내 + 채팅방 나가기" 는 E-WD-06 과 같은 화면(chat_room_screen.dart _PartnerGoneNotice)을 B 폰이 연다.
   E-WD-11  응답 deleted_accounts · skipped_accounts 는 gcloud 가 안 보여 못 읽는다 — auth 사용자 404(관리자 목록에 없음) · 행 0 · 파일 0 으로 본다.
            A 의 파일은 탈퇴 뒤 버킷 넷에 그림을 한 장씩 넣는다(탈퇴가 student-id-temp 를 비우므로 뒤에 넣는다 — E-WD-12 와 같다).
@@ -29,10 +30,11 @@ from e2e.area3_phone import MISSING, _permitted, _person
 from e2e.area3_phone5 import BATCH_WAIT, CASE_LIMIT, _batch, _gated_batch, _list_said, _own, _sentinel, _single_shot, _start
 from e2e.area5_act import _write
 from e2e.area5_wd import _files, _plant_file, _state, _withdraw_once
+from e2e.chat_clock import DEADLINE
 from e2e.tools import Blocked
 
 LEFT_NOTICE = '상대가 채팅방을 나가 더 이상 메시지를 보낼 수 없어요.'  # chat_room_screen.dart _PartnerGoneNotice
-GATE_AGE = timedelta(hours=49)  # 시나리오 "matches.created_at 을 49시간 전으로" — 48시간 기한(gate.GATE_DEADLINE)을 지남
+GATE_AGE = DEADLINE + timedelta(hours=1)  # 기한(72시간)을 한 시간 지남 — 시나리오의 "49시간 전으로" 는 48시간 기한 때 값
 GONE_AGE = timedelta(days=31)  # 30일(account/batch_router.py WITHDRAWN_RETENTION) 하루 뒤
 
 
@@ -62,7 +64,7 @@ def p_wd_10(run, phone):
     room = _rows(run, f'matches?id=eq.{match_id}&select=chat_closed_at')
     check.that(bool(room), 'matches 행이 없음(기대: 방이 그대로 있고 chat_closed_at 이 null — 행이 없으면 "안 닫힘" 을 읽을 수 없다)')
     check.that(not room or room[0].get('chat_closed_at') is None,
-               'matches.chat_closed_at 이 채워짐 — 탈퇴한 사람이 있는 방을 48시간 기한에 닫음(기대 null, batch_router.py 건너뜀)')
+               'matches.chat_closed_at 이 채워짐 — 탈퇴한 사람이 있는 방을 72시간 기한에 닫음(기대 null, batch_router.py 건너뜀)')
     left = [p for p in _rows(run, f'match_participants?match_id=eq.{match_id}&select=profile_id,left_at') if p.get('left_at')]
     check.that(not left, f'match_participants.left_at 이 찍힘 {len(left)}행(기대 0 — 탈퇴는 나가기가 아니다)')
     said = _app(check, phone(token_hash=run.link(me['email']), nickname=partner['nickname']))
@@ -71,7 +73,7 @@ def p_wd_10(run, phone):
         check.that(said.get('gone_notice') is True, f"입력칸 자리의 \"{LEFT_NOTICE}\" {said.get('gone_notice', MISSING)}(기대 보임)")
         check.that(said.get('leave_button') is True, f"\"채팅방 나가기\" 버튼 {said.get('leave_button', MISSING)}(기대 보임)")
         check.that(said.get('input') is False, f"입력칸 {said.get('input', MISSING)}(기대 없음 — 나간 방은 입력칸을 남기지 않는다)")
-    return check.result('⚠ 코드 기준 — spec §2.6 문단(48시간에 닫힘)과 다르다. 응답 closed 개수는 gcloud 라 못 읽고 DB chat_closed_at 으로 봤다')
+    return check.result('⚠ 코드 기준 — spec §2.6 문단(기한에 닫힘)과 다르다. 응답 closed 개수는 gcloud 라 못 읽고 DB chat_closed_at 으로 봤다')
 
 
 # ── E-WD-11 30일 정리 ────────────────────────────────────────────────────────────────────────────────

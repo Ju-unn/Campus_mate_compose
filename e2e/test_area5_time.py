@@ -42,7 +42,7 @@ class TimeBase(Base5):
         super().setUp()
         self.files = {bucket: set() for bucket in BUCKETS}
         self.withdraws = []
-        self.gate_sees_withdrawn = True  # False: 탈퇴한 사람이 있는 방을 48시간에 닫는 chat-gate(spec §2.6 문단대로)
+        self.gate_sees_withdrawn = True  # False: 탈퇴한 사람이 있는 방을 기한(72시간)에 닫는 chat-gate(spec §2.6 문단대로)
         self.cleanup_drops_files = True
         self.cleanup_drops_users = True
         self.fake.on('POST', r'/account/withdraw', self.withdraw)
@@ -187,7 +187,7 @@ class Wd10Test(TimeBase):
         self.assertEqual(self.withdraws, ['id-2'])  # 탈퇴는 상대(A) 한 번
         target = self.target()
         self.assertIsNone(target.get('chat_closed_at'))
-        self.assertAge(target, timedelta(hours=49))
+        self.assertAge(target, timedelta(hours=73))
         self.assertIsNotNone(self.matches()[0].get('chat_closed_at'))  # 확인용 방은 닫혔다 — 배치가 돌았다
         self.assertEqual(phone.jobs[-1]['nickname'], self.nick(2))
 
