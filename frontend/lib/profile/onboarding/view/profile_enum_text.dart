@@ -1,3 +1,4 @@
+import 'package:campus_mate/auth/school_info/model/data/academic_status.dart';
 import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
 
@@ -32,6 +33,15 @@ extension ReligionText on Religion {
         Religion.protestant => l10n.profileReligionProtestant,
         Religion.catholic => l10n.profileReligionCatholic,
         Religion.buddhist => l10n.profileReligionBuddhist,
+      };
+}
+
+/// 신분 칩(3c · 15-6)과 배지(오늘의 카드 · 내 프로필) 글자(1.0.7 1-1). 안 고른 사람(null)의 배지 "학교 인증" 은 부르는 쪽이 정한다.
+extension AcademicStatusText on AcademicStatus {
+  String label(AppLocalizations l10n) => switch (this) {
+        AcademicStatus.undergraduate => l10n.academicStatusUndergraduate,
+        AcademicStatus.graduateStudent => l10n.academicStatusGraduateStudent,
+        AcademicStatus.alumni => l10n.academicStatusAlumni,
       };
 }
 

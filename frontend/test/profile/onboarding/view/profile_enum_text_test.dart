@@ -1,3 +1,4 @@
+import 'package:campus_mate/auth/school_info/model/data/academic_status.dart';
 import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
 import 'package:campus_mate/profile/onboarding/view/profile_enum_text.dart';
@@ -46,6 +47,14 @@ void main() {
       'friend': '친구 소개',
       'community': '커뮤니티',
       'other': '기타',
+    });
+  });
+
+  test('신분 칩 3개의 글자(1.0.7 1-1, 사용자 「대학생 · 대학원생 · 졸업생」)', () {
+    expect({for (final status in AcademicStatus.values) status: status.label(l10n)}, {
+      AcademicStatus.undergraduate: '대학생',
+      AcademicStatus.graduateStudent: '대학원생',
+      AcademicStatus.alumni: '졸업생',
     });
   });
 }

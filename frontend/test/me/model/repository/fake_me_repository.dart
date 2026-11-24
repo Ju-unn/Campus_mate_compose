@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:campus_mate/auth/school_info/model/data/student_number.dart';
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/auth/school_info/model/data/academic_status.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/matching/model/data/card_detail.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
@@ -85,6 +86,7 @@ class FakeMeRepository implements MeRepository {
     bool? isSmoker,
     ({AnimalType animalType, ImpressionType impressionType})? appearance,
     StudentNumber? studentNumber,
+    AcademicStatus? academicStatus,
   }) async {
     updates.add({
       'bio': ?bio,
@@ -96,6 +98,7 @@ class FakeMeRepository implements MeRepository {
       'animal_type': ?appearance?.animalType.name,
       'impression_type': ?appearance?.impressionType.name,
       'student_number': ?studentNumber?.toRequestValue(),
+      'academic_status': ?academicStatus?.wire,
     });
     await holdUpdate?.future;
     return updateResult;
