@@ -108,8 +108,8 @@ Finder _shadowCard({required Finder of}) => find.ancestor(
       ),
     );
 
-/// "수정 ›"(`A8LX2`)의 누름 칸.
-final _editLink = find.ancestor(of: find.text('수정 ›'), matching: find.byType(InkWell));
+/// 내 정보 수정 `g9srzY` 의 입구 줄 `oaIwg`(1.0.7 #17 — 옛 헤더 "수정 ›" `A8LX2` 자리를 대신한다).
+final _myInfoEntry = find.widgetWithText(ProfileEntryRow, '내 프로필 수정');
 
 /// 15-5 프로필 편집(pen `rrJ27` 360×1131, 계획서 4절 15-5 표 · A12). 화면 15 에 있던 실사진 · 기본 정보 · 선호 조건 ·
 /// 자기소개 테스트를 여기로 옮겨 왔다.
@@ -226,7 +226,7 @@ void main() {
   });
 
   group('pen 좌표(배율 1.0, 본문 `H4VWO` 위 24 · 좌우 16 · 섹션 사이 32 · 섹션 안 12)', () {
-    testWidgets('섹션 순서 실제 사진 → 기본 정보 → 선호 조건 → 자기소개, 모든 간격', (tester) async {
+    testWidgets('섹션 순서 실제 사진 → 기본 정보 → 내 정보 수정 → 선호 조건 → 자기소개, 모든 간격', (tester) async {
       // 전부 한 화면에 들어오게 세로만 늘린다.
       usePenFrame(tester, height: 1600);
       await pump(tester);
@@ -265,8 +265,15 @@ void main() {
         expect(tester.getSize(factRows.at(i)), const Size(296, 48));
       }
 
+      // 내 정보 수정 `g9srzY`(qvTuw 2-3): 32 → 헤더 → 12 → 입구 행 `oaIwg` 328×84(최소).
+      expect(y(find.text('내 정보 수정')) - bottom(facts), 32);
+      expect(y(_myInfoEntry) - bottom(find.text('내 정보 수정')), 12);
+      expect(tester.getTopLeft(_myInfoEntry).dx, 16);
+      expect(tester.getSize(_myInfoEntry).width, 328);
+      expect(tester.getSize(_myInfoEntry).height, greaterThanOrEqualTo(84));
+
       // 선호 조건 `J0ZhR6`(높이 121): 32 → 헤더 → 12 → 입구 행 한 줄 `sR3If` 328×84.
-      expect(y(find.text('선호 조건')) - bottom(facts), 32);
+      expect(y(find.text('선호 조건')) - bottom(_myInfoEntry), 32);
       final ideal = find.widgetWithText(ProfileEntryRow, '이상형 조건 수정');
       expect(y(ideal) - bottom(find.text('선호 조건')), 12);
       // 높이 84 는 최소값 — 테스트 글꼴은 한글이 Pretendard 보다 넓어 pen 노트(폭 184)도 여기선 두 줄이 된다.
@@ -297,28 +304,27 @@ void main() {
       usePenFrame(tester, height: 1600);
       await pump(tester);
 
-      for (final title in ['실제 사진', '기본 정보', '선호 조건', '자기소개']) {
+      for (final title in ['실제 사진', '기본 정보', '내 정보 수정', '선호 조건', '자기소개']) {
         final style = tester.widget<Text>(find.text(title)).style!;
         expect((style.fontSize, style.fontWeight, style.color), (18, FontWeight.w700, AppColors.ink), reason: title);
         expect(tester.getSize(find.text(title)).height, 25, reason: title);
       }
-      for (final note in ['서로 수락하면 전달돼요', '수정 ›']) {
-        final style = tester.widget<Text>(find.text(note)).style!;
-        expect((style.fontSize, style.fontWeight, style.color), (14, FontWeight.w400, AppColors.muted), reason: note);
-        expect(tester.getSize(find.text(note)).height, 20, reason: note);
-      }
+      const note = '서로 수락하면 전달돼요';
+      final style = tester.widget<Text>(find.text(note)).style!;
+      expect((style.fontSize, style.fontWeight, style.color), (14, FontWeight.w400, AppColors.muted));
+      expect(tester.getSize(find.text(note)).height, 20);
       // 오른쪽 끝(344)에 붙고 제목과 세로 가운데가 같다.
-      for (final (title, note) in [('실제 사진', '서로 수락하면 전달돼요'), ('기본 정보', '수정 ›')]) {
-        expect(tester.getTopRight(find.text(note)).dx, 344, reason: note);
-        expect(tester.getCenter(find.text(note)).dy, tester.getCenter(find.text(title)).dy, reason: note);
-      }
+      expect(tester.getTopRight(find.text(note)).dx, 344);
+      expect(tester.getCenter(find.text(note)).dy, tester.getCenter(find.text('실제 사진')).dy);
     });
 
-    testWidgets('선호 조건 · 자기소개 헤더는 오른쪽 글자가 없다', (tester) async {
+    // 1.0.7 #17(qvTuw 2-2) — 기본 정보 헤더의 "수정 ›"(`A8LX2`)을 없앴다. 입구는 아래 "내 정보 수정" 구역이 맡는다.
+    testWidgets('기본 정보 · 내 정보 수정 · 선호 조건 · 자기소개 헤더는 오른쪽 글자가 없다("수정 ›" 없음)', (tester) async {
       usePenFrame(tester, height: 1600);
       await pump(tester);
 
-      for (final title in ['선호 조건', '자기소개']) {
+      expect(find.text('수정 ›'), findsNothing);
+      for (final title in ['기본 정보', '내 정보 수정', '선호 조건', '자기소개']) {
         final row = find.ancestor(of: find.text(title), matching: find.byType(Row)).first;
         expect(find.descendant(of: row, matching: find.byType(Text)), findsOneWidget, reason: title);
       }
@@ -424,18 +430,41 @@ void main() {
       expect(find.text('-'), findsNWidgets(2));
     });
 
-    testWidgets('"수정 ›" 누름 칸은 44 이상(N12)이고 글자를 품는다, 눌림 효과는 그 칸 크기 Material(COMMON §4-2)', (tester) async {
+    testWidgets('학번 줄은 없다(qvTuw 2-2a — 키 · MBTI · 학과 세 줄만)', (tester) async {
+      await pump(tester);
+      await showFacts(tester);
+
+      expect(find.text('학번'), findsNothing);
+      expect(
+        find.descendant(of: _shadowCard(of: find.text('내 키')), matching: find.byType(Icon3d)),
+        findsNWidgets(3),
+      );
+    });
+  });
+
+  // 1.0.7 #17(qvTuw 2-3 `g9srzY`) — 선호 조건과 같은 모양: 헤더(오른쪽 없음) → 12 → ProfileEntryRow 한 줄.
+  group('내 정보 수정 `g9srzY` — ProfileEntryRow 한 줄(`oaIwg` 내 프로필 수정)', () {
+    Future<void> showRow(WidgetTester tester) => tester.scrollUntilVisible(_myInfoEntry, 200, scrollable: _list);
+
+    testWidgets('3D 편집(`DAILv` ui-3d-pencil) 26, "내 프로필 수정" / "닉네임 · 키 · MBTI · 흡연 등", 셰브런', (tester) async {
+      await pump(tester);
+      await showRow(tester);
+
+      expect(_myInfoEntry, findsOneWidget);
+      final row = tester.widget<ProfileEntryRow>(_myInfoEntry);
+      expect((row.icon, row.iconSize, row.note, row.emphasis), (AppIcon3d.pencil, 26, '닉네임 · 키 · MBTI · 흡연 등', false));
+      expect(find.descendant(of: _myInfoEntry, matching: find.byIcon(AppIcons.chevronRight)), findsOneWidget);
+    });
+
+    testWidgets('눌림 효과는 스크롤 밖이 아니라 행 크기 Material 이 그린다(COMMON §4-2)', (tester) async {
       usePenFrame(tester);
       await pump(tester);
-      await tester.scrollUntilVisible(find.text('수정 ›'), 200, scrollable: _list);
+      await showRow(tester);
 
-      final size = tester.getSize(_editLink);
-      expect(size.width, greaterThanOrEqualTo(44));
-      expect(size.height, greaterThanOrEqualTo(44));
-      expect(tester.getRect(_editLink).contains(tester.getCenter(find.text('수정 ›'))), isTrue);
-      expect(tester.getCenter(_editLink).dy, closeTo(tester.getCenter(find.text('수정 ›')).dy, 0.01));
-      final painter = find.ancestor(of: _editLink, matching: find.byType(Material)).first;
-      expect(tester.getSize(painter), size);
+      final ink = find.descendant(of: _myInfoEntry, matching: find.byType(InkWell));
+      final painter = find.ancestor(of: ink, matching: find.byType(Material)).first;
+      expect(tester.getSize(painter), tester.getSize(_myInfoEntry));
+      expect(tester.getSize(ink), tester.getSize(_myInfoEntry));
     });
   });
 
@@ -450,20 +479,21 @@ void main() {
     expect(find.text('곧 열려요'), findsNothing);
   });
 
-  // 계획서 2026-09-28-me-profile.md A16 — "수정 ›" 은 PR 3-2 에서 15-6 으로 연결됐다. 저장하고 돌아오면 "저장했어요"(B4).
-  group('"수정 ›" → 15-6 기본 정보 수정', () {
-    /// "수정 ›" 로 15-6 을 열고 [button]("15-6 저장" · "15-6 뒤로")으로 돌아온다. 돌아온 첫 프레임에서 멈춘다.
+  // 계획서 2026-09-28-me-profile.md A16 — 15-6 입구. 1.0.7 #17 에서 "수정 ›" 대신 [내 프로필 수정] 줄이 연다.
+  // 저장하고 돌아오면 "저장했어요"(B4).
+  group('[내 프로필 수정] → 15-6 기본 정보 수정', () {
+    /// [내 프로필 수정] 으로 15-6 을 열고 [button]("15-6 저장" · "15-6 뒤로")으로 돌아온다. 돌아온 첫 프레임에서 멈춘다.
     Future<void> returnFromBasicInfo(WidgetTester tester, String button) async {
-      await tapVisible(tester, find.text('수정 ›'));
+      await tapVisible(tester, _myInfoEntry);
       await tester.pumpAndSettle();
       await tester.tap(find.text(button));
       await tester.pump();
     }
 
-    testWidgets('"수정 ›" 을 누르면 15-6(/me/basic-info)으로 간다 — "곧 열려요" 는 뜨지 않는다', (tester) async {
+    testWidgets('[내 프로필 수정] 을 누르면 15-6(/me/basic-info)으로 간다 — "곧 열려요" 는 뜨지 않는다', (tester) async {
       await pump(tester);
 
-      await tapVisible(tester, find.text('수정 ›'));
+      await tapVisible(tester, _myInfoEntry);
       await tester.pumpAndSettle();
 
       expect(find.text('15-6 기본 정보 수정 화면'), findsOneWidget);
@@ -827,7 +857,7 @@ void main() {
     router.go(AppRoutes.myProfileManage);
     await tester.pumpAndSettle();
     expect(find.text('178cm'), findsOneWidget);
-    await tapVisible(tester, find.text('수정 ›'));
+    await tapVisible(tester, _myInfoEntry);
     await tester.pumpAndSettle();
     expect(find.byType(BasicInfoEditScreen), findsOneWidget);
 
@@ -847,7 +877,8 @@ void main() {
     expect(find.byType(BasicInfoEditScreen), findsNothing);
     expect(find.byType(ProfileManageScreen), findsOneWidget);
     expect(find.text('저장했어요'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('181cm'), 200, scrollable: _list);
+    // 입구 줄이 기본 정보 카드 아래라 돌아오면 카드가 위에 있다 — 위로 스크롤한다.
+    await tester.scrollUntilVisible(find.text('181cm'), -200, scrollable: _list);
     expect(find.text('181cm'), findsOneWidget);
     expect(find.text('178cm'), findsNothing);
     await tester.pump(const Duration(seconds: 2)); // 토스트 타이머를 끝내 둔다
@@ -879,7 +910,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('ENFP'), 200, scrollable: _list);
     expect(find.text('ENFP'), findsOneWidget);
-    await tapVisible(tester, find.text('수정 ›'));
+    await tapVisible(tester, _myInfoEntry);
     await tester.pumpAndSettle();
     expect(find.byType(BasicInfoEditScreen), findsOneWidget);
 
@@ -900,7 +931,7 @@ void main() {
     expect(find.byType(BasicInfoEditScreen), findsNothing);
     expect(find.byType(ProfileManageScreen), findsOneWidget);
     expect(find.text('저장했어요'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('INFP'), 200, scrollable: _list);
+    await tester.scrollUntilVisible(find.text('INFP'), -200, scrollable: _list); // 카드는 입구 줄 위
     expect(find.text('INFP'), findsOneWidget);
     expect(find.text('ENFP'), findsNothing);
     await tester.pump(const Duration(seconds: 2)); // 토스트 타이머를 끝내 둔다
@@ -909,7 +940,7 @@ void main() {
 
   // DESIGN §11.2 — 시스템 글꼴 확대(최대 2.0)에서도 깨지지 않는다. 화면 15 테스트와 같은 잣대.
   for (final scale in [1.0, 1.3, 1.5, 2.0]) {
-    testWidgets('15-5 — 폭 360 · 글자 배율 $scale 에서 넘침 · 잘림이 없다(스크롤 전 · 끝), "수정 ›" 누름 칸은 글자를 품는다', (tester) async {
+    testWidgets('15-5 — 폭 360 · 글자 배율 $scale 에서 넘침 · 잘림이 없다(스크롤 전 · 끝), [내 프로필 수정] 줄은 늘어난다(최소 84)', (tester) async {
       // 테스트 글꼴은 한글이 Pretendard 보다 넓다 — 여기서 버티면 실제 폰에서도 버틴다.
       usePenFrame(tester);
       tester.platformDispatcher.textScaleFactorTestValue = scale;
@@ -918,8 +949,8 @@ void main() {
       await pump(tester);
       expect(tester.takeException(), isNull);
       final clipped = _clippedTexts();
-      await tester.scrollUntilVisible(find.text('수정 ›'), 200, scrollable: _list);
-      expect(tester.getRect(_editLink).contains(tester.getCenter(find.text('수정 ›'))), isTrue);
+      await tester.scrollUntilVisible(_myInfoEntry, 200, scrollable: _list);
+      expect(tester.getSize(_myInfoEntry).height, greaterThanOrEqualTo(84));
       clipped.addAll(_clippedTexts());
       await scrollToEnd(tester);
       clipped.addAll(_clippedTexts());

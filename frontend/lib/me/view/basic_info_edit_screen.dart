@@ -23,7 +23,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// 15-6 기본 정보 수정(pen `mhdYA` · 15-6-2 `ZuPTD`, 계획서 2026-09-28-me-profile.md A16 · 2026-10-10 확대). 15-5 "수정 ›"(`A8LX2`)이 연다.
+/// 15-6 기본 정보 수정(pen `mhdYA` · 15-6-2 `ZuPTD`, 계획서 2026-09-28-me-profile.md A16 · 2026-10-10 확대). 15-5 [내 프로필 수정] 줄(`oaIwg`, 1.0.7 #17 — 옛 "수정 ›" `A8LX2`)이 연다.
 /// 닉네임 → 16 → 키 → 16 → 학부 입학 학번(pen 시안 `x1mvAB`, 사용자 시안 승인 대기) → "바꿀 수 있는 정보"(내 MBTI · 종교 · 흡연 ·
 /// 내 동물상 · 내 인상, 구역 사이 24) → "바꿀 수 없는 정보"(출생연도 · 성별 · 학과 잠금 행) → "저장". 저장하면 `true` 를 돌려주며
 /// 15-5 로 돌아간다 — 15-5 가 "저장했어요" 를 띄운다(B4). 실명 · 전화번호는 나오지 않는다(서버가 내려 주지 않는다).

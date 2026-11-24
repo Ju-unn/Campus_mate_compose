@@ -51,7 +51,7 @@ Future<void> _actEnterBio(WidgetTester tester) async {
   await wait(tester, const Duration(milliseconds: 500));
 }
 
-/// 15-5 → 기본 정보 "수정 ›" → 15-6.
+/// 15-5 → "내 정보 수정" 구역 [내 프로필 수정] 줄 → 15-6.
 Future<void> _actEnterBasic(WidgetTester tester) async {
   await _reveal(tester, find.text(_editLink));
   await tap(tester, find.text(_editLink));
