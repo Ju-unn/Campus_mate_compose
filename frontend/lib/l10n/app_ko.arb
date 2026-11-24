@@ -75,6 +75,7 @@
   "authVerifyExpiresIn": "{time} 뒤에 만료돼요",
   "@authVerifyExpiresIn": {"placeholders": {"time": {"type": "String"}}},
   "authVerifyResend": "메일 다시 받기",
+  "authVerifyResendFailed": "인증번호를 다시 보내지 못했어요. 잠시 후 다시 눌러 주세요",
   "authVerifyResendWait": "메일 다시 받기 ({seconds}초)",
   "@authVerifyResendWait": {"placeholders": {"seconds": {"type": "int"}}},
   "authVerifySentTo": "{email}로 6자리 숫자를 보냈어요",
