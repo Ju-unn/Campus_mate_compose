@@ -178,6 +178,18 @@ Future<void> type(WidgetTester tester, Finder field, String text) async {
   await tester.pump(const Duration(milliseconds: 300));
 }
 
+/// 3c 신분 칩(1.0.7 1-1, #818) — 고르기 전에는 [다음]이 꺼져 있다. 기본은 "대학생".
+Future<void> pickAcademicStatus(WidgetTester tester, [String label = '대학생']) =>
+    tap(tester, find.widgetWithText(SelectChip, label));
+
+/// 3c 를 채우고 [다음]을 누른다 — 학과 · 학번 · 신분(필수). 다음 화면을 기다리는 일은 부른 쪽이 한다.
+Future<void> passSchoolInfo(WidgetTester tester) async {
+  await pickAcademicStatus(tester);
+  await type(tester, input('예: 컴퓨터공학과'), '컴퓨터공학과');
+  await type(tester, input('예: 21 (2자리)'), '21');
+  await tap(tester, button('다음'));
+}
+
 String fieldText(WidgetTester tester, Finder field) => tester.widget<TextField>(field.first).controller?.text ?? '';
 
 /// 앞 가설의 세션을 지우고([fresh] 가 false 면 그대로 둔다) 일감의 토큰으로 로그인한 뒤 [body] 를 돈다.
@@ -463,7 +475,12 @@ final Map<String, Area1Case> area1Cases = {
     final department = input('예: 컴퓨터공학과');
     final number = input('예: 21 (2자리)');
     // 학번 칸은 잘라 내거나 걸러 내지 않는다 — 친 그대로 남고 2자리 숫자가 아니면 다음이 꺼진다(할 일 #9 A안, 11-24 결정)
-    // — (학과, 친 학번, 칸에 남는 학번, 다음 켜짐)
+    // 신분(필수, #818)을 고르기 전에는 학과 · 학번이 맞아도 다음이 꺼져 있다.
+    await type(tester, department, '컴퓨터공학과');
+    await type(tester, number, '21');
+    must(!enabled(tester, '다음'), '신분을 안 골랐는데 다음이 켜짐');
+    await pickAcademicStatus(tester);
+    // — (학과, 친 학번, 칸에 남는 학번, 다음 켜짐) — 아래는 신분을 고른 채로 본다.
     for (final (dept, no, shown, on) in [
       ('', '21', '21', false),
       ('컴퓨터공학과', '', '', false),
@@ -482,9 +499,7 @@ final Map<String, Area1Case> area1Cases = {
   }),
   'E-GATE-54': _session((tester, job) async {
     await arrive(tester, '3c');
-    await type(tester, input('예: 컴퓨터공학과'), '컴퓨터공학과');
-    await type(tester, input('예: 21 (2자리)'), '21');
-    await tap(tester, button('다음'));
+    await passSchoolInfo(tester);
     await arrive(tester, '04-1', timeout: const Duration(seconds: 5));
     return null;
   }),
@@ -492,9 +507,7 @@ final Map<String, Area1Case> area1Cases = {
   'E-GATE-56': _session((tester, job) async {
     await arrive(tester, '3c');
     if (!_fresh(job)) {
-      await type(tester, input('예: 컴퓨터공학과'), '컴퓨터공학과');
-      await type(tester, input('예: 21 (2자리)'), '21');
-      await tap(tester, button('다음'));
+      await passSchoolInfo(tester);
       await arrive(tester, '04-1', timeout: const Duration(seconds: 10));
     }
     await wait(tester, const Duration(seconds: 10));
