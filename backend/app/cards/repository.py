@@ -21,7 +21,7 @@ PUSH_TOKENS_KEPT = 5
 # status · auto_hidden_at 은 응답에 싣지 않는다 — "카드에서 사라져야 하는가"(조각 6)를 가르는 재료다.
 _CARD_PROFILE_COLUMNS = (
     "id,nickname,birth_year,major,animal_type,impression_type,"
-    "interest_tags,my_traits,ideal_traits,ideal_note,bio,status,auto_hidden_at,"
+    "interest_tags,my_traits,ideal_traits,ideal_note,bio,status,auto_hidden_at,academic_status,"
     "universities(name),profile_avatars(storage_path,status,created_at)"
 )
 # 10b 상세(`TORAs`)는 앞면 + 키·MBTI·학번·종교·흡연까지 본다. 실사진·연락처는 여전히 없다.
