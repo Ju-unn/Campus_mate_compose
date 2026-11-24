@@ -350,6 +350,8 @@ TextStyle get _bodyText => AdminTypography.sm.copyWith(color: AdminColors.body);
 
 TextStyle get _bodyLine => AdminTypography.sm.copyWith(height: AdminTypography.smBox, color: AdminColors.body);
 
+TextStyle get _strongLine => AdminTypography.smStrong.copyWith(height: AdminTypography.smBox, color: AdminColors.ink);
+
 /// 이름 · 값 한 줄(QLdLH): 이름 88 14 web-muted · 사이 12 · 값 14/600 web-ink(또는 배지), 줄 19(배지 줄 26).
 class _InfoRow extends StatelessWidget {
   const _InfoRow({required this.name, this.value, this.badge});
@@ -405,11 +407,19 @@ class _CopyCard extends StatelessWidget {
       ReportTargetType.message => [Text('신고된 메시지: "${text('body')}"', style: _bodyText)],
       ReportTargetType.pollComment => [Text('신고된 댓글: "${text('body')}"', style: _bodyText)],
       ReportTargetType.profile => _profile(snapshot),
-      ReportTargetType.poll => [
-        Text('질문: ${text('question')}', style: AdminTypography.smStrong.copyWith(height: AdminTypography.smBox, color: AdminColors.ink)),
-        Text('선택지 1 · ${text('option_a_label')}', style: _bodyLine),
-        Text('선택지 2 · ${text('option_b_label')}', style: _bodyLine),
-      ],
+      // 같은 polls 표의 게시물 · 공지(사본 kind)는 선택지가 없다. kind 가 없으면 옛 투표 글.
+      ReportTargetType.poll => switch (snapshot.text('kind')) {
+        'post' => [
+          Text('카테고리: ${postCategoryLabel(snapshot.text('category'))}', style: _bodyLine),
+          Text('글: ${text('question')}', style: _bodyText),
+        ],
+        'notice' => [Text('제목: ${text('title')}', style: _strongLine), Text('글: ${text('question')}', style: _bodyText)],
+        _ => [
+          Text('질문: ${text('question')}', style: _strongLine),
+          Text('선택지 1 · ${text('option_a_label')}', style: _bodyLine),
+          Text('선택지 2 · ${text('option_b_label')}', style: _bodyLine),
+        ],
+      },
       ReportTargetType.friendReview => [
         if (snapshot.tags.isNotEmpty)
           Wrap(

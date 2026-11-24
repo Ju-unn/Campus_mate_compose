@@ -70,6 +70,17 @@ String reportReasonLabel(String code) {
 /// 값이 없을 때(탈퇴 · 가입 전 · 목록 응답에 없는 칸)
 const String missingValue = '—';
 
+/// 게시물 카테고리 코드(polls.category) → 글자(앱 커뮤니티 탭과 같은 이름). 모르는 코드는 그대로, 없으면 "—".
+String postCategoryLabel(String? code) {
+  return switch (code) {
+    'free' => '자유',
+    'career' => '진로',
+    'love' => '연애',
+    null => missingValue,
+    _ => code,
+  };
+}
+
 /// 신고당한 사람(target_profile). 탈퇴로 지워졌으면 신고 쪽이 null 을 든다.
 class ReportTarget {
   const ReportTarget({required this.id, required this.nickname, required this.university, required this.status, required this.autoHiddenAt});
