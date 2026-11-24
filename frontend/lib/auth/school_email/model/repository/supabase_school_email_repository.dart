@@ -6,6 +6,7 @@ import 'package:campus_mate/auth/school_email/model/repository/temporary_auth_co
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/core/http/http_send.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// 코드 자체가 틀렸거나 기한이 지났을 때 GoTrue 가 주는 오류 코드(gotrue 2.27.2).
@@ -48,26 +49,41 @@ class SupabaseSchoolEmailRepository implements SchoolEmailRepository {
 
   /// 로그인한 소셜 계정과 같은 메일(학교 구글 계정으로 로그인)이어도 보낸다 — GoTrue 가 그 계정으로 OTP 로그인시키고
   /// 서버가 OTP 를 메일 주인 증거로 받아 인증한다(서버 6-f, 2026-11-23).
+  ///
+  /// GoTrue 호출은 앱 쓰기 상한([writeTimeout])에서 끊는다 — 망이 끊겨 답이 안 오면 버튼이 "진행 중" 에 묶였다.
+  /// 시간 초과(TimeoutException)도 Exception 이라 다른 네트워크 실패와 같은 Failure 가 된다.
+  ///
+  /// 새 코드가 나간 뒤에는 임시 연결에 남은 세션(앞 코드가 늦게 성공한 것)을 비운다 — 남겨 두면 [verifyCode] 가
+  /// 새 코드를 보지 않고 그 세션을 쓴다. 보내기가 실패하면 그 세션이 유일한 길이라 남긴다.
   @override
   Future<Result<void>> requestCode(UniversityEmail email) async {
     try {
-      await _connection.open().signInWithOtp(email: email.toRequestValue(), shouldCreateUser: true);
-      return const Success(null);
+      await _connection.open().signInWithOtp(email: email.toRequestValue(), shouldCreateUser: true).timeout(writeTimeout);
     } on AuthException catch (error) {
       return FailureResult(_toRequestFailure(error));
     } on Exception {
       return const FailureResult(CodeNotSentFailure());
     }
+    // 연결째 닫아도 된다 — 임시 연결은 implicit 흐름이라 verifyOTP 는 보낸 연결의 상태(PKCE)를 쓰지 않는다.
+    if (_connection.open().currentSession != null) {
+      await _close();
+    }
+    return const Success(null);
   }
 
+  /// 시간 초과 뒤 앞선 확인이 늦게 성공했으면 임시 연결에 이 메일의 세션이 이미 있다 — 코드는 이미 쓰였으니
+  /// 다시 확인하지 않고 그 토큰을 쓴다(다시 확인하면 "코드가 맞지 않아요" 가 된다).
   @override
   Future<Result<String>> verifyCode(UniversityEmail email, VerificationCode code) async {
+    final earlier = _connection.open().currentSession;
+    if (earlier != null && UniversityEmail.tryParse(earlier.user.email ?? '') == email) {
+      return Success(earlier.accessToken);
+    }
     try {
-      final response = await _connection.open().verifyOTP(
-        email: email.toRequestValue(),
-        token: code.toRequestValue(),
-        type: OtpType.email,
-      );
+      final response = await _connection
+          .open()
+          .verifyOTP(email: email.toRequestValue(), token: code.toRequestValue(), type: OtpType.email)
+          .timeout(writeTimeout);
       return _toTemporaryToken(response.session);
     } on AuthException catch (error) {
       return FailureResult(_toVerifyFailure(error));
@@ -87,13 +103,16 @@ class SupabaseSchoolEmailRepository implements SchoolEmailRepository {
     // null = 성공(이미 인증 포함).
     final failure = result.when<Failure?>(onSuccess: (_) => null, onFailure: _toCompleteFailure);
     if (failure == null || endsSchoolEmailAttempt(failure)) {
-      await _connection.close();
+      await _close();
     }
     return failure == null ? const Success(null) : FailureResult(failure);
   }
 
   @override
-  Future<void> discard() => _connection.close();
+  Future<void> discard() => _close();
+
+  /// 임시 연결 로그아웃은 메모리 세션을 먼저 비우고 서버에 알린다 — 그 알림이 안 끝나도 상한에서 기다리기를 멈춘다.
+  Future<void> _close() => _connection.close().timeout(writeTimeout, onTimeout: () {});
 
   /// 지금 로그인한 소셜(`account_repository.dart` 와 같은 방식). 모르면 null — 다른 소셜로 보고 다시 로그인 길을 연다.
   String? _myProvider() {

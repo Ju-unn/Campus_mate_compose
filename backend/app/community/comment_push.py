@@ -13,7 +13,11 @@ from app.community.repository import CommunityRepository
 # 새 표 · 칸 없이 알림함이 이미 "무엇을 언제 알렸나" 를 남기고, 스위치를 껐거나 밤이어도(푸시는 안 가도) 줄은 남기 때문이다.
 # shortcut: 읽고 쓰는 사이 틈에 동시에 온 두 댓글은 둘 다 통과한다(푸시가 한 번 더 간다), 한 글에 초당 여러 댓글이 달리면 DB 잠금으로 올린다.
 COALESCE_WINDOW = timedelta(minutes=10)
+# compat(1.0.6): 옛 길 댓글 푸시 제목 — MIN_APP_VERSION 1.0.7 뒤 삭제(ITEM_TITLE 만 남긴다)
 TITLE = "내 질문에 새 댓글이 달렸어요"
+# 새 길(/community/items/{id}/comments)로 단 댓글 — 투표 · 게시물 공통(사용자 확정 2026-11-24, 할 일 19).
+# 옛 길(/community/polls/{id}/comments, 1.0.6)은 위 TITLE 그대로. 어느 길인지는 부르는 쪽(router)이 title 로 넘긴다.
+ITEM_TITLE = "내 글에 새 댓글이 달렸어요"
 QUESTION_PREVIEW_CHARS = 20
 
 
@@ -22,11 +26,11 @@ def _preview(question: str) -> str:
 
 
 async def notify_post_author(community: CommunityRepository, cards, sender, *, poll_id, poll_author_id,
-                             question: str, commenter_id, now: datetime) -> None:
+                             question: str, commenter_id, now: datetime, title: str = TITLE) -> None:
     """부르는 쪽(router)이 예외를 삼킨다 — 댓글은 이미 저장됐다."""
     if str(poll_author_id) == str(commenter_id):
         return
     if await community.has_notification_since(poll_author_id, poll_id, now - COALESCE_WINDOW):
         return
-    await notify(cards, sender, poll_author_id, "poll_comment", TITLE, _preview(question),
+    await notify(cards, sender, poll_author_id, "poll_comment", title, _preview(question),
                  {"route": "poll", "poll_id": str(poll_id)}, now=now)
