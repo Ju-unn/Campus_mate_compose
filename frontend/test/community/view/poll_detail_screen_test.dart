@@ -372,7 +372,8 @@ void main() {
     );
 
     testWidgets('남의 글: 아바타 40 → 10 → "익명" · 시간, 오른쪽 끝 신고', (tester) async {
-      givenPoll(itemFixture());
+      // 시험 시계는 14:00 — 12:00 글이면 "2시간 전"(작성 시각 · 지금 시각을 제대로 넘기는지).
+      givenPoll(itemFixture(createdAt: DateTime(2026, 9, 27, 12)));
       await pumpDetail(tester, 'p1');
 
       final card = tester.getRect(find.byType(PollCard));
@@ -380,6 +381,7 @@ void main() {
       // 아바타 40(위 4) 가운데에 3D 프로필 24.
       expect(tester.getCenter(avatarIcon) - card.topLeft, const Offset(16 + 20, 16 + 24));
       expect(tester.getTopLeft(find.descendant(of: header, matching: find.text('익명'))).dx, card.left + 16 + 40 + 10);
+      expect(find.descendant(of: header, matching: find.text('2시간 전')), findsOneWidget);
       expect(find.descendant(of: header, matching: siren), findsOneWidget);
     });
 
