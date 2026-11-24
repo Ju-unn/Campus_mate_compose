@@ -165,6 +165,8 @@ POLL_COMMENT_SAME_AS_LAST = "방금 단 댓글과 같은 내용이에요"
 COMMUNITY_ITEM_NOT_FOUND = "글을 찾을 수 없어요"
 # 하루 10개는 투표 + 게시물 합산이다(DB create_community_item).
 COMMUNITY_DAILY_LIMIT = "오늘은 글을 더 올릴 수 없어요"
+# 공지(할 일 21) 상세 — 가려진 공지. 문구는 사용자 확정(2026-11-24).
+COMMUNITY_NOTICE_NOT_FOUND = "공지를 찾을 수 없어요"
 
 # 지인 리뷰
 FRIEND_REVIEW_NOT_FOUND = "리뷰를 찾을 수 없어요"

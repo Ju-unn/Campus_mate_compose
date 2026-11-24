@@ -29,7 +29,7 @@ def comments(world) -> dict[str, dict]:
         "id": COMMENT_ID, "poll_id": POLL_ID, "author_id": COMMENTER, "body": "그건 좀 아니죠", "status": "visible",
         "created_at": "2026-11-10T03:00:00+00:00",
         "author": {"status": "active"},
-        "poll": {"status": "visible", "author": {"status": "active"}},
+        "poll": {"status": "visible", "kind": "poll", "author": {"status": "active"}},
     }}
 
     def table(method, params, body):
@@ -37,7 +37,7 @@ def comments(world) -> dict[str, dict]:
         # 댓글 ↔ 프로필 · 글 ↔ 프로필은 FK 가 여러 개(poll_votes 를 거치는 다대다 포함)라 힌트 없는 임베드는 300(PGRST201)이다.
         select = params["select"]
         assert "author:profiles!poll_comments_author_id_fkey(status)" in select
-        assert "poll:polls!poll_comments_poll_id_fkey(status,author:profiles!polls_author_id_fkey(status))" in select
+        assert "poll:polls!poll_comments_poll_id_fkey(status,kind,author:profiles!polls_author_id_fkey(status))" in select
         row = rows.get(params.get("id", "").removeprefix("eq."))
         return httpx.Response(200, json=[row] if row else [])
 
@@ -69,8 +69,8 @@ def test_comment_report_saves_snapshot_without_block(client, world, comments):
     {"author_id": ME},
     {"status": "blinded"},
     {"author": {"status": "suspended"}},
-    {"poll": {"status": "blinded", "author": {"status": "active"}}},
-    {"poll": {"status": "visible", "author": {"status": "withdrawn"}}},
+    {"poll": {"status": "blinded", "kind": "poll", "author": {"status": "active"}}},
+    {"poll": {"status": "visible", "kind": "post", "author": {"status": "withdrawn"}}},
 ], ids=["내 댓글", "가려진 댓글", "댓글 작성자 정지", "가려진 글", "글쓴이 탈퇴"])
 def test_my_own_blinded_or_hidden_comment_is_404(client, world, comments, change):
     comments[COMMENT_ID].update(change)
@@ -118,3 +118,22 @@ def test_duplicate_comment_report_is_409(client, world, comments):
 
     assert response.status_code == 409
     assert response.json()["detail"] == errors.ALREADY_REPORTED
+
+
+def test_a_comment_on_a_notice_can_be_reported(client, world, comments):
+    # 공지(할 일 21)는 글쓴이가 없다 — 글쓴이 active 검사를 공지에서는 건너뛴다(보안 기준 21-5: 공지 댓글도 신고).
+    comments[COMMENT_ID]["poll"] = {"status": "visible", "kind": "notice", "author": None}
+
+    response = client.post("/reports", json=_body(), headers=AUTH)
+
+    assert response.status_code == 201
+    assert world.reports[0]["target_profile_id"] == COMMENTER
+
+
+def test_a_comment_on_a_blinded_notice_is_404(client, world, comments):
+    comments[COMMENT_ID]["poll"] = {"status": "blinded", "kind": "notice", "author": None}
+
+    response = client.post("/reports", json=_body(), headers=AUTH)
+
+    assert response.status_code == 404
+    assert world.reports == []

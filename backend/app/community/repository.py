@@ -10,6 +10,8 @@ from app.core.postgrest import PostgrestRepository
 
 # 한 번에 내려주는 질문 수. 앱 pollPageSize 와 같은 값이다.
 POLL_PAGE_SIZE = 20
+# 공지 목록 한 쪽(할 일 21). 앱 noticePageSize 와 같은 값이다.
+NOTICE_PAGE_SIZE = 20
 # 한 번에 내려주는 댓글 수(사용자 결정 「10개씩 불러오기」). 앱 commentPageSize 와 같은 값이다.
 COMMENT_PAGE_SIZE = 10
 
@@ -54,6 +56,27 @@ class CommunityRepository(PostgrestRepository):
         raise_for_status(response)
         return response.json()
 
+    async def fetch_notices(self, viewer: UUID, *, notice_id: UUID | None = None,
+                            before: datetime | None = None, before_id: UUID | None = None,
+                            limit: int = NOTICE_PAGE_SIZE) -> list[dict]:
+        """가리지 않은 공지 최신순(할 일 21). 반환 칸에 작성자가 없다(마이그레이션 20261124090000)."""
+        response = await self._post("rpc/notice_list", json={
+            "p_viewer": str(viewer),
+            "p_notice_id": str(notice_id) if notice_id else None,
+            "p_before": before.isoformat() if before else None,
+            "p_before_id": str(before_id) if before_id else None,
+            "p_limit": limit,
+        })
+        raise_for_status(response)
+        return response.json()
+
+    async def fetch_kind(self, item_id: UUID) -> str | None:
+        """글 종류(poll · post · notice) 하나. 없으면 None — 상세 404 의 문구를 가른다."""
+        response = await self._get("polls", {"id": f"eq.{item_id}", "select": "kind"})
+        raise_for_status(response)
+        rows = response.json()
+        return rows[0]["kind"] if rows else None
+
     async def create_item(self, author: UUID, *, kind: Literal["poll", "post"], category: Category, text: str,
                           option_a: str | None = None, option_b: str | None = None, limit_detail: str) -> str:
         """투표 · 게시물 올리기. 한국 시간 하루 10개는 둘을 합쳐 센다 — 넘으면 429(문구는 길마다 다르다)."""
@@ -85,7 +108,7 @@ class CommunityRepository(PostgrestRepository):
         PostgREST 가 300(PGRST201)을 돌려준다."""
         response = await self._get("polls", {
             "id": f"eq.{poll_id}",
-            "select": "id,author_id,kind,category,question,option_a_label,option_b_label,status,created_at,"
+            "select": "id,author_id,kind,category,title,question,option_a_label,option_b_label,status,created_at,"
                       "author:profiles!polls_author_id_fkey(status)",
         })
         raise_for_status(response)
@@ -155,7 +178,7 @@ class CommunityRepository(PostgrestRepository):
             "id": f"eq.{comment_id}",
             "select": "id,poll_id,author_id,body,status,created_at,"
                       "author:profiles!poll_comments_author_id_fkey(status),"
-                      "poll:polls!poll_comments_poll_id_fkey(status,author:profiles!polls_author_id_fkey(status))",
+                      "poll:polls!poll_comments_poll_id_fkey(status,kind,author:profiles!polls_author_id_fkey(status))",
         })
         raise_for_status(response)
         rows = response.json()

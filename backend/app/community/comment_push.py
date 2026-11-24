@@ -27,8 +27,8 @@ def _preview(question: str) -> str:
 
 async def notify_post_author(community: CommunityRepository, cards, sender, *, poll_id, poll_author_id,
                              question: str, commenter_id, now: datetime, title: str = TITLE) -> None:
-    """부르는 쪽(router)이 예외를 삼킨다 — 댓글은 이미 저장됐다."""
-    if str(poll_author_id) == str(commenter_id):
+    """부르는 쪽(router)이 예외를 삼킨다 — 댓글은 이미 저장됐다. 공지(할 일 21)는 글쓴이가 없어(None) 보내지 않는다."""
+    if poll_author_id is None or str(poll_author_id) == str(commenter_id):
         return
     if await community.has_notification_since(poll_author_id, poll_id, now - COALESCE_WINDOW):
         return
