@@ -59,6 +59,7 @@ import 'package:campus_mate/profile/avatar/view/avatar_source_screen.dart';
 import 'package:campus_mate/profile/basic/view/basic_info_screen.dart';
 import 'package:campus_mate/profile/bio/view/bio_draft_loading_screen.dart';
 import 'package:campus_mate/profile/ideal/view/ideal_conditions_screen.dart';
+import 'package:campus_mate/profile/ideal/view/ideal_intro_screen.dart';
 import 'package:campus_mate/profile/ideal/view/ideal_note_screen.dart';
 import 'package:campus_mate/profile/onboarding/view/kakao_id_screen.dart';
 import 'package:campus_mate/profile/onboarding/view/onboarding_contact_block_screen.dart';
@@ -342,7 +343,8 @@ abstract final class AppRouter {
       _PlatformRoute(path: AppRoutes.onboardingSurvey, builder: (context, state) => const SurveyScreen()),
       _PlatformRoute(
         path: AppRoutes.onboardingIdealConditions,
-        builder: (context, state) => const IdealConditionsScreen(),
+        // 가입 길에서만 이상형 들어가기(pen 25-B)를 먼저 보인다 — 편집 경로 `myIdealConditions` 에는 두르지 않는다.
+        builder: (context, state) => const IdealIntroGate(child: IdealConditionsScreen()),
       ),
       _PlatformRoute(
         path: AppRoutes.onboardingIdealTraits,

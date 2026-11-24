@@ -78,6 +78,7 @@ import 'package:campus_mate/profile/ideal/model/repository/ideal_note_repository
 import 'package:campus_mate/profile/traits/model/repository/survey_repository_provider.dart';
 import 'package:campus_mate/profile/bio/view/bio_screen.dart';
 import 'package:campus_mate/profile/ideal/view/ideal_conditions_screen.dart';
+import 'package:campus_mate/profile/ideal/view/ideal_intro_screen.dart';
 import 'package:campus_mate/profile/ideal/view/ideal_note_screen.dart';
 import 'package:campus_mate/profile/traits/view/survey_screen.dart';
 import 'package:campus_mate/profile/traits/view/tag_picker_screen.dart';
@@ -948,6 +949,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.widget<IdealConditionsScreen>(find.byType(IdealConditionsScreen)).isEditing, isTrue);
+      expect(find.byType(IdealIntroScreen), findsNothing, reason: '프로필 수정 길에는 이상형 들어가기(pen 25-B)가 없다');
     });
 
     for (final kind in TagPickerKind.values) {
@@ -1309,6 +1311,7 @@ void main() {
       // 06-1 화살표를 미룬 이유(조각 0~2 편차 2)가 풀렸는지: 서버 답으로 채워 흡연 문항에서 열고, "다음" 한 번은 같은 답을 보낸다.
       testWidgets('06-1 시스템 뒤로 → 설문 흡연 문항에서 열리고, "다음" 한 번이면 같은 답을 다시 저장하고 06-1 로 돌아온다', (tester) async {
         await pumpOnboarding(tester, OnboardingStep.idealConditions);
+        expect(find.byType(IdealIntroScreen), findsOneWidget, reason: '가입 06-1 앞에는 이상형 들어가기(pen 25-B)가 먼저 나온다');
         expect(find.byType(BackExitScope), findsOneWidget, reason: '두 겹이면 같은 뒤로가기에 둘 다 불린다');
         expect(backArrow(), findsOneWidget);
 
@@ -1325,7 +1328,22 @@ void main() {
 
         expect(survey.submittedAnswers, savedOnboardingProfile.surveyAnswers);
         expect(find.byType(IdealConditionsScreen), findsOneWidget);
+        expect(find.byType(IdealIntroScreen), findsNothing, reason: '06-1 에서 뒤로 갔다 다시 오면 들어가기를 다시 보이지 않는다');
         expect(steps.isRevisiting, isFalse);
+      });
+
+      testWidgets('가입 06-1 앞 이상형 들어가기는 혼자 넘어가 06-1 이 되고, 뒤로 겹이 하나다', (tester) async {
+        await pumpOnboarding(tester, OnboardingStep.idealConditions);
+        expect(find.byType(IdealIntroScreen), findsOneWidget);
+        expect(find.byType(IdealConditionsScreen), findsNothing);
+
+        await tester.pump(const Duration(milliseconds: 3100));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(IdealIntroScreen), findsNothing);
+        expect(find.byType(IdealConditionsScreen), findsOneWidget);
+        expect(find.byType(BackExitScope), findsOneWidget, reason: '두 겹이면 같은 뒤로가기에 둘 다 불린다');
+        expect(steps.value, OnboardingStep.idealConditions);
       });
 
       // 계획서 조각 3(269-270줄): 설문 첫 문항의 앱바 · 시스템 뒤로 → 04-6, 종료 안내 없음.
