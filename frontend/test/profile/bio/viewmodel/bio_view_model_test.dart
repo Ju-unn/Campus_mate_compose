@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/profile/onboarding/model/data/onboarding_step.dart';
 import 'package:campus_mate/common/failure.dart';
@@ -73,6 +75,23 @@ void main() {
     expect(repository.submittedBio, '같이 밥 먹을 사람 찾아요');
     expect(container.read(bioViewModelProvider).completed, isTrue);
     expect(onboardingRepository.fetchCount, 1);
+  });
+
+  // 1.0.7 #6: 화면은 따로 묻지 않고 이 완료를 기다려 옮긴다 — 완료가 서면 단계 캐시는 이미 새 값이다.
+  test('단계 조회가 끝난 뒤에 완료가 되고, 그동안은 보내는 중이다', () async {
+    final hold = onboardingRepository.holdFetch = Completer<void>();
+    final vm = container.read(bioViewModelProvider.notifier);
+    vm.changeBio('같이 밥 먹을 사람 찾아요');
+
+    final saving = vm.submit();
+    await pumpEventQueue();
+    expect(container.read(bioViewModelProvider).completed, isFalse);
+    expect(container.read(bioViewModelProvider).isSubmitting, isTrue);
+
+    hold.complete();
+    await saving;
+    expect(container.read(bioViewModelProvider).completed, isTrue);
+    expect(container.read(bioViewModelProvider).isSubmitting, isFalse);
   });
 
   test('자기소개가 비어 있으면 저장하지 않는다', () async {
