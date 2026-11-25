@@ -53,7 +53,7 @@ void main() {
 
     test('줄 문구 · 단위: 키마다(문구는 pen, 단위는 pen "2개" · "4건" 에서 이어 정함)', () {
       expect(healthLabel('cards_issued_today'), '오늘 카드가 도착했는지 (지급 요일 기준)');
-      expect(healthLabel('stuck_chat_rooms'), '48시간 지나도 안 닫힌 방');
+      expect(healthLabel('stuck_chat_rooms'), '74시간 지나도 안 닫힌 방');
       expect(healthLabel('overdue_withdrawn'), '탈퇴 31일 넘은 미삭제 프로필');
       expect(healthLabel('avatar_failures_24h'), '최근 24시간 아바타 생성 실패');
       expect(healthLabel('stuck_pending_pushes'), '오래 쌓인 푸시');
