@@ -10,6 +10,8 @@ enum AdminSection {
   reports('/reports', '신고', LucideIcons.flag),
   // pen 에 없는 메뉴(11-08 회의 6번 · 사용자 요청) — 신고 바로 아래 둔다. 아이콘은 Lucide 말풍선.
   inquiries('/inquiries', '문의', LucideIcons.messageSquare),
+  // pen 에 없는 메뉴(할 일 21) — 문의 바로 아래. 아이콘은 Lucide 확성기.
+  notices('/notices', '공지사항', LucideIcons.megaphone),
   matching('/matching', '매칭', LucideIcons.heartHandshake),
   users('/users', '사용자', LucideIcons.users),
   billing('/billing', '결제', LucideIcons.creditCard),

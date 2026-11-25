@@ -91,16 +91,17 @@ void main() {
     expect(go(r, ready, GatePaths.loading), '/reports');
   });
 
-  test('왼쪽 메뉴는 졸업생(3번째) · 문의(신고 다음) · 서버 상태(작업 기록 위)를 포함해 11개, pen A10 순서에 문의 · 서버 상태(BQyo6)를 끼운 순서', () {
+  test('왼쪽 메뉴는 졸업생(3번째) · 문의(신고 다음) · 공지사항(문의 다음) · 서버 상태(작업 기록 위)를 포함해 12개, pen A10 순서에 문의 · 공지사항 · 서버 상태(BQyo6)를 끼운 순서', () {
     expect(
       AdminSection.values.map((s) => s.label),
-      ['홈', '인증샷 검수', '졸업생', '신고', '문의', '매칭', '사용자', '결제', '미등록 학교 메일', '서버 상태', '작업 기록'],
+      ['홈', '인증샷 검수', '졸업생', '신고', '문의', '공지사항', '매칭', '사용자', '결제', '미등록 학교 메일', '서버 상태', '작업 기록'],
     );
     expect(AdminSection.matching.path, '/matching');
     expect(AdminSection.graduates.path, '/graduates');
     expect(AdminSection.inquiries.path, '/inquiries');
+    expect(AdminSection.notices.path, '/notices');
     expect(AdminSection.serverStatus.path, '/server-status');
-    expect(AdminSection.values.map((s) => s.path).toSet(), hasLength(11));
+    expect(AdminSection.values.map((s) => s.path).toSet(), hasLength(12));
   });
 
   test('구글 로그인이 실패해 돌아오면(?error=) 로그인 화면에 실패 표시를 달아 보낸다', () {

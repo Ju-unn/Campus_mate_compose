@@ -2,8 +2,10 @@ import 'package:campus_mate_admin/api/admin_api.dart';
 import 'package:campus_mate_admin/auth/admin_auth.dart';
 import 'package:campus_mate_admin/auth/supabase_admin_auth.dart';
 import 'package:campus_mate_admin/config/admin_config.dart';
+import 'package:campus_mate_admin/notices/notice_item.dart';
 import 'package:campus_mate_admin/platform/open_link.dart';
 import 'package:campus_mate_admin/platform/page_reload.dart';
+import 'package:campus_mate_admin/platform/pick_image.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -16,6 +18,9 @@ final pageReloaderProvider = Provider<void Function()>((ref) => reloadPage);
 
 /// 바깥 주소를 새 탭으로 연다(서버 상태의 Crashlytics 링크). 시험은 연 주소를 모으는 함수로 갈아 끼운다.
 final linkOpenerProvider = Provider<void Function(String url)>((ref) => openLink);
+
+/// 공지 그림 고르기(브라우저 파일 창). 시험은 만든 바이트를 돌려주는 함수로 갈아 끼운다.
+final imagePickerProvider = Provider<Future<NoticeImage?> Function()>((ref) => pickImage);
 
 final adminConfigProvider = Provider<AdminConfig>((ref) => const AdminConfig.fromEnvironment());
 

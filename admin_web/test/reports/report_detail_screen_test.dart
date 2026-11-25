@@ -230,6 +230,47 @@ void main() {
       expect(inCard('copy', find.text('선택지 2 · 별로예요')), findsOneWidget);
     });
 
+    testWidgets('게시물 신고(사본 kind post): 선택지 줄 없이 카테고리 · "글:" 본문', (tester) async {
+      final server = FakeReportServer([reportRow('r1', type: 'poll')]);
+      server.snapshots['r1'] = {
+        'poll_id': 'c',
+        'question': '학식 메뉴 추천해 주세요',
+        'option_a_label': null,
+        'option_b_label': null,
+        'created_at': '2026-10-17T13:15:00+00:00',
+        'kind': 'post',
+        'category': 'career',
+      };
+      await openDetail(tester, server: server);
+
+      expect(inCard('copy', find.text('카테고리: 진로')), findsOneWidget);
+      expect(inCard('copy', find.text('글: 학식 메뉴 추천해 주세요')), findsOneWidget);
+      expect(inCard('copy', find.textContaining('선택지')), findsNothing);
+      expect(inCard('copy', find.textContaining('질문:')), findsNothing);
+    });
+
+    testWidgets('공지 신고(사본 kind notice · 대상 사람 없음): 제목 · 본문, 선택지 줄 없음, 대상 요약은 "—" 로 깨지지 않는다', (tester) async {
+      final server = FakeReportServer([reportRow('r1', type: 'poll', target: null)]);
+      server.snapshots['r1'] = {
+        'poll_id': 'c',
+        'question': '오늘 밤 점검해요',
+        'option_a_label': null,
+        'option_b_label': null,
+        'created_at': '2026-10-17T13:15:00+00:00',
+        'kind': 'notice',
+        'title': '점검 안내',
+      };
+      await openDetail(tester, server: server);
+
+      expect(tester.takeException(), isNull);
+      expect(inCard('copy', find.text('제목: 점검 안내')), findsOneWidget);
+      expect(inCard('copy', find.text('글: 오늘 밤 점검해요')), findsOneWidget);
+      expect(inCard('copy', find.textContaining('선택지')), findsNothing);
+      expect(inCard('target', find.text('—')), findsNWidgets(2)); // 닉네임 · 학교
+      expect(actionButton('정지'), findsNothing);
+      expect(actionButton('글 가림'), findsOneWidget);
+    });
+
     testWidgets('댓글 신고: [글 가림] · 채팅 없음, "글 상태" 보임 배지, 사본 "신고된 댓글" → 가림은 poll-comments 경로', (tester) async {
       final server = FakeReportServer([reportRow('r1', type: 'poll_comment', targetId: 'cm1')]);
       await openDetail(tester, server: server);
